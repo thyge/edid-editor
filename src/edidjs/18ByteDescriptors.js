@@ -176,50 +176,45 @@ export function DecodeDisplayDescriptor(descriptorBytes, rawLocation) {
 
 export function DecodeRangeLimits(bytes) {
     var drld = new Object()
-    if (bytes[0]&0x03 === 0) {
-		drld.VerticalRateOffsetZero = true
-	}
-	if (bytes[0]&0x12 === 0) {
-		drld.HorizontalRateOffsetZero = true
-	}
+    drld.MinVerticalRateOffset = bytes[4]&0x01?true:false
+    drld.MaxVerticalRateOffset = bytes[4]&0x02?true:false
+    drld.MinHorizontalRateOffset = bytes[4]&0x04?true:false
+    drld.MaxHorizontalRateOffset = bytes[4]&0x08?true:false
 	// Vertical Minimum
-	if (bytes[1]&0x03 != 3) {
-		drld.MinimumVerticalRate = bytes[1] + 1
+	if (drld.MinVerticalRateOffset && drld.MaxVerticalRateOffset) {
+		drld.MinimumVerticalRate = bytes[5] + 256
 	} else {
-		drld.MinimumVerticalRate = bytes[1] + 256
+		drld.MinimumVerticalRate = bytes[5] + 1
 	}
 	// Vertical Maximum
-	if (bytes[2]&0x03 != 3) {
-		drld.MinimumVerticalRate = bytes[2] + 1
+	if (drld.MaxVerticalRateOffset) {
+		drld.MaximumVerticalRate = bytes[6] + 256
 	} else {
-		drld.MinimumVerticalRate = bytes[2] + 256
+		drld.MaximumVerticalRate = bytes[6] + 1
 	}
 	// Horizontal Minimum
-	if (bytes[3]&0x03 != 3) {
-		drld.MinimumVerticalRate = bytes[3] + 1
+	if (drld.MinHorizontalRateOffset && drld.MaxHorizontalRateOffset) {
+		drld.MinimumHorizontalRate = bytes[7] + 256
 	} else {
-		drld.MinimumVerticalRate = bytes[3] + 256
+        drld.MinimumHorizontalRate = bytes[7] + 1
 	}
 	// Horizontal Maximum
-	if (bytes[4]&0x03 != 3) {
-		drld.MinimumVerticalRate = bytes[4] + 1
+	if (drld.MaxHorizontalRateOffset) {
+		drld.MaximumHorizontalRate = bytes[8] + 256
 	} else {
-		drld.MinimumVerticalRate = bytes[4] + 256
+        drld.MaximumHorizontalRate = bytes[8] + 1
 	}
 	// Maximum Pixel Clock
-	drld.MaximumPixelClock = bytes[5] * 10
+	drld.MaximumPixelClock = bytes[9] * 10
 
-	// Video Timing Support Flags: Bytes 10 → 17 indicate support for additional video timings.
-	if (bytes[6] === 0x02) {
-		// Secondary GTF supported
-		// With EDID Structure version 1, revision 4,
-		// GTF has been Deprecated (GTF is considered obsolete and in the process of being phased out) in favor of CVT
-		// panic("Not implemented")
-	} else if (bytes[6] === 0x04) {
-		// Display Range Limits & CVT Support Definition
-		// panic("Display Range Limits & CVT Support Definition Not implemented")
-		// Line Feed (if Byte 10 = 00h or 01h)
-		// Space (if Byte 10 = 00h or 01h)s
-	}
+    // Video Timing Support Flags: Bytes 10 → 17 indicate support for additional video timings.
+    drld.DefaultGTF = (bytes[10]&0x7 === 0)?true:false
+    drld.RangeLimitsOnly = (bytes[10]&0x7 === 1)?true:false
+    drld.SecondaryGTF = (bytes[10]&0x7 === 2)?true:false
+    drld.CVTSupported = (bytes[10]&0x7 === 4)?true:false
+	
+	if (drld.SecondaryGTF || drld.CVTSupported) {
+        drld.VideoTimingData = "Decode not supported"
+    }
 	return drld
 }
