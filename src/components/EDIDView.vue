@@ -262,7 +262,61 @@ export default {
     <h4>Display Descriptors</h4>
     <div v-for="dd in mEdid.DisplayDescriptors" :key="dd.id">
       <div v-if="dd.Type === 'Display Range Limits'">
-        {{dd.Content}}<button @click="RemoveElement(dd.Type)">remove</button>
+        <h5>Display Range Limits</h5>
+        <button @click="RemoveElement(dd.Type)">remove</button>
+        <table>
+          <tr>
+            <td></td>
+            <td>Minimum</td>
+            <td>Maximum</td>
+          </tr>
+          <tr>
+            <td>Horizontal Rate</td>
+            <td><input maxlength="3" size="3" type="number"
+            v-model.number="dd.Content.MinimumHorizontalRate" disabled/></td>
+            <td><input maxlength="3" size="3" type="number"
+            v-model.number="dd.Content.MaximumHorizontalRate" disabled/></td>
+          </tr>
+          <tr>
+            <td>Vertical Rate</td>
+            <td><input maxlength="3" size="3" type="number"
+            v-model.number="dd.Content.MinimumVerticalRate" disabled/></td>
+            <td><input maxlength="3" size="3" type="number"
+            v-model.number="dd.Content.MaximumVerticalRate" disabled/></td>
+          </tr>
+          <tr>
+            <td>PixelClock</td>
+            <td></td>
+            <td><input maxlength="3" size="3" type="number"
+            v-model.number="dd.Content.MaximumPixelClock" disabled/></td>
+          </tr>
+        </table>
+        <table>
+          <tr>
+            <td>DefaultGTF</td>
+            <td><input maxlength="3" size="3" type="checkbox"
+            v-model.number="dd.Content.DefaultGTF" disabled/></td>
+          </tr>
+          <tr>
+            <td>RangeLimitsOnly</td>
+            <td><input maxlength="3" size="3" type="checkbox"
+            v-model.number="dd.Content.RangeLimitsOnly" disabled/></td>
+          </tr>
+          <tr>
+            <td>SecondaryGTF</td>
+            <td><input maxlength="3" size="3" type="checkbox"
+            v-model.number="dd.Content.SecondaryGTF" disabled/></td>
+          </tr>
+          <tr>
+            <td>CVTSupported</td>
+            <td><input maxlength="3" size="3" type="checkbox"
+            v-model.number="dd.Content.CVTSupported" disabled/></td>
+          </tr>
+          <tr>
+            <td>VideoTimingData</td>
+            <td>{{dd.Content.VideoTimingData}}</td>
+          </tr>
+        </table>
       </div>
       <div v-else>
         <span>{{dd.Type}}: </span>
