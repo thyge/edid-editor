@@ -14,14 +14,14 @@ export default {
         <h4>Video Data Blocks</h4>
         <table>
             <tr>
-                <td>Name</td>
+                <td>Description</td>
                 <td>HorizontalActive</td>
                 <td>VerticalActive</td>
                 <td>PixelMHz</td>
                 <td>Native</td>
             </tr>
         <tr v-for="v in db.VICs" :key="v.id">
-            <td>{{v.Name}}</td>
+            <td>{{v.Description}}</td>
             <td>{{v.HorizontalActive}}</td>
             <td>{{v.VerticalActive}}</td>
             <td>{{v.PixelMHz}}Mhz</td>
