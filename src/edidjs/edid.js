@@ -1,5 +1,5 @@
 import {pnpLookup} from "./pnp.js"
-import {DecodeDTD} from "./18ByteDescriptors.js"
+import {DecodeDTD, DecodeDisplayDescriptor} from "./18ByteDescriptors.js"
 import {CEA} from "./cea.js"
 import {DisplayID} from "./did.js"
 
@@ -196,56 +196,6 @@ EDID.prototype.RemoveDisplayDescriptor = function(blockName) {
             }
         })
     })
-}
-
-function DecodeRangeLimits(bytes) {
-    var drld = new Object()
-    if (bytes[0]&0x03 === 0) {
-		drld.VerticalRateOffsetZero = true
-	}
-	if (bytes[0]&0x12 === 0) {
-		drld.HorizontalRateOffsetZero = true
-	}
-	// Vertical Minimum
-	if (bytes[1]&0x03 != 3) {
-		drld.MinimumVerticalRate = bytes[1] + 1
-	} else {
-		drld.MinimumVerticalRate = bytes[1] + 256
-	}
-	// Vertical Maximum
-	if (bytes[2]&0x03 != 3) {
-		drld.MinimumVerticalRate = bytes[2] + 1
-	} else {
-		drld.MinimumVerticalRate = bytes[2] + 256
-	}
-	// Horizontal Minimum
-	if (bytes[3]&0x03 != 3) {
-		drld.MinimumVerticalRate = bytes[3] + 1
-	} else {
-		drld.MinimumVerticalRate = bytes[3] + 256
-	}
-	// Horizontal Maximum
-	if (bytes[4]&0x03 != 3) {
-		drld.MinimumVerticalRate = bytes[4] + 1
-	} else {
-		drld.MinimumVerticalRate = bytes[4] + 256
-	}
-	// Maximum Pixel Clock
-	drld.MaximumPixelClock = bytes[5] * 10
-
-	// Video Timing Support Flags: Bytes 10 → 17 indicate support for additional video timings.
-	if (bytes[6] === 0x02) {
-		// Secondary GTF supported
-		// With EDID Structure version 1, revision 4,
-		// GTF has been Deprecated (GTF is considered obsolete and in the process of being phased out) in favor of CVT
-		// panic("Not implemented")
-	} else if (bytes[6] === 0x04) {
-		// Display Range Limits & CVT Support Definition
-		// panic("Display Range Limits & CVT Support Definition Not implemented")
-		// Line Feed (if Byte 10 = 00h or 01h)
-		// Space (if Byte 10 = 00h or 01h)s
-	}
-	return drld
 }
 
 EDID.prototype.GetPNPCompanyName = function() {
@@ -496,131 +446,8 @@ EDID.prototype.DecodeEDID = function(bytes) {
             dtd.endByte = i+18
             this.DetailedTimingDescriptors.push(dtd)
         } else {
-            switch (descriptorBytes[3]) {
-                case 0xFF:
-                    // Display serial number (ASCII text)
-                    // This field takes presidence over [12:15]
-                    var serial = ""
-                    for (let d = 5; d < 19; d++) {
-                        serial += String.fromCharCode(descriptorBytes[d])
-                    }
-                    this.SerialNumber = serial.trim()
-                    this.DisplayDescriptors.push({
-                        raw : descriptorBytes,
-                        startByte : i,
-                        endByte : i+18,
-                        Type : "Display serial number (ASCII text)",
-                        Content : serial
-                    })
-                    break;
-                case 0xFE:
-                    // Unspecified text (ASCII text)
-                    var unspes = ""
-                    for (let d = 5; d < 19; d++) {
-                        if ((descriptorBytes[d] > 31) && (descriptorBytes[d] < 127) ) {
-                            unspes += String.fromCharCode(descriptorBytes[d])    
-                        }
-                    }
-                    this.DisplayDescriptors.push({
-                        raw : descriptorBytes,
-                        startByte : i,
-                        endByte : i+18,
-                        Type : "Unspecified text (ASCII text)",
-                        Content : unspes,
-                    })
-                    break;
-                case 0xFD:
-                    // Display Range Limits:
-                    // Includes optional timing information --- GTF using default parameters, GTF Secondary Curve or CVT Descriptor.
-        
-                    // The Display Range Limits Descriptor will include one of the following sets of information:
-                    // 1. Range Limits Only --- no additional timing information provided (defined in table 3.26) - Default GTF, GTF Secondary Curve and CVT are not supported or
-                    // 2. Range Limits provided & Default GTF is supported - no additional timing information provided (defined in Table 3.26) or
-                    // 3. Range Limits provided & GTF Secondary Curve Timing Formula is supported – Secondary GTF Curve Data (defined in Table 3.27) or
-                    // 4. Range Limits provided & CVT Timing Formula is supported – Coordinated Video Timing Data (defined in Table 3.28).
-                    this.DisplayRangeLimits = DecodeRangeLimits(descriptorBytes)
-                    this.DisplayDescriptors.push({
-                        raw : descriptorBytes,
-                        startByte : i,
-                        endByte : i+18,
-                        Type : "Display Range Limits",
-                        Content : this.DisplayRangeLimits,
-                    })
-                    break;
-                case 0xFC:
-                    // Display Product Name
-                    // dispsn := DisplayMonitorName{}
-                    // dispsn.Decode(edid.raw[startByte+5 : startByte+18])
-                    // edid.DisplayDescriptors = append(edid.DisplayDescriptors, &dispsn)
-                    var dpn = ""
-                    for (let d = 5; d < 19; d++) {
-                        // Accept ASCII only
-                        if ((descriptorBytes[d] > 31) && (descriptorBytes[d] < 127) ) {
-                            dpn += String.fromCharCode(descriptorBytes[d])    
-                        }
-                    }
-                    this.ProductName = dpn.trim()
-                    this.DisplayDescriptors.push({
-                        raw : descriptorBytes,
-                        startByte : i,
-                        endByte : i+18,
-                        Type : "Display Product Name",
-                        Content : dpn.trim(),
-                    })
-                    break;
-                case 0xFB:
-                    // Color Point Data:
-                    // console.log("Additional white point data. 2× 5-byte descriptors, padded with 0A 20 20")
-                    this.DisplayDescriptors.push({
-                        raw : descriptorBytes,
-                        startByte : i,
-                        endByte : i+18,
-                        Type : "Color Point Data",
-                    })
-                    break;
-                case 0xFA:
-                    // Standard Timing Definitions
-                    // console.log("Additional standard timing identifiers. 6× 2-byte descriptors, padded with 0A")
-                    this.DisplayDescriptors.push({
-                        raw : descriptorBytes,
-                        startByte : i,
-                        endByte : i+18,
-                        Type : "Standard Timing Identifications",
-                    })
-                    break;
-                case 0xF9:
-                    // Display Color Management (DCM)
-                    // console.log("Display Color Management (DCM)")
-                    this.DisplayDescriptors.push({
-                        raw : descriptorBytes,
-                        startByte : i,
-                        endByte : i+18,
-                        Type : "Display Color Management (DCM)",
-                    })
-                    break;
-                case 0xF8:
-                    // CVT 3-Byte Timing Codes
-                    // console.log("CVT 3-Byte Timing Codes")
-                    this.DisplayDescriptors.push({
-                        raw : descriptorBytes,
-                        startByte : i,
-                        endByte : i+18,
-                        Type : "CVT 3-Byte Timing Codes",
-                    })
-                    break;
-                case 0xF7:
-                    // Established Timings 3
-                    // console.log("Established Timings III")
-                    this.DisplayDescriptors.push({
-                        raw : descriptorBytes,
-                        startByte : i,
-                        endByte : i+18,
-                        Type : "Established Timings III",
-                    })
-                    break;
-                case 0x10:
-                    // Dummy identifier.
-            }
+            let dd = DecodeDisplayDescriptor(descriptorBytes, i);
+            this.DisplayDescriptors.push(dd);
         }
     }
 }

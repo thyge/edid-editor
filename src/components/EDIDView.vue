@@ -260,12 +260,16 @@ export default {
       <DetailedTimingView :dtd="dtd"/>
     </div>
     <h4>Display Descriptors</h4>
-    <ul>
-      <li v-for="dd in mEdid.DisplayDescriptors" :key="dd.id">
-      {{dd.Type}}
-      <button @click="RemoveElement(dd.Type)">remove</button>
-      </li>
-    </ul>
+    <div v-for="dd in mEdid.DisplayDescriptors" :key="dd.id">
+      <div v-if="dd.Type === 'Display Range Limits'">
+        {{dd.Content}}<button @click="RemoveElement(dd.Type)">remove</button>
+      </div>
+      <div v-else>
+        <span>{{dd.Type}}: </span>
+        <span>{{dd.Content}}</span>
+        <button @click="RemoveElement(dd.Type)">remove</button>
+      </div>
+    </div>
 </template>
 
 <style scoped>
