@@ -1,4 +1,4 @@
-var pnpLookup = [
+export let pnpLookup = [
     {
 		ID:      "TTL",
 		Company: "2-TEL B.V",

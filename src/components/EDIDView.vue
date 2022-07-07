@@ -37,8 +37,8 @@ export default {
       </tr>
       <tr>
         <td>Manufacturer ID</td>
-        
         <td><input @input="NotifyChange()" maxlength="3" size="4" v-model="mEdid.ManufacturerID" disabled/></td>
+        <td>{{mEdid.GetPNPCompanyName()}}</td>
       </tr>
       <tr>
         <td>Serial Number</td>
@@ -61,7 +61,7 @@ export default {
         </td>
       </tr>
       <tr>
-        <td>EDID Version and Revision</td>
+        <td>Version and Revision</td>
         <td>
           <select @change="NotifyChange()" v-model.number="mEdid.Revision">
             <option value="3">1.3</option>

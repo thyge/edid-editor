@@ -1,4 +1,5 @@
 import {vicLookup} from "./vics.js"
+import {pnpLookup} from "./pnp.js"
 
 const TimingExtension                          = 0x00
 const CEAExtension                             = 0x02
@@ -13,6 +14,64 @@ const DisplayTransferCharacteristicsDataBlock2 = 0xAF
 const DisplayTransferCharacteristicsDataBlock3 = 0xBF
 const BlockMap                                 = 0xF0
 const DisplayDeviceDataBlock                   = 0xFF
+
+export default class EEDID {
+    raw = new Uint8Array()
+    Extensions = 0
+    Errors = []
+    
+    constructor(){
+    }
+
+    ParseEEDID(bytes) {
+        this.raw = bytes
+        this.Extensions = this.raw[126]
+        for (let i = 0; i < this.Extensions + 1; i++) {
+            let extBytes = new Uint8Array(this.raw.slice(i*128, 128 + (i*128)));
+            if (i === 0) {
+                this.EDID = new EDID()
+                this.EDID.DecodeEDID(extBytes)
+            } else {
+                switch (extBytes[0]) {
+                    case TimingExtension: break;
+                    case CEAExtension:
+                        this.CEA = new CEA()
+                        this.CEA.DecodeCEA(extBytes);
+                        break;
+                    case VideoTimingBlockExtension: break;
+                    case EDID2_0Extension: break;
+                    case DisplayInformationExtension: break;
+                    case LocalizedStringExtension: break;
+                    case MicrodisplayInterfaceExtension: break;
+                    case DisplayIDExtension:
+                        this.DID = new DisplayID()
+                        this.DID.DecodeDisplayID(extBytes);
+                        break;
+                    case DisplayTransferCharacteristicsDataBlock1: break;
+                    case DisplayTransferCharacteristicsDataBlock2: break;
+                    case DisplayTransferCharacteristicsDataBlock3: break;
+                    case BlockMap: break;
+                    case DisplayDeviceDataBlock: break;
+                    default:
+                        console.log("extension not supported")
+                        break;
+                }
+            }
+        }
+    }
+    UpdateEEDIDRaw() {
+        if (this.EDID) {
+            for (let i = 0; i < this.EDID.raw.length; i++) {
+                this.raw[i] = this.EDID.raw[i]
+            }
+        }
+        if (this.CEA) {
+            for (let i = 0; i < this.CEA.raw.length; i++) {
+                this.raw[i+128] = this.CEA.raw[i]
+            }
+        }
+    }
+}
 
 class EDID {
     raw = new Uint8Array()
@@ -137,78 +196,6 @@ EDID.prototype.RemoveDisplayDescriptor = function(blockName) {
     })
 }
 
-class CEA {
-    Header = {}
-    DataBlocksCollection = []
-    DetailedTimingBlocks = []
-}
-
-CEA.prototype.RemoveDataBlock = function(blockName) {
-    console.log("CEA Removing block: " + blockName)
-}
-
-CEA.prototype.RemoveCEADetailedTiming = function(blockName) {
-    console.log("CEA DTD Removing block: " + blockName)
-}
-
-export default class EEDID {
-    raw = new Uint8Array()
-    Extensions = 0
-    Errors = []
-    
-    constructor(){
-    }
-
-    ParseEEDID(bytes) {
-        this.raw = bytes
-        this.Extensions = this.raw[126]
-        for (let i = 0; i < this.Extensions + 1; i++) {
-            let extBytes = new Uint8Array(this.raw.slice(i*128, 128 + (i*128)));
-            if (i === 0) {
-                this.EDID = new EDID()
-                this.EDID.DecodeEDID(extBytes)
-            } else {
-                switch (extBytes[0]) {
-                    case TimingExtension: break;
-                    case CEAExtension:
-                        this.CEA = new CEA()
-                        this.CEA.DecodeCEA(extBytes);
-                        break;
-                    case VideoTimingBlockExtension: break;
-                    case EDID2_0Extension: break;
-                    case DisplayInformationExtension: break;
-                    case LocalizedStringExtension: break;
-                    case MicrodisplayInterfaceExtension: break;
-                    case DisplayIDExtension:
-                        this.DID = new DisplayID()
-                        this.DID.DecodeDisplayID(extBytes);
-                        break;
-                    case DisplayTransferCharacteristicsDataBlock1: break;
-                    case DisplayTransferCharacteristicsDataBlock2: break;
-                    case DisplayTransferCharacteristicsDataBlock3: break;
-                    case BlockMap: break;
-                    case DisplayDeviceDataBlock: break;
-                    default:
-                        console.log("extension not supported")
-                        break;
-                }
-            }
-        }
-    }
-    UpdateEEDIDRaw() {
-        if (this.EDID) {
-            for (let i = 0; i < this.EDID.raw.length; i++) {
-                this.raw[i] = this.EDID.raw[i]
-            }
-        }
-        if (this.CEA) {
-            for (let i = 0; i < this.CEA.raw.length; i++) {
-                this.raw[i+128] = this.CEA.raw[i]
-            }
-        }
-    }
-}
-
 function DecodeRangeLimits(bytes) {
     var drld = new Object()
     if (bytes[0]&0x03 === 0) {
@@ -259,6 +246,11 @@ function DecodeRangeLimits(bytes) {
 	return drld
 }
 
+EDID.prototype.GetPNPCompanyName = function() {
+    let obj = pnpLookup.find(o => o.ID === this.ManufacturerID);
+    return obj.Company
+}
+
 EDID.prototype.DecodeEDID = function(bytes) {
     this.raw = bytes
     // Manufacturer ID. This is a legacy Plug and Play ID assigned by UEFI forum
@@ -266,6 +258,7 @@ EDID.prototype.DecodeEDID = function(bytes) {
     this.ManufacturerID += String.fromCharCode(((this.raw[8] & 0x7C) >> 2) + 0x40)
 	this.ManufacturerID += String.fromCharCode(((this.raw[8] & 0x03) << 3) + ((this.raw[9] & 0xE0) >> 5) + 0x40)
 	this.ManufacturerID += String.fromCharCode((this.raw[9] & 0x1F) + 0x40)
+    
     // Manufacturer product code. 
     this.ManufacturerPC = (this.raw[11]<< 8) | this.raw[10];
 
@@ -628,6 +621,20 @@ EDID.prototype.DecodeEDID = function(bytes) {
     }
 }
 
+class CEA {
+    Header = {}
+    DataBlocksCollection = []
+    DetailedTimingBlocks = []
+}
+
+CEA.prototype.RemoveDataBlock = function(blockName) {
+    console.log("CEA Removing block: " + blockName)
+}
+
+CEA.prototype.RemoveCEADetailedTiming = function(blockName) {
+    console.log("CEA DTD Removing block: " + blockName)
+}
+
 const CEADataBlockLookup = new Map();
 CEADataBlockLookup.set(1, "DBAudioDataBlock")
 CEADataBlockLookup.set(2, "DBVideoDataBlock")
@@ -880,3 +887,4 @@ DisplayID.prototype.DecodeDisplayID = function(bytes) {
     }
     this.NumberOfExtensions = bytes[3]
 }
+
