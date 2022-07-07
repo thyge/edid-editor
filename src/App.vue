@@ -103,10 +103,11 @@ export default {
       this.mEdid.EDID.CalcChecksum();
       this.mEdid.UpdateEEDIDRaw();
       this.ForceReRender();
-      console.log(this.mEdid.EDID)
     },
-    modelUpdated() {
-      console.log("Model updated")
+    HandleCEAUpdate(changedCEA) {
+      this.mEdid.CEA = changedCEA;
+      this.mEdid.UpdateEEDIDRaw();
+      this.ForceReRender();
     }
   }
 }
@@ -129,11 +130,11 @@ export default {
     <EDIDView
     @update:EDID="HandleEDIDUpdate"
     v-if="SelectedPanel==='EDID'"
-    :mmEdid="mEdid.EDID"
-    @input="modelUpdated"/>
+    :mmEdid="mEdid.EDID"/>
     <CEAView
+    @update:EDID="HandleCEAUpdate"
     v-if="SelectedPanel==='CEA'"
-    :mCEA="mEdid.CEA"/>
+    :mmCEA="mEdid.CEA"/>
     <DisplayIDView
     v-if="SelectedPanel==='DID'"/>
   </main>
