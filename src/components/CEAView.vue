@@ -2,17 +2,29 @@
 import DetailedTimingView from "./DetailedTimingView.vue"
 import CEADatablocksView from "./CEADatablocksView.vue"
 export default {
-components: {
+  name: "CEAView",
+  emits: ['update:CEA'],
+  components: {
     DetailedTimingView,
     CEADatablocksView,
   },
   props: {
     mmCEA: Object
   },
-  data() {
-    return {
-      mCEA: {}
+  computed: {
+    mCEA: {
+      get() {
+        return this.mmCEA
+      }
     }
+  },
+  methods: {
+    NotifyChange() {
+      this.$emit('update:CEA', this.mCEA);
+    },
+    RemoveElement(e) {
+      console.log(e);
+    },
   }
 }
 </script>
@@ -47,7 +59,7 @@ components: {
   </table>
   <h4>Detailed Timing Descriptions</h4>
   <div v-for="dtd in mCEA.DetailedTimingBlocks" :key="dtd.id">
-    <button @click="$emit('RemoveElement', 'DetailedTiming')">remove</button>
+    <button @click="RemoveElement(dtd.Type)">remove</button>
     <DetailedTimingView :dtd="dtd"/>
   </div>
   <CEADatablocksView :datablocks="mCEA.DataBlocksCollection"/>
