@@ -158,9 +158,17 @@ export default {
     <DisplayIDView
     v-if="SelectedPanel==='DID'"/>
   </main>
+  <footer>
+    <div>
+      <a>See source code on</a>
+      <a href="https://github.com/thyge/edid-editor">
+      <img href="https://github.com/thyge/edid-editor" height="20" src="@/assets/GitHub_Logo.png"/>
+      </a>
+    </div>
+  </footer>
 </template>
 
-<style>
+<style scoped>
 .tab {
   position: static;
   width: 81%;
@@ -186,10 +194,16 @@ export default {
 .tab button.active {
   background-color: #ccc;
 }
-
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+footer div {
+  bottom: 0px;
+  background-color: gainsboro;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
 }
 </style>
