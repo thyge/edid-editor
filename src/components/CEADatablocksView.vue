@@ -9,8 +9,7 @@ export default {
 
 <template>
 <div v-for="db in datablocks" :key="db.id">
-    
-    <div v-if="db.CEABlockType === 'DBVideoDataBlock'">
+    <div v-if="db.Header.Type === 'DBVideoDataBlock'">
         <h4>Video Data Blocks</h4>
         <table>
             <tr>
@@ -20,7 +19,7 @@ export default {
                 <td>PixelMHz</td>
                 <td>Native</td>
             </tr>
-        <tr v-for="v in db.VICs" :key="v.id">
+        <tr v-for="v in db.Content.VICs" :key="v.id">
             <td>{{v.Description}}</td>
             <td>{{v.HorizontalActive}}</td>
             <td>{{v.VerticalActive}}</td>
@@ -29,7 +28,10 @@ export default {
         </tr>
         </table>
     </div>
-    {{db.CEABlockType}}
+    <div v-if="db.Header.Type === 'DBVendorSpecificDataBlock'">
+      <h4>{{db.Content.ExtendedName}}</h4>
+      {{db.Content}}
+    </div>
 </div>
 </template>
 

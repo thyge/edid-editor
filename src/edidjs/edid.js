@@ -33,12 +33,14 @@ export default class EEDID {
             if (i === 0) {
                 this.EDID = new EDID()
                 this.EDID.DecodeEDID(extBytes)
+                this.EDID.Extension = i
             } else {
                 switch (extBytes[0]) {
                     case TimingExtension: break;
                     case CEAExtension:
                         this.CEA = new CEA()
                         this.CEA.DecodeCEA(extBytes);
+                        this.CEA.Extension = i
                         break;
                     case VideoTimingBlockExtension: break;
                     case EDID2_0Extension: break;
@@ -48,6 +50,7 @@ export default class EEDID {
                     case DisplayIDExtension:
                         this.DID = new DisplayID()
                         this.DID.DecodeDisplayID(extBytes);
+                        this.DID.Extension = i
                         break;
                     case DisplayTransferCharacteristicsDataBlock1: break;
                     case DisplayTransferCharacteristicsDataBlock2: break;
@@ -64,12 +67,21 @@ export default class EEDID {
     UpdateEEDIDRaw() {
         if (this.EDID) {
             for (let i = 0; i < this.EDID.raw.length; i++) {
-                this.raw[i] = this.EDID.raw[i]
+                // Extension offset
+                let ext = (this.EDID.Extension*128)
+                this.raw[ext+i] = this.EDID.raw[i]
             }
         }
         if (this.CEA) {
             for (let i = 0; i < this.CEA.raw.length; i++) {
-                this.raw[i+128] = this.CEA.raw[i]
+                let ext = (this.EDID.Extension*128)
+                this.raw[ext+i] = this.CEA.raw[i]
+            }
+        }
+        if (this.DID) {
+            for (let i = 0; i < this.CEA.raw.length; i++) {
+                let ext = (this.EDID.Extension*128)
+                this.raw[ext+i] = this.CEA.raw[i]
             }
         }
     }
@@ -77,6 +89,7 @@ export default class EEDID {
 
 class EDID {
     raw = new Uint8Array()
+    Extension = 0
     Version = 0
     Revision = 0
     WeekOfManufacture = 0

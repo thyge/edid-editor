@@ -57,12 +57,14 @@ export default {
       <td><input type=checkbox v-model="mCEA.Header.YCBCR422" disabled/></td>
     </tr>
   </table>
-  <h4>Detailed Timing Descriptions</h4>
-  <div v-for="dtd in mCEA.DetailedTimingBlocks" :key="dtd.id">
-    <button @click="RemoveElement(dtd.Type)">remove</button>
-    <DetailedTimingView :dtd="dtd"/>
+  <div v-if="mCEA.DetailedTimingBlocks.length > 0">
+    <h4>Detailed Timing Descriptions</h4>
+    <div v-for="dtd in mCEA.DetailedTimingBlocks" :key="dtd.id">
+      <button @click="RemoveElement(dtd.Type)">remove</button>
+      <DetailedTimingView :dtd="dtd"/>
+    </div>
   </div>
-  <CEADatablocksView :datablocks="mCEA.DataBlocksCollection"/>
+  <CEADatablocksView :datablocks="mCEA.DataBlocks"/>
 </template>
 
 <style scoped>
