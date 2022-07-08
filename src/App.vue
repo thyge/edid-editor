@@ -152,7 +152,7 @@ export default {
     :mmEdid="mEdid.EDID"
     :extensions="mEdid.Extensions"/>
     <CEAView
-    @update:EDID="HandleCEAUpdate"
+    @update:CEA="HandleCEAUpdate"
     v-if="SelectedPanel==='CEA'"
     :mmCEA="mEdid.CEA"/>
     <DisplayIDView

@@ -214,6 +214,5 @@ function DecodeVSDBBlock(dbBytes) {
         default:
             break;
     }
-    console.log(vsdb);
     return vsdb
 }
