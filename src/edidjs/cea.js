@@ -3,7 +3,7 @@ import {DecodeDTD} from "./18ByteDescriptors.js"
 
 export class CEA {
     Header = {}
-    DataBlocksCollection = []
+    DataBlocks = []
     DetailedTimingBlocks = []
 }
 
@@ -44,42 +44,20 @@ IEEEIdentifyerLookup.set(HDMI1_4_BYTES, "HDMI 1.4")
 IEEEIdentifyerLookup.set(HDMI2_0_BYTES, "HDMI 2.0")
 IEEEIdentifyerLookup.set(HDMIDolbyVision_BYTES, "Dolby Vision")
 IEEEIdentifyerLookup.set(HDMIHDR10_BYTES, "HDR10+")
-IEEEIdentifyerLookup.set(SpecializedMonitor_BYTES, "Epecialized Monitor")
+IEEEIdentifyerLookup.set(SpecializedMonitor_BYTES, "Specialized Monitor")
 
 function DecodeDBHeader(dbBytes) {
-    var dbTag = CEADataBlockLookup.get(dbBytes[0] >> 5)
-    let retObj = {
-        CEABlockType: dbTag,
-        Size:       dbBytes[0] & 0x1F,
+    return {
+        Type: CEADataBlockLookup.get(dbBytes[0] >> 5),
+        Size: dbBytes[0] & 0x1F,
     }
-
-    switch (dbTag) {
-        case "DBAudioDataBlock":
-            break;
-        case "DBVideoDataBlock":
-            break;
-        case "DBVendorSpecificDataBlock":
-            var ieeeID = dbBytes[3] | dbBytes[2] << 8 | dbBytes[1] << 16 
-            retObj.dbTag = IEEEIdentifyerLookup.get(ieeeID)
-            break;
-        case "DBSpeakerAllocationData":
-            break;
-        case "DBVESAVDIFDataBlock":
-            break;
-        case "DBReserverdDataBlock":
-            break;
-        case "DBUseExtendedTag":
-            dbTag = ExtendedTags.get(dbBytes[1])
-            break;
-    }
-    return retObj
 }
 
 function DecodeCEAHeader(headerBytes) {
     var header = {}
     header.Version = headerBytes[1]
     header.dtdStartByte = headerBytes[2]
-    if (headerBytes[1] > 1) {
+    if (header.Version > 1) {
         // Bit 7	1 if display supports underscan, 0 if not
         // Bit 6	1 if display supports basic audio, 0 if not
         // Bit 5	1 if display supports YCbCr 4∶4∶4, 0 if not
@@ -110,22 +88,11 @@ CEA.prototype.DecodeCEA = function(bytes) {
     // Data Block Collection
     // If byte 2 is 04, the collection is of zero length (i.e. not present).
     for (let i = 4; i < this.Header.dtdStartByte; i++) {
-         // slice datablock header + extended tag including IEEE VSDB
-        let headerSlice = this.raw.slice(i, i+4)
-        let dbHeader = DecodeDBHeader(headerSlice)
-        // Hacky decode
-        let dataSlice = this.raw.slice(i, i+dbHeader.Size)
-        if (dbHeader.CEABlockType === "DBVideoDataBlock") {
-            dbHeader.VICs = []
-            for (let v = 1; v < dbHeader.Size; v++) {
-                let vic = vicLookup[dataSlice[v]&0x7F]
-                vic.Native = (dataSlice[v]&0x80 > 0)?true:false
-                dbHeader.VICs.push(vic)
-            }
-        }
-            
-        this.DataBlocksCollection.push(dbHeader)
-        i += dbHeader.Length
+        let blockLength = this.raw[i] & 0x1F
+        let blockSlice = this.raw.slice(i, i+blockLength)
+        let dbBlock = DecodeDBBlock(blockSlice)
+        this.DataBlocks.push(dbBlock)
+        i += blockLength
     }
     if (this.Header.dtdStartByte != 0) {
         for (let d = this.Header.dtdStartByte; d < 127-18; d+=18) {
@@ -135,4 +102,118 @@ CEA.prototype.DecodeCEA = function(bytes) {
             }
         }
     }
+}
+
+class CEADataBlock {
+    Header = {}
+    Content = {}
+}
+
+function DecodeDBBlock(dbBytes) {
+    var db = new CEADataBlock
+    db.Header = DecodeDBHeader(dbBytes)
+    switch (db.Header.Type) {
+        case "DBAudioDataBlock":
+            break;
+        case "DBVideoDataBlock":
+            db.Content.VICs = []
+            for (let v = 1; v < db.Header.Size; v++) {
+                let vic = vicLookup[dbBytes[v]&0x7F]
+                vic.Native = (dbBytes[v]&0x80 > 0)?true:false
+                db.Content.VICs.push(vic)
+            }
+            break;
+        case "DBVendorSpecificDataBlock":
+            db.Content = DecodeVSDBBlock(dbBytes)
+            break;
+        case "DBSpeakerAllocationData":
+            break;
+        case "DBVESAVDIFDataBlock":
+            break;
+        case "DBReserverdDataBlock":
+            break;
+        case "DBUseExtendedTag":
+            db.Content.ExtendedName = ExtendedTags.get(dbBytes[1])
+            break;
+    }
+    return db
+}
+
+function DecodeVSDBBlock(dbBytes) {
+    let vsdb = {
+    }
+    var ieeeID = dbBytes[3] | dbBytes[2] << 8 | dbBytes[1] << 16 
+    vsdb.ExtendedName = IEEEIdentifyerLookup.get(ieeeID)
+    switch (vsdb.ExtendedName) {
+        case "HDMI 1.4":
+            vsdb.Address = {}
+            vsdb.Address.A = dbBytes[3] >> 4
+            vsdb.Address.B = dbBytes[3] & 0xF
+            vsdb.Address.C = dbBytes[4] >> 4
+            vsdb.Address.D = dbBytes[4] & 0xF
+            if (dbBytes.length < 6) {
+                break;
+            }
+            vsdb.BitDepth16 = dbBytes[5]&0x40?true:false
+            vsdb.BitDepth12 = dbBytes[5]&0x20?true:false
+            vsdb.BitDepth10 = dbBytes[5]&0x10?true:false
+            vsdb.DeepColour444 = dbBytes[5]&0x08?true:false
+            vsdb.DVIDualLinkOperation = dbBytes[5]&0x01?true:false
+            break;
+        case "HDMI 2.0":
+            vsdb.Max_TMDS_Frequency = dbBytes[5] * 5
+            
+            vsdb.SCDC_Present = dbBytes[6]&0x80?true:false
+            vsdb.RR_Capable = dbBytes[6]&0x40?true:false
+            vsdb.CCBPCI = dbBytes[6]&0x10?true:false
+            vsdb.LTE_340Mcsc_scramble = dbBytes[6]&0x08?true:false
+            vsdb.Independent_View = dbBytes[6]&0x04?true:false
+            vsdb.Dual_View = dbBytes[6]&0x02?true:false
+            vsdb.OSD_3D_Disparity = dbBytes[6]&0x02?true:false
+
+            vsdb.DC_48bit = dbBytes[7]&0x04?true:false
+            vsdb.DC_36bit = dbBytes[7]&0x02?true:false
+            vsdb.DC_30bit = dbBytes[7]&0x01?true:false
+            
+            if (dbBytes.length < 8) {
+                break;
+            }
+            switch (dbBytes[7] >> 4) {
+                case 0:
+                    vsdb.MaxFixedRateLink = "FRL_NotSupported";
+                    break;
+                case 1:
+                    vsdb.MaxFixedRateLink = "FRL_3G_3Lanes";
+                    break;
+                case 2:
+                    vsdb.MaxFixedRateLink = "FRL_6G_3Lanes";
+                    break;
+                case 3:
+                    vsdb.MaxFixedRateLink = "FRL_6G_4Lanes";
+                    break;
+                case 4:
+                    vsdb.MaxFixedRateLink = "FRL_8G_4Lanes";
+                    break;
+                case 5:
+                    vsdb.MaxFixedRateLink = "FRL_10G_4Lanes";
+                    break;
+                case 6:
+                    vsdb.MaxFixedRateLink = "FRL_12G_4Lanes";
+                    break;
+                default:
+                    break;
+            }
+
+            break;
+        case "Dolby Vision":
+            break;
+        case "HDR10+":
+            break;
+        case "Specialized Monitor":
+            break;
+        default:
+            break;
+    }
+    console.log(vsdb);
+    return vsdb
 }
