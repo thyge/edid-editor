@@ -44,7 +44,7 @@ export default {
     </tr>
     <tr>
       <td>Serial Number</td>
-      <td><input @input="NotifyChange()" maxlength="3" size="10" v-model="mEdid.SerialNumber"/></td>
+      <td><input @input="NotifyChange()" maxlngth="10" size="10" v-model="mEdid.SerialNumber"/></td>
     </tr>
     <tr>
       <td>Date of manufacture</td>

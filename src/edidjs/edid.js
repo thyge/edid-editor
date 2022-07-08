@@ -74,13 +74,13 @@ export default class EEDID {
         }
         if (this.CEA) {
             for (let i = 0; i < this.CEA.raw.length; i++) {
-                let ext = (this.EDID.Extension*128)
+                let ext = (this.CEA.Extension*128)
                 this.raw[ext+i] = this.CEA.raw[i]
             }
         }
         if (this.DID) {
             for (let i = 0; i < this.CEA.raw.length; i++) {
-                let ext = (this.EDID.Extension*128)
+                let ext = (this.CEA.Extension*128)
                 this.raw[ext+i] = this.CEA.raw[i]
             }
         }
