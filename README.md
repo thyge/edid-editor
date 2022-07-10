@@ -13,3 +13,9 @@ The project is implimented as a vue app but all EDID decoding and editing is con
 * Create CVT generator for adding Detailed Timing Descriptions to EDID and CEA extension
 * Create CEA Block generator for adding CEA blocks to CEA extension
 
+### Inspired by:
+
+* https://tomverbeure.github.io/video_timings_calculator
+* https://github.com/dgallegos/edidreader
+* https://github.com/ValZapod/edid-decode
+* https://www.monitortests.com/forum/Thread-Custom-Resolution-Utility-CRU
