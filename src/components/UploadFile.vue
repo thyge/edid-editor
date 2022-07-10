@@ -13,7 +13,7 @@ export default {
 </script>
 
 <template>
-    <input @change="uploadFile" type="file" enctype="multipart/form-data" />
+    <input @change="uploadFile" type="file" accept=".bin, .txt" enctype="multipart/form-data" />
 </template>
 
 <style scoped>
