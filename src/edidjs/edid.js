@@ -231,7 +231,6 @@ EDID.prototype.SetVideoInputParameters = function() {
             // If undefined do not set value = zero
             break;
     }
-    console.log(this.raw[20])
 }
 
 EDID.prototype.CalcChecksum = function() {
@@ -541,6 +540,10 @@ EDID.prototype.DecodeEDID = function(bytes) {
             this.DisplayDescriptors.push(dtd)
         } else {
             let dd = DecodeDisplayDescriptor(descriptorBytes, i);
+            // catch non identified descriptors
+            if (dd === null) {
+                break
+            }
             dd.id = DDID
             this.DisplayDescriptors.push(dd);
         }

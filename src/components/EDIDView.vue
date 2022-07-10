@@ -22,7 +22,6 @@ export default {
       this.$emit('update:EDID', this.mEdid)
     },
     RemoveElement(e) {
-      console.log(e)
       this.mEdid.DisplayDescriptors.forEach((dd, i) => {
         if (e === dd.id) {
           this.mEdid.DisplayDescriptors.splice(i, 1)
@@ -334,9 +333,19 @@ export default {
     <button @click="RemoveElement(dd.id)">remove</button>
   </div>
 </div>
+<h4 v-show="mEdid.Errors.length > 0" class="errors">Errors</h4>
+<div v-show="mEdid.Errors.length > 0" class="errors">
+<p v-for="e in mEdid.Errors" :key="e.id">
+  {{e}}
+</p>
+</div>
 </template>
 
 <style scoped>
+.errors {
+  background-color: red;
+  color: white;
+}
 table, th, td {
   border: 1px solid;
   border-collapse: collapse;
