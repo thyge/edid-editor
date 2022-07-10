@@ -1,5 +1,5 @@
 import {pnpLookup} from "./pnp.js"
-import {DecodeDTD, DecodeDisplayDescriptor} from "./18ByteDescriptors.js"
+import {DecodeDTD, DecodeDisplayDescriptor, MakeDummyDescriptor} from "./18ByteDescriptors.js"
 import {CEA} from "./cea.js"
 import {DisplayID} from "./did.js"
 
@@ -96,9 +96,9 @@ class EDID {
     YearOfManufacture = 0
     EstablishedTimings = {}
     StandardTimings = []
-    DetailedTimingDescriptors = []
     DisplayDescriptors = []
     Errors = []
+        DummyIdentifiers = 0
 }
 
 EDID.prototype.SetManufactureDate = function() {
@@ -274,45 +274,23 @@ EDID.prototype.SetEstablishedTimings = function() {
     this.raw[37] |= this.EstablishedTimings.ET1152_870_75?0x80:0
 }
 
-EDID.prototype.RemoveDisplayDescriptor = function(blockName) {
+EDID.prototype.LayoutDisplayDescriptors = function() {
     // store the first byte where dd starts
     let startByte = 54
-    let p18ByteDescriptors = []
-    p18ByteDescriptors.push(this.DetailedTimingDescriptors)
-    p18ByteDescriptors.push(this.DisplayDescriptors)
-    p18ByteDescriptors.forEach((ddd, bigI) => {
-        ddd.forEach((dd, i) => {
-            if (dd.Type === blockName) {
-                // then remove from structure
-                if (bigI === 0) {
-                    this.DetailedTimingDescriptors.splice(i, 1)
-                } else if (bigI === 1) {
-                    this.DisplayDescriptors.splice(i, 1)    
-                }
-                // Concatinate the 2 arrays to 18b descriptors
-                p18ByteDescriptors = []
-                this.DetailedTimingDescriptors.forEach(d => {
-                    p18ByteDescriptors.push(d)
-                })
-                this.DisplayDescriptors.forEach(d => {
-                    p18ByteDescriptors.push(d)
-                })
-                // Move blocks forward in raw
-                p18ByteDescriptors.forEach(desc => {
-                    for (let di = 0; di < desc.raw.length; di++) {
-                        this.raw[startByte] = desc.raw[di]
-                        startByte++
-                    }
-                })
-                // pad out using raw
-                for (let di = 0; di < 18; di++) {
-                    this.raw[startByte] = 0
-                    startByte++
-                }
-                // update the block counter so we know we have more space
-                this.NumberOfDTDs--
-            }
-        })
+
+    // add dummy if less than 4 descriptors are present
+    let dummy = MakeDummyDescriptor()
+    if (this.DisplayDescriptors.length < 4) {
+        this.DisplayDescriptors.push(dummy)
+    }
+
+    // Add each descriptor back into raw edid
+    this.DisplayDescriptors.forEach((dd, i) => {
+        dd.id = i
+        for (let index = 0; index < 18; index++) {
+            this.raw[startByte] = dd.raw[index]
+            startByte++
+        }   
     })
 }
 
@@ -552,20 +530,26 @@ EDID.prototype.DecodeEDID = function(bytes) {
         this.StandardTimings.push(stdTiming)
     }
     // Detailed timing descriptors
-    this.NumberOfDTDs = 0
+    let DDID = 0
     for (let i = 54; i < 126; i+=18) {
         // if first 2 bytes / pixel clock is 0 then parse as Display Descriptor
-        this.NumberOfDTDs++
         let descriptorBytes = this.raw.slice(i,i+18)
         let descHeader = descriptorBytes[1]<<8 | descriptorBytes[0]
         if (descHeader != 0) {
-            let dtd = DecodeDTD(descriptorBytes, this.NumberOfDTDs)
-            dtd.startByte = i;
-            dtd.endByte = i+18
-            this.DetailedTimingDescriptors.push(dtd)
+            let dtd = DecodeDTD(descriptorBytes)
+            dtd.id = DDID
+            this.DisplayDescriptors.push(dtd)
         } else {
             let dd = DecodeDisplayDescriptor(descriptorBytes, i);
+            dd.id = DDID
             this.DisplayDescriptors.push(dd);
         }
+        DDID++
+    }
+    if (this.DisplayDescriptors.length < 4) {
+        // Each of the four data blocks shall contain a detailed timing descriptor, a display descriptor or a dummy descriptor (Tag 10h)
+        // using definitions described in Sections 3.10.2 and 3.10.3. Use of a data fill pattern is not permitted - 
+        // the Dummy Descriptor (Tag 10h) is the only exception."
+        this.Errors.push("too few Display Descriptiors, should always be 4")
     }
 }

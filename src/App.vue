@@ -99,6 +99,7 @@ export default {
     HandleEDIDUpdate(changedEDID) {
       console.log(this.mEdid)
       this.mEdid.EDID = changedEDID;
+      this.mEdid.EDID.LayoutDisplayDescriptors();
       this.mEdid.EDID.SetEDIDVersion();
       this.mEdid.EDID.SetSerialNumber();
       this.mEdid.EDID.SetEstablishedTimings();

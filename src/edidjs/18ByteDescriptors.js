@@ -1,6 +1,6 @@
-export function DecodeDTD(edidBytes, i) {
-    let d = {}
-    d.Type = "edid-DTD" + i
+export function DecodeDTD(edidBytes) {
+    let d = new DisplayDescriptor()
+    d.Type = "Detailed Timing Descriptor"
     d.raw = edidBytes
     d.PixelClockKHz = (edidBytes[1] << 8 | edidBytes[0])*10
     if (d.PixelClockKHz === 0) {
@@ -100,12 +100,17 @@ class DisplayDescriptor {
     Content = ""
 }
 
-export function DecodeDisplayDescriptor(descriptorBytes, rawLocation) {
+export function MakeDummyDescriptor() {
+    let dummyBytes = new Uint8Array(18)
+    dummyBytes[3] = DD_DummyIdentifier
+    return DecodeDisplayDescriptor(dummyBytes, 0)
+}
+
+export function DecodeDisplayDescriptor(descriptorBytes) {
     // Type is decalred with strings so
     //the frontend does not have to import this file for const declarations
     let dd = new DisplayDescriptor()
     dd.raw = descriptorBytes;
-    dd.startByte = rawLocation;
     switch (descriptorBytes[3]) {
         case DD_SerialNumber:
             // Display serial number (ASCII text)
@@ -175,7 +180,7 @@ export function DecodeDisplayDescriptor(descriptorBytes, rawLocation) {
 
 
 export function DecodeRangeLimits(bytes) {
-    var drld = new Object()
+    var drld = new DisplayDescriptor()
     drld.MinVerticalRateOffset = bytes[4]&0x01?true:false
     drld.MaxVerticalRateOffset = bytes[4]&0x02?true:false
     drld.MinHorizontalRateOffset = bytes[4]&0x04?true:false
