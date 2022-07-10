@@ -53,35 +53,10 @@ export default {
         this.hevViewRender = true;
       });
     },
-    HandleUpload(file) {
-      if ((typeof file === 'undefined') || file === null) {
-        return
-      }
-      let reader = new FileReader();
-      // Ensure data() is in scope fro the onload functions
-      var vm = this
-      if (file.name.split('.').pop() === "bin") {
-          reader.onload = function(event) {
-              let edidarr = new Uint8Array(event.target.result);
-              this.SelectedPanel="EDID"
-              vm.mEdid = new EEDID()
-              vm.mEdid.ParseEEDID(edidarr)
-              console.log(vm.mEdid);
-          }
-          reader.readAsArrayBuffer(file);
-      } else if (file.name.split('.').pop() === "txt") {
-          reader.onload = function(event) {
-              let txtEdid = event.target.result.replaceAll(",", "")
-              txtEdid = txtEdid.replaceAll(" ", "")
-              let edidarr = Uint8Array.from(txtEdid.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
-              this.SelectedPanel="EDID"
-              vm.mEdid = new EEDID()
-              vm.mEdid.ParseEEDID(edidarr)
-              console.log(vm.mEdid);
-              this.SelectedPanel='EDID'
-          }
-          reader.readAsText(file);
-      }
+    HandleUpload(edidarr) {
+      this.mEdid = new EEDID()
+      this.mEdid.ParseEEDID(edidarr)
+      console.log(this.mEdid);
     },
     DownloadFile(byts) {
       var file = new Blob([byts], {type: 'bin'});
