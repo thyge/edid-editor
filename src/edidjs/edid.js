@@ -182,7 +182,56 @@ EDID.prototype.SetGamma = function() {
     if ((this.Gamma >= 1.00)&& (this.Gamma <= 3.54)) {
         this.raw[23] = (this.Gamma * 100) - 100
     }
-    
+}
+
+EDID.prototype.SetVideoInputParameters = function() {
+    // Catch not implemented analog EDID
+    if (!this.Digital) {
+        return
+    }
+    // Reset byte with digital
+    this.raw[20] = 0x80;
+    switch (this.VideoBitDepth) {
+        case "6":
+            this.raw[20] |= 16;
+            break;
+        case "8":
+            this.raw[20] |= 32;
+            break;
+        case "10":
+            this.raw[20] |= 48;
+            break;
+        case "12":
+            this.raw[20] |= 64;
+            break;
+        case "16":
+            this.raw[20] |= 96;
+            break;
+        case "reserved":
+            this.raw[20] |= 112;
+            break;
+        default:
+            // If undefined do not set value = zero
+            break;
+    }
+    switch (this.VideoInterface) {
+        case "HDMIa":
+            this.raw[20] |= 2
+            break;
+        case "HDMIb":
+            this.raw[20] |=  3
+            break;
+        case "MDDI":
+            this.raw[20] |=  4
+            break;
+        case "DisplayPort":
+            this.raw[20] |=  5
+            break;
+        default:
+            // If undefined do not set value = zero
+            break;
+    }
+    console.log(this.raw[20])
 }
 
 EDID.prototype.CalcChecksum = function() {
@@ -326,7 +375,7 @@ EDID.prototype.DecodeEDID = function(bytes) {
     }
 
     // EDID 1.4
-    switch (this.raw[20] & 0x78) {
+    switch (this.raw[20] & 0x70) {
         case 0:
             this.VideoBitDepth = "undefined"
             break;

@@ -102,6 +102,7 @@ export default {
       this.mEdid.EDID.SetEDIDVersion();
       this.mEdid.EDID.SetSerialNumber();
       this.mEdid.EDID.SetEstablishedTimings();
+      this.mEdid.EDID.SetVideoInputParameters();
       this.mEdid.EDID.SetFeatureSupport();
       this.mEdid.EDID.SetGamma();
       this.mEdid.EDID.SetSize();

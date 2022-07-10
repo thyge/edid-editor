@@ -75,13 +75,14 @@ export default {
     <tr v-show="mEdid.Revision > 3">
       <td>Display Bitdepth</td>
       <td>
-        <select v-model.number="mEdid.VideoBitDepth" disabled>
+        <select @change="NotifyChange()" v-model="mEdid.VideoBitDepth">
         <option>undefined</option>
         <option>6</option>
         <option>8</option>
         <option>10</option>
         <option>12</option>
         <option>16</option>
+        <option>reserved</option>
         </select>
       </td>
       <td>EDID 1.4 Only</td>
@@ -89,7 +90,7 @@ export default {
     <tr v-show="mEdid.Revision > 3">
       <td>Display Interface</td>
       <td>
-        <select v-model.number="mEdid.VideoInterface" disabled>
+        <select @change="NotifyChange()" v-model="mEdid.VideoInterface">
         <option>undefined</option>
         <option>HDMIa</option>
         <option>HDMIb</option>
