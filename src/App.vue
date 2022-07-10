@@ -97,11 +97,14 @@ export default {
       }, 0); 
     },
     HandleEDIDUpdate(changedEDID) {
+      console.log(this.mEdid)
       this.mEdid.EDID = changedEDID;
       this.mEdid.EDID.SetEDIDVersion();
       this.mEdid.EDID.SetSerialNumber();
       this.mEdid.EDID.SetEstablishedTimings();
+      this.mEdid.EDID.SetFeatureSupport();
       this.mEdid.EDID.SetGamma();
+      this.mEdid.EDID.SetSize();
       this.mEdid.EDID.SetManufactureDate();
       this.mEdid.EDID.CalcChecksum();
       this.mEdid.UpdateEEDIDRaw();

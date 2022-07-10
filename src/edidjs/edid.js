@@ -118,15 +118,71 @@ EDID.prototype.SetManufactureDate = function() {
     
 }
 
+EDID.prototype.SetManufactureDate = function() {
+    if (this.WeekOfManufacture > 52) {
+        this.raw[16] = 52
+    } else if (this.WeekOfManufacture < 0) {
+        this.raw[16] = 52
+    } else {
+        this.raw[16] = this.WeekOfManufacture
+    }
+    this.raw[16] = this.WeekOfManufacture
+    if (this.YearOfManufacture >= 1990) {
+        this.raw[17] = this.YearOfManufacture - 1990
+    } else {
+        this.raw[17] = 0
+    }
+    
+}
+
 EDID.prototype.SetEDIDVersion = function() {
     this.raw[18] = this.Version
     this.raw[19] = this.Revision
 }
 
+EDID.prototype.SetFeatureSupport = function () {
+    // Supported features DPMS
+    this.raw[24] = 0
+    this.raw[24] |= this.DPMSstandby?0x80:0
+    this.raw[24] |= this.DPMSsuspend?0x40:0
+    this.raw[24] |= this.DPMSactiveOff?0x20:0
+    if (this.Digital) {
+        switch (this.ColourEncoding) {
+            case "RGB 4:4:4":
+                this.raw[24] |= 0
+                break;
+            case "RGB 4:4:4 + YCrCb 4:4:4":
+                this.raw[24] |= 0x8
+                break;
+            case "RGB 4:4:4 + YCrCb 4:2:2":
+                this.raw[24] |= 0x10
+                break;
+            case "RGB 4:4:4 + YCrCb 4:4:4 + YCrCb 4:2:2":
+                this.raw[24] |= 0x18
+                break;
+            default:
+                break;
+        }
+    }
+    this.raw[24] |= this.SRGB?0x4:0
+    this.raw[24] |= this.PreferredTiming?0x2:0
+    // TODO: clean up the continious vs gtf logic
+    this.raw[24] |= this.ContiniousFrequency?0x1:0
+    this.raw[24] |= this.GTFSupport?0x1:0
+}
+
+EDID.prototype.SetSize = function() {
+    // Screen Size
+    this.raw[21] = this.HorizontalSizeCM&0xFF
+    this.raw[22] = this.VerticalSizeCM&0xFF
+}
+
 EDID.prototype.SetGamma = function() {
+    // Gamma
     if ((this.Gamma >= 1.00)&& (this.Gamma <= 3.54)) {
         this.raw[23] = (this.Gamma * 100) - 100
     }
+    
 }
 
 EDID.prototype.CalcChecksum = function() {
