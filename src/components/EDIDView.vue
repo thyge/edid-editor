@@ -23,7 +23,11 @@ export default {
     },
     RemoveElement(e) {
       console.log(e)
-      this.mEdid.RemoveDisplayDescriptor(e);
+      this.mEdid.DisplayDescriptors.forEach((dd, i) => {
+        if (e === dd.id) {
+          this.mEdid.DisplayDescriptors.splice(i, 1)
+        }
+      });
       this.NotifyChange();
     },
   }
@@ -262,16 +266,15 @@ export default {
     </tr>
   </table>
 </div>
-<h4>Detailed Timing Descriptors</h4>
-<div v-for="dtd in mEdid.DetailedTimingDescriptors" :key="dtd.id">
-  <button @click="RemoveElement(dtd.Type)">remove</button>
-  <DetailedTimingView :dtd="dtd"/>
-</div>
 <h4>Display Descriptors</h4>
 <div v-for="dd in mEdid.DisplayDescriptors" :key="dd.id">
-  <div v-if="dd.Type === 'Display Range Limits'">
+  <div v-if="dd.Type === 'Detailed Timing Descriptor'">
+    <button @click="RemoveElement(dd.id)">remove</button>
+    <DetailedTimingView :dtd="dd"/>
+  </div>
+  <div v-else-if="dd.Type === 'Display Range Limits'">
     {{dd.Type}}
-    <button @click="RemoveElement(dd.Type)">remove</button>
+    <button @click="RemoveElement(dd.id)">remove</button>
     <table>
       <tr>
         <td></td>
@@ -324,10 +327,11 @@ export default {
       </tr>
     </table>
   </div>
-  <div v-else>
+  <!-- Don't display the dummy identifiers -->
+  <div v-else-if="dd.Type !== 'Dummy Identifier'">
     <span>{{dd.Type}}: </span>
     <span>{{dd.Content}}</span>
-    <button @click="RemoveElement(dd.Type)">remove</button>
+    <button @click="RemoveElement(dd.id)">remove</button>
   </div>
 </div>
 </template>
