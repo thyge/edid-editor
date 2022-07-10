@@ -16,23 +16,33 @@ export default {
 
 <template>
 <div class="hexview">
-  <span v-for="b in mBytes" :key="b.id">
-    {{makeHexSingle(b)}}
-  </span>
+  <div class="hexviewinner">
+    <span v-for="b in mBytes.slice(0,128)" :key="b.id">
+      {{makeHexSingle(b)}}
+    </span>
+  </div>
+  <div v-if="mBytes.length > 127" class="hexviewinner">
+    <span v-for="b in mBytes.slice(128)" :key="b.id">
+      {{makeHexSingle(b)}}
+    </span>
+  </div>
 </div>
 </template>
 
 <style scoped>
+.hexviewinner {
+  border: 3px solid gray;
+  flex-wrap: wrap;
+  display: flex;
+  gap: 5px;
+  flex-direction: row;
+  font-family: monospace;
+  width: 165px;
+  margin: 5px;
+}
 .hexview {
   position: fixed;
   top: 0;
   right: 0;
-  width: 165px;
-  border: 3px solid gray;
-  display: flex;
-  flex-direction: row;
-  gap: 5px;
-  flex-wrap: wrap;
-  font-family: monospace;
 }
 </style>
