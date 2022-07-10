@@ -72,34 +72,6 @@ export default {
 <h4>Display Parameters</h4>
 <div>
   <table>
-    <tr>
-      <td>Display Size</td>
-      <td>{{mEdid.HorizontalSizeCM}}cm x {{mEdid.VerticalSizeCM}}cm</td>
-    </tr>
-    <tr>
-      <td>Display Gamma</td>
-      <td><input @input="NotifyChange()" maxlength="3" size="2" v-model.number="mEdid.Gamma"/></td>
-    </tr>
-    <tr>
-      <td>DPMS Standby</td>
-      <td><input type=checkbox v-model="mEdid.DPMSstandby" disabled/></td>
-    </tr>
-    <tr>
-      <td>DPMS Suspend</td>
-      <td><input type=checkbox v-model="mEdid.DPMSsuspend" disabled/></td>
-    </tr>
-    <tr>
-      <td>DPMS ActiveOff</td>
-      <td><input type=checkbox v-model="mEdid.DPMSactiveOff" disabled/></td>
-    </tr>
-    <tr>
-      <td>sRGB</td>
-      <td><input type=checkbox v-model="mEdid.sRGB" disabled/></td>
-    </tr>
-    <tr>
-      <td>Preferred Timing Mode</td>
-      <td><input type=checkbox v-model="mEdid.PreferredTiming" disabled/></td>
-    </tr>
     <tr v-show="mEdid.Revision > 3">
       <td>Display Bitdepth</td>
       <td>
@@ -127,10 +99,38 @@ export default {
       </td>
       <td>EDID 1.4 Only</td>
     </tr>
-    <tr v-show="mEdid.Revision > 3">
+    <tr>
+      <td>Display Size</td>
+      <td>{{mEdid.HorizontalSizeCM}}cm x {{mEdid.VerticalSizeCM}}cm</td>
+    </tr>
+    <tr>
+      <td>Display Gamma</td>
+      <td><input @input="NotifyChange()" maxlength="3" size="2" v-model.number="mEdid.Gamma"/></td>
+    </tr>
+    <tr>
+      <td>DPMS Standby</td>
+      <td><input @change="NotifyChange()" type=checkbox v-model="mEdid.DPMSstandby"/></td>
+    </tr>
+    <tr>
+      <td>DPMS Suspend</td>
+      <td><input @change="NotifyChange()" type=checkbox v-model="mEdid.DPMSsuspend"/></td>
+    </tr>
+    <tr>
+      <td>DPMS ActiveOff</td>
+      <td><input @change="NotifyChange()" type=checkbox v-model="mEdid.DPMSactiveOff"/></td>
+    </tr>
+    <tr>
+      <td>sRGB</td>
+      <td><input  @change="NotifyChange()" type=checkbox v-model="mEdid.SRGB"/></td>
+    </tr>
+    <tr>
+      <td>Preferred Timing Mode</td>
+      <td><input @change="NotifyChange()" type=checkbox v-model="mEdid.PreferredTiming"/></td>
+    </tr>
+    <tr  v-show="mEdid.Revision > 3">
       <td>Display Interface</td>
       <td>
-        <select v-model.number="mEdid.ColourEncoding" disabled>
+        <select @change="NotifyChange()" v-model.number="mEdid.ColourEncoding">
         <option>RGB 4:4:4</option>
         <option>RGB 4:4:4 + YCrCb 4:4:4</option>
         <option>RGB 4:4:4 + YCrCb 4:2:2</option>
@@ -139,6 +139,7 @@ export default {
       </td>
       <td>EDID 1.4 Only</td>
     </tr>
+    
   </table>
 </div>
 <h4>Chromaticity</h4>
@@ -296,8 +297,6 @@ export default {
         <td><input maxlength="3" size="3" type="number"
         v-model.number="dd.Content.MaximumPixelClock" disabled/></td>
       </tr>
-    </table>
-    <table>
       <tr>
         <td>DefaultGTF</td>
         <td><input maxlength="3" size="3" type="checkbox"
