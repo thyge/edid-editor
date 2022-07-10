@@ -95,7 +95,6 @@ const DD_DummyIdentifier = 0x10
 
 class DisplayDescriptor {
     raw = []
-    startByte = 0
     Type
     Content = ""
 }
@@ -174,6 +173,9 @@ export function DecodeDisplayDescriptor(descriptorBytes) {
         case DD_DummyIdentifier:
             // Dummy identifier.
             dd.Type = "Dummy Identifier";
+            break;
+        default:
+            return null
     }
     return dd;
 }
