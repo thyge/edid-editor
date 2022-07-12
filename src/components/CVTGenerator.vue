@@ -1,8 +1,44 @@
 <script>
+import {calculate_cvt} from "../edidjs/cvtgenerator.js"
+import DetailedTimingView from "./DetailedTimingView.vue"
 export default {
     name: "CVTGenerator",
     props: {
         show: Boolean
+    },
+    components: {
+      DetailedTimingView,
+    },
+    data() {
+      return {
+        horiz_pixels: 3840,
+        vert_pixels: 2160,
+        refresh_rate: 60,
+        margins: false,
+        interlaced: false,
+        reduced_blanking: "cvt_rb2",
+        video_optimized: false,
+        cvtObj: {
+          SyncMode: {
+            Type: "test"
+          }
+        },
+      }
+    },
+    methods: {
+      calculate() {
+        let calcRet = calculate_cvt(
+          this.horiz_pixels,
+          this.vert_pixels,
+          this.refresh_rate,
+          this.margins,
+          this.interlaced,
+          this.reduced_blanking,
+          this.video_optimized
+        );
+        console.log(calcRet);
+        this.cvtObj = calcRet;
+      }
     }
 }
 </script>
@@ -13,14 +49,53 @@ export default {
       <div class="modal-wrapper">
         <div class="modal-container">
           <div class="modal-header">
-            <slot name="header">CVT Generator Header</slot>
+            CVT Generator
           </div>
-
           <div class="modal-body">
-            <slot name="body">Generator goes here</slot>
+            <table>
+              <tr>
+                <td>Timing Mode</td>
+                <td>
+                  <select @change="calculate()" v-model="reduced_blanking">
+                  <option value="cvt">CVT</option>
+                  <option value="cvt_rb">CVT-RB</option>  
+                  <option value="cvt_rb2">CVT-RBv2</option>
+                  <option>Custom</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td>Horizontal Pixels</td>
+                <td><input @input="calculate()" v-model="horiz_pixels"/></td>
+              </tr>
+              <tr>
+                <td>Vertical Pixels</td>
+                <td><input @input="calculate()" v-model="vert_pixels"/></td>
+              </tr>
+              <tr>
+                <td>Refresh Rate (Hz)</td>
+                <td><input @input="calculate()" v-model="refresh_rate"/></td>
+              </tr>
+              <tr>
+                <td>Margins</td>
+                <td><input @change="calculate()" type="checkbox" v-model="margins"/></td>
+              </tr>
+              <tr>
+                <td>Interlaced</td>
+                <td><input @change="calculate()" type="checkbox" v-model="interlaced"/></td>
+              </tr>
+              <tr>
+                <td>StereoMode</td>
+                <select v-model="stereo_mode">
+                <option value="2w">"2-way interleaved, right image on even lines"</option>
+                <option>Custom</option>
+                </select>
+              </tr>
+            </table>
           </div>
-
+          <DetailedTimingView :dtd="cvtObj"/>
           <div class="modal-footer">
+            <button @click="calculate()">Calc</button>
             <button
                 class="modal-default-button"
                 @click="$emit('close')"
