@@ -1,8 +1,40 @@
+export class DetailedTimingDescriptor {
+    raw = Uint8Array
+    // Stored Value = Pixel clock ÷ 10,000
+    // Range: 10 kHz to 655.35 MHz in 10 kHz steps
+    Type = "Detailed Timing Descriptor"
+    PixelClockKHz = 0
+    HorizontalActive
+    HorizontalBlanking
+    HorizontalFrontPorch
+    HorizontalSyncPulseWidth
+    VerticalActive
+    VerticalBlanking
+    VerticalFrontPorch
+    VerticalSyncPulseWidth
+
+    HorizontalImageSize
+	VerticalImageSize
+
+    HorizontalBorder
+	VerticalBorder
+
+    Interlaced = false
+    StereoMode
+    Digital
+    SyncMode = {
+
+    }
+}
+
+DetailedTimingDescriptor.prototype.Encode = function() {
+    return
+}
+
 export function DecodeDTD(edidBytes) {
-    let d = new DisplayDescriptor()
-    d.Type = "Detailed Timing Descriptor"
+    let d = new DetailedTimingDescriptor()
     d.raw = edidBytes
-    d.PixelClockKHz = (edidBytes[1] << 8 | edidBytes[0])*10
+    d.PixelClockKHz = (edidBytes[1] << 8 | edidBytes[0])*10000
     if (d.PixelClockKHz === 0) {
         return null
     }
@@ -23,22 +55,23 @@ export function DecodeDTD(edidBytes) {
     d.HorizontalBorder = edidBytes[15]
 	d.VerticalBorder = edidBytes[16]
     d.Interlaced = (edidBytes[17] & 0x80)?true:false
+
     switch ((edidBytes[17] & 0x61)) {
         case 0:
-            d.StereoMode = "none"
+            d.StereoMode = "No Stereo"
             break;
         case 1:
             if (edidBytes[17] & 0x1) {
                 d.StereoMode = "2-way interleaved, right image on even lines"
             } else {
-                d.StereoMode = "field sequential, right during stereo sync"
+                d.StereoMode = "Field sequential, right image on sync signal"
             }
             break;
         case 2:
             if (edidBytes[17] & 0x1) {
-                d.StereoMode = "field sequential, left during stereo sync"
-            } else {
                 d.StereoMode = "2-way interleaved, left image on even lines"
+            } else {
+                d.StereoMode = "Field sequential, left image on sync signal"
             }
             break;
         case 3:
@@ -49,33 +82,29 @@ export function DecodeDTD(edidBytes) {
             }
             break;
     }
-    switch ((edidBytes[17] & 0x10)>>4) {
-        case 0:
-            // Analog
-            d.SyncMode = {
-                Type: "Analog",
-            }
-            break;
-        case 1:
-            switch ((edidBytes[17] & 0x8)>>3) {
-                case 0:
-                    d.SyncMode = {
-                        Type: "Digital",
-                        Serration: (edidBytes[17] & 0x4)>>2?true:false,
-                        HorizontalSyncPolarity : (edidBytes[17] & 0x2)>>1?"Positive":"Negative",
-                    }
-                    break;
-                case 1:
-                    d.SyncMode = {
-                        Type: "Digital",
-                        VerticalSyncPolarity: (edidBytes[17] & 0x4)>>2?"Positive":"Negative",
-                        HorizontalSyncPolarity : (edidBytes[17] & 0x2)>>1?"Positive":"Negative",
-                    }
-                    break;
-            }
-            break;
+
+    if (edidBytes[17]&0x10>0) {
+        // Digital
+        d.Digital = true
+        if (edidBytes[17] & 0x8>0) {
+            // Digital Separate Sync:
+            d.Sync = "Separate"
+            d.SyncMode.Serrations = (edidBytes[17] & 0x4)>0?true:false
+        } else {
+            // Digital Composite Sync:
+            d.SyncMode = "Composite"
+            d.VerticalSyncPolarity = (edidBytes[17] & 0x4)>>2?"Positive":"Negative"
+            d.HorizontalSyncPolarity = (edidBytes[17] & 0x2)>>1?"Positive":"Negative"
+        }
+    } else {
+        // Analog
+        d.Digital = false
+        d.SyncMode.BipolarCompositeSync = (edidBytes[17]&0x8>0)?true:false
+        d.SyncMode.Serrations = (edidBytes[17]&0x4>0)?true:false
+        d.SyncMode.SyncOn = (edidBytes[17]&0x2>0)?"Green Signal only":"all three (RGB) video signals"
     }
 
+    // Supplemental information
     d.horTotPix = d.HorizontalActive + d.HorizontalBlanking
 	d.verTotPix = d.VerticalActive + d.VerticalBlanking
 	d.VerticalRefreshRate = (d.PixelClockKHz*1000) / (d.horTotPix * d.verTotPix)

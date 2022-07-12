@@ -10,6 +10,9 @@ export default {
       DetailedTimingView,
     },
     data() {
+      let co = calculate_cvt(
+        3840,2160,60,false,false,"cvt_rb2",false,"No Stereo"
+      )
       return {
         horiz_pixels: 3840,
         vert_pixels: 2160,
@@ -18,11 +21,8 @@ export default {
         interlaced: false,
         reduced_blanking: "cvt_rb2",
         video_optimized: false,
-        cvtObj: {
-          SyncMode: {
-            Type: "test"
-          }
-        },
+        stereo_mode: "No Stereo",
+        cvtObj: co
       }
     },
     methods: {
@@ -34,12 +34,12 @@ export default {
           this.margins,
           this.interlaced,
           this.reduced_blanking,
-          this.video_optimized
+          this.video_optimized,
+          this.stereo_mode,
         );
-        console.log(calcRet);
         this.cvtObj = calcRet;
       }
-    }
+    },
 }
 </script>
 
@@ -49,7 +49,7 @@ export default {
       <div class="modal-wrapper">
         <div class="modal-container">
           <div class="modal-header">
-            CVT Generator
+            <h3>CVT Generator</h3>
           </div>
           <div class="modal-body">
             <table>
@@ -60,7 +60,6 @@ export default {
                   <option value="cvt">CVT</option>
                   <option value="cvt_rb">CVT-RB</option>  
                   <option value="cvt_rb2">CVT-RBv2</option>
-                  <option>Custom</option>
                   </select>
                 </td>
               </tr>
@@ -86,20 +85,25 @@ export default {
               </tr>
               <tr>
                 <td>StereoMode</td>
-                <select v-model="stereo_mode">
-                <option value="2w">"2-way interleaved, right image on even lines"</option>
-                <option>Custom</option>
+                <select @change="calculate()" v-model="stereo_mode">
+                <option>No Stereo</option>
+                <option>Field sequential, right image on sync signal</option>
+                <option>Field sequential, left image on sync signal</option>
+                <option>2-way interleaved, right image on even lines</option>
+                <option>2-way interleaved, left image on even lines</option>
+                <option>side-by-side interleaved</option>
+                <option>4-way interleaved</option>
                 </select>
               </tr>
             </table>
           </div>
           <DetailedTimingView :dtd="cvtObj"/>
           <div class="modal-footer">
-            <button @click="calculate()">Calc</button>
+            <button @click="$emit('close')">Cancel</button>
             <button
                 class="modal-default-button"
-                @click="$emit('close')"
-              >OK</button>
+                @click="$emit('newDtd',cvtObj);$emit('close')"
+              >Add</button>
           </div>
         </div>
       </div>
@@ -126,7 +130,7 @@ export default {
 }
 
 .modal-container {
-  width: 300px;
+  width: 400px;
   margin: 0px auto;
   padding: 20px 30px;
   background-color: #fff;

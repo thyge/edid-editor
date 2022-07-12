@@ -17,7 +17,7 @@ export default {
     <table>
         <tr>
             <td>Pixel Clock</td>
-            <td>{{dtd.PixelClockKHz/1000}}Mhz</td>
+            <td>{{dtd.PixelClockKHz/1000000}}Mhz</td>
         </tr>
         <tr>
             <td>Horizontal Active</td>

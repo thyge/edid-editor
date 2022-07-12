@@ -36,6 +36,9 @@ export default {
       });
       this.NotifyChange();
     },
+    UpdateElement(e) {
+      this.mEdid.DisplayDescriptors.unshift(e);
+    }
   }
 }
 </script>
@@ -273,9 +276,12 @@ export default {
   </table>
 </div>
 <h4>Display Descriptors</h4>
-<button @click="showCVTGen = !showCVTGen" disabled>Create Timing</button>
+<button
+  @click="showCVTGen = !showCVTGen"
+  :disabled="mEdid.DisplayDescriptors.filter(x => x.Type!='Dummy Identifier').length > 3">
+  Create Timing</button>
 <button disabled>Create Descriptor</button>
-<CVTGenerator :show="showCVTGen" @close="showCVTGen = !showCVTGen"/>
+<CVTGenerator :show="showCVTGen" @close="showCVTGen = !showCVTGen" @newDtd="UpdateElement"/>
 <div v-for="dd in mEdid.DisplayDescriptors" :key="dd.id">
   <div v-if="dd.Type === 'Detailed Timing Descriptor'">
     <button @click="RemoveElement(dd.id)">remove</button>
