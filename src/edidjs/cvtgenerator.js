@@ -1,3 +1,4 @@
+import { DetailedTimingDescriptor } from "./18ByteDescriptors.js"
 export function calculate_cvt(
     horiz_pixels,
     vert_pixels,
@@ -5,7 +6,8 @@ export function calculate_cvt(
     margins,
     interlaced,
     reduced_blanking,
-    video_optimized){
+    video_optimized,
+    stereo_mode){
 
     // inputs
     let H_PIXELS            = horiz_pixels;
@@ -167,27 +169,48 @@ export function calculate_cvt(
     ACT_FIELD_RATE = 1000 * ACT_H_FREQ / TOTAL_V_LINES;
     ACT_FRAME_RATE = INT_RQD ? ACT_FIELD_RATE / 2 : ACT_FIELD_RATE;
 
-    return {
-        PixelClockKHz: ACT_PIXEL_FREQ * 1000,
-        HorizontalActive: TOTAL_ACTIVE_PIXELS,
-        HorizontalBlanking: H_BLANK,
-        HorizontalFrontPorch: H_FRONT_PORCH,
-        HorizontalSyncPulseWidth: H_SYNC,
-        VerticalActive: V_LINES_RND,
-        VerticalBlanking: V_BLANK,
-        VerticalFrontPorch: V_FRONT_PORCH,
-        VerticalSyncPulseWidth: V_SYNC_RND,
-        HorizontalImageSize: TOTAL_ACTIVE_PIXELS,
-        VerticalImageSize: V_LINES_RND,
-        HorizontalBorder: TOP_MARGIN,
-        VerticalBorder: BOT_MARGIN,
-        Interlaced: INT_RQD,
-        StereoMode: "",
-        SyncMode: {
-            Type: "Digital",
-            HorizontalSyncPolarity: H_POL,
-            VerticalSyncPolarity: V_POL,
-        },
-        VerticalRefreshRate: ACT_FRAME_RATE,
-    }
+    let dtd = new DetailedTimingDescriptor()
+    dtd.PixelClockKHz             = ACT_PIXEL_FREQ * 1000000
+    dtd.HorizontalActive          = TOTAL_ACTIVE_PIXELS
+    dtd.HorizontalBlanking        = H_BLANK
+    dtd.HorizontalFrontPorch      = H_FRONT_PORCH
+    dtd.HorizontalSyncPulseWidth  = H_SYNC
+    dtd.VerticalActive            = V_LINES_RND
+    dtd.VerticalBlanking          = V_BLANK
+    dtd.VerticalFrontPorch        = V_FRONT_PORCH
+    dtd.VerticalSyncPulseWidth    = V_SYNC_RND
+    dtd.HorizontalImageSize       = TOTAL_ACTIVE_PIXELS
+    dtd.VerticalImageSize         = V_LINES_RND
+    dtd.HorizontalBorder          = TOP_MARGIN
+    dtd.VerticalBorder            = BOT_MARGIN
+    dtd.Interlaced                = INT_RQD
+    dtd.VerticalRefreshRate       = ACT_FRAME_RATE
+    dtd.StereoMode                = stereo_mode
+    dtd.Digital = true
+    dtd.HorizontalSyncPolarity = H_POL
+    dtd.VerticalSyncPolarity = V_POL
+    return dtd
+    // return {
+    //     PixelClockKHz: ACT_PIXEL_FREQ * 1000000,
+    //     HorizontalActive: TOTAL_ACTIVE_PIXELS,
+    //     HorizontalBlanking: H_BLANK,
+    //     HorizontalFrontPorch: H_FRONT_PORCH,
+    //     HorizontalSyncPulseWidth: H_SYNC,
+    //     VerticalActive: V_LINES_RND,
+    //     VerticalBlanking: V_BLANK,
+    //     VerticalFrontPorch: V_FRONT_PORCH,
+    //     VerticalSyncPulseWidth: V_SYNC_RND,
+    //     HorizontalImageSize: TOTAL_ACTIVE_PIXELS,
+    //     VerticalImageSize: V_LINES_RND,
+    //     HorizontalBorder: TOP_MARGIN,
+    //     VerticalBorder: BOT_MARGIN,
+    //     Interlaced: INT_RQD,
+    //     StereoMode: "",
+    //     SyncMode: {
+    //         Type: "Digital",
+    //         HorizontalSyncPolarity: H_POL,
+    //         VerticalSyncPolarity: V_POL,
+    //     },
+    //     VerticalRefreshRate: ACT_FRAME_RATE,
+    // }
 }
