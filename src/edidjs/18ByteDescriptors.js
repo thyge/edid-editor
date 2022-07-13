@@ -28,7 +28,79 @@ export class DetailedTimingDescriptor {
 }
 
 DetailedTimingDescriptor.prototype.Encode = function() {
-    return
+    // Reset the raw array
+    for (let i = 0; i < this.raw.length; i++) {
+        this.raw[i] = 0
+    }
+    // Input the data
+    this.raw[0] = (this.PixelClockKHz/10000) & 0xFF
+    this.raw[1] = (this.PixelClockKHz/10000) >> 8
+
+    this.raw[2] = this.HorizontalActive & 0xFF
+    this.raw[3] = this.HorizontalBlanking & 0xFF
+    this.raw[4] |= (this.HorizontalActive&0xF00)>>4
+    this.raw[4] |= (this.HorizontalBlanking&0xF00)>>8
+
+    this.raw[5] = this.VerticalActive & 0xFF
+    this.raw[6] = this.VerticalBlanking & 0xFF
+    this.raw[7] |= (this.VerticalActive&0xF00)>>4
+    this.raw[7] |= (this.VerticalBlanking&0xF00)>>8
+    
+    this.raw[8] = this.HorizontalFrontPorch & 0xFF
+    this.raw[11] |= (this.HorizontalFrontPorch & 0x300)>>2
+
+    this.raw[9] = this.HorizontalSyncPulseWidth & 0xFF
+    this.raw[11] |= (this.HorizontalSyncPulseWidth & 0x300)>>4
+    
+    this.raw[10] |= (this.VerticalFrontPorch&0xF)<<4
+    this.raw[11] |= (this.VerticalFrontPorch & 0x30)>>2
+
+    this.raw[10] |= (this.VerticalSyncPulseWidth&0xF)
+    this.raw[11] |= (this.VerticalSyncPulseWidth & 0x30)>>4
+    
+    this.raw[12] = this.HorizontalImageSize&0xFF
+    this.raw[13] = this.VerticalImageSize&0xFF
+
+    this.raw[14] |= (this.HorizontalImageSize&0xF00)>>4
+    this.raw[14] |= (this.VerticalImageSize&0xF00)>>8
+
+    this.raw[15] = this.HorizontalBorder
+	this.raw[16] = this.VerticalBorder
+
+    this.raw[17] |= this.Interlaced?0x80:0
+
+    switch (this.StereoMode) {
+        case "No Stereo":
+            this.raw[17] |= 0
+            break;
+        case "Field sequential, right image on sync signal":
+            this.raw[17] |= 0x20
+            break;
+        case "Field sequential, left image on sync signal":
+            this.raw[17] |= 0x40
+            break;
+        case "2-way interleaved, right image on even lines":
+            this.raw[17] |= 0x21
+            break;
+        case "2-way interleaved, left image on even lines":
+            this.raw[17] |= 0x41
+            break;
+        case "4-way interleaved":
+            this.raw[17] |= 0x60
+            break;
+        case "side-by-side interleaved":
+            this.raw[17] |= 0x61
+            break;
+    }
+    this.raw[17] |= this.Interlaced?0x80:0
+    this.raw[17] |= this.Digital?0x10:0
+    if (this.Sync === "Separate") {
+        this.raw[17] |= 0x8
+        this.raw[17] |= (this.VerticalSyncPolarity === "Positive")?0x4:0
+        this.raw[17] |= (this.HorizontalSyncPolarity === "Positive")?0x2:0
+    } else {
+        this.raw[17] |= this.Serrations?0x4:0
+    }
 }
 
 export function DecodeDTD(edidBytes) {
@@ -82,26 +154,25 @@ export function DecodeDTD(edidBytes) {
             }
             break;
     }
-
-    if (edidBytes[17]&0x10>0) {
+    if ((edidBytes[17]&0x10)>0) {
         // Digital
         d.Digital = true
-        if (edidBytes[17] & 0x8>0) {
+        if ((edidBytes[17] & 0x8)>0) {
             // Digital Separate Sync:
             d.Sync = "Separate"
-            d.SyncMode.Serrations = (edidBytes[17] & 0x4)>0?true:false
+            d.VerticalSyncPolarity = (edidBytes[17] & 0x4)>0?"Positive":"Negative"
+            d.HorizontalSyncPolarity = (edidBytes[17] & 0x2)>0?"Positive":"Negative"
         } else {
             // Digital Composite Sync:
             d.SyncMode = "Composite"
-            d.VerticalSyncPolarity = (edidBytes[17] & 0x4)>>2?"Positive":"Negative"
-            d.HorizontalSyncPolarity = (edidBytes[17] & 0x2)>>1?"Positive":"Negative"
+            d.SyncMode.Serrations = (edidBytes[17] & 0x4)>0?true:false
         }
     } else {
         // Analog
         d.Digital = false
-        d.SyncMode.BipolarCompositeSync = (edidBytes[17]&0x8>0)?true:false
-        d.SyncMode.Serrations = (edidBytes[17]&0x4>0)?true:false
-        d.SyncMode.SyncOn = (edidBytes[17]&0x2>0)?"Green Signal only":"all three (RGB) video signals"
+        d.SyncMode.BipolarCompositeSync = (edidBytes[17]&0x8)>0?true:false
+        d.SyncMode.Serrations = (edidBytes[17]&0x4)>0?true:false
+        d.SyncMode.SyncOn = (edidBytes[17]&0x2)>0?"Green Signal only":"all three (RGB) video signals"
     }
 
     // Supplemental information
@@ -126,6 +197,11 @@ class DisplayDescriptor {
     raw = []
     Type
     Content = ""
+}
+
+DisplayDescriptor.prototype.Encode = function() {
+    // console.log("Encoding... current raw:")
+    // console.log(this.raw);
 }
 
 export function MakeDummyDescriptor() {

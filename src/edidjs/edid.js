@@ -285,6 +285,9 @@ EDID.prototype.LayoutDisplayDescriptors = function() {
 
     // Add each descriptor back into raw edid
     this.DisplayDescriptors.forEach((dd, i) => {
+        // Encode structure to raw field
+        dd.Encode();
+        // Update id
         dd.id = i
         for (let index = 0; index < 18; index++) {
             this.raw[startByte] = dd.raw[index]

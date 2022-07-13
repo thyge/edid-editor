@@ -36,8 +36,14 @@ export default {
       });
       this.NotifyChange();
     },
-    UpdateElement(e) {
+    AddElement(e) {
+      // pop one of the dummys - dummys always at the end
+      console.log(this.mEdid.DisplayDescriptors.pop());
+      // Add "random" id, this will be corrected when
+      // LayoutDisplayDescriptors is run after NotifyChange -> $emit('update:EDID')
+      e.id = this.mEdid.DisplayDescriptors.length + 1
       this.mEdid.DisplayDescriptors.unshift(e);
+      this.NotifyChange();
     }
   }
 }
@@ -281,7 +287,7 @@ export default {
   :disabled="mEdid.DisplayDescriptors.filter(x => x.Type!='Dummy Identifier').length > 3">
   Create Timing</button>
 <button disabled>Create Descriptor</button>
-<CVTGenerator :show="showCVTGen" @close="showCVTGen = !showCVTGen" @newDtd="UpdateElement"/>
+<CVTGenerator :show="showCVTGen" @close="showCVTGen = !showCVTGen" @newDtd="AddElement"/>
 <div v-for="dd in mEdid.DisplayDescriptors" :key="dd.id">
   <div v-if="dd.Type === 'Detailed Timing Descriptor'">
     <button @click="RemoveElement(dd.id)">remove</button>
