@@ -303,6 +303,22 @@ EDID.prototype.GetPNPCompanyName = function() {
     }
 }
 
+EDID.prototype.SetManufacturerID = function() {
+    // reset bytes
+    this.raw[8] = 0
+    this.raw[9] = 0
+    // ASCII to bytes
+    var bytes = []
+    bytes.push(this.ManufacturerID.charCodeAt(0));
+    bytes.push(this.ManufacturerID.charCodeAt(1));
+    bytes.push(this.ManufacturerID.charCodeAt(2));
+    // Compressed ascii = -0x40
+    this.raw[8] |= (bytes[0]-0x40)<<2
+    this.raw[8] |= (bytes[1]-0x40)>>3
+    this.raw[9] |= (bytes[1]-0x40)<<5
+    this.raw[9] |= (bytes[2]-0x40)
+}	
+
 EDID.prototype.DecodeEDID = function(bytes) {
     this.raw = bytes
     // Manufacturer ID. This is a legacy Plug and Play ID assigned by UEFI forum
