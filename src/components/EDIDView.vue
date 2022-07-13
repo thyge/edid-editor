@@ -57,7 +57,7 @@ export default {
     </tr>
     <tr>
       <td>Manufacturer ID</td>
-      <td><input @input="NotifyChange()" maxlength="3" size="4" v-model="mEdid.ManufacturerID" disabled/></td>
+      <td><input @input="NotifyChange()" maxlength="3" size="4" v-model="mEdid.ManufacturerID"/></td>
       <td>{{mEdid.GetPNPCompanyName()}}</td>
     </tr>
     <tr>
