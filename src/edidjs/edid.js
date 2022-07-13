@@ -542,7 +542,7 @@ EDID.prototype.DecodeEDID = function(bytes) {
             dtd.id = DDID
             this.DisplayDescriptors.push(dtd)
         } else {
-            let dd = DecodeDisplayDescriptor(descriptorBytes, i);
+            let dd = DecodeDisplayDescriptor(descriptorBytes);
             // catch non identified descriptors
             if (dd === null) {
                 break
