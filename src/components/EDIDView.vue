@@ -37,12 +37,11 @@ export default {
       this.NotifyChange();
     },
     AddElement(e) {
+      // ensure we copy the object to void references floating around higher in the app
+      let copy = Object.create(e);
       // pop one of the dummys - dummys always at the end
-      console.log(this.mEdid.DisplayDescriptors.pop());
-      // Add "random" id, this will be corrected when
-      // LayoutDisplayDescriptors is run after NotifyChange -> $emit('update:EDID')
-      e.id = this.mEdid.DisplayDescriptors.length + 1
-      this.mEdid.DisplayDescriptors.unshift(e);
+      this.mEdid.DisplayDescriptors.pop()
+      this.mEdid.DisplayDescriptors.unshift(copy);
       this.NotifyChange();
     }
   }
