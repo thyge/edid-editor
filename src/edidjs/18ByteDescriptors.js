@@ -178,7 +178,7 @@ export function DecodeDTD(edidBytes) {
     // Supplemental information
     d.horTotPix = d.HorizontalActive + d.HorizontalBlanking
 	d.verTotPix = d.VerticalActive + d.VerticalBlanking
-	d.VerticalRefreshRate = (d.PixelClockKHz*1000) / (d.horTotPix * d.verTotPix)
+	d.VerticalRefreshRate = (d.PixelClockKHz) / (d.horTotPix * d.verTotPix)
     return d
 }
 
