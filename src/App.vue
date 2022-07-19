@@ -1,4 +1,5 @@
 <script>
+import LocalStorageView from "./components/LocalStorageView.vue";
 import UploadFile from "./components/UploadFile.vue";
 import HexView from "./components/HexView.vue";
 import EDIDView from "./components/EDIDView.vue";
@@ -13,7 +14,8 @@ export default {
     HexView,
     EDIDView,
     CEAView,
-    DisplayIDView
+    DisplayIDView,
+    LocalStorageView
   },
   data() {
       let eedidObject = new EEDID()
@@ -41,7 +43,6 @@ export default {
         mEdid: eedidObject,
         SelectedPanel: "EDID",
         hevViewRender: true,
-        StoredEDIDs: [],
       }
   },
   methods: {
@@ -92,7 +93,7 @@ export default {
       this.mEdid.CEA = changedCEA;
       this.mEdid.UpdateEEDIDRaw();
       this.ForceReRender();
-    }
+    },
   }
 }
 </script>
@@ -103,6 +104,7 @@ export default {
     <HexView v-if="hevViewRender" :mBytes="mEdid.raw"/>
     <UploadFile @ParseEEDID="HandleUpload"/>
     <button @click="DownloadFile(mEdid.raw)">Download File</button>
+    <LocalStorageView :mEdid="mEdid" @Upload="HandleUpload"/>
     <div class="tab">
       <button v-show="mEdid.EDID" @click="SelectedPanel='EDID'">EDID</button>
       <button v-show="mEdid.CEA" @click="SelectedPanel='CEA'">CEA</button>
@@ -134,6 +136,10 @@ export default {
 </template>
 
 <style scoped>
+
+header h1 {
+  margin: 0;
+}
 .tab {
   position: static;
   width: 81%;
