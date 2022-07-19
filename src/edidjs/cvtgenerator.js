@@ -1,3 +1,5 @@
+// Adapted from https://github.com/tomverbeure/tomverbeure.github.io/blob/master/video_timings_calculator.html
+// and VESA Coordinated Video Timings (CVT) Standard Version 1.2
 import { DetailedTimingDescriptor } from "./18ByteDescriptors.js"
 export function calculate_cvt(
     horiz_pixels,
@@ -9,7 +11,7 @@ export function calculate_cvt(
     video_optimized,
     stereo_mode){
 
-    // inputs
+    // map input names to CVT names
     let H_PIXELS            = horiz_pixels;
     let V_LINES             = vert_pixels;
     let IP_FREQ_RQD         = refresh_rate;
@@ -32,11 +34,12 @@ export function calculate_cvt(
 
     // Table 5-3: Definition of Variables
     const CELL_GRAN         = 8 
+    let CELL_GRAN_RND       = Math.floor(CELL_GRAN);
+    let MARGIN_PER          = 0
     let ACT_FIELD_RATE
     let ACT_FRAME_RATE
     let ACT_H_FREQ
-    let MARGIN_PER          = 0
-    let CELL_GRAN_RND       = Math.floor(CELL_GRAN);
+    
     let V_SYNC_RND
     let H_PERIOD_EST
     let ACT_VBI_LINES
@@ -186,31 +189,8 @@ export function calculate_cvt(
     dtd.Interlaced                = INT_RQD
     dtd.VerticalRefreshRate       = ACT_FRAME_RATE
     dtd.StereoMode                = stereo_mode
-    dtd.Digital = true
-    dtd.HorizontalSyncPolarity = H_POL
-    dtd.VerticalSyncPolarity = V_POL
+    dtd.Digital                   = true
+    dtd.HorizontalSyncPolarity    = H_POL
+    dtd.VerticalSyncPolarity      = V_POL
     return dtd
-    // return {
-    //     PixelClockKHz: ACT_PIXEL_FREQ * 1000000,
-    //     HorizontalActive: TOTAL_ACTIVE_PIXELS,
-    //     HorizontalBlanking: H_BLANK,
-    //     HorizontalFrontPorch: H_FRONT_PORCH,
-    //     HorizontalSyncPulseWidth: H_SYNC,
-    //     VerticalActive: V_LINES_RND,
-    //     VerticalBlanking: V_BLANK,
-    //     VerticalFrontPorch: V_FRONT_PORCH,
-    //     VerticalSyncPulseWidth: V_SYNC_RND,
-    //     HorizontalImageSize: TOTAL_ACTIVE_PIXELS,
-    //     VerticalImageSize: V_LINES_RND,
-    //     HorizontalBorder: TOP_MARGIN,
-    //     VerticalBorder: BOT_MARGIN,
-    //     Interlaced: INT_RQD,
-    //     StereoMode: "",
-    //     SyncMode: {
-    //         Type: "Digital",
-    //         HorizontalSyncPolarity: H_POL,
-    //         VerticalSyncPolarity: V_POL,
-    //     },
-    //     VerticalRefreshRate: ACT_FRAME_RATE,
-    // }
 }
