@@ -1,9 +1,15 @@
 <script>
+import VSDBView from './VSDBView.vue'
+import CEAExtendedTagView from './CEAExtendedTagView.vue'
 export default {
   name: "CEADatablocksView",
   props: {
     datablocks: Array
   },
+  components: {
+    VSDBView,
+    CEAExtendedTagView
+  }
 }
 </script>
 
@@ -28,7 +34,13 @@ export default {
         </tr>
         </table>
     </div>
-    <div v-if="db.Header.Type === 'DBVendorSpecificDataBlock'">
+    <div v-else-if="db.Header.Type === 'DBUseExtendedTag'">
+      <CEAExtendedTagView :m_datablock="db.Content"/>
+    </div>
+    <div v-else-if="db.Header.Type === 'DBVendorSpecificDataBlock'">
+      <VSDBView :m_datablock="db.Content"/>
+    </div>
+    <div v-else>
       <h4>{{db.Content.ExtendedName}}</h4>
       {{db.Content}}
     </div>
