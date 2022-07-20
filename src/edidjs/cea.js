@@ -33,18 +33,19 @@ ExtendedTags.set(18, "HDMIAudioDB")
 ExtendedTags.set(19, "RoomConfigurationDB")
 ExtendedTags.set(20, "SpeakerLocationDB")
 
-const HDMI1_4_BYTES =               0x00 | 0x0C << 8 | 0x03 << 16
-const HDMI2_0_BYTES =               0xC4 | 0x5D << 8 | 0xD8 << 16
-const HDMIDolbyVision_BYTES =       0x00 | 0xD0 << 8 | 0x46 << 16
-const HDMIHDR10_BYTES =             0x90 | 0x84 << 8 | 0x8B << 16
-const SpecializedMonitor_BYTES =    0x5C | 0x12 << 8 | 0xCA << 16
-
+const IEEE_HDMI1_4 =               0x00 | 0x0C << 8 | 0x03 << 16
+const IEEE_HDMI2_0 =               0xC4 | 0x5D << 8 | 0xD8 << 16
+const IEEE_HDMIDolbyVision =       0x00 | 0xD0 << 8 | 0x46 << 16
+const IEEE_HDMIHDR10 =             0x90 | 0x84 << 8 | 0x8B << 16
+const IEEE_SpecializedMonitor =    0x5C | 0x12 << 8 | 0xCA << 16
+const IEEE_NVIDIA =                0x00 | 0x04 << 8 | 0x4B << 16
 const IEEEIdentifyerLookup = new Map();
-IEEEIdentifyerLookup.set(HDMI1_4_BYTES, "HDMI 1.4")
-IEEEIdentifyerLookup.set(HDMI2_0_BYTES, "HDMI 2.0")
-IEEEIdentifyerLookup.set(HDMIDolbyVision_BYTES, "Dolby Vision")
-IEEEIdentifyerLookup.set(HDMIHDR10_BYTES, "HDR10+")
-IEEEIdentifyerLookup.set(SpecializedMonitor_BYTES, "Specialized Monitor")
+IEEEIdentifyerLookup.set(IEEE_HDMI1_4, "HDMI 1.4")
+IEEEIdentifyerLookup.set(IEEE_HDMI2_0, "HDMI 2.0")
+IEEEIdentifyerLookup.set(IEEE_HDMIDolbyVision, "Dolby Vision")
+IEEEIdentifyerLookup.set(IEEE_HDMIHDR10, "HDR10+")
+IEEEIdentifyerLookup.set(IEEE_SpecializedMonitor, "Specialized Monitor")
+IEEEIdentifyerLookup.set(IEEE_NVIDIA, "NVIDIA")
 
 function DecodeDBHeader(dbBytes) {
     return {
