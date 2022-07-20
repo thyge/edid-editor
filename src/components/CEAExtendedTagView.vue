@@ -1,8 +1,12 @@
 <script>
+import VideoDataBlock from './VideoDataBlock.vue'
 export default {
   name: "CEAExtendedTagView",
   props: {
-    m_datablock: Object
+    m_datablock: Object,
+  },
+  components: {
+    VideoDataBlock,
   },
   computed: {
     datablock: {
@@ -77,6 +81,33 @@ export default {
   <tr>
     <td>CEOverscanBehavior</td>
     <td>{{datablock.CEOverscanBehavior}}</td>
+  </tr>
+</table>
+</div>
+<div v-else-if="datablock.ExtendedName === 'YCBCR420CapabilityMap'">
+  <VideoDataBlock :m_vics="datablock.VICs"/>
+</div>
+<div v-else-if="datablock.ExtendedName === 'HDRStaticMetadataDB'">
+<table>
+  <tr>
+    <td>SDR</td>
+    <td><input type="checkbox" v-model="datablock.SDR" disabled/></td>
+  </tr>
+  <tr>
+    <td>HDR</td>
+    <td><input type="checkbox" v-model="datablock.HDR" disabled/></td>
+  </tr>
+  <tr>
+    <td>HLG</td>
+    <td><input type="checkbox" v-model="datablock.HLG" disabled/></td>
+  </tr>
+  <tr>
+    <td>ST2084</td>
+    <td><input type="checkbox" v-model="datablock.ST2084" disabled/></td>
+  </tr>
+  <tr>
+    <td>StaticMetadataType1</td>
+    <td><input type="checkbox" v-model="datablock.StaticMetadataType1" disabled/></td>
   </tr>
 </table>
 </div>

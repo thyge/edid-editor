@@ -90,7 +90,7 @@ CEA.prototype.DecodeCEA = function(bytes) {
     for (let i = 4; i < this.Header.dtdStartByte;) {
         let blockLength = this.raw[i] & 0x1F
         let blockSlice = this.raw.slice(i, i+blockLength+1)
-        let dbBlock = DecodeDBBlock(blockSlice)
+        let dbBlock = this.DecodeDBBlock(blockSlice)
         this.DataBlocks.push(dbBlock)
         i += blockLength+1
     }
@@ -108,8 +108,7 @@ class CEADataBlock {
     Header = {}
     Content = {}
 }
-
-function DecodeDBBlock(dbBytes) {
+CEA.prototype.DecodeDBBlock = function(dbBytes) {
     var db = new CEADataBlock
     db.Header = DecodeDBHeader(dbBytes)
     switch (db.Header.Type) {
@@ -133,13 +132,13 @@ function DecodeDBBlock(dbBytes) {
         case "DBReserverdDataBlock":
             break;
         case "DBUseExtendedTag":
-            db.Content = DecodeExtendedTag(dbBytes)
+            db.Content = this.DecodeExtendedTag(dbBytes)
             break;
     }
     return db
 }
 
-function DecodeExtendedTag(dbBytes) {
+CEA.prototype.DecodeExtendedTag = function(dbBytes) {
     let ext = {}
     ext.ExtendedName = ExtendedTags.get(dbBytes[1])
     switch (ext.ExtendedName) {
@@ -214,12 +213,41 @@ function DecodeExtendedTag(dbBytes) {
             ext.DCIP3 = dbBytes[3]&0x80?true:false
             break;
         case "HDRStaticMetadataDB":
+            ext.HLG = dbBytes[2]&0x08?true:false
+            ext.ST2084 = dbBytes[2]&0x04?true:false
+            ext.HDR = dbBytes[2]&0x02?true:false
+            ext.SDR = dbBytes[2]&0x01?true:false
+            ext.StaticMetadataType1 = dbBytes[3]&0x01?true:false
+            if (ext.StaticMetadataType1 && (dbBytes.length > 4)) {
+                // Luminance value= 50 * 2(CV/32)
+                ext.ContentMaxLuminanceData = 50 * Math.pow(2, dbBytes[4]/32)
+                ext.ContentMaxFrameAverage = 50 * Math.pow(2, dbBytes[5]/32)
+                // Desired Content Min Luminance = Desired Content Max Luminance * (CV/255)2 / 100
+                ext.ContentMinLuminance = ext.ContentMaxLuminanceData * Math.pow(dbBytes[6]/255, 2) / 100
+            }
             break;
         case "VideoFormatPreferenceDB":
             break;
         case "YCBCR420VideoDB":
             break;
         case "YCBCR420CapabilityMap":
+            var mvics = []
+            this.DataBlocks.forEach((d) => {
+                if (d.Header.Type === "DBVideoDataBlock") {
+                    mvics = d.Content.VICs
+                }
+            })
+            ext.VICs = []
+            var vicCounter = 0
+            for (let i = 2; i < dbBytes.length; i++) {
+                for (let s = 1; s < 255;) {
+                    if ((dbBytes[i]&s)>0) {
+                        ext.VICs.push(mvics[vicCounter])
+                    }
+                    vicCounter++
+                    s = s<<1
+                }
+            }
             break;
         case "CTAMiscellaneousAudioDB":
             break;

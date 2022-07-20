@@ -1,4 +1,5 @@
 <script>
+import VideoDataBlock from './VideoDataBlock.vue'
 import VSDBView from './VSDBView.vue'
 import CEAExtendedTagView from './CEAExtendedTagView.vue'
 export default {
@@ -7,6 +8,7 @@ export default {
     datablocks: Array
   },
   components: {
+    VideoDataBlock,
     VSDBView,
     CEAExtendedTagView
   }
@@ -16,23 +18,8 @@ export default {
 <template>
 <div v-for="db in datablocks" :key="db.id">
     <div v-if="db.Header.Type === 'DBVideoDataBlock'">
-        <h4>Video Data Blocks</h4>
-        <table>
-            <tr>
-                <td>Description</td>
-                <td>HorizontalActive</td>
-                <td>VerticalActive</td>
-                <td>PixelMHz</td>
-                <td>Native</td>
-            </tr>
-        <tr v-for="v in db.Content.VICs" :key="v.id">
-            <td>{{v.Description}}</td>
-            <td>{{v.HorizontalActive}}</td>
-            <td>{{v.VerticalActive}}</td>
-            <td>{{v.PixelMHz}}Mhz</td>
-            <td><input type="checkbox" v-model="v.Native" disabled/></td>
-        </tr>
-        </table>
+    <h4>Video Data Blocks</h4>
+    <VideoDataBlock :m_vics="db.Content.VICs"/>
     </div>
     <div v-else-if="db.Header.Type === 'DBUseExtendedTag'">
       <CEAExtendedTagView :m_datablock="db.Content"/>
