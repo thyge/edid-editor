@@ -87,12 +87,12 @@ CEA.prototype.DecodeCEA = function(bytes) {
 
     // Data Block Collection
     // If byte 2 is 04, the collection is of zero length (i.e. not present).
-    for (let i = 4; i < this.Header.dtdStartByte; i++) {
+    for (let i = 4; i < this.Header.dtdStartByte;) {
         let blockLength = this.raw[i] & 0x1F
-        let blockSlice = this.raw.slice(i, i+blockLength)
+        let blockSlice = this.raw.slice(i, i+blockLength+1)
         let dbBlock = DecodeDBBlock(blockSlice)
         this.DataBlocks.push(dbBlock)
-        i += blockLength
+        i += blockLength+1
     }
     if (this.Header.dtdStartByte != 0) {
         for (let d = this.Header.dtdStartByte; d < 127-18; d+=18) {
@@ -119,7 +119,7 @@ function DecodeDBBlock(dbBytes) {
             db.Content.VICs = []
             for (let v = 1; v < db.Header.Size; v++) {
                 let vic = vicLookup[dbBytes[v]&0x7F]
-                vic.Native = (dbBytes[v]&0x80 > 0)?true:false
+                vic.Native = ((dbBytes[v]&0x80) > 0)?true:false
                 db.Content.VICs.push(vic)
             }
             break;
@@ -133,10 +133,105 @@ function DecodeDBBlock(dbBytes) {
         case "DBReserverdDataBlock":
             break;
         case "DBUseExtendedTag":
-            db.Content.ExtendedName = ExtendedTags.get(dbBytes[1])
+            db.Content = DecodeExtendedTag(dbBytes)
             break;
     }
     return db
+}
+
+function DecodeExtendedTag(dbBytes) {
+    let ext = {}
+    ext.ExtendedName = ExtendedTags.get(dbBytes[1])
+    switch (ext.ExtendedName) {
+
+        case "VideoCapabilityDB":
+            ext.YCCQuantizationRangeSelectable = dbBytes[2]&0x80?true:false
+            ext.RGBQuantizationRangeSelectable = dbBytes[2]&0x40?true:false
+            ext.PTOverscanBehavior = ""
+            switch (dbBytes[2]&0x30) {
+                case 48:
+                    ext.PTOverscanBehavior = "Supports both over and underscan"    
+                    break;
+                case 32:
+                    ext.PTOverscanBehavior = "Always Underscanned"
+                    break;
+                case 16:
+                    ext.PTOverscanBehavior = "Always Overscanned"
+                    break;
+                default:
+                    ext.PTOverscanBehavior = "No Data"
+                    break;
+            }
+            ext.ITOverscanBehavior = ""
+            switch (dbBytes[2]&0xC) {
+                case 12:
+                    ext.ITOverscanBehavior = "Supports both over and underscan"    
+                    break;
+                case 8:
+                    ext.ITOverscanBehavior = "Always Underscanned"
+                    break;
+                case 4:
+                    ext.ITOverscanBehavior = "Always Overscanned"
+                    break;
+                default:
+                    ext.ITOverscanBehavior = "No Data"
+                    break;
+            }
+            ext.CEOverscanBehavior = ""
+            switch (dbBytes[2]&0x3) {
+                case 3:
+                    ext.CEOverscanBehavior = "Supports both over and underscan"    
+                    break;
+                case 2:
+                    ext.CEOverscanBehavior = "Always Underscanned"
+                    break;
+                case 1:
+                    ext.CEOverscanBehavior = "Always Overscanned"
+                    break;
+                default:
+                    ext.CEOverscanBehavior = "No Data"
+                    break;
+            }
+            break;
+        case "VendorSpecificVideoDB":
+            
+            break;
+        case "VESADisplayDeviceDB":
+            break;
+        case "VESAVideoTimingBlockExtension":
+            break;
+        case "HDMIVideoDB":
+            break;
+        case "ColorimetryDB":
+            ext.xvYCC601 = dbBytes[2]&0x80?true:false
+            ext.xvYCC709 = dbBytes[2]&0x40?true:false
+            ext.sYCC601 = dbBytes[2]&0x20?true:false
+            ext.opYCC601 = dbBytes[2]&0x10?true:false
+            ext.opRGB = dbBytes[2]&0x08?true:false
+            ext.BT2020cYCC = dbBytes[2]&0x04?true:false
+            ext.BT2020YCC = dbBytes[2]&0x02?true:false
+            ext.BT2020RGB = dbBytes[2]&0x01?true:false
+            ext.DCIP3 = dbBytes[3]&0x80?true:false
+            break;
+        case "HDRStaticMetadataDB":
+            break;
+        case "VideoFormatPreferenceDB":
+            break;
+        case "YCBCR420VideoDB":
+            break;
+        case "YCBCR420CapabilityMap":
+            break;
+        case "CTAMiscellaneousAudioDB":
+            break;
+        case "VendorSpecificAudioDB":
+            break;
+        case "HDMIAudioDB":
+            break;
+        case "RoomConfigurationDB":
+            break;
+        case "SpeakerLocationDB":
+    }
+    return ext
 }
 
 function DecodeVSDBBlock(dbBytes) {
@@ -147,18 +242,19 @@ function DecodeVSDBBlock(dbBytes) {
     switch (vsdb.ExtendedName) {
         case "HDMI 1.4":
             vsdb.Address = {}
-            vsdb.Address.A = dbBytes[3] >> 4
-            vsdb.Address.B = dbBytes[3] & 0xF
-            vsdb.Address.C = dbBytes[4] >> 4
-            vsdb.Address.D = dbBytes[4] & 0xF
+            vsdb.Address.A = dbBytes[4] >> 4
+            vsdb.Address.B = dbBytes[4] & 0xF
+            vsdb.Address.C = dbBytes[5] >> 4
+            vsdb.Address.D = dbBytes[5] & 0xF
             if (dbBytes.length < 6) {
                 break;
             }
-            vsdb.BitDepth16 = dbBytes[5]&0x40?true:false
-            vsdb.BitDepth12 = dbBytes[5]&0x20?true:false
-            vsdb.BitDepth10 = dbBytes[5]&0x10?true:false
-            vsdb.DeepColour444 = dbBytes[5]&0x08?true:false
-            vsdb.DVIDualLinkOperation = dbBytes[5]&0x01?true:false
+            vsdb.BitDepth16 = dbBytes[6]&0x40?true:false
+            vsdb.BitDepth12 = dbBytes[6]&0x20?true:false
+            vsdb.BitDepth10 = dbBytes[6]&0x10?true:false
+            vsdb.DeepColour444 = dbBytes[6]&0x08?true:false
+            vsdb.DVIDualLinkOperation = dbBytes[6]&0x01?true:false
+            vsdb.Max_TMDS_Clock = dbBytes[7]*5 //MHz
             break;
         case "HDMI 2.0":
             vsdb.Max_TMDS_Frequency = dbBytes[5] * 5
@@ -171,10 +267,10 @@ function DecodeVSDBBlock(dbBytes) {
             vsdb.Dual_View = dbBytes[6]&0x02?true:false
             vsdb.OSD_3D_Disparity = dbBytes[6]&0x02?true:false
 
-            vsdb.DC_48bit = dbBytes[7]&0x04?true:false
-            vsdb.DC_36bit = dbBytes[7]&0x02?true:false
-            vsdb.DC_30bit = dbBytes[7]&0x01?true:false
-            
+            vsdb.DC_Y420_48bit = dbBytes[7]&0x04?true:false
+            vsdb.DC_Y420_36bit = dbBytes[7]&0x02?true:false
+            vsdb.DC_Y420_30bit = dbBytes[7]&0x01?true:false
+
             if (dbBytes.length < 8) {
                 break;
             }
