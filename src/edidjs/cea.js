@@ -108,11 +108,74 @@ class CEADataBlock {
     Header = {}
     Content = {}
 }
+
 CEA.prototype.DecodeDBBlock = function(dbBytes) {
     var db = new CEADataBlock
     db.Header = DecodeDBHeader(dbBytes)
     switch (db.Header.Type) {
         case "DBAudioDataBlock":
+            switch ((dbBytes[1] & 0x78)>>3) {
+                case 1:
+                    db.Content.AudioType = "LPCM"
+                    break;
+                case 2:
+                    db.Content.AudioType = "AC-3"
+                    break;
+                case 3:
+                    db.Content.AudioType = "MPEG-1"
+                    break;
+                case 4:
+                    db.Content.AudioType = "MP3"
+                    break;
+                case 5:
+                    db.Content.AudioType = "MPEG-2"
+                    break;
+                case 6:
+                    db.Content.AudioType = "AAC LC"
+                    break;
+                case 7:
+                    db.Content.AudioType = "DTS"
+                    break;
+                case 8:
+                    db.Content.AudioType = "ATRAC"
+                    break;
+                case 9:
+                    db.Content.AudioType = "One-Bit Audio"
+                    break;
+                case 10:
+                    db.Content.AudioType = "DD+"
+                    break;
+                case 11:
+                    db.Content.AudioType = "DTS-HD"
+                    break;
+                case 12:
+                    db.Content.AudioType = "MAT/MLP/Dolby TrueHD"
+                    break;
+                case 13:
+                    db.Content.AudioType = "DST Audio"
+                    break;  
+                case 14:
+                    db.Content.AudioType = "Microsoft WMA Pro"
+                    break;
+                case 15:
+                    db.Content.AudioType = "Extension"
+                    break;
+                default:
+                    db.Content.AudioType = "reserved"
+                    break;
+            }
+            db.Content.Channels = (dbBytes[1]&0x7) + 1
+            db.Content.Sampling192 = dbBytes[2]&0x40?true:false
+            db.Content.Sampling176 = dbBytes[2]&0x20?true:false
+            db.Content.Sampling96 = dbBytes[2]&0x10?true:false
+            db.Content.Sampling88 = dbBytes[2]&0x08?true:false
+            db.Content.Sampling48 = dbBytes[2]&0x04?true:false
+            db.Content.Sampling44_1 = dbBytes[2]&0x02?true:false
+            db.Content.Sampling32 = dbBytes[2]&0x01?true:false
+
+            db.Content.BitDepth16 = dbBytes[3]&0x01?true:false
+            db.Content.BitDepth20 = dbBytes[3]&0x02?true:false
+            db.Content.BitDepth24 = dbBytes[3]&0x04?true:false
             break;
         case "DBVideoDataBlock":
             db.Content.VICs = []
@@ -126,6 +189,13 @@ CEA.prototype.DecodeDBBlock = function(dbBytes) {
             db.Content = DecodeVSDBBlock(dbBytes)
             break;
         case "DBSpeakerAllocationData":
+            db.Content.RearLeftRightCenter = dbBytes[1]&0x40?true:false
+            db.Content.FrontLeftRightCenter = dbBytes[1]&0x20?true:false
+            db.Content.RearCenter = dbBytes[1]&0x10?true:false
+            db.Content.RearLeftRight = dbBytes[1]&0x08?true:false
+            db.Content.FrontCenter = dbBytes[1]&0x04?true:false
+            db.Content.LFE = dbBytes[1]&0x02?true:false
+            db.Content.FrontLeftRight = dbBytes[1]&0x01?true:false
             break;
         case "DBVESAVDIFDataBlock":
             break;
