@@ -109,6 +109,18 @@ export default {
     <td>StaticMetadataType1</td>
     <td><input type="checkbox" v-model="datablock.StaticMetadataType1" disabled/></td>
   </tr>
+  <tr>
+    <td>Max luminance cd/m^2</td>
+    <td><input type="number" v-model.number="datablock.ContentMaxLuminanceData" disabled/></td>
+  </tr>
+  <tr>
+    <td>Max frame-average luminance cd/m^2</td>
+    <td><input type="number" v-model.number="datablock.ContentMaxFrameAverage" disabled/></td>
+  </tr>
+  <tr>
+    <td>Min luminance cd/m^2</td>
+    <td><input type="number" v-model.number="datablock.ContentMinLuminance" disabled/></td>
+  </tr>
 </table>
 </div>
 <div v-else>

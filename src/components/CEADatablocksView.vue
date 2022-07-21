@@ -30,44 +30,40 @@ export default {
         <td>Channels</td>
         <td><input type="number" v-model="db.Content.Channels" disabled/></td>
       </tr>
+    </table>
+    <table>
       <tr>
-        <td>Sampling192</td>
+        <td></td>
+        <td>192Khz</td>
+        <td>176Khz</td>
+        <td>96Khz</td>
+        <td>88Khz</td>
+        <td>48Khz</td>
+        <td>44.1Khz</td>
+        <td>32Khz</td>
+      </tr>
+      <tr>
+        <td>Sampling</td>
         <td><input type="checkbox" v-model="db.Content.Sampling192" disabled/></td>
-      </tr>
-      <tr>
-        <td>Sampling176</td>
         <td><input type="checkbox" v-model="db.Content.Sampling176" disabled/></td>
-      </tr>
-      <tr>
-        <td>Sampling96</td>
         <td><input type="checkbox" v-model="db.Content.Sampling96" disabled/></td>
-      </tr>
-      <tr>
-        <td>Sampling88</td>
         <td><input type="checkbox" v-model="db.Content.Sampling88" disabled/></td>
-      </tr>
-      <tr>
-        <td>Sampling48</td>
         <td><input type="checkbox" v-model="db.Content.Sampling48" disabled/></td>
-      </tr>
-      <tr>
-        <td>Sampling44_1</td>
         <td><input type="checkbox" v-model="db.Content.Sampling44_1" disabled/></td>
-      </tr>
-      <tr>
-        <td>Sampling32</td>
         <td><input type="checkbox" v-model="db.Content.Sampling32" disabled/></td>
       </tr>
+      </table>
+      <table>
       <tr>
-        <td>BitDepth16</td>
+        <td></td>
+        <td>16</td>
+        <td>20</td>
+        <td>24</td>
+      </tr>
+      <tr>
+        <td>BitDepth</td>
         <td><input type="checkbox" v-model="db.Content.BitDepth16" disabled/></td>
-      </tr>
-      <tr>
-        <td>BitDepth20</td>
         <td><input type="checkbox" v-model="db.Content.BitDepth20" disabled/></td>
-      </tr>
-      <tr>
-        <td>BitDepth24</td>
         <td><input type="checkbox" v-model="db.Content.BitDepth24" disabled/></td>
       </tr>
     </table>
@@ -122,5 +118,6 @@ export default {
 table, th, td {
   border: 1px solid;
   border-collapse: collapse;
+  margin: 5px;
 }
 </style>
