@@ -94,6 +94,44 @@ export default {
       this.mEdid.UpdateEEDIDRaw();
       this.ForceReRender();
     },
+    HandleAddExtension(type) {
+      let blank = new Uint8Array(this.mEdid.raw.length + 128)
+      // Copy in exsisting data
+      for (let i = 0; i < this.mEdid.raw.length; i++) {
+        blank[i] = this.mEdid.raw[i]
+      }
+      // increment ext counter
+      blank[126]++
+      // Add extension header
+      switch (type) {
+        case "CEA":
+          blank[blank.length-128] = 0x02
+          break;
+        case "DID":
+          blank[blank.length-128] = 0x70
+          break;
+      }
+      this.HandleUpload(blank)
+    },
+    HandleNewEDID() {
+      this.SelectedPanel = "EDID"
+      let blank = new Uint8Array(128)
+      blank[8] = 0x51
+      blank[9] = 0x19
+      // blank[18] = 1 // version
+      // blank[19] = 4 // revision
+      blank[20] = 0x80 // ensure it's Digital
+      blank[23] = 0x78 // 2.2 gamma
+      // standard timings unused
+      for (let i = 38; i < 54; i++) {
+        blank[i] = 0x01
+      }
+      // add dummy descriptors
+      for (let i = 0; i < 4; i++) {
+        blank[54+3+(18*i)] =  0x10
+      }
+      this.HandleUpload(blank)
+    }
   }
 }
 </script>
@@ -109,6 +147,10 @@ export default {
       <button v-show="mEdid.EDID" @click="SelectedPanel='EDID'">EDID</button>
       <button v-show="mEdid.CEA" @click="SelectedPanel='CEA'">CEA</button>
       <button v-show="mEdid.DID" @click="SelectedPanel='DID'">DisplayID</button>
+      <div class="spacer"></div>
+      <button @click="HandleNewEDID()">New EDID</button>
+      <button @click="HandleAddExtension('CEA')">Add CEA Extension</button>
+      <button @click="HandleAddExtension('DID')">Add DisplayID Extension</button>
     </div>
   </header>
 
@@ -141,11 +183,15 @@ header h1 {
   margin: 0;
 }
 .tab {
+  display: flex;
   position: static;
   width: 81%;
   overflow: hidden;
   border: 1px solid #ccc;
   background-color: #f1f1f1;
+}
+.spacer {
+  flex-grow: 1;
 }
 .tab button {
   background-color: inherit;
