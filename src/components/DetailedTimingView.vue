@@ -80,9 +80,17 @@ export default {
             <td>{{dtd.StereoMode}}</td>
         </tr>
         <tr v-show="showDetails">
-            <td>Sync Mode</td>
-            <td>{{dtd.SyncMode.Type}}</td>
+            <td>Sync</td>
+            <td>{{dtd.Sync}}</td>
         </tr>
+        <tr v-show="showDetails">
+            <td>VerticalSyncPolarity</td>
+            <td>{{dtd.VerticalSyncPolarity}}</td>
+        </tr>
+        <tr v-show="showDetails">
+            <td>HorizontalSyncPolarity</td>
+            <td>{{dtd.HorizontalSyncPolarity}}</td>
+        </tr>   
     </table>
 </template>
 
