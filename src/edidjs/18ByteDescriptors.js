@@ -210,6 +210,22 @@ export function MakeDummyDescriptor() {
     return DecodeDisplayDescriptor(dummyBytes, 0)
 }
 
+class ASCIIDescriptor {
+    raw = []
+    Type
+    Content = ""
+}
+
+ASCIIDescriptor.prototype.Encode = function(){
+    for (let d = 5; d < 19; d++) {
+        this.raw[d] = 0
+    }
+    for (let d = 0; d < this.Content.length; d++) {
+        if (d > 14) { break; }
+        this.raw[d+5] = this.Content.charCodeAt(d)
+    }
+}
+
 export function DecodeDisplayDescriptor(descriptorBytes) {
     // Type is decalred with strings so
     //the frontend does not have to import this file for const declarations
@@ -217,6 +233,8 @@ export function DecodeDisplayDescriptor(descriptorBytes) {
     dd.raw = descriptorBytes;
     switch (descriptorBytes[3]) {
         case DD_SerialNumber:
+            dd = new ASCIIDescriptor()
+            dd.raw = descriptorBytes;
             // Display serial number (ASCII text)
             dd.Type = "Display serial number (ASCII text)"
             // This field takes presidence over [12:15]
@@ -225,6 +243,8 @@ export function DecodeDisplayDescriptor(descriptorBytes) {
             }
             break;
         case DD_UnspecifiedText:
+            dd = new ASCIIDescriptor()
+            dd.raw = descriptorBytes;
             dd.Type = "Unspecified text (ASCII text)"
             // Unspecified text (ASCII text)
             for (let d = 5; d < 19; d++) {
@@ -244,6 +264,8 @@ export function DecodeDisplayDescriptor(descriptorBytes) {
             dd.Content = DisplayRangeLimits;
             break;
         case DD_DisplayProductName:
+            dd = new ASCIIDescriptor()
+            dd.raw = descriptorBytes;
             // Display Product Name
             dd.Type = "Display Product Name";
             for (let d = 5; d < 19; d++) {
