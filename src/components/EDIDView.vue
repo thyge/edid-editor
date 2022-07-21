@@ -29,7 +29,7 @@ export default {
         if (dpm) {
           return dpm.Content  
         } else {
-          return ""
+          return null
         }
       },
       set(value) {
@@ -44,7 +44,7 @@ export default {
         if (dsn) {
           return dsn.Content  
         } else {
-          return ""
+          return null
         }
       },
       set(value) {
@@ -92,16 +92,16 @@ export default {
     </tr>
     <tr>
       <td>Serial Number</td>
-      <td v-if="DDSerialNumber.length > 0">
-        <input maxlngth="13" size="15" v-model="DDSerialNumber"/>
+      <td v-if="DDSerialNumber != null">
+        <input maxlength="13" size="15" v-model="DDSerialNumber"/>
       </td>
       <td v-else>
-        <input @input="NotifyChange()" maxlngth="10" size="10" v-model="mEdid.SerialNumber"/>
+        <input @input="NotifyChange()" maxlength="10" size="10" v-model="mEdid.SerialNumber"/>
       </td>
     </tr>
-    <tr v-if="DDProductName.length > 0">
+    <tr v-if="DDProductName != null">
       <td>Product Name</td>
-      <td><input maxlngth="13" size="15" v-model="DDProductName"/></td>
+      <td><input maxlength="13" size="15" v-model="DDProductName"/>asdsa</td>
     </tr>
     <tr>
       <td>Date of manufacture</td>
@@ -163,7 +163,13 @@ export default {
     </tr>
     <tr>
       <td>Display Gamma</td>
-      <td><input @input="NotifyChange()" maxlength="3" size="2" v-model.number="mEdid.Gamma"/></td>
+      <td>
+        <input @input="NotifyChange()"
+        type="number"
+        step="0.01"
+        size="1"
+        v-model.number="mEdid.Gamma"/>
+      </td>
     </tr>
     <tr>
       <td>DPMS Standby</td>
