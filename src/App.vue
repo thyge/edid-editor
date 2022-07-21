@@ -5,7 +5,7 @@ import HexView from "./components/HexView.vue";
 import EDIDView from "./components/EDIDView.vue";
 import CEAView from "./components/CEAView.vue";
 import DisplayIDView from "./components/DisplayIDView.vue";
-import EEDID from "./edidjs/edid.js";
+import {EEDID} from "./edidjs/eedid.js";
 
 export default {
   name: 'App',
