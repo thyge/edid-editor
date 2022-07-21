@@ -367,7 +367,7 @@ EDID.prototype.DecodeEDID = function(bytes) {
         this.Digital = true
     } else {
         this.Digital = false
-        this.Errors += "EDID.Analog decoder not supported yet\n"
+        this.Errors.push("EDID.Analog decoder not supported yet")
     }
 
     // EDID 1.4
