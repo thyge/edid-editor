@@ -182,10 +182,10 @@ export function DecodeDTD(edidBytes) {
     return d
 }
 
-const DD_SerialNumber = 0xFF
-const DD_UnspecifiedText = 0xFE
+export const DD_SerialNumber = 0xFF
+export const DD_UnspecifiedText = 0xFE
 const DD_DisplayRangeLimits = 0xFD
-const DD_DisplayProductName = 0xFC
+export const DD_DisplayProductName = 0xFC
 const DD_ColorPointData = 0xFB
 const DD_StandardTimingDefinitions = 0xFA
 const DD_DCM = 0xF9
@@ -193,7 +193,7 @@ const DD_CVT3_ByteCodes = 0xF8
 const DD_EstablishedTimingsIII = 0xF8
 const DD_DummyIdentifier = 0x10
 
-class DisplayDescriptor {
+export class DisplayDescriptor {
     raw = []
     Type
     Content = ""
@@ -210,13 +210,15 @@ export function MakeDummyDescriptor() {
     return DecodeDisplayDescriptor(dummyBytes, 0)
 }
 
-class ASCIIDescriptor {
+export class ASCIIDescriptor {
     raw = []
-    Type
+    Type = ""
     Content = ""
+    mType
 }
 
 ASCIIDescriptor.prototype.Encode = function(){
+    this.raw[3] = this.mType
     for (let d = 5; d < 19; d++) {
         this.raw[d] = 0
     }
@@ -231,9 +233,11 @@ export function DecodeDisplayDescriptor(descriptorBytes) {
     //the frontend does not have to import this file for const declarations
     let dd = new DisplayDescriptor()
     dd.raw = descriptorBytes;
+    console.log(dd.raw);
     switch (descriptorBytes[3]) {
         case DD_SerialNumber:
             dd = new ASCIIDescriptor()
+            dd.mType = DD_SerialNumber
             dd.raw = descriptorBytes;
             // Display serial number (ASCII text)
             dd.Type = "Display serial number (ASCII text)"
@@ -244,6 +248,7 @@ export function DecodeDisplayDescriptor(descriptorBytes) {
             break;
         case DD_UnspecifiedText:
             dd = new ASCIIDescriptor()
+            dd.mType = DD_UnspecifiedText
             dd.raw = descriptorBytes;
             dd.Type = "Unspecified text (ASCII text)"
             // Unspecified text (ASCII text)
@@ -265,6 +270,7 @@ export function DecodeDisplayDescriptor(descriptorBytes) {
             break;
         case DD_DisplayProductName:
             dd = new ASCIIDescriptor()
+            dd.mType = DD_DisplayProductName
             dd.raw = descriptorBytes;
             // Display Product Name
             dd.Type = "Display Product Name";

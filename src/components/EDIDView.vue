@@ -1,17 +1,20 @@
 <script>
 import DetailedTimingView from "./DetailedTimingView.vue"
 import CVTGenerator from "./CVTGenerator.vue"
+import EDIDCreateDisplayDescriptor from "./EDIDCreateDisplayDescriptor.vue"
 export default {
   name: "EDIDView",
   emits: ['update:EDID'],
   data() {
     return {
-      showCVTGen: false
+      showCVTGen: false,
+      showDDGen: false,
     }
   },
   components: {
     DetailedTimingView,
     CVTGenerator,
+    EDIDCreateDisplayDescriptor,
   },
   props: {
     mmEdid: Object,
@@ -330,8 +333,18 @@ export default {
   @click="showCVTGen = !showCVTGen"
   :disabled="mEdid.DisplayDescriptors.filter(x => x.Type!='Dummy Identifier').length > 3">
   Create Timing</button>
-<button disabled>Create Descriptor</button>
-<CVTGenerator :show="showCVTGen" @close="showCVTGen = !showCVTGen" @newDtd="AddElement"/>
+<button
+  @click="showDDGen = !showDDGen"
+  :disabled="mEdid.DisplayDescriptors.filter(x => x.Type!='Dummy Identifier').length > 3">
+  Create Descriptor</button>
+<CVTGenerator
+  :show="showCVTGen"
+  @close="showCVTGen = !showCVTGen"
+  @newDtd="AddElement"/>
+<EDIDCreateDisplayDescriptor
+  :show="showDDGen"
+  @close="showDDGen = !showDDGen"
+  @newdd="AddElement"/>
 <div v-for="dd in mEdid.DisplayDescriptors" :key="dd.id">
   <div v-if="dd.Type === 'Detailed Timing Descriptor'">
     <button @click="RemoveElement(dd.id)">remove</button>
