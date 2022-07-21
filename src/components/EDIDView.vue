@@ -22,7 +22,37 @@ export default {
       get() {
         return this.mmEdid
       }
-    }
+    },
+    DDProductName: {
+      get() {
+        let dpm = this.mEdid.DisplayDescriptors.find(e => e.Type === "Display Product Name")
+        if (dpm) {
+          return dpm.Content  
+        } else {
+          return ""
+        }
+      },
+      set(value) {
+        let dpm = this.mEdid.DisplayDescriptors.find(e => e.Type === "Display Product Name")
+        dpm.Content = value
+        this.NotifyChange()
+      },
+    },
+    DDSerialNumber: {
+      get() {
+        let dsn = this.mEdid.DisplayDescriptors.find(e => e.Type === "Display serial number (ASCII text)")
+        if (dsn) {
+          return dsn.Content  
+        } else {
+          return ""
+        }
+      },
+      set(value) {
+        let dsn = this.mEdid.DisplayDescriptors.find(e => e.Type === "Display serial number (ASCII text)")
+        dsn.Content = value
+        this.NotifyChange()
+      }
+    },
   },
   methods: {
     NotifyChange() {
@@ -62,7 +92,16 @@ export default {
     </tr>
     <tr>
       <td>Serial Number</td>
-      <td><input @input="NotifyChange()" maxlngth="10" size="10" v-model="mEdid.SerialNumber"/></td>
+      <td v-if="DDSerialNumber.length > 0">
+        <input maxlngth="13" size="15" v-model="DDSerialNumber"/>
+      </td>
+      <td v-else>
+        <input @input="NotifyChange()" maxlngth="10" size="10" v-model="mEdid.SerialNumber"/>
+      </td>
+    </tr>
+    <tr v-if="DDProductName.length > 0">
+      <td>Product Name</td>
+      <td><input maxlngth="13" size="15" v-model="DDProductName"/></td>
     </tr>
     <tr>
       <td>Date of manufacture</td>
