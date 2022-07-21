@@ -104,7 +104,7 @@ export default {
     </tr>
     <tr v-if="DDProductName != null">
       <td>Product Name</td>
-      <td><input maxlength="13" size="15" v-model="DDProductName"/>asdsa</td>
+      <td><input maxlength="13" size="15" v-model="DDProductName"/></td>
     </tr>
     <tr>
       <td>Date of manufacture</td>
