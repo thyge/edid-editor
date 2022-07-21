@@ -22,7 +22,12 @@ export default {
     </span>
   </div>
   <div v-if="mBytes.length > 127" class="hexviewinner">
-    <span v-for="b in mBytes.slice(128)" :key="b.id">
+    <span v-for="b in mBytes.slice(128,256)" :key="b.id">
+      {{makeHexSingle(b)}}
+    </span>
+  </div>
+  <div v-if="mBytes.length > 255" class="hexviewinner">
+    <span v-for="b in mBytes.slice(256)" :key="b.id">
       {{makeHexSingle(b)}}
     </span>
   </div>
