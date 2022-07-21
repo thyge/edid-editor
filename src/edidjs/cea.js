@@ -407,6 +407,10 @@ function DecodeVSDBBlock(dbBytes) {
         case "Specialized Monitor":
             break;
         default:
+            vsdb.Data = []
+            for (let i = 4; i < dbBytes.length; i++) {
+                vsdb.Data.push(dbBytes[i])
+            }
             break;
     }
     return vsdb
