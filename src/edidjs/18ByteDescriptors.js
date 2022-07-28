@@ -1,4 +1,5 @@
 export class DetailedTimingDescriptor {
+    id = crypto.randomUUID()
     raw = Uint8Array
     // Stored Value = Pixel clock ÷ 10,000
     // Range: 10 kHz to 655.35 MHz in 10 kHz steps
@@ -194,6 +195,7 @@ const DD_EstablishedTimingsIII = 0xF8
 const DD_DummyIdentifier = 0x10
 
 export class DisplayDescriptor {
+    id = crypto.randomUUID()
     raw = []
     Type
     Content = ""
@@ -211,6 +213,7 @@ export function MakeDummyDescriptor() {
 }
 
 export class ASCIIDescriptor {
+    id = crypto.randomUUID()
     raw = []
     Type = ""
     Content = ""
@@ -233,7 +236,6 @@ export function DecodeDisplayDescriptor(descriptorBytes) {
     //the frontend does not have to import this file for const declarations
     let dd = new DisplayDescriptor()
     dd.raw = descriptorBytes;
-    console.log(dd.raw);
     switch (descriptorBytes[3]) {
         case DD_SerialNumber:
             dd = new ASCIIDescriptor()
