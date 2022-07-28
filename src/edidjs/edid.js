@@ -243,14 +243,12 @@ EDID.prototype.DecodeEDID = function(bytes) {
         this.StandardTimings.push(stdTiming)
     }
     // Detailed timing descriptors
-    let DDID = 0
     for (let i = 54; i < 126; i+=18) {
         // if first 2 bytes / pixel clock is 0 then parse as Display Descriptor
         let descriptorBytes = this.raw.slice(i,i+18)
         let descHeader = descriptorBytes[1]<<8 | descriptorBytes[0]
         if (descHeader != 0) {
             let dtd = DecodeDTD(descriptorBytes)
-            dtd.id = DDID
             this.DisplayDescriptors.push(dtd)
         } else {
             let dd = DecodeDisplayDescriptor(descriptorBytes);
@@ -258,10 +256,8 @@ EDID.prototype.DecodeEDID = function(bytes) {
             if (dd === null) {
                 break
             }
-            dd.id = DDID
             this.DisplayDescriptors.push(dd);
         }
-        DDID++
     }
     if (this.DisplayDescriptors.length < 4) {
         // Each of the four data blocks shall contain a detailed timing descriptor, a display descriptor or a dummy descriptor (Tag 10h)
@@ -453,11 +449,9 @@ EDID.prototype.LayoutDisplayDescriptors = function() {
     }
 
     // Add each descriptor back into raw edid
-    this.DisplayDescriptors.forEach((dd, i) => {
+    this.DisplayDescriptors.forEach((dd) => {
         // Encode structure to raw field
         dd.Encode();
-        // Update id
-        dd.id = i
         for (let index = 0; index < 18; index++) {
             this.raw[startByte] = dd.raw[index]
             startByte++
