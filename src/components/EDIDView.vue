@@ -59,6 +59,8 @@ export default {
   },
   methods: {
     NotifyChange() {
+      // Ensure we uppercase ManuID as 5b ascii cannot support lower case
+      this.mEdid.ManufacturerID = this.mEdid.ManufacturerID.toUpperCase();
       this.$emit('update:EDID', this.mEdid)
     },
     RemoveElement(e) {
@@ -114,7 +116,7 @@ export default {
         maxlength="4" size="4" v-model.number="mEdid.YearOfManufacture"/>
         Week:
         <input @input="NotifyChange()"
-        maxlength="2" size="2" v-model.number="mEdid.WeekOfManufacture"/>
+        maxlength="2" size="3" v-model.number="mEdid.WeekOfManufacture"/>
       </td>
     </tr>
     <tr>
