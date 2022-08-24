@@ -19,11 +19,11 @@ export default {
     }
     return {
       slots: sl,
-      selectedSlot: 1,
     }
   },
   methods: {
-    SetCookie() {
+    SetCookie(selected) {
+      console.log(selected);
       let monitorName = ""
       this.mEdid.EDID.DisplayDescriptors.forEach(dd => {
         if (dd.Type === "Display Product Name") {
@@ -32,7 +32,7 @@ export default {
       })
       let hexString = this.mEdid.raw.reduce((output, elem) => 
         (output + ('0' + elem.toString(16)).slice(-2)),'');
-      document.cookie = this.selectedSlot.toString() + "=" + hexString + "," + monitorName
+      document.cookie = selected.toString() + "=" + hexString + "," + monitorName
       this.CookiesToSlots()
     },
     PrintCookies() {
@@ -43,6 +43,8 @@ export default {
       this.slots = []
       document.cookie.split(";").forEach(s => {
         let slotsplit = s.split("=")
+        // if slotsplit does not have cookie content return
+        if (slotsplit < 2) { return }
         let namesplit = slotsplit[1].split(",")
         this.slots.push({
           Slot: parseInt(slotsplit[0]),
@@ -52,7 +54,6 @@ export default {
       })
     },
     LoadFromSlot(selected) {
-      this.selectedSlot = selected
       this.CookiesToSlots()
       let byts
       this.slots.forEach(s => {
@@ -61,35 +62,45 @@ export default {
         }
       })
       this.$emit('upload', byts)
+    },
+    ClearCookie(selected) {
+      this.CookiesToSlots()
+      this.slots.forEach(s => {
+        if (selected === s.Slot) {
+          document.cookie = selected.toString()+'=; Max-Age=-99999999;';
+          this.CookiesToSlots()
+        }
+      })
     }
   },
 }
 </script>
 
 <template>
+
 <div class="btncontainer">
-    <button @click="LoadFromSlot(s.Slot)"
-    v-for="s in slots" :key="s.Slot">
-    {{s.Name}}</button>
-</div>
-<div class="btncontainer">
-  <select  v-model.number="selectedSlot">
-    <option>1</option>
-    <option>2</option>
-    <option>3</option>
-    <option>4</option>
-  </select>
-  <button @click="SetCookie">Save to browser</button>
+    <div class="slotbtns" v-for="s in slots" :key="s.Slot">
+      <button @click="LoadFromSlot(s.Slot)">{{s.Name}}</button>
+      <button @click="SetCookie(s.Slot)">Save</button>
+      <button @click="ClearCookie(s.Slot)">Delete</button>
+    </div>
+    <button @click="SetCookie(this.slots.length+1)">Save New EDID</button>
 </div>
 </template>
 
 <style scoped>
 .btncontainer {
   display: flex;
-  background-color: gainsboro;
+  text-align: center;
   margin: 5px;
-  padding: 5px;
   gap: 10px;
   width: 50%;
+}
+.slotbtns {
+  display: flex;
+  flex-direction: column;
+  border-style: solid;
+  border-color: gainsboro;
+  padding: 5px;
 }
 </style>
