@@ -81,7 +81,7 @@ export default {
 <div class="btncontainer">
     <div class="slotbtns" v-for="s in slots" :key="s.Slot">
       <button @click="LoadFromSlot(s.Slot)">{{s.Name}}</button>
-      <button @click="SetCookie(s.Slot)">Save</button>
+      <button @click="SetCookie(s.Slot)">Update </button>
       <button @click="ClearCookie(s.Slot)">Delete</button>
     </div>
     <button @click="SetCookie(this.slots.length+1)">Save New EDID</button>
