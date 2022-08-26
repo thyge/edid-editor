@@ -1,11 +1,9 @@
 <script>
-import DetailedTimingView from "./DetailedTimingView.vue"
 import CEADatablocksView from "./CEADatablocksView.vue"
 export default {
   name: "CEAView",
   emits: ['update:CEA'],
   components: {
-    DetailedTimingView,
     CEADatablocksView,
   },
   props: {
@@ -23,7 +21,12 @@ export default {
       this.$emit('update:CEA', this.mCEA);
     },
     RemoveElement(e) {
-      console.log(e);
+      this.mCEA.DetailedTimingBlocks.forEach((d, i) => {
+        if (d.id === e) {
+          this.mCEA.DetailedTimingBlocks.splice(i, 1)
+        }
+      });
+      this.$emit('update:CEA', this.mCEA);
     },
   }
 }
@@ -57,13 +60,7 @@ export default {
       <td><input type=checkbox v-model="mCEA.Header.YCBCR422" disabled/></td>
     </tr>
   </table>
-  <div v-if="mCEA.DetailedTimingBlocks.length > 0">
-    <h4>Detailed Timing Descriptions</h4>
-    <div v-for="dtd in mCEA.DetailedTimingBlocks" :key="dtd.id">
-      <button @click="RemoveElement(dtd.Type)">remove</button>
-      <DetailedTimingView :dtd="dtd"/>
-    </div>
-  </div>
+  <!-- DTD BLOCKS -->
   <CEADatablocksView :datablocks="mCEA.DataBlocks"/>
 </template>
 

@@ -2,6 +2,7 @@
 import VideoDataBlock from './VideoDataBlock.vue'
 import VSDBView from './VSDBView.vue'
 import CEAExtendedTagView from './CEAExtendedTagView.vue'
+import DetailedTimingView from './DetailedTimingView.vue';
 export default {
   name: "CEADatablocksView",
   props: {
@@ -10,15 +11,17 @@ export default {
   components: {
     VideoDataBlock,
     VSDBView,
-    CEAExtendedTagView
-  }
+    CEAExtendedTagView,
+    DetailedTimingView
+}
 }
 </script>
 
 <template>
 <div v-for="db in datablocks" :key="db.id">
-    <div v-if="db.Header.Type === 'DBAudioDataBlock'">
+  <div v-if="db.Header.Type === 'DBAudioDataBlock'">
     <h4>Audio Data Block</h4>
+    <button @click="RemoveElement(db.id)">remove</button>
     <table>
       <tr>
         <td>Type</td>
@@ -67,50 +70,53 @@ export default {
         <td><input type="checkbox" v-model="db.Content.BitDepth24" disabled/></td>
       </tr>
     </table>
-    </div>
-    <div v-else-if="db.Header.Type === 'DBVideoDataBlock'">
+  </div>
+  <div v-else-if="db.Header.Type === 'DBVideoDataBlock'">
     <h4>Video Data Blocks</h4>
     <VideoDataBlock :m_vics="db.Content.VICs"/>
-    </div>
-    <div v-else-if="db.Header.Type === 'DBVendorSpecificDataBlock'">
-      <VSDBView :m_datablock="db.Content"/>
-    </div>
-    <div v-else-if="db.Header.Type === 'DBSpeakerAllocationData'">
-      <h4>Speaker Allocation Data Block</h4>
-      <table>
-        <tr>
-          <td>RearLeftRightCenter</td>
-          <td><input type="checkbox" v-model="db.Content.RearLeftRightCenter" disabled/></td>
-        </tr>
-        <tr>
-          <td>RearCenter</td>
-          <td><input type="checkbox" v-model="db.Content.RearCenter" disabled/></td>
-        </tr>
-        <tr>
-          <td>RearLeftRight</td>
-          <td><input type="checkbox" v-model="db.Content.RearLeftRight" disabled/></td>
-        </tr>
-        <tr>
-          <td>FrontCenter</td>
-          <td><input type="checkbox" v-model="db.Content.FrontCenter" disabled/></td>
-        </tr>
-        <tr>
-          <td>LFE</td>
-          <td><input type="checkbox" v-model="db.Content.LFE" disabled/></td>
-        </tr>
-        <tr>
-          <td>FrontLeftRight</td>
-          <td><input type="checkbox" v-model="db.Content.FrontLeftRight" disabled/></td>
-        </tr>
-      </table>
-    </div>
-    <div v-else-if="db.Header.Type === 'DBUseExtendedTag'">
-      <CEAExtendedTagView :m_datablock="db.Content"/>
-    </div>
-    <div v-else>
-      <h4>{{db.Header.Type}}</h4>
-      {{db.Content}}
-    </div>
+  </div>
+  <div v-else-if="db.Header.Type === 'DBVendorSpecificDataBlock'">
+    <VSDBView :m_datablock="db.Content"/>
+  </div>
+  <div v-else-if="db.Header.Type === 'DBSpeakerAllocationData'">
+    <h4>Speaker Allocation Data Block</h4>
+    <table>
+      <tr>
+        <td>RearLeftRightCenter</td>
+        <td><input type="checkbox" v-model="db.Content.RearLeftRightCenter" disabled/></td>
+      </tr>
+      <tr>
+        <td>RearCenter</td>
+        <td><input type="checkbox" v-model="db.Content.RearCenter" disabled/></td>
+      </tr>
+      <tr>
+        <td>RearLeftRight</td>
+        <td><input type="checkbox" v-model="db.Content.RearLeftRight" disabled/></td>
+      </tr>
+      <tr>
+        <td>FrontCenter</td>
+        <td><input type="checkbox" v-model="db.Content.FrontCenter" disabled/></td>
+      </tr>
+      <tr>
+        <td>LFE</td>
+        <td><input type="checkbox" v-model="db.Content.LFE" disabled/></td>
+      </tr>
+      <tr>
+        <td>FrontLeftRight</td>
+        <td><input type="checkbox" v-model="db.Content.FrontLeftRight" disabled/></td>
+      </tr>
+    </table>
+  </div>
+  <div v-else-if="db.Header.Type === 'DBUseExtendedTag'">
+    <CEAExtendedTagView :m_datablock="db.Content"/>
+  </div>
+  <div v-else-if="db.Header.Type === 'DetailedTimingDescriptor'">
+    <DetailedTimingView :dtd="db.Content"></DetailedTimingView>
+  </div>
+  <div v-else>
+    <h4>{{db.Header.Type}}</h4>
+    {{db.Content}}
+  </div>
 </div>
 </template>
 
