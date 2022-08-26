@@ -73,8 +73,8 @@ export default {
       }, 0); 
     },
     HandleEDIDUpdate(changedEDID) {
-      console.log(this.mEdid)
       this.mEdid.EDID = changedEDID;
+      console.log(this.mEdid)
       this.mEdid.EDID.SetManufacturerID();
       this.mEdid.EDID.LayoutDisplayDescriptors();
       this.mEdid.EDID.SetEDIDVersion();
@@ -91,6 +91,8 @@ export default {
     },
     HandleCEAUpdate(changedCEA) {
       this.mEdid.CEA = changedCEA;
+      console.log(this.mEdid)
+      this.mEdid.CEA.SetBlocks();
       this.mEdid.UpdateEEDIDRaw();
       this.ForceReRender();
     },
