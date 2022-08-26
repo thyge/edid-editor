@@ -72,12 +72,9 @@ function DecodeCEAHeader(headerBytes) {
     return header
 }
 
-CEA.prototype.RemoveDataBlock = function(blockName) {
-    console.log("CEA Removing block: " + blockName)
-}
-
-CEA.prototype.RemoveCEADetailedTiming = function(blockName) {
-    console.log("CEA DTD Removing block: " + blockName)
+CEA.prototype.SetBlocks = function() {
+    // loop through
+    console.log("Setting blocks")
 }
 
 CEA.prototype.DecodeCEA = function(bytes) {
@@ -99,10 +96,14 @@ CEA.prototype.DecodeCEA = function(bytes) {
         for (let d = this.Header.dtdStartByte; d < 127-18; d+=18) {
             var dtd = DecodeDTD(this.raw.slice(d, d+18+1))
             if (dtd != null) {
-                this.DetailedTimingBlocks.push(dtd)    
+                let db = new CEADataBlock
+                db.Content = dtd
+                db.Header.Type = "DetailedTimingDescriptor"
+                this.DataBlocks.push(db)    
             }
         }
     }
+    console.log(this.DataBlocks);
 }
 
 class CEADataBlock {
