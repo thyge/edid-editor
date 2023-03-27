@@ -33,40 +33,49 @@ export default {
 </script>
 
 <template>
-  <h4>CEA Header</h4>
-  <table>
-    <tr>
-      <td>Version</td>
+  <div class="container">
+  <div class="row">
+    <h4>CEA Header</h4>
+  </div>
+  <div class="row">
+    <div class="column column-10">Version</div>
+    <div class="column column-10">
       <select v-model.number="mCEA.Header.Version">
       <option>1</option>
       <option>2</option>
       <option>3</option>
       </select>
-    </tr>
-    <tr v-show="mCEA.Header.Version > 1">
-      <td>Underscan</td>
-      <td><input type=checkbox v-model="mCEA.Header.Underscan" disabled/></td>
-    </tr>
-    <tr v-show="mCEA.Header.Version > 1">
-      <td>BasicAudio</td>
-      <td><input type=checkbox v-model="mCEA.Header.BasicAudio" disabled/></td>
-    </tr>
-    <tr v-show="mCEA.Header.Version > 1">
-      <td>YCBCR444</td>
-      <td><input type=checkbox v-model="mCEA.Header.YCBCR444" disabled/></td>
-    </tr>
-    <tr v-show="mCEA.Header.Version > 1">
-      <td>YCBCR422</td>
-      <td><input type=checkbox v-model="mCEA.Header.YCBCR422" disabled/></td>
-    </tr>
-  </table>
+    </div>
+  </div>
+  <div class="row">
+    <div class="column column-10">Underscan</div>
+    <div class="column column-10">
+      <input type=checkbox v-model="mCEA.Header.Underscan" disabled/>
+    </div>
+  </div>
+  <div class="row" v-show="mCEA.Header.Version > 1">
+    <div class="column column-10">BasicAudio</div>
+    <div class="column column-10">
+      <input type=checkbox v-model="mCEA.Header.BasicAudio" disabled/>
+    </div>
+  </div>
+  <div class="row" v-show="mCEA.Header.Version > 1">
+    <div class="column column-10">YCBCR444</div>
+    <div class="column column-10">
+      <input type=checkbox v-model="mCEA.Header.YCBCR444" disabled/>
+    </div>
+  </div>
+  <div class="row" v-show="mCEA.Header.Version > 1">
+    <div class="column column-10">YCBCR422</div>
+    <div class="column column-10">
+      <input type=checkbox v-model="mCEA.Header.YCBCR422" disabled/>
+    </div>
+  </div>
+</div>
   <!-- DTD BLOCKS -->
   <CEADatablocksView :datablocks="mCEA.DataBlocks"/>
+  
 </template>
 
 <style scoped>
-table, th, td {
-  border: 1px solid;
-  border-collapse: collapse;
-}
 </style>
