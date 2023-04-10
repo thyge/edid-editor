@@ -77,30 +77,15 @@ export default {
 </script>
 
 <template>
-
-<div class="btncontainer">
-    <div class="slotbtns" v-for="s in slots" :key="s.Slot">
-      <button @click="LoadFromSlot(s.Slot)">{{s.Name}}</button>
-      <button @click="SetCookie(s.Slot)">Update </button>
-      <button @click="ClearCookie(s.Slot)">Delete</button>
-    </div>
-    <button @click="SetCookie(this.slots.length+1)">Save New EDID</button>
+<div class="container">
+<div v-for="s in slots" :key="s.Slot">
+  <button class="button" @click="LoadFromSlot(s.Slot)">Load {{s.Name}}</button>
+  <button class="button button-outline" @click="SetCookie(s.Slot)">Update </button>
+  <button class="button button-outline" @click="ClearCookie(s.Slot)">Delete</button>
+</div>
+<button @click="SetCookie(this.slots.length+1)">Save Current state as new EDID</button>
 </div>
 </template>
 
 <style scoped>
-.btncontainer {
-  display: flex;
-  text-align: center;
-  margin: 5px;
-  gap: 10px;
-  width: 50%;
-}
-.slotbtns {
-  display: flex;
-  flex-direction: column;
-  border-style: solid;
-  border-color: gainsboro;
-  padding: 5px;
-}
 </style>
