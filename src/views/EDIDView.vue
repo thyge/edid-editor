@@ -1,7 +1,7 @@
 <script>
-import DetailedTimingView from "./DetailedTimingView.vue"
-import CVTGenerator from "./CVTGenerator.vue"
-import EDIDCreateDisplayDescriptor from "./EDIDCreateDisplayDescriptor.vue"
+import DetailedTimingView from "../components/DetailedTimingView.vue"
+import CVTGenerator from "../components/CVTGenerator.vue"
+import EDIDCreateDisplayDescriptor from "../components/EDIDCreateDisplayDescriptor.vue"
 export default {
   name: "EDIDView",
   emits: ['update:EDID'],
@@ -84,7 +84,10 @@ export default {
 </script>
 
 <template>
-<div>
+<div class="container">
+<!-- EDID Header -->
+<div class="container">
+  <h4>EDID Header</h4>
   <table>
     <tr>
       <td>Extensions</td>
@@ -122,7 +125,7 @@ export default {
     <tr>
       <td>Version and Revision</td>
       <td>
-        <select @change="NotifyChange()" v-model.number="mEdid.Revision">
+        <select maxlength="4" @change="NotifyChange()" v-model.number="mEdid.Revision">
           <option value="3">1.3</option>
           <option value="4">1.4</option>
         </select>
@@ -130,9 +133,10 @@ export default {
     </tr>
   </table>
 </div>
+
 <!-- Display Parameters -->
+<div class="container">
 <h4>Display Parameters</h4>
-<div>
   <table>
     <tr v-show="mEdid.Revision > 3">
       <td>Display Bitdepth</td>
@@ -208,17 +212,21 @@ export default {
       </td>
       <td>EDID 1.4 Only</td>
     </tr>
-    
   </table>
 </div>
-<h4>Chromaticity</h4>
-<div>
+
+<!--  Chromaticity -->
+<div class="container">
+  <h4>Chromaticity</h4>
   <table>
-    <tr>
-      <td></td>
-      <td style="text-align:center">X</td>
-      <td style="text-align:center">Y</td>
-    </tr>
+    <thead>
+      <tr>
+      <th></th>
+      <th>X</th>
+      <th>Y</th>
+      </tr>
+    </thead>
+    <tbody>
     <tr>
       <td>Red</td>
       <td><input v-model.number="mEdid.Chromaticity.RedX" disabled/></td>
@@ -239,10 +247,13 @@ export default {
       <td><input v-model.number="mEdid.Chromaticity.WhiteX" disabled/></td>
       <td><input v-model.number="mEdid.Chromaticity.WhiteY" disabled/></td>
     </tr>
+  </tbody>
   </table>
 </div>
-<h4>Established Timings</h4>
-<div>
+
+<!-- Established Timings -->
+<div class="container">
+  <h4>Established Timings</h4>
   <table @change="NotifyChange()" class="establishedTimingsTable">
     <tr>
       <td><input type="checkbox"
@@ -313,8 +324,10 @@ export default {
     </tr>
   </table>
 </div>
-<h4>Standard Timings</h4>
-<div>
+
+<!-- Standard Timings -->
+<div class="container">
+  <h4 >Standard Timings</h4>
   <button disabled>add</button>
   <table>
     <tr>
@@ -330,89 +343,95 @@ export default {
     </tr>
   </table>
 </div>
-<h4>Display Descriptors</h4>
-<button
-  @click="showCVTGen = !showCVTGen"
-  :disabled="mEdid.DisplayDescriptors.filter(x => x.Type!='Dummy Identifier').length > 3">
-  Create Timing</button>
-<button
-  @click="showDDGen = !showDDGen"
-  :disabled="mEdid.DisplayDescriptors.filter(x => x.Type!='Dummy Identifier').length > 3">
-  Create Descriptor</button>
-<CVTGenerator
-  :show="showCVTGen"
-  @close="showCVTGen = !showCVTGen"
-  @newDtd="AddElement"/>
-<EDIDCreateDisplayDescriptor
-  :show="showDDGen"
-  @close="showDDGen = !showDDGen"
-  @newdd="AddElement"/>
-<div v-for="dd in mEdid.DisplayDescriptors" :key="dd.id">
-  <div v-if="dd.Type === 'Detailed Timing Descriptor'">
-    <button @click="RemoveElement(dd.id)">remove</button>
-    <DetailedTimingView :dtd="dd"/>
+
+<!--  Display Descriptors  -->
+<div class="container">
+  <h4>Display Descriptors</h4>
+  <button
+    @click="showCVTGen = !showCVTGen"
+    :disabled="mEdid.DisplayDescriptors.filter(x => x.Type!='Dummy Identifier').length > 3">
+    Create Timing</button>
+  <button
+    @click="showDDGen = !showDDGen"
+    :disabled="mEdid.DisplayDescriptors.filter(x => x.Type!='Dummy Identifier').length > 3">
+    Create Descriptor</button>
+  <CVTGenerator
+    :show="showCVTGen"
+    @close="showCVTGen = !showCVTGen"
+    @newDtd="AddElement"/>
+  <EDIDCreateDisplayDescriptor
+    :show="showDDGen"
+    @close="showDDGen = !showDDGen"
+    @newdd="AddElement"/>
+
+  <div v-for="dd in mEdid.DisplayDescriptors" :key="dd.id">
+    <div class="container dd" v-if="dd.Type === 'Detailed Timing Descriptor'">
+      <DetailedTimingView :dtd="dd"/>
+      <button @click="RemoveElement(dd.id)">remove this descriptor</button>
+    </div>
+    <div class="container dd" v-else-if="dd.Type === 'Display Range Limits'">
+      <label>Display Range Limits</label>
+      <table>
+        <tr>
+          <td></td>
+          <td>Minimum</td>
+          <td>Maximum</td>
+        </tr>
+        <tr>
+          <td>Horizontal Rate</td>
+          <td><input maxlength="3" size="3" type="number"
+          v-model.number="dd.Content.MinimumHorizontalRate" disabled/></td>
+          <td><input maxlength="3" size="3" type="number"
+          v-model.number="dd.Content.MaximumHorizontalRate" disabled/></td>
+        </tr>
+        <tr>
+          <td>Vertical Rate</td>
+          <td><input maxlength="3" size="3" type="number"
+          v-model.number="dd.Content.MinimumVerticalRate" disabled/></td>
+          <td><input maxlength="3" size="3" type="number"
+          v-model.number="dd.Content.MaximumVerticalRate" disabled/></td>
+        </tr>
+        <tr>
+          <td>PixelClock</td>
+          <td></td>
+          <td><input maxlength="3" size="3" type="number"
+          v-model.number="dd.Content.MaximumPixelClock" disabled/></td>
+        </tr>
+        <tr>
+          <td>DefaultGTF</td>
+          <td><input maxlength="3" size="3" type="checkbox"
+          v-model.number="dd.Content.DefaultGTF" disabled/></td>
+        </tr>
+        <tr>
+          <td>RangeLimitsOnly</td>
+          <td><input maxlength="3" size="3" type="checkbox"
+          v-model.number="dd.Content.RangeLimitsOnly" disabled/></td>
+        </tr>
+        <tr>
+          <td>SecondaryGTF</td>
+          <td><input maxlength="3" size="3" type="checkbox"
+          v-model.number="dd.Content.SecondaryGTF" disabled/></td>
+        </tr>
+        <tr>
+          <td>CVTSupported</td>
+          <td><input maxlength="3" size="3" type="checkbox"
+          v-model.number="dd.Content.CVTSupported" disabled/></td>
+        </tr>
+        <tr>
+          <td>VideoTimingData</td>
+          <td>{{dd.Content.VideoTimingData}}</td>
+        </tr>
+      </table>
+      <button @click="RemoveElement(dd.id)">remove this descriptor</button>
+    </div>
+    <!-- Don't display the dummy identifiers -->
+    <div class="container dd" v-else-if="dd.Type !== 'Dummy Identifier'">
+      <label>{{dd.Type}}: </label>
+      <p>{{dd.Content}}</p>
+      <button @click="RemoveElement(dd.id)">remove this descriptor</button>
+    </div>
   </div>
-  <div v-else-if="dd.Type === 'Display Range Limits'">
-    {{dd.Type}}
-    <button @click="RemoveElement(dd.id)">remove</button>
-    <table>
-      <tr>
-        <td></td>
-        <td>Minimum</td>
-        <td>Maximum</td>
-      </tr>
-      <tr>
-        <td>Horizontal Rate</td>
-        <td><input maxlength="3" size="3" type="number"
-        v-model.number="dd.Content.MinimumHorizontalRate" disabled/></td>
-        <td><input maxlength="3" size="3" type="number"
-        v-model.number="dd.Content.MaximumHorizontalRate" disabled/></td>
-      </tr>
-      <tr>
-        <td>Vertical Rate</td>
-        <td><input maxlength="3" size="3" type="number"
-        v-model.number="dd.Content.MinimumVerticalRate" disabled/></td>
-        <td><input maxlength="3" size="3" type="number"
-        v-model.number="dd.Content.MaximumVerticalRate" disabled/></td>
-      </tr>
-      <tr>
-        <td>PixelClock</td>
-        <td></td>
-        <td><input maxlength="3" size="3" type="number"
-        v-model.number="dd.Content.MaximumPixelClock" disabled/></td>
-      </tr>
-      <tr>
-        <td>DefaultGTF</td>
-        <td><input maxlength="3" size="3" type="checkbox"
-        v-model.number="dd.Content.DefaultGTF" disabled/></td>
-      </tr>
-      <tr>
-        <td>RangeLimitsOnly</td>
-        <td><input maxlength="3" size="3" type="checkbox"
-        v-model.number="dd.Content.RangeLimitsOnly" disabled/></td>
-      </tr>
-      <tr>
-        <td>SecondaryGTF</td>
-        <td><input maxlength="3" size="3" type="checkbox"
-        v-model.number="dd.Content.SecondaryGTF" disabled/></td>
-      </tr>
-      <tr>
-        <td>CVTSupported</td>
-        <td><input maxlength="3" size="3" type="checkbox"
-        v-model.number="dd.Content.CVTSupported" disabled/></td>
-      </tr>
-      <tr>
-        <td>VideoTimingData</td>
-        <td>{{dd.Content.VideoTimingData}}</td>
-      </tr>
-    </table>
-  </div>
-  <!-- Don't display the dummy identifiers -->
-  <div v-else-if="dd.Type !== 'Dummy Identifier'">
-    <span>{{dd.Type}}: </span>
-    <span>{{dd.Content}}</span>
-    <button @click="RemoveElement(dd.id)">remove</button>
-  </div>
+</div>
 </div>
 <h4 v-show="mEdid.Errors.length > 0" class="errors">Errors</h4>
 <div v-show="mEdid.Errors.length > 0" class="errors">
@@ -423,18 +442,13 @@ export default {
 </template>
 
 <style scoped>
-.errors {
-  background-color: red;
-  color: white;
+* {
+  margin: 0;
+  padding: 0;
 }
-table, th, td {
-  border: 1px solid;
-  border-collapse: collapse;
-}
-.establishedTimingsTable {
-  font-size: small;
-}
-div {
-  margin: 10px;
+.dd {
+  border-style: solid;
+  margin: 1rem;
+  padding: 1rem;
 }
 </style>

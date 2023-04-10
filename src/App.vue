@@ -2,7 +2,7 @@
 import LocalStorageView from "./components/LocalStorageView.vue";
 import UploadFile from "./components/UploadFile.vue";
 import HexView from "./components/HexView.vue";
-import EDIDView from "./components/EDIDView.vue";
+import EDIDView from "./views/EDIDView.vue";
 import CEAView from "./components/CEAView.vue";
 import DisplayIDView from "./components/DisplayIDView.vue";
 import {EEDID} from "./edidjs/eedid.js";
@@ -41,7 +41,7 @@ export default {
       eedidObject.ParseEEDID(byts)
       return {
         mEdid: eedidObject,
-        SelectedPanel: "EDID",
+        SelectedPanel: "CEA",
         hevViewRender: true,
       }
   },
@@ -139,22 +139,23 @@ export default {
 </script>
 
 <template>
-  <header>
-    <h1>EDID Editir</h1>
-    <HexView v-if="hevViewRender" :mBytes="mEdid.raw"/>
-    <UploadFile @ParseEEDID="HandleUpload"/>
-    <button @click="DownloadFile(mEdid.raw)">Download File</button>
-    <LocalStorageView :mEdid="mEdid" @Upload="HandleUpload"/>
-    <div class="tab">
-      <button v-show="mEdid.EDID" @click="SelectedPanel='EDID'">EDID</button>
-      <button v-show="mEdid.CEA" @click="SelectedPanel='CEA'">CEA</button>
-      <button v-show="mEdid.DID" @click="SelectedPanel='DID'">DisplayID</button>
-      <div class="spacer"></div>
-      <button @click="HandleNewEDID()">New EDID</button>
-      <button @click="HandleAddExtension('CEA')">Add CEA Extension</button>
-      <button @click="HandleAddExtension('DID')">Add DisplayID Extension</button>
+  <HexView v-if="hevViewRender" :mBytes="mEdid.raw"/>
+  <h1>EDID Editor</h1>
+  <UploadFile @ParseEEDID="HandleUpload"/>
+  <button @click="DownloadFile(mEdid.raw)">Download File</button>
+  <LocalStorageView :mEdid="mEdid" @Upload="HandleUpload"/>
+  <div class="container">
+    <div class="row">
+      <button class="column column-10"  @click="HandleNewEDID()">New EDID</button>
+      <button class="column column-20" @click="HandleAddExtension('CEA')">Add CEA Extension</button>
+      <button class="column column-20" @click="HandleAddExtension('DID')">Add DisplayID Extension</button>
     </div>
-  </header>
+    <div class="row">
+      <button class="column column-10" v-show="mEdid.EDID" @click="SelectedPanel='EDID'">EDID</button>
+      <button class="column column-10" v-show="mEdid.CEA" @click="SelectedPanel='CEA'">CEA</button>
+      <button class="column column-10" v-show="mEdid.DID" @click="SelectedPanel='DID'">DisplayID</button>
+    </div>
+  </div>
 
   <main>
     <EDIDView
@@ -180,49 +181,13 @@ export default {
 </template>
 
 <style scoped>
-
-header h1 {
+* {
   margin: 0;
-}
-.tab {
-  display: flex;
-  position: static;
-  width: 81%;
-  overflow: hidden;
-  border: 1px solid #ccc;
-  background-color: #f1f1f1;
-}
-.spacer {
-  flex-grow: 1;
-}
-.tab button {
-  background-color: inherit;
-  float: left;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  padding: 14px 16px;
-  transition: 0.3s;
-}
-/* Change background color of buttons on hover */
-.tab button:hover {
-  background-color: #ddd;
-}
-
-/* Create an active/current tablink class */
-.tab button.active {
-  background-color: #ccc;
+  padding: 0;
 }
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-footer div {
-  bottom: 0px;
-  background-color: gainsboro;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
 }
 </style>
