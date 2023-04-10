@@ -1,5 +1,6 @@
+import {uuidv4} from './uuid'
 export class DetailedTimingDescriptor {
-    id = crypto.randomUUID()
+    id = uuidv4()
     raw = Uint8Array
     // Stored Value = Pixel clock ÷ 10,000
     // Range: 10 kHz to 655.35 MHz in 10 kHz steps
@@ -195,7 +196,7 @@ const DD_EstablishedTimingsIII = 0xF8
 const DD_DummyIdentifier = 0x10
 
 export class DisplayDescriptor {
-    id = crypto.randomUUID()
+    id = uuidv4()
     raw = []
     Type
     Content = ""
@@ -213,7 +214,7 @@ export function MakeDummyDescriptor() {
 }
 
 export class ASCIIDescriptor {
-    id = crypto.randomUUID()
+    id = uuidv4()
     raw = []
     Type = ""
     Content = ""
