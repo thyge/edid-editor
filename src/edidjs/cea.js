@@ -56,7 +56,7 @@ function DecodeDBHeader(dbBytes) {
 
 function DecodeCEAHeader(headerBytes) {
     var header = {}
-    header.Version = headerBytes[1]
+    header.Version = headerBytes[1].toString() // needs to be toString because of v-model issues
     header.dtdStartByte = headerBytes[2]
     if (header.Version > 1) {
         // Bit 7	1 if display supports underscan, 0 if not

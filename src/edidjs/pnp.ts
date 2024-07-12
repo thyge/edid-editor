@@ -1,4 +1,5 @@
-export let pnpLookup = [
+
+const pnpLookup = [
     {
 		ID:      "TTL",
 		Company: "2-TEL B.V",
@@ -12305,3 +12306,4 @@ export let pnpLookup = [
 		Date:    "11/29/1996",
 	}
 ]
+export default pnpLookup;

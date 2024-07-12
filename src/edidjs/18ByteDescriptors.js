@@ -181,19 +181,22 @@ export function DecodeDTD(edidBytes) {
     d.horTotPix = d.HorizontalActive + d.HorizontalBlanking
 	d.verTotPix = d.VerticalActive + d.VerticalBlanking
 	d.VerticalRefreshRate = (d.PixelClockKHz) / (d.horTotPix * d.verTotPix)
+    d.HorizontalRefreshRate = (d.PixelClockKHz) / (d.horTotPix)
     return d
 }
 
 export const DD_SerialNumber = 0xFF
 export const DD_UnspecifiedText = 0xFE
-const DD_DisplayRangeLimits = 0xFD
+export const DD_DisplayRangeLimits = 0xFD
 export const DD_DisplayProductName = 0xFC
-const DD_ColorPointData = 0xFB
-const DD_StandardTimingDefinitions = 0xFA
-const DD_DCM = 0xF9
-const DD_CVT3_ByteCodes = 0xF8
-const DD_EstablishedTimingsIII = 0xF8
-const DD_DummyIdentifier = 0x10
+export const DD_ColorPointData = 0xFB
+export const DD_StandardTimingDefinitions = 0xFA
+export const DD_DCM = 0xF9
+export const DD_CVT3_ByteCodes = 0xF8
+export const DD_EstablishedTimingsIII = 0xF7
+export const DD_DummyIdentifier = 0x10
+export const DD_ManufacturerStart = 0x00
+export const DD_ManufacturerEnd = 0x0F
 
 export class DisplayDescriptor {
     id = uuidv4()
@@ -293,16 +296,19 @@ export function DecodeDisplayDescriptor(descriptorBytes) {
             break;
         case DD_DCM:
             // Display Color Management (DCM)
+            // EDID 1.4
             dd.Type = "Display Color Management (DCM)";
             dd.Content = "Decode not supported yet"
             break;
         case DD_CVT3_ByteCodes:
             // CVT 3-Byte Timing Codes
+            // EDID 1.4
             dd.Type = "CVT 3-Byte Timing Codes";
             dd.Content = "Decode not supported yet"
             break;
         case DD_EstablishedTimingsIII:
             // Established Timings 3
+            // EDID 1.4
             dd.Type = "Established Timings III";
             dd.Content = "Decode not supported yet"
             break;
@@ -310,7 +316,11 @@ export function DecodeDisplayDescriptor(descriptorBytes) {
             // Dummy identifier.
             dd.Type = "Dummy Identifier";
             break;
+        case DD_ManufacturerStart-DD_ManufacturerEnd:
+            dd.Type = "Manufacturer Specified Display Descriptors";
+            break;
         default:
+            dd.Type = "Reserved";
             return null
     }
     return dd;
@@ -351,13 +361,45 @@ export function DecodeRangeLimits(bytes) {
 	drld.MaximumPixelClock = bytes[9] * 10
 
     // Video Timing Support Flags: Bytes 10 → 17 indicate support for additional video timings.
+    switch (bytes[10]&0x7) {
+        case 0:
+            drld.VideoTimingSupportMode = "DefaultGTF";
+            break;
+        case 1:
+            drld.VideoTimingSupportMode = "RangeLimitsOnly";
+            break;
+        case 2:
+            drld.VideoTimingSupportMode = "SecondaryGTF";
+            break;
+        case 4:
+            drld.VideoTimingSupportMode = "CVTSupported";
+            break;
+        default:
+            break;
+    }
     drld.DefaultGTF = (bytes[10]&0x7 === 0)?true:false
     drld.RangeLimitsOnly = (bytes[10]&0x7 === 1)?true:false
     drld.SecondaryGTF = (bytes[10]&0x7 === 2)?true:false
     drld.CVTSupported = (bytes[10]&0x7 === 4)?true:false
 	
-	if (drld.SecondaryGTF || drld.CVTSupported) {
-        drld.VideoTimingData = "Decode not supported"
+	// DefaultGTF and RangeLimitsOnly
+    // 11 = 0x0A
+    // 12-17 = 0x20
+    
+    // SecondaryGTF Depricated in EDID 1.4
+    
+    // CVTSupported
+    // Needs to be tested and impl
+    // Table 3.28 – Display Range Limits & CVT Support Definition
+    console.log(drld.VideoTimingSupportMode)
+    if (drld.VideoTimingSupportMode === "CVTSupported")
+    {
+        // Additional Pixel Clock Precision:
+        // Max. Pix Clk = [(Byte 9) × 10] – [(Byte 12: bits 7 → 2) × 0.25MHz]
+        console.log(drld.MaximumPixelClock)
+        let pixAdjustment = bytes[10]&0xFC >> 2
+        pixAdjustment = pixAdjustment * 0.25
     }
-	return drld
+    
+    return drld
 }

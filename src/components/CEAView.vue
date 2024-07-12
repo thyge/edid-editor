@@ -1,74 +1,76 @@
-<script>
-import CEADatablocksView from "./CEADatablocksView.vue"
-export default {
-  name: "CEAView",
-  emits: ['update:CEA'],
-  components: {
-    CEADatablocksView,
-  },
-  props: {
-    mmCEA: Object
-  },
-  computed: {
-    mCEA: {
-      get() {
-        return this.mmCEA
-      }
-    }
-  },
-  methods: {
-    NotifyChange() {
-      this.$emit('update:CEA', this.mCEA);
-    },
-    RemoveElement(e) {
-      this.mCEA.DetailedTimingBlocks.forEach((d, i) => {
-        if (d.id === e) {
-          this.mCEA.DetailedTimingBlocks.splice(i, 1)
-        }
-      });
-      this.$emit('update:CEA', this.mCEA);
-    },
-  }
+<script setup lang="ts">
+import { ref } from "vue";
+import { useEdidStore } from "@/stores/edidStore";
+const edidstore = useEdidStore();
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Toggle } from "@/components/ui/toggle";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Trash, CirclePlus } from "lucide-vue-next";
+const blocks = edidstore.mEEDID.CEA.DataBlocks;
+const selectedBlock = ref(3);
+const displayElement = ref("header");
+import CEAHeader from "./cea/CEAHeader.vue";
+import CEADataBlock from "./cea/CEADataBock.vue";
+function handleRemoveBlock(element: number) {
+  blocks.splice(element, 1);
+  console.log(element);
+}
+function handleAddBlock() {
+  console.log("add block diag");
+  console.log(displayElement);
 }
 </script>
 
 <template>
-<div class="container">
-  <h4>CEA Header</h4>
-  <table>
-    <tr>
-      <td>Version</td>
-      <select v-model.number="mCEA.Header.Version">
-      <option>1</option>
-      <option>2</option>
-      <option>3</option>
-      </select>
-    </tr>
-    <tr v-show="mCEA.Header.Version > 1">
-      <td>Underscan</td>
-      <td><input type=checkbox v-model="mCEA.Header.Underscan" disabled/></td>
-    </tr>
-    <tr v-show="mCEA.Header.Version > 1">
-      <td>BasicAudio</td>
-      <td><input type=checkbox v-model="mCEA.Header.BasicAudio" disabled/></td>
-    </tr>
-    <tr v-show="mCEA.Header.Version > 1">
-      <td>YCBCR444</td>
-      <td><input type=checkbox v-model="mCEA.Header.YCBCR444" disabled/></td>
-    </tr>
-    <tr v-show="mCEA.Header.Version > 1">
-      <td>YCBCR422</td>
-      <td><input type=checkbox v-model="mCEA.Header.YCBCR422" disabled/></td>
-    </tr>
-  </table>
-</div>
-<!-- DTD BLOCKS -->
-<CEADatablocksView :datablocks="mCEA.DataBlocks"/>
+  <div class="grid grid-cols-6 gap-1 h-screen">
+    <Card class="col-span-1">
+      <Toggle
+        @click="
+          displayElement = 'header';
+          selectedBlock = 0;
+        "
+        variant="ghost"
+        class="w-full justify-start"
+        :pressed="displayElement === 'header'"
+        >Header</Toggle
+      >
+      <template v-for="(block, index) in blocks">
+        <Toggle
+          v-if="
+            (block.Header.Type === 'DBUseExtendedTag') |
+              (block.Header.Type === 'DBVendorSpecificDataBlock')
+          "
+          @click="
+            displayElement = 'block' + index;
+            selectedBlock = index;
+          "
+          variant="ghost"
+          class="w-full justify-start"
+          :pressed="displayElement === 'block' + index"
+          >{{ block.Content.ExtendedName }}</Toggle
+        >
+        <Toggle
+          v-else
+          @click="
+            displayElement = 'block' + index;
+            selectedBlock = index;
+          "
+          variant="ghost"
+          class="w-full justify-start"
+          :pressed="displayElement === 'block' + index"
+          >{{ block.Header.Type }}</Toggle
+        >
+      </template>
+      <Button
+        @click="handleAddBlock()"
+        variant="ghost"
+        size="icon"
+        class="w-full"
+        ><CirclePlus
+      /></Button>
+    </Card>
+    <CEAHeader v-if="displayElement === 'header'" class="col-span-5" />
+    <CEADataBlock v-else class="col-span-5" :blockNum="selectedBlock" />
+  </div>
 </template>
-
-<style scoped>
-* {
-  margin: 0;
-  padding: 0;
-}
-</style>
