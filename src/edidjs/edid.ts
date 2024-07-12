@@ -1,23 +1,27 @@
-import {pnpLookup} from "./pnp.js"
+import pnpLookup from "./pnp.ts"
 import {DecodeDTD, DecodeDisplayDescriptor, MakeDummyDescriptor} from "./18ByteDescriptors.js"
+
 export class EDID {
-    raw = new Uint8Array()
-    Extension = 0
-    Version = 0
-    Revision = 0
-    WeekOfManufacture = 0
-    YearOfManufacture = 0
+    raw: Uint8Array = new Uint8Array();
+    Extension: number = 0;
+    Version: number = 0;
+    Revision: number = 0;
+    SerialNumber: number = 0;
+    ManufacturerID: string = "";
+    WeekOfManufacture: number = 0;
+    YearOfManufacture: number = 0;
+    DisplayParameters = {}
     EstablishedTimings = {}
     StandardTimings = []
     DisplayDescriptors = []
     Errors = []
-        DummyIdentifiers = 0
+    DummyIdentifiers: number = 0;
+
 }
 
-EDID.prototype.DecodeEDID = function(bytes) {
+EDID.prototype.DecodeEDID = function(bytes: Uint8Array) {
     this.raw = bytes
     // Manufacturer ID. This is a legacy Plug and Play ID assigned by UEFI forum
-    this.ManufacturerID = ""
     this.ManufacturerID += String.fromCharCode(((this.raw[8] & 0x7C) >> 2) + 0x40)
 	this.ManufacturerID += String.fromCharCode(((this.raw[8] & 0x03) << 3) + ((this.raw[9] & 0xE0) >> 5) + 0x40)
 	this.ManufacturerID += String.fromCharCode((this.raw[9] & 0x1F) + 0x40)
@@ -38,7 +42,7 @@ EDID.prototype.DecodeEDID = function(bytes) {
     // Version
     this.Version = this.raw[18]
     // Revision
-    this.Revision = this.raw[19]
+    this.Revision = this.raw[19] // needs to be toString because of v-model issues
 
     // Basic display parameters
     // byte 20
@@ -54,14 +58,15 @@ EDID.prototype.DecodeEDID = function(bytes) {
     // 111 = reserved
     // Bits 3–0	Video interface:
     // 0000 = undefined
+    // 0001 = DVI
     // 0010 = HDMIa
     // 0011 = HDMIb
     // 0100 = MDDI
     // 0101 = DisplayPort
     if (this.raw[20]&0x80) {
-        this.Digital = true
+        this.DisplayInterface = "Digital"
     } else {
-        this.Digital = false
+        this.DisplayInterface = "Analog"
         this.Errors.push("EDID.Analog decoder not supported yet")
     }
 
@@ -96,6 +101,9 @@ EDID.prototype.DecodeEDID = function(bytes) {
     switch (this.raw[20] & 0x7) {
         case 0:
             this.VideoInterface = "undefined"
+            break;
+        case 1:
+            this.VideoInterface = "DVI"
             break;
         case 2:
             this.VideoInterface = "HDMIa"
@@ -132,23 +140,32 @@ EDID.prototype.DecodeEDID = function(bytes) {
     this.DPMSsuspend = (this.raw[24] & 0x40)?true:false
     this.DPMSactiveOff = (this.raw[24] & 0x20)?true:false
     // EDID 1.4 Supported features
-    if (this.Digital) {
+    if (this.DisplayInterface === "Digital") {
         // 00 = RGB 4:4:4
         // 01 = RGB 4:4:4 + YCrCb 4:4:4
         // 10 = RGB 4:4:4 + YCrCb 4:2:2
         // 11 = RGB 4:4:4 + YCrCb 4:4:4 + YCrCb 4:2:2
+        this.ColourEncoding = {
+            RGB444: false,
+            YUV444: false,
+            YUV422: false,
+        }
         switch (this.raw[24] & 0x18) {
             case 0:
-                this.ColourEncoding = "RGB 4:4:4"
+                this.ColourEncoding.RGB444 = true
                 break;
             case 8:
-                this.ColourEncoding = "RGB 4:4:4 + YCrCb 4:4:4"
+                this.ColourEncoding.RGB444 = true
+                this.ColourEncoding.YUV444 = true
                 break;
             case 16:
-                this.ColourEncoding = "RGB 4:4:4 + YCrCb 4:2:2"
+                this.ColourEncoding.RGB444 = true
+                this.ColourEncoding.YUV422 = true
                 break;
             case 24:
-                this.ColourEncoding = "RGB 4:4:4 + YCrCb 4:4:4 + YCrCb 4:2:2"
+                this.ColourEncoding.RGB444 = true
+                this.ColourEncoding.YUV444 = true
+                this.ColourEncoding.YUV422 = true
                 break;
         }
     }
@@ -213,11 +230,19 @@ EDID.prototype.DecodeEDID = function(bytes) {
     this.EstablishedTimings.ET1152_870_75 =  etBytes[2]&0x80?true:false
     
     // Standard timing information
+    let stdTimingCount = 0;
     for (let i = 38; i < 54; i+=2) {
         // Unused fields are filled with 01 01
+        stdTimingCount++
+        let stdTiming = {
+            id: stdTimingCount,
+            Enabled: false
+        }
         if ((this.raw[i] === 0x1) & (this.raw[i+1] === 0x1)) {
-			continue
-		}
+			stdTiming.Enabled = false
+		} else {
+            stdTiming.Enabled = true
+        }
         let aspect = ""
         switch (this.raw[i+1] >> 6) {
             case 0:
@@ -227,25 +252,31 @@ EDID.prototype.DecodeEDID = function(bytes) {
                 aspect = "4:3"
                 break;
             case 2:
-                aspect = "16:9"
+                aspect = "5:4"
                 break;
             case 3:
-                aspect = "16:10"
+                aspect = "16:9"
                 break;
             default:
                 break;
         }
-        let stdTiming = {
-            HorizontalActive : (this.raw[i] + 31) * 8,
-            AspectRatio : aspect,
-            RefreshRate : (this.raw[i+1]&0x3F) + 60,
-        }
+        stdTiming.HorizontalActive = (this.raw[i] + 31) * 8
+        stdTiming.AspectRatio = aspect
+        stdTiming.RefreshRate = (this.raw[i+1]&0x3F) + 60
         this.StandardTimings.push(stdTiming)
     }
     // Detailed timing descriptors
+    let preferredTiming = true
     for (let i = 54; i < 126; i+=18) {
         // if first 2 bytes / pixel clock is 0 then parse as Display Descriptor
+        // first descriptor has to be DTD Preferred timing
         let descriptorBytes = this.raw.slice(i,i+18)
+        // if (preferredTiming) {
+        //     this.PreferredTimingMode = DecodeDTD(descriptorBytes)
+        //     preferredTiming = false
+        //     continue
+        // }
+        
         let descHeader = descriptorBytes[1]<<8 | descriptorBytes[0]
         if (descHeader != 0) {
             let dtd = DecodeDTD(descriptorBytes)
@@ -287,25 +318,7 @@ EDID.prototype.SetManufactureDate = function() {
         this.raw[17] = this.YearOfManufacture - 1990
     } else {
         this.raw[17] = 0
-    }
-    
-}
-
-EDID.prototype.SetManufactureDate = function() {
-    if (this.WeekOfManufacture > 52) {
-        this.raw[16] = 52
-    } else if (this.WeekOfManufacture < 0) {
-        this.raw[16] = 52
-    } else {
-        this.raw[16] = this.WeekOfManufacture
-    }
-    this.raw[16] = this.WeekOfManufacture
-    if (this.YearOfManufacture >= 1990) {
-        this.raw[17] = this.YearOfManufacture - 1990
-    } else {
-        this.raw[17] = 0
-    }
-    
+    }   
 }
 
 EDID.prototype.SetEDIDVersion = function() {
@@ -319,7 +332,7 @@ EDID.prototype.SetFeatureSupport = function () {
     this.raw[24] |= this.DPMSstandby?0x80:0
     this.raw[24] |= this.DPMSsuspend?0x40:0
     this.raw[24] |= this.DPMSactiveOff?0x20:0
-    if (this.Digital) {
+    if (this.DisplayInterface === "Digital") {
         switch (this.ColourEncoding) {
             case "RGB 4:4:4":
                 this.raw[24] |= 0
@@ -338,6 +351,10 @@ EDID.prototype.SetFeatureSupport = function () {
         }
     }
     this.raw[24] |= this.SRGB?0x4:0
+    // Preferred timing must be 1 in v1.3
+    // 1, revision 4, setting bit 1 (at address 18h) to 1 indicates
+    // that the preferred timing mode includes the native pixel format
+    // and the preferred refresh rate of the display device.
     this.raw[24] |= this.PreferredTiming?0x2:0
     // TODO: clean up the continious vs gtf logic
     this.raw[24] |= this.ContiniousFrequency?0x1:0
@@ -359,7 +376,7 @@ EDID.prototype.SetGamma = function() {
 
 EDID.prototype.SetVideoInputParameters = function() {
     // Catch not implemented analog EDID
-    if (!this.Digital) {
+    if (this.DisplayInterface != "Digital") {
         return
     }
     // Reset byte with digital
