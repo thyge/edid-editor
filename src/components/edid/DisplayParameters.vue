@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { watch } from "vue";
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 const videoInDef = edidstore.mEEDID.EDID.VideoInputDefinition
@@ -18,16 +19,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-console.log(videoInDef)
+watch(
+  () => edidstore.mEEDID.EDID.VideoInputDefinition.VideoSignalInterface,
+  () => {
+    edidstore.setHeader();
+  }
+);
 </script>
-
-<!--
-Video Input Definition
-Horizontal Screen Size or Aspect Ratio
-Landscape / Portrait
-Display Transfer Characteristic (Gamma)
-Feature Support 
--->
 
 <template>
   <Card>
