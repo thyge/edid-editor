@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
 import { EEDID } from '../edidjs/eedid.ts'
-export const useEdidStore = defineStore('sEEDID', {
+export const useEdidStore = defineStore('edids', {
   state: () => {
     return {
-      mEEDID: new EEDID()
+      mEEDID: new EEDID(),
     }
   },
   getters: {
@@ -17,7 +17,7 @@ export const useEdidStore = defineStore('sEEDID', {
     },
   },
   actions: {
-    setHeader() {
+    setHeader(e) {
       console.log("setHeader")
       this.mEEDID.EDID.SetManufactureDate();
       this.mEEDID.EDID.SetEDIDVersion();
@@ -26,6 +26,7 @@ export const useEdidStore = defineStore('sEEDID', {
       this.mEEDID.EDID.SetGamma();
       this.mEEDID.EDID.SetVideoInputParameters();
       this.mEEDID.EDID.SetSerialNumber();
+      this.mEEDID.EDID.CalcChecksum();
       // Try to force hex view update
       // Vue does not update on individual array element change
       let tmp = this.mEEDID.EDID.raw.slice();
