@@ -5,25 +5,39 @@ import {
   MenubarContent,
   MenubarItem,
   MenubarMenu,
-  MenubarRadioGroup,
-  MenubarRadioItem,
-  MenubarSeparator,
-  MenubarShortcut,
-  MenubarSub,
-  MenubarSubContent,
-  MenubarSubTrigger,
   MenubarTrigger,
 } from "@/components/ui/menubar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useEdidStore } from "../stores/edidStore";
+const edidStore = useEdidStore();
 import { useColorMode } from "@vueuse/core";
 import { Icon } from "@iconify/vue";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 const mode = useColorMode();
+function uploadFile(e) {
+  let file = e.target.files[0];
+  if (typeof file === "undefined" || file === null) {
+    return;
+  }
+  let reader = new FileReader();
+  if (file.name.split(".").pop() === "bin") {
+    reader.onload = function (event) {
+      let edidarr = new Uint8Array(event.target.result);
+      edidStore.mEEDID.ParseEEDID(edidarr);
+    };
+    reader.readAsArrayBuffer(file);
+  } else if (file.name.split(".").pop() === "txt") {
+    reader.onload = function (event) {
+      let txtEdid = event.target.result.replaceAll(",", "");
+      txtEdid = txtEdid.replaceAll(" ", "");
+      let edidarr = Uint8Array.from(
+        txtEdid.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+      );
+      edidStore.mEEDID.ParseEEDID(edidarr);
+    };
+    reader.readAsText(file);
+  }
+}
 </script>
 
 <template>
@@ -32,82 +46,32 @@ const mode = useColorMode();
       <MenubarTrigger>File</MenubarTrigger>
       <MenubarContent>
         <MenubarItem>
-          New Tab <MenubarShortcut>⌘T</MenubarShortcut>
+          <div class="grid w-full max-w-sm items-center gap-1.5">
+            <Label for="picture">Upload EDID</Label>
+            <Input
+              @change="uploadFile"
+              id="picture"
+              type="file"
+              accept=".bin, .txt"
+            />
+          </div>
         </MenubarItem>
-        <MenubarItem>
-          New Window <MenubarShortcut>⌘N</MenubarShortcut>
-        </MenubarItem>
-        <MenubarItem disabled> New Incognito Window </MenubarItem>
-        <MenubarSeparator />
-        <MenubarSub>
-          <MenubarSubTrigger>Share</MenubarSubTrigger>
-          <MenubarSubContent>
-            <MenubarItem>Email link</MenubarItem>
-            <MenubarItem>Messages</MenubarItem>
-            <MenubarItem>Notes</MenubarItem>
-          </MenubarSubContent>
-        </MenubarSub>
-        <MenubarSeparator />
-        <MenubarItem>
-          Print... <MenubarShortcut>⌘P</MenubarShortcut>
-        </MenubarItem>
-      </MenubarContent>
-    </MenubarMenu>
-    <MenubarMenu>
-      <MenubarTrigger>Edit</MenubarTrigger>
-      <MenubarContent>
-        <MenubarItem> Undo <MenubarShortcut>⌘Z</MenubarShortcut> </MenubarItem>
-        <MenubarItem> Redo <MenubarShortcut>⇧⌘Z</MenubarShortcut> </MenubarItem>
-        <MenubarSeparator />
-        <MenubarSub>
-          <MenubarSubTrigger>Find</MenubarSubTrigger>
-          <MenubarSubContent>
-            <MenubarItem>Search the web</MenubarItem>
-            <MenubarSeparator />
-            <MenubarItem>Find...</MenubarItem>
-            <MenubarItem>Find Next</MenubarItem>
-            <MenubarItem>Find Previous</MenubarItem>
-          </MenubarSubContent>
-        </MenubarSub>
-        <MenubarSeparator />
-        <MenubarItem>Cut</MenubarItem>
-        <MenubarItem>Copy</MenubarItem>
-        <MenubarItem>Paste</MenubarItem>
+        <MenubarItem> Download </MenubarItem>
       </MenubarContent>
     </MenubarMenu>
     <MenubarMenu>
       <MenubarTrigger>View</MenubarTrigger>
       <MenubarContent>
-        <MenubarCheckboxItem>Always Show Bookmarks Bar</MenubarCheckboxItem>
-        <MenubarCheckboxItem checked>
-          Always Show Full URLs
-        </MenubarCheckboxItem>
-        <MenubarSeparator />
-        <MenubarItem inset>
-          Reload <MenubarShortcut>⌘R</MenubarShortcut>
-        </MenubarItem>
-        <MenubarItem disabled inset>
-          Force Reload <MenubarShortcut>⇧⌘R</MenubarShortcut>
-        </MenubarItem>
-        <MenubarSeparator />
-        <MenubarItem inset> Toggle Fullscreen </MenubarItem>
-        <MenubarSeparator />
-        <MenubarItem inset> Hide Sidebar </MenubarItem>
+        <MenubarCheckboxItem checked>Hex Viewer</MenubarCheckboxItem>
       </MenubarContent>
     </MenubarMenu>
     <MenubarMenu>
-      <MenubarTrigger>Profiles</MenubarTrigger>
-      <MenubarContent>
-        <MenubarRadioGroup value="benoit">
-          <MenubarRadioItem value="andy"> Andy </MenubarRadioItem>
-          <MenubarRadioItem value="benoit"> Benoit </MenubarRadioItem>
-          <MenubarRadioItem value="Luis"> Luis </MenubarRadioItem>
-        </MenubarRadioGroup>
-        <MenubarSeparator />
-        <MenubarItem inset> Edit... </MenubarItem>
-        <MenubarSeparator />
-        <MenubarItem inset> Add Profile... </MenubarItem>
-      </MenubarContent>
+      <MenubarTrigger>EDIDs</MenubarTrigger>
+      <template v-for="ed in edidStore">
+        <MenubarContent>
+          <MenubarCheckboxItem>edid</MenubarCheckboxItem>
+        </MenubarContent>
+      </template>
     </MenubarMenu>
     <MenubarMenu>
       <MenubarTrigger>

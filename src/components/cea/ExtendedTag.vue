@@ -20,7 +20,7 @@ import {
    <Card>
     <CardHeader>
       <CardTitle>
-        {{ blocks[prop.blockNum].Content.ExtendedName }} - Ext
+        {{ blocks[prop.blockNum].Content.ExtendedName }} - Extended Tag
       </CardTitle>
     </CardHeader>
     <CardContent>

@@ -24,7 +24,7 @@ function handleAddBlock() {
 
 <template>
   <div class="grid grid-cols-6 gap-1 h-screen">
-    <Card class="col-span-1">
+    <Card class="col-span-2">
       <Toggle
         @click="
           displayElement = 'header';
@@ -70,7 +70,7 @@ function handleAddBlock() {
         ><CirclePlus
       /></Button>
     </Card>
-    <CEAHeader v-if="displayElement === 'header'" class="col-span-5" />
-    <CEADataBlock v-else class="col-span-5" :blockNum="selectedBlock" />
+    <CEAHeader v-if="displayElement === 'header'" class="col-span-4" />
+    <CEADataBlock v-else class="col-span-4" :blockNum="selectedBlock" />
   </div>
 </template>
