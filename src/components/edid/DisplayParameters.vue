@@ -1,25 +1,24 @@
 <script setup lang="ts">
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
+const videoInDef = edidstore.mEEDID.EDID.VideoInputDefinition
 import VideoInputDefinitionFeatureSupport from "./VideoInputDefinitionFeatureSupport.vue";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableRow,
 } from "@/components/ui/table";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+console.log(videoInDef)
 </script>
 
 <!--
@@ -48,7 +47,8 @@ Feature Support
                 <TableCell>
                   <Select
                     id="digital-mode"
-                    v-model="edidstore.mEEDID.EDID.DisplayInterface"
+                    v-model="videoInDef.VideoSignalInterface"
+                    @change="edidstore.setHeader"
                   >
                     <SelectTrigger>
                       <SelectValue></SelectValue>
@@ -62,12 +62,12 @@ Feature Support
               </TableRow>
             </TableBody>
             <TableBody
-              v-if="edidstore.mEEDID.EDID.DisplayInterface === 'Digital'"
+              v-if="videoInDef.VideoSignalInterface === 'Digital'"
             >
               <TableRow>
                 <TableCell> Display Bitdepth </TableCell>
                 <TableCell>
-                  <Select v-model="edidstore.mEEDID.EDID.VideoBitDepth">
+                  <Select v-model="videoInDef.BitDepth">
                     <SelectTrigger
                       :disabled="edidstore.mEEDID.EDID.Revision < 4"
                     >

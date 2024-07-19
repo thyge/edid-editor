@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import EDIDView from "./components/EDIDView.vue";
+import EDIDView from "@/components/EDIDView.vue";
 import CEAView from "./components/CEAView.vue";
 import DisplayID from "./components/DisplayIDView.vue";
 import NavBar from "./components/NavBar.vue";
-import HexViewer from "./components/HexViewer.vue";
 import { useEdidStore } from "./stores/edidStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-const mEedid = useEdidStore();
+const edidstore = useEdidStore();
 let txtEdid =
   "00,FF,FF,FF,FF,FF,FF,00,34,A9,1C,D1,01,01,01,01,\
               00,19,01,03,80,DD,7D,78,0A,06,12,AF,51,4E,AD,24,\
@@ -30,12 +28,14 @@ txtEdid = txtEdid.replaceAll(" ", "");
 let byts = Uint8Array.from(
   txtEdid.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
 );
-mEedid.mEEDID.ParseEEDID(byts);
+edidstore.mEEDID.ParseEEDID(byts);
+import { Button } from "@/components/ui/button";
+import { Plus } from 'lucide-vue-next'
 </script>
 
 <template>
   <NavBar></NavBar>
-  
+
   <Tabs default-value="edid">
     <TabsList class="grid w-full grid-cols-3">
       <TabsTrigger value="edid"> EDID </TabsTrigger>
@@ -52,7 +52,6 @@ mEedid.mEEDID.ParseEEDID(byts);
       <DisplayID />
     </TabsContent>
   </Tabs>
-  
 </template>
 
 <style scoped></style>
