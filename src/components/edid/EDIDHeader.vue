@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { watch } from "vue";
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +20,13 @@ import {
 } from "@/components/ui/number-field";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-function testFunc() {
-  console.log("testo funco");
-}
+// Hack working around @change not working for Select
+watch(
+  () => edidstore.mEEDID.EDID.Revision,
+  () => {
+    edidstore.setHeader();
+  }
+);
 </script>
 
 <template>
@@ -109,7 +114,7 @@ function testFunc() {
             <TableCell>
               <Select
                 v-model="edidstore.mEEDID.EDID.Revision"
-                @change="edidstore.setHeader"
+                @change="onChange($event)"
                 id="selectRevision"
               >
                 <SelectTrigger>
