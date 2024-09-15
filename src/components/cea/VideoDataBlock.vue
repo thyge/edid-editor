@@ -17,30 +17,23 @@ import {
 </script>
 
 <template>
-  <Card>
-    <CardHeader>
-      <CardTitle>
-        Video Data Block
-      </CardTitle>
-    </CardHeader>
-    <CardContent>
-      <Table>
+  <CardHeader> Video Data Block </CardHeader>
+  <CardContent>
+    <Table>
       <TableHeader>
         <TableCell>Name</TableCell>
         <TableCell>VIC</TableCell>
         <TableCell>PixelClock</TableCell>
         <TableCell>Description</TableCell>
       </TableHeader>
-    <TableBody>
-      <TableRow v-for="vic in block.Content.VICs" >
-        <TableCell>{{ vic.Name }}</TableCell>
-        <TableCell>{{ vic.VIC }}</TableCell>
-        <TableCell>{{ vic.PixelMHz }} MHz</TableCell>
-        <TableCell>{{ vic.Description }}</TableCell>
-      </TableRow>
-    </TableBody>
-  </Table>
-    </CardContent>
-  </Card>
-  
+      <TableBody>
+        <TableRow v-for="vic in block.Content.VICs">
+          <TableCell>{{ vic.Name }}</TableCell>
+          <TableCell>{{ vic.VIC }}</TableCell>
+          <TableCell>{{ vic.PixelMHz }} MHz</TableCell>
+          <TableCell>{{ vic.Description }}</TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
+  </CardContent>
 </template>

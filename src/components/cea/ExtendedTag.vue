@@ -17,15 +17,10 @@ import {
 </script>
 
 <template>
-   <Card>
     <CardHeader>
-      <CardTitle>
         {{ blocks[prop.blockNum].Content.ExtendedName }} - Extended Tag
-      </CardTitle>
     </CardHeader>
     <CardContent>
       
     </CardContent>
-  </Card>
-  
 </template>

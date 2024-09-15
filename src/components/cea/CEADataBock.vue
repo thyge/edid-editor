@@ -25,13 +25,12 @@ import DetailedTimingDesciptor from "../edid/DetailedTimingDesciptor.vue";
     :blockNum="blockNum"
     v-else-if="blocks[blockNum].Header.Type === 'DBVendorSpecificDataBlock'"
   />
-  <Card v-else-if="blocks[blockNum].Header.Type === 'DetailedTimingDescriptor'">
-    <CardHeader> </CardHeader>
-    <CardContent>
-      <DetailedTimingDesciptor
-        :num="blockNum"
-        :block="blocks[blockNum].Content"
-      />
-    </CardContent>
-  </Card>
+  <CardContent
+    v-else-if="blocks[blockNum].Header.Type === 'DetailedTimingDescriptor'"
+  >
+    <DetailedTimingDesciptor
+      :num="blockNum"
+      :block="blocks[blockNum].Content"
+    />
+  </CardContent>
 </template>

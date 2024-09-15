@@ -28,8 +28,8 @@ function handleAddBlock() {
 </script>
 
 <template>
-  <div class="grid grid-cols-6 gap-1 h-screen">
-    <Card class="col-span-2">
+  <ResizablePanelGroup direction="horizontal">
+    <ResizablePanel id="handle-demo-panel-1" :default-size="25">
       <Toggle
         @click="
           displayElement = 'header';
@@ -74,8 +74,11 @@ function handleAddBlock() {
         class="w-full"
         ><CirclePlus
       /></Button>
-    </Card>
-    <CEAHeader v-if="displayElement === 'header'" class="col-span-4" />
-    <CEADataBlock v-else class="col-span-4" :blockNum="selectedBlock" />
-  </div>
+    </ResizablePanel>
+    <ResizableHandle id="handle-demo-handle-1" with-handle />
+    <ResizablePanel id="handle-demo-panel-2" :default-size="75">
+      <CEAHeader v-if="displayElement === 'header'" class="col-span-4" />
+      <CEADataBlock v-else class="col-span-4" :blockNum="selectedBlock" />
+    </ResizablePanel>
+  </ResizablePanelGroup>
 </template>
