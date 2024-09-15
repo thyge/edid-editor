@@ -10,7 +10,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEdidStore } from "../stores/edidStore";
+import { useUiStore } from "../stores/uiStore";
 const edidStore = useEdidStore();
+const uiStore = useUiStore();
 import { useColorMode } from "@vueuse/core";
 import { Icon } from "@iconify/vue";
 const mode = useColorMode();
@@ -62,7 +64,7 @@ function uploadFile(e) {
     <MenubarMenu>
       <MenubarTrigger>View</MenubarTrigger>
       <MenubarContent>
-        <MenubarCheckboxItem checked>Hex Viewer</MenubarCheckboxItem>
+        <MenubarCheckboxItem v-model:checked="uiStore.showHexView">Hex Viewer</MenubarCheckboxItem>
       </MenubarContent>
     </MenubarMenu>
     <MenubarMenu>
