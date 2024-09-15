@@ -4,13 +4,20 @@ const edidstore = useEdidStore();
 const medid = edidstore.mEEDID.EDID;
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DetailedTimingDescriptor from "./DetailedTimingDesciptor.vue";
+import { Trash, CirclePlus, Minus, CircleMinus } from "lucide-vue-next";
 const prop = defineProps<{
   num: number;
 }>();
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import ASCIIDescriptor from "./descriptors/ASCIIDescriptor.vue";
 import DisplayRangeLimits from "./descriptors/DisplayRangeLimits.vue";
+function handleRemoveBlock(element: number) {
+  console.log("removing block");
+}
+function handleAddBlock() {
+  console.log("add block diag");
+}
 </script>
 
 <template>
@@ -23,10 +30,17 @@ import DisplayRangeLimits from "./descriptors/DisplayRangeLimits.vue";
   />
   <Card v-else>
     <CardHeader>
-      <CardTitle class="text-sm font-medium"
-        >{{ medid.DisplayDescriptors[prop.num - 1].Type }} -
-        {{ prop.num }}</CardTitle
-      >
+      <div class="grid grid-cols-2 justify-end">
+        <h1>
+          {{ medid.DisplayDescriptors[prop.num - 1].Type }} - {{ prop.num }}
+        </h1>
+        <Button
+          @click="handleRemoveBlock()"
+          variant="ghost"
+          size="icon"
+          ><CircleMinus
+        /></Button>
+      </div>
     </CardHeader>
     <CardContent>
       <ASCIIDescriptor

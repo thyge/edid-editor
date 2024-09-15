@@ -6,7 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash, CirclePlus } from "lucide-vue-next";
+import { Trash, CirclePlus, Minus } from "lucide-vue-next";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 const blocks = edidstore.mEEDID.CEA.DataBlocks;
 const selectedBlock = ref(3);
 const displayElement = ref("header");
