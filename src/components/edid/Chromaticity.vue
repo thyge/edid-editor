@@ -18,41 +18,41 @@ import { Input } from "@/components/ui/input";
       <TableRow>
         <TableCell> RedX </TableCell>
         <TableCell>
-          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.RedX" />
+          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.RedX" disabled />
         </TableCell>
         <TableCell> RedY </TableCell>
         <TableCell>
-          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.RedY" />
+          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.RedY" disabled />
         </TableCell>
       </TableRow>
       <TableRow>
         <TableCell> GreenX </TableCell>
         <TableCell>
-          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.GreenX" />
+          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.GreenX" disabled />
         </TableCell>
         <TableCell> GreenY </TableCell>
         <TableCell>
-          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.GreenY" />
+          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.GreenY" disabled />
         </TableCell>
       </TableRow>
       <TableRow>
         <TableCell> BlueX </TableCell>
         <TableCell>
-          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.BlueX" />
+          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.BlueX" disabled />
         </TableCell>
         <TableCell> BlueY </TableCell>
         <TableCell>
-          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.BlueY" />
+          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.BlueY" disabled />
         </TableCell>
       </TableRow>
       <TableRow>
         <TableCell> WhiteX </TableCell>
         <TableCell>
-          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.WhiteX" />
+          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.WhiteX" disabled />
         </TableCell>
         <TableCell> WhiteY </TableCell>
         <TableCell>
-          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.WhiteY" />
+          <Input v-model="edidstore.mEEDID.EDID.Chromaticity.WhiteY" disabled />
         </TableCell>
       </TableRow>
     </TableBody>
