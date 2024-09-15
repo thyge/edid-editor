@@ -25,11 +25,8 @@ import {
 </script>
 
 <template>
-  <Card>
     <CardHeader>
-      <CardTitle>
         {{ blocks[prop.blockNum].Content.ExtendedName }} - VSDB
-      </CardTitle>
     </CardHeader>
     <CardContent>
       <Table v-if="blocks[prop.blockNum].Content.ExtendedName === 'HDMI 1.4'">
@@ -201,5 +198,4 @@ import {
         </TableBody>
       </Table>
     </CardContent>
-  </Card>
 </template>
