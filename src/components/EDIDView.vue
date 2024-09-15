@@ -11,7 +11,7 @@ import DisplayDescriptors from "./edid/DisplayDescriptors.vue";
 import { Card } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
 import HexViewer from "./HexViewer.vue";
-const displayElement = ref("DisplayParameters");
+const displayElement = ref("Chromaticity");
 import {
   ResizableHandle,
   ResizablePanel,
@@ -20,10 +20,7 @@ import {
 </script>
 
 <template>
-  <ResizablePanelGroup
-      direction="horizontal"
-      class="h-full"
-    >
+  <ResizablePanelGroup direction="horizontal" >
     <ResizablePanel id="handle-demo-panel-1" :default-size="25">
       <Toggle
         @click="displayElement = 'EDIDHeader'"
@@ -73,6 +70,9 @@ import {
       >
         DisplayDescriptors
       </Toggle>
+      <div class="row-span-2">
+        <HexViewer v-if="uiStore.showHexView" />
+      </div>
     </ResizablePanel>
     <ResizableHandle id="handle-demo-handle-1" with-handle />
     <ResizablePanel id="handle-demo-panel-2" :default-size="75">
@@ -82,9 +82,6 @@ import {
       <EstablishedTimings v-if="displayElement === 'EstablishedTimings'" />
       <StandardTimings v-if="displayElement === 'StandardTimings'" />
       <DisplayDescriptors v-if="displayElement === 'DisplayDescriptors'" />
-      <div class="row-span-2">
-      <HexViewer v-if="uiStore.showHexView" />
-    </div>
     </ResizablePanel>
   </ResizablePanelGroup>
 </template>

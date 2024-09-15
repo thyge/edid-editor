@@ -7,7 +7,7 @@ import StandardTiming from "./StandardTiming.vue";
 </script>
 
 <template>
-  <div class="grid gap-1 md:grid-cols-1 lg:grid-cols-2">
+  <div class="grid md:grid-cols-1 lg:grid-cols-2">
     <StandardTiming
       v-for="timing in edidstore.mEEDID.EDID.StandardTimings"
       :id="timing.id"

@@ -9,11 +9,11 @@ import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 
 <template>
   <VideoInputDefinition />
-  <Card>
+  <!-- <Card>
     <CardHeader>
       <CardTitle class="text-sm">Screen</CardTitle>
     </CardHeader>
-    <CardContent>
+    <CardContent> -->
       <Table>
         <TableBody>
           <TableRow>
@@ -29,14 +29,14 @@ import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
           </TableRow>
         </TableBody>
       </Table>
-    </CardContent>
-  </Card>
-  <Card>
+    <!-- </CardContent>
+  </Card> -->
+  <!-- <Card>
     <CardHeader>
       <CardTitle class="text-sm">Feature Support</CardTitle>
     </CardHeader>
-    <CardContent>
+    <CardContent> -->
       <VideoInputDefinitionFeatureSupport />
-    </CardContent>
-  </Card>
+    <!-- </CardContent>
+  </Card> -->
 </template>
