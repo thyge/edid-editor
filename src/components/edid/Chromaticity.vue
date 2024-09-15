@@ -6,11 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/u
 </script>
 
 <template>
-  <Card>
-    <CardHeader>
-      <CardTitle>Chromaticity</CardTitle>
-    </CardHeader>
-    <CardContent>
       <Table>
         <TableBody>
           <TableRow>
@@ -39,6 +34,4 @@ import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/u
           </TableRow>
         </TableBody>
       </Table>
-    </CardContent>
-  </Card>
 </template>
