@@ -25,7 +25,7 @@ import { Switch } from "@/components/ui/switch";
   <div class="grid grid-cols-3 gap-2 m-4">
     <div>Feature Support</div>
   </div>
-  <div class="grid grid-cols-3 gap-2 p-4 m-4 border rounded">
+  <div class="grid grid-cols-3 gap-2 m-4 p-4  border rounded">
     <div>DPMS Standby</div>
     <div>
       <Switch

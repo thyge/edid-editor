@@ -30,103 +30,91 @@ watch(
 </script>
 
 <template>
-  <CardHeader>
-    EDID Header
-  </CardHeader>
-  <CardContent>
-    <Table>
-      <TableBody>
-        <TableRow>
-          <TableCell> Extensions </TableCell>
-          <TableCell> {{ edidstore.mEEDID.Extensions }} </TableCell>
-        </TableRow>
-        <TableRow>
-          <TableCell> Manufacturer ID </TableCell>
-          <TableCell
-            ><Input
-              v-model="edidstore.mEEDID.EDID.ManufacturerID"
-              type="text"
-              maxlength="3"
-              @input="edidstore.setHeader"
-            />
-          </TableCell>
-          <TableCell>
-            {{ edidstore.mEEDID.EDID.GetPNPCompanyName() }}
-          </TableCell>
-        </TableRow>
-        <TableRow>
-          <TableCell> Serial Number </TableCell>
-          <TableCell>
-            <Input
-              v-model="edidstore.mEEDID.EDID.SerialNumber"
-              type="number"
-              max="4294967295"
-              min="0"
-              @input="edidstore.setHeader"
-          /></TableCell>
-        </TableRow>
-        <TableRow>
-          <TableCell> Product Name </TableCell>
-          <TableCell> {{ edidstore.getDisplayProductName }} </TableCell>
-        </TableRow>
-        <TableRow>
-          <TableCell> Date of manufacture </TableCell>
-          <TableCell>
-            <Label>
-              Year
-              <NumberField
-                v-model="edidstore.mEEDID.EDID.YearOfManufacture"
-                :min="1990"
-                :max="2246"
-                @input="edidstore.setHeader"
-                id="yearofmanu"
-              >
-                <NumberFieldContent>
-                  <NumberFieldIncrement @click="edidstore.setHeader" />
-                  <NumberFieldInput />
-                  <NumberFieldDecrement @click="edidstore.setHeader" />
-                </NumberFieldContent>
-              </NumberField>
-            </Label>
-          </TableCell>
-          <TableCell>
-            <Label id="weekofmanu">
-              Week
-              <NumberField
-                v-model="edidstore.mEEDID.EDID.WeekOfManufacture"
-                :min="0"
-                :max="52"
-                @input="edidstore.setHeader"
-                id="weekofmanu"
-              >
-                <NumberFieldContent>
-                  <NumberFieldIncrement @click="edidstore.setHeader" />
-                  <NumberFieldInput />
-                  <NumberFieldDecrement @click="edidstore.setHeader" />
-                </NumberFieldContent>
-              </NumberField>
-            </Label>
-          </TableCell>
-        </TableRow>
-        <TableRow>
-          <TableCell> Version and Revision </TableCell>
-          <TableCell>
-            <Select
-              v-model="edidstore.mEEDID.EDID.Revision"
-              @change="onChange($event)"
-              id="selectRevision"
-            >
-              <SelectTrigger>
-                <SelectValue></SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="3">1.3</SelectItem>
-                <SelectItem value="4">1.4</SelectItem>
-              </SelectContent>
-            </Select>
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
-  </CardContent>
+  <div class="grid grid-cols-3 gap-2 m-4">
+    <div>EDID Header</div>
+  </div>
+  <div class="grid grid-cols-3 gap-2 m-4 p-4 border rounded">
+    <div class="content-center">Extensions</div>
+    <div class="content-center">{{ edidstore.mEEDID.Extensions }}</div>
+    <div></div>
+    <div class="content-center">Manufacturer ID</div>
+    <div class="content-center">
+      <Input
+        v-model="edidstore.mEEDID.EDID.ManufacturerID"
+        type="text"
+        maxlength="3"
+        @input="edidstore.setHeader"
+      />
+    </div>
+    <div class="content-center">
+      {{ edidstore.mEEDID.EDID.GetPNPCompanyName() }}
+    </div>
+    <div class="content-center">Serial Number</div>
+    <div class="content-center">
+      <Input
+        v-model="edidstore.mEEDID.EDID.SerialNumber"
+        type="number"
+        max="4294967295"
+        min="0"
+        @input="edidstore.setHeader"
+      />
+    </div>
+    <div></div>
+    <div class="content-center">Product Name</div>
+    <div class="content-center">{{ edidstore.getDisplayProductName }}</div>
+    <div></div>
+    <div class="content-center">Date of manufacture</div>
+    <div class="content-center">
+      <Label>
+        Year
+        <NumberField
+          v-model="edidstore.mEEDID.EDID.YearOfManufacture"
+          :min="1990"
+          :max="2246"
+          @input="edidstore.setHeader"
+          id="yearofmanu"
+        >
+          <NumberFieldContent>
+            <NumberFieldIncrement @click="edidstore.setHeader" />
+            <NumberFieldInput />
+            <NumberFieldDecrement @click="edidstore.setHeader" />
+          </NumberFieldContent>
+        </NumberField>
+      </Label>
+    </div>
+    <div class="content-center">
+      <Label id="weekofmanu">
+        Week
+        <NumberField
+          v-model="edidstore.mEEDID.EDID.WeekOfManufacture"
+          :min="0"
+          :max="52"
+          @input="edidstore.setHeader"
+          id="weekofmanu"
+        >
+          <NumberFieldContent>
+            <NumberFieldIncrement @click="edidstore.setHeader" />
+            <NumberFieldInput />
+            <NumberFieldDecrement @click="edidstore.setHeader" />
+          </NumberFieldContent>
+        </NumberField>
+      </Label>
+    </div>
+    <div class="content-center">Version and Revision</div>
+    <div class="content-center">
+      <Select
+        v-model="edidstore.mEEDID.EDID.Revision"
+        @change="onChange($event)"
+        id="selectRevision"
+      >
+        <SelectTrigger>
+          <SelectValue></SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="3">1.3</SelectItem>
+          <SelectItem value="4">1.4</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  </div>
 </template>
