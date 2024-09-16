@@ -5,23 +5,14 @@ const medid = edidstore.mEEDID.EDID;
 const prop = defineProps<{
   num: number;
 }>();
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 </script>
 
 <template>
-  <Table
-    v-if="
-      medid.DisplayDescriptors[prop.num - 1].Type === 'Display Product Name'
-    "
-  >
-    <TableBody>
-      <TableRow>
-        <TableCell>{{ medid.DisplayDescriptors[prop.num - 1].Type }}</TableCell>
-        <TableCell>
-          <Input v-model="medid.DisplayDescriptors[prop.num - 1].Content" />
-        </TableCell>
-      </TableRow>
-    </TableBody>
-  </Table>
+  <div class="grid grid-cols-3 gap-2 p-4 m-4 border rounded">
+    <div class="content-center"> Text </div>
+    <div class="content-center col-span-2">
+      <Input v-model="medid.DisplayDescriptors[prop.num - 1].Content" />
+    </div>
+  </div>
 </template>

@@ -18,11 +18,11 @@ import { Button } from "@/components/ui/button";
 </script>
 
 <template>
-  <Card>
-    <CardHeader>
-      <CardTitle class="text-sm font-medium">Detailed Timing Descriptor</CardTitle>
-    </CardHeader>
-    <CardContent>
+  <div>
+    <div class="gap-2 m-4">
+      <div>Detailed Timing Descriptor</div>
+    </div>
+    <div class="gap-2 p-4 m-4 border rounded">
       <Accordion type="single" collapsible>
         <AccordionItem value="item-1">
           <AccordionTrigger
@@ -102,7 +102,9 @@ import { Button } from "@/components/ui/button";
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-      <Button>Edit Timing</Button>
-    </CardContent>
-  </Card>
+      <div>
+        <Button>Edit Timing</Button>
+      </div>
+    </div>
+  </div>
 </template>

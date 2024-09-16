@@ -16,38 +16,38 @@ import { Input } from "@/components/ui/input";
     <div>Chromaticity</div>
   </div>
   <div class="grid grid-cols-4 gap-2 m-4 p-4 border rounded">
-    <div>RedX</div>
-    <div>
+    <div class="content-center">RedX</div>
+    <div class="content-center">
       <Input v-model="edidstore.mEEDID.EDID.Chromaticity.RedX" disabled />
     </div>
-    <div>RedY</div>
-    <div>
+    <div class="content-center">RedY</div>
+    <div class="content-center">
       <Input v-model="edidstore.mEEDID.EDID.Chromaticity.RedY" disabled />
     </div>
     <!-- Green -->
-    <div>GreenX</div>
-    <div>
+    <div class="content-center">GreenX</div>
+    <div class="content-center">
       <Input v-model="edidstore.mEEDID.EDID.Chromaticity.GreenX" disabled />
     </div>
-    <div>GreenY</div>
-    <div>
+    <div class="content-center">GreenY</div>
+    <div class="content-center">
       <Input v-model="edidstore.mEEDID.EDID.Chromaticity.GreenY" disabled />
     </div>
     <!-- Blue -->
-    <div>BlueX</div>
-    <div>
+    <div class="content-center">BlueX</div>
+    <div class="content-center">
       <Input v-model="edidstore.mEEDID.EDID.Chromaticity.BlueX" disabled />
     </div>
-    <div>BlueY</div>
-    <div>
+    <div class="content-center">BlueY</div>
+    <div class="content-center">
       <Input v-model="edidstore.mEEDID.EDID.Chromaticity.BlueY" disabled />
     </div>
-    <div>WhiteX</div>
-    <div>
+    <div class="content-center">WhiteX</div>
+    <div class="content-center">
       <Input v-model="edidstore.mEEDID.EDID.Chromaticity.WhiteX" disabled />
     </div>
-    <div>WhiteY</div>
-    <div>
+    <div class="content-center">WhiteY</div>
+    <div class="content-center">
       <Input v-model="edidstore.mEEDID.EDID.Chromaticity.WhiteY" disabled />
     </div>
   </div>
