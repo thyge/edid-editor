@@ -12,14 +12,14 @@ import VideoInputDefinition from "./VideoInputDefinition.vue";
     <div>Display Parameters</div>
   </div>
   <div class="grid grid-cols-3 gap-2 p-4 m-4 border rounded">
-    <div>Display Size</div>
-    <div>
+    <div class="content-center">Display Size</div>
+    <div class="content-center">
       {{ edidstore.mEEDID.EDID.HorizontalSizeCM }}cm x
       {{ edidstore.mEEDID.EDID.VerticalSizeCM }}cm
     </div>
     <div></div>
-    <div>Display Gamma</div>
-    <div>{{ edidstore.mEEDID.EDID.Gamma }}</div>
+    <div class="content-center">Display Gamma</div>
+    <div class="content-center">{{ edidstore.mEEDID.EDID.Gamma }}</div>
   </div>
 
   <VideoInputDefinitionFeatureSupport />

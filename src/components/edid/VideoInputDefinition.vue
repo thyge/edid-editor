@@ -2,8 +2,6 @@
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 import { watch } from "vue";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -12,7 +10,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 const videoInDef = edidstore.mEEDID.EDID.VideoInputDefinition;
 watch(
   () => edidstore.mEEDID.EDID.VideoInputDefinition.VideoSignalInterface,
@@ -24,8 +21,8 @@ watch(
 
 <template>
   <div class="grid grid-cols-3 gap-2 m-4">
-    <div>Video Signal Interface</div>
-    <div>
+    <div class="content-center">Video Signal Interface</div>
+    <div class="content-center">
       <Select
         v-model="videoInDef.VideoSignalInterface"
         @change="edidstore.setHeader"
@@ -45,8 +42,8 @@ watch(
     v-if="videoInDef.VideoSignalInterface === 'Digital'"
     class="grid grid-cols-3 gap-2 p-4 m-4 border rounded"
   >
-    <div>Display Bitdepth</div>
-    <div>
+    <div class="content-center">Display Bitdepth</div>
+    <div class="content-center">
       <Select
         id="select-bitdepth"
         v-model="videoInDef.BitDepth"
@@ -65,9 +62,9 @@ watch(
         </SelectContent>
       </Select>
     </div>
-    <div>EDID 1.4 Only</div>
-    <div>Display Interface</div>
-    <div>
+    <div class="content-center">EDID 1.4 Only</div>
+    <div class="content-center">Display Interface</div>
+    <div class="content-center">
       <Select v-model="edidstore.mEEDID.EDID.VideoInterface">
         <SelectTrigger :disabled="edidstore.mEEDID.EDID.Revision < 4">
           <SelectValue></SelectValue>
@@ -82,25 +79,25 @@ watch(
         </SelectContent>
       </Select>
     </div>
-    <div>EDID 1.4 Only</div>
-    <div>RGB 4:4:4 + YCrCb 4:4:4</div>
-    <div>
+    <div class="content-center">EDID 1.4 Only</div>
+    <div class="content-center">RGB 4:4:4 + YCrCb 4:4:4</div>
+    <div class="content-center">
       <Switch
         :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model="edidstore.mEEDID.EDID.ColourEncoding.YUV444"
       />
     </div>
-    <div>EDID 1.4 Only</div>
-    <div>RGB 4:4:4 + YCrCb 4:2:2</div>
-    <div>
+    <div class="content-center">EDID 1.4 Only</div>
+    <div class="content-center">RGB 4:4:4 + YCrCb 4:2:2</div>
+    <div class="content-center">
       <Switch
         :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model="edidstore.mEEDID.EDID.ColourEncoding.YUV422"
       />
     </div>
-    <div>EDID 1.4 Only</div>
+    <div class="content-center">EDID 1.4 Only</div>
   </div>
   <div v-else-if="videoInDef.VideoSignalInterface === 'Analog'" class="grid grid-cols-3 gap-2 p-4 m-4 border rounded">
-      <div>Analog not supported</div>
+      <div class="content-center">Analog not supported</div>
   </div>
 </template>
