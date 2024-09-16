@@ -22,65 +22,52 @@ import { Switch } from "@/components/ui/switch";
 </script>
 
 <template>
-  <Table>
-    <TableBody>
-      <TableRow>
-        <TableCell> DPMS Standby </TableCell>
-        <TableCell>
-          <Switch
-            :disabled="edidstore.mEEDID.EDID.Revision < 4"
-            v-model="edidstore.mEEDID.EDID.DPMSstandby"
-          />
-        </TableCell>
-        <TableCell> EDID 1.4 Only </TableCell>
-      </TableRow>
-      <TableRow>
-        <TableCell> DPMS Suspend </TableCell>
-        <TableCell>
-          <Switch
-            :disabled="edidstore.mEEDID.EDID.Revision < 4"
-            v-model="edidstore.mEEDID.EDID.DPMSsuspend"
-          />
-        </TableCell>
-        <TableCell> EDID 1.4 Only </TableCell>
-      </TableRow>
-      <TableRow>
-        <TableCell> DPMS ActiveOff </TableCell>
-        <TableCell>
-          <Switch
-            :disabled="edidstore.mEEDID.EDID.Revision < 4"
-            v-model="edidstore.mEEDID.EDID.DPMSactiveOff"
-          />
-        </TableCell>
-        <TableCell> EDID 1.4 Only </TableCell>
-      </TableRow>
-      
-      <TableRow>
-        <TableCell> Native Pixel Format in Preferred Timing Mode </TableCell>
-        <TableCell>
-          <Switch
-            v-model="edidstore.mEEDID.EDID.PreferredTiming"
-          />
-        </TableCell>
-      </TableRow>
-      <TableRow v-show="edidstore.mEEDID.EDID.Revision < 4">
-        <TableCell> GTF Support </TableCell>
-        <TableCell>
-          <Switch
-            v-model="edidstore.mEEDID.EDID.GTFSupport"
-          />
-        </TableCell>
-        <TableCell>No encoding support</TableCell>
-      </TableRow>
-      <TableRow v-show="edidstore.mEEDID.EDID.Revision > 3">
-        <TableCell> Continuous Frequency </TableCell>
-        <TableCell>
-          <Switch
-            v-model="edidstore.mEEDID.EDID.ContiniousFrequency"
-          />
-        </TableCell>
-        <TableCell>No encoding support</TableCell>
-      </TableRow>
-    </TableBody>
-  </Table>
+  <div class="grid grid-cols-3 gap-2 m-4">
+    <div>Feature Support</div>
+  </div>
+  <div class="grid grid-cols-3 gap-2 p-4 m-4 border rounded">
+    <div>DPMS Standby</div>
+    <div>
+      <Switch
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
+        v-model="edidstore.mEEDID.EDID.DPMSstandby"
+      />
+    </div>
+    <div>EDID 1.4 Only</div>
+    <div>DPMS Suspend</div>
+    <div>
+      <Switch
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
+        v-model="edidstore.mEEDID.EDID.DPMSsuspend"
+      />
+    </div>
+    <div>EDID 1.4 Only</div>
+    <div>DPMS ActiveOff</div>
+    <div>
+      <Switch
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
+        v-model="edidstore.mEEDID.EDID.DPMSactiveOff"
+      />
+    </div>
+    <div>EDID 1.4 Only</div>
+    <div>Native Pixel Format in Preferred Timing Mode</div>
+    <div>
+      <Switch v-model="edidstore.mEEDID.EDID.PreferredTiming" />
+    </div>
+    <div></div>
+    <template v-if="edidstore.mEEDID.EDID.Revision < 4">
+      <div>GTF Support</div>
+      <div>
+        <Switch v-model="edidstore.mEEDID.EDID.PreferredTiming" />
+      </div>
+      <div>No encoding support</div>
+    </template>
+    <template v-if="edidstore.mEEDID.EDID.Revision > 3">
+      <div>Continuous Frequency</div>
+      <div>
+        <Switch v-model="edidstore.mEEDID.EDID.ContiniousFrequency" />
+      </div>
+      <div>No encoding support</div>
+    </template>
+  </div>
 </template>
