@@ -40,12 +40,11 @@ watch(
 
   <div
     v-if="videoInDef.VideoSignalInterface === 'Digital'"
-    class="grid grid-cols-3 gap-2 p-4 m-4 border rounded"
+    class="grid grid-cols-3 gap-2 m-4 p-4 border rounded"
   >
     <div class="content-center">Display Bitdepth</div>
     <div class="content-center">
       <Select
-        id="select-bitdepth"
         v-model="videoInDef.BitDepth"
         @change="edidstore.setHeader"
       >

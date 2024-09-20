@@ -6,21 +6,10 @@ const prop = defineProps<{
   blockNum: any;
 }>();
 const blocks = edidstore.mEEDID.CEA.DataBlocks;
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import ColorimetryDataBlock from "./extended/ColorimetryDataBlock.vue";
 </script>
 
 <template>
-    <CardHeader>
-        {{ blocks[prop.blockNum].Content.ExtendedName }} - Extended Tag
-    </CardHeader>
-    <CardContent>
-      
-    </CardContent>
+    <ColorimetryDataBlock v-if="blocks[prop.blockNum].Content.ExtendedName === 'ColorimetryDB'" :blockNum="prop.blockNum" />
+    <div v-else>Block not supported</div>
 </template>
