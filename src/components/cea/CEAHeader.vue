@@ -3,61 +3,56 @@ import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 const header = edidstore.mEEDID.CEA.Header;
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CardContent, CardHeader } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+// watch(
+//   () => header.Version,
+//   () => {
+//     console.log("Version changed");
+//   }
+// );
 </script>
 
 <template>
-  <CardHeader>
-    CEA Header
-  </CardHeader>
-<CardContent>
-  <Table>
-    <TableBody>
-      <TableRow>
-        <TableCell> Version </TableCell>
-        <TableCell>
-          <Select v-model="header.Version">
-            <SelectTrigger>
-              <SelectValue></SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem :value="1">1</SelectItem>
-              <SelectItem :value="2">2</SelectItem>
-              <SelectItem :value="3">3</SelectItem>
-            </SelectContent>
-          </Select>
-        </TableCell>
-      </TableRow>
-      <TableRow>
-        <TableCell> dtdStartByte </TableCell>
-        <TableCell>{{ header.dtdStartByte }}</TableCell>
-      </TableRow>
-      <TableRow>
-        <TableCell> Underscan </TableCell>
-        <TableCell>{{ header.Underscan }}</TableCell>
-      </TableRow>
-      <TableRow>
-        <TableCell> YCBCR444 </TableCell>
-        <TableCell>{{ header.YCBCR444 }}</TableCell>
-      </TableRow>
-      <TableRow>
-        <TableCell> YCBCR422 </TableCell>
-        <TableCell>{{ header.YCBCR422 }}</TableCell>
-      </TableRow>
-    </TableBody>
-  </Table>
-</CardContent>
+  <div class="grid grid-cols-3 gap-2 m-4">
+    <div class="content-center">CEA Header</div>
+  </div>
+  <div class="grid grid-cols-3 gap-2 m-4 p-4 border rounded">
+    <div class="content-center">Version</div>
+    <div class="content-center">
+      <Select v-model="header.Version">
+        <SelectTrigger>
+          <SelectValue> </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="1">1</SelectItem>
+          <SelectItem value="2">2</SelectItem>
+          <SelectItem value="3">3</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    <div></div>
+    <!-- <div>dtdStartByte</div>
+    <div>{{ header.dtdStartByte }}</div> -->
+    <div>Underscan</div>
+    <div>
+      <Switch v-model:checked="header.Underscan" />
+    </div>
+    <div></div>
+    <div>YCBCR444</div>
+    <div>
+      <Switch v-model:checked="header.YCBCR444" />
+    </div>
+    <div></div>
+    <div>YCBCR422</div>
+    <div>
+      <Switch v-model:checked="header.YCBCR422" />
+    </div>
+    <div></div>
+  </div>
 </template>
