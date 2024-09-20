@@ -77,8 +77,8 @@ function handleAddBlock() {
     </ResizablePanel>
     <ResizableHandle id="handle-demo-handle-1" with-handle />
     <ResizablePanel id="handle-demo-panel-2" :default-size="75">
-      <CEAHeader v-if="displayElement === 'header'" class="col-span-4" />
-      <CEADataBlock v-else class="col-span-4" :blockNum="selectedBlock" />
+      <CEAHeader v-if="displayElement === 'header'" />
+      <CEADataBlock v-else :blockNum="selectedBlock" />
     </ResizablePanel>
   </ResizablePanelGroup>
 </template>
