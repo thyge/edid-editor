@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 const prop = defineProps<{
   blockNum: any;
 }>();
