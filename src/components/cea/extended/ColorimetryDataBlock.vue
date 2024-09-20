@@ -59,5 +59,4 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
     </div>
     <div></div>
   </div>
-  <div class="content-center">{{ blocks[prop.blockNum].Content }}</div>
 </template>
