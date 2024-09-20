@@ -245,7 +245,7 @@ CEA.prototype.DecodeExtendedTag = function(dbBytes) {
                     ext.ITOverscanBehavior = "Always Overscanned"
                     break;
                 default:
-                    ext.ITOverscanBehavior = "No Data"
+                    ext.ITOverscanBehavior = "IT Video Formats not supported"
                     break;
             }
             ext.CEOverscanBehavior = ""
@@ -260,7 +260,7 @@ CEA.prototype.DecodeExtendedTag = function(dbBytes) {
                     ext.CEOverscanBehavior = "Always Overscanned"
                     break;
                 default:
-                    ext.CEOverscanBehavior = "No Data"
+                    ext.CEOverscanBehavior = "CE Video Formats not supported"
                     break;
             }
             break;

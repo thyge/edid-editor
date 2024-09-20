@@ -2,8 +2,6 @@
 import { watch } from "vue";
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -31,7 +29,7 @@ watch(
 
 <template>
   <div class="grid grid-cols-3 gap-2 m-4">
-    <div>EDID Header</div>
+    <div class="content-center">EDID Header</div>
   </div>
   <div class="grid grid-cols-3 gap-2 m-4 p-4 border rounded">
     <div class="content-center">Extensions</div>

@@ -11,7 +11,7 @@ import DisplayDescriptors from "./edid/DisplayDescriptors.vue";
 import { Card } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
 import HexViewer from "./HexViewer.vue";
-const displayElement = ref("Chromaticity");
+const displayElement = ref("EDIDHeader");
 import {
   ResizableHandle,
   ResizablePanel,
