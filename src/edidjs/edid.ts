@@ -439,12 +439,12 @@ EDID.prototype.SetGamma = function () {
 
 EDID.prototype.SetVideoInputParameters = function () {
   // Catch not implemented analog EDID
-  if (this.VideoInputDefinition.Mode != "Digital") {
+  if (this.VideoInputDefinition.VideoSignalInterface != "Digital") {
     return;
   }
   // Reset byte with digital
   this.raw[20] = 0x80;
-  switch (this.VideoBitDepth) {
+  switch (this.VideoInputDefinition.BitDepth) {
     case "6":
       this.raw[20] |= 16;
       break;
@@ -467,7 +467,7 @@ EDID.prototype.SetVideoInputParameters = function () {
       // If undefined do not set value = zero
       break;
   }
-  switch (this.VideoInterface) {
+  switch (this.VideoInputDefinition.Interface) {
     case "HDMIa":
       this.raw[20] |= 2;
       break;
