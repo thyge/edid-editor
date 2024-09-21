@@ -102,7 +102,7 @@ watch(
     <div class="content-center">
       <Select
         v-model="edidstore.mEEDID.EDID.Revision"
-        @change="onChange($event)"
+        @update="edidstore.setHeader()"
         id="selectRevision"
       >
         <SelectTrigger>

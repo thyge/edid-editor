@@ -30,6 +30,7 @@ const prop = defineProps<{
           v-model:checked="
             edidstore.mEEDID.EDID.StandardTimings[prop.id - 1].Enabled
           "
+          @update:checked="edidstore.setHeader()"
         />
       </div>
       <div class="content-center">Horizontal Active Pixels</div>
