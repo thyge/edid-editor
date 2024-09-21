@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useUiStore } from "../stores/uiStore";
+import { useEdidStore } from "../stores/edidStore";
 const uiStore = useUiStore();
+const edidstore = useEdidStore();
 import EDIDHeader from "./edid/EDIDHeader.vue";
 import DisplayParameters from "./edid/DisplayParameters.vue";
 import Chromaticity from "./edid/Chromaticity.vue";
 import EstablishedTimings from "./edid/EstablishedTimings.vue";
 import StandardTimings from "./edid/StandardTimings.vue";
 import DisplayDescriptors from "./edid/DisplayDescriptors.vue";
-import { Card } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
 import HexViewer from "./HexViewer.vue";
 const displayElement = ref("EDIDHeader");
@@ -20,7 +21,7 @@ import {
 </script>
 
 <template>
-  <ResizablePanelGroup direction="horizontal" >
+  <ResizablePanelGroup direction="horizontal">
     <ResizablePanel id="handle-demo-panel-1" :default-size="25">
       <Toggle
         @click="displayElement = 'EDIDHeader'"
@@ -70,9 +71,7 @@ import {
       >
         DisplayDescriptors
       </Toggle>
-      <div class="row-span-2">
-        <HexViewer v-if="uiStore.showHexView" />
-      </div>
+      <HexViewer :data="edidstore.mEEDID.EDID.raw" v-if="uiStore.showHexView" />
     </ResizablePanel>
     <ResizableHandle id="handle-demo-handle-1" with-handle />
     <ResizablePanel id="handle-demo-panel-2" :default-size="75">

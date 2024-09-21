@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useEdidStore } from "@/stores/edidStore";
+import { useUiStore } from "@/stores/uiStore";
 const edidstore = useEdidStore();
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+const uiStore = useUiStore();
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash, CirclePlus, Minus } from "lucide-vue-next";
+import { CirclePlus } from "lucide-vue-next";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import HexViewer from "./HexViewer.vue";
 const blocks = edidstore.mEEDID.CEA.DataBlocks;
 const selectedBlock = ref(3);
 const displayElement = ref("header");
@@ -43,7 +44,7 @@ function handleAddBlock() {
       <template v-for="(block, index) in blocks">
         <Toggle
           v-if="
-            (block.Header.Type === 'DBUseExtendedTag') |
+            (block.Header.Type === 'DBUseExtendedTag') ||
               (block.Header.Type === 'DBVendorSpecificDataBlock')
           "
           @click="
@@ -74,6 +75,7 @@ function handleAddBlock() {
         class="w-full"
         ><CirclePlus
       /></Button>
+      <HexViewer :data="edidstore.mEEDID.CEA.raw" v-if="uiStore.showHexView" />
     </ResizablePanel>
     <ResizableHandle id="handle-demo-handle-1" with-handle />
     <ResizablePanel id="handle-demo-panel-2" :default-size="75">

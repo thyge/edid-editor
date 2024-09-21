@@ -10,12 +10,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-// watch(
-//   () => header.Version,
-//   () => {
-//     console.log("Version changed");
-//   }
-// );
 </script>
 
 <template>

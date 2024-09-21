@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
-import VideoInputDefinitionFeatureSupport from "./VideoInputDefinitionFeatureSupport.vue";
+import FeatureSupport from "./FeatureSupport.vue";
 import VideoInputDefinition from "./VideoInputDefinition.vue";
 </script>
 
@@ -22,5 +22,5 @@ import VideoInputDefinition from "./VideoInputDefinition.vue";
     <div class="content-center">{{ edidstore.mEEDID.EDID.Gamma }}</div>
   </div>
 
-  <VideoInputDefinitionFeatureSupport />
+  <FeatureSupport />
 </template>
