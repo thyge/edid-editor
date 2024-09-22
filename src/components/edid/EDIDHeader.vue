@@ -19,12 +19,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 // Hack working around @change not working for Select
-watch(
-  () => edidstore.mEEDID.EDID.Revision,
-  () => {
-    edidstore.setHeader();
-  }
-);
 </script>
 
 <template>
@@ -102,8 +96,7 @@ watch(
     <div class="content-center">
       <Select
         v-model="edidstore.mEEDID.EDID.Revision"
-        @update="edidstore.setHeader()"
-        id="selectRevision"
+        @update:modelValue="edidstore.setHeader()"
       >
         <SelectTrigger>
           <SelectValue></SelectValue>

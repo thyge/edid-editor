@@ -234,7 +234,7 @@ EDID.prototype.DecodeEDID = function (bytes: Uint8Array) {
 
   this.SRGB = (this.raw[24] & 0x4) > 0 ? true : false;
   this.PreferredTiming = (this.raw[24] & 0x2) > 0 ? true : false;
-  if (this.Revision === 3) {
+  if (parseInt(this.Revision) == 3) {
     if (this.PreferredTiming != true) {
       this.Errors.push(
         "Table 3.14 note 4, bit 1 (at address 18h) shall be set to 1 (0 is invalid)"
@@ -247,7 +247,7 @@ EDID.prototype.DecodeEDID = function (bytes: Uint8Array) {
   // Continuous Frequency Display (set bit 0 to 1) or Non-Continuous Frequency (Multi-Mode) Display (set bit 0 to 0).
   // If bit 0 is set to 1, then the display will accept GTF or CVT generated timings (from a source)
   // that are within the display’s range limits.
-  if (this.Revision > 3) {
+  if (parseInt(this.Revision) > 3) {
     // EDID 1.4
     this.ContiniousFrequency = this.raw[24] & (0x1 > 0) ? true : false;
   } else {
@@ -396,7 +396,7 @@ EDID.prototype.SetManufactureDate = function () {
 
 EDID.prototype.SetEDIDVersion = function () {
   this.raw[18] = this.Version;
-  this.raw[19] = this.Revision;
+  this.raw[19] = parseInt(this.Revision);
 };
 
 EDID.prototype.SetFeatureSupport = function () {

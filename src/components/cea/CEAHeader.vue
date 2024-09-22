@@ -10,6 +10,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { watch } from "vue";
+watch(
+  () => edidstore.mEEDID.CEA.Header.Version,
+  (value) => {
+    console.log("Version changed to: " + value);
+    edidstore.setHeader();
+  }
+);
 </script>
 
 <template>
@@ -20,7 +28,7 @@ import { Switch } from "@/components/ui/switch";
     <div class="content-center">Version</div>
     <div class="content-center">
       <Select
-        v-model="header.Version"
+        v-model="edidstore.mEEDID.CEA.Header.Version"
         @update:modelValue="edidstore.setHeader()"
       >
         <SelectTrigger>

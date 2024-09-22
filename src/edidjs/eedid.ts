@@ -1,6 +1,5 @@
 import { EDID } from "./edid.ts";
-import { CEA } from "./cea.js";
-import { CEA2 } from "./cea2.ts";
+import { CEA } from "./cea.ts";
 import { DisplayID } from "./did.js";
 
 const TimingExtension = 0x00;
@@ -21,8 +20,7 @@ export class EEDID {
   raw: Uint8Array;
   Extensions: number;
   EDID: EDID;
-  CEA: CEA2 = new CEA2();
-  // CEA2: CEA2;
+  CEA: CEA = new CEA();
   DID: DisplayID;
   Errors = [];
 
@@ -45,11 +43,9 @@ export class EEDID {
           case TimingExtension:
             break;
           case CEAExtension:
-            // this.CEA = new CEA();
-            // this.CEA.DecodeCEA(extBytes);
-            // this.CEA.Extension = i;
-            this.CEA = new CEA2();
+            this.CEA = new CEA();
             this.CEA.Decode(extBytes);
+            this.CEA.Extension = i;
             console.log(this.CEA);
             this.CEA.Encode();
             break;
