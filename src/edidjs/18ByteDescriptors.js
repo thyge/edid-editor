@@ -391,7 +391,6 @@ export function DecodeRangeLimits(bytes) {
     // CVTSupported
     // Needs to be tested and impl
     // Table 3.28 – Display Range Limits & CVT Support Definition
-    console.log(drld.VideoTimingSupportMode)
     if (drld.VideoTimingSupportMode === "CVTSupported")
     {
         // Additional Pixel Clock Precision:

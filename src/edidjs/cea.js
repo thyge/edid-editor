@@ -6,7 +6,7 @@ export class CEA {
     DataBlocks = []
     DetailedTimingBlocks = []
 }
-
+    
 const CEADataBlockLookup = new Map();
 CEADataBlockLookup.set(1, "DBAudioDataBlock")
 CEADataBlockLookup.set(2, "DBVideoDataBlock")
@@ -103,7 +103,6 @@ CEA.prototype.DecodeCEA = function(bytes) {
             }
         }
     }
-    console.log(this.DataBlocks);
 }
 
 class CEADataBlock {
