@@ -1,4 +1,4 @@
-import type { CEADataBlock, DataBlockHeader } from "./cea2.ts";
+import type { CEADataBlock, DataBlockHeader } from "./cea.ts";
 
 export enum VSDBTag {
   Uninitialized = 0,

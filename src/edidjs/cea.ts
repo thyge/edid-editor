@@ -21,12 +21,12 @@ export enum CEADataBlockType {
   DBUseExtendedTag = 7,
 }
 
-export class CEA2 {
+export class CEA {
   raw = new Uint8Array();
   Header = new CEAHeader();
   DataBlocks: CEADataBlock[] = [];
   DetailedTimingBlocks: DetailedTimingDescriptor[] = [];
-  Extensions = 0;
+  Extension = 0;
 
   Decode(bytes: Uint8Array) {
     this.raw = bytes;
@@ -161,7 +161,7 @@ export class CEA2 {
 
 class CEAHeader {
   raw = new Uint8Array();
-  Version: string = "";
+  Version: string = 0;
   dtdStartByte = 0;
 
   Underscan = false;
@@ -173,7 +173,7 @@ class CEAHeader {
   Decode(bytes: Uint8Array) {
     this.Version = bytes[1].toString();
     this.dtdStartByte = bytes[2];
-    if (parseInt(this.Version) > 1) {
+    if (parseInt(this.Version)  > 1) {
       // Bit 7	1 if display supports underscan, 0 if not
       // Bit 6	1 if display supports basic audio, 0 if not
       // Bit 5	1 if display supports YCbCr 4∶4∶4, 0 if not

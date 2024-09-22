@@ -1,5 +1,5 @@
-import type { CEADataBlock, DataBlockHeader } from "./cea2.ts";
-import { VideoDataBlock } from "./cea2.ts";
+import type { CEADataBlock, DataBlockHeader } from "./cea.ts";
+import { VideoDataBlock } from "./cea.ts";
 
 export enum CEAExtendedTag {
   Uninitialized = -1,
