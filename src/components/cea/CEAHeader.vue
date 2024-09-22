@@ -19,7 +19,10 @@ import { Switch } from "@/components/ui/switch";
   <div class="grid grid-cols-3 gap-2 m-4 p-4 border rounded">
     <div class="content-center">Version</div>
     <div class="content-center">
-      <Select v-model="header.Version">
+      <Select
+        v-model="header.Version"
+        @update:modelValue="edidstore.setHeader()"
+      >
         <SelectTrigger>
           <SelectValue> </SelectValue>
         </SelectTrigger>
@@ -31,21 +34,36 @@ import { Switch } from "@/components/ui/switch";
       </Select>
     </div>
     <div></div>
-    <!-- <div>dtdStartByte</div>
-    <div>{{ header.dtdStartByte }}</div> -->
-    <div>Underscan</div>
+    <div class="content-center">Underscan</div>
     <div>
-      <Switch v-model:checked="header.Underscan" />
+      <Switch
+        v-model:checked="header.Underscan"
+        @update:checked="edidstore.setHeader()"
+      />
     </div>
     <div></div>
-    <div>YCBCR444</div>
+    <div class="content-center">Basic Audio</div>
     <div>
-      <Switch v-model:checked="header.YCBCR444" />
+      <Switch
+        v-model:checked="header.BasicAudio"
+        @update:checked="edidstore.setHeader()"
+      />
     </div>
     <div></div>
-    <div>YCBCR422</div>
+    <div class="content-center">YCBCR444</div>
     <div>
-      <Switch v-model:checked="header.YCBCR422" />
+      <Switch
+        v-model:checked="header.YCBCR444"
+        @update:checked="edidstore.setHeader()"
+      />
+    </div>
+    <div></div>
+    <div class="content-center">YCBCR422</div>
+    <div>
+      <Switch
+        v-model:checked="header.YCBCR422"
+        @update:checked="edidstore.setHeader()"
+      />
     </div>
     <div></div>
   </div>
