@@ -144,9 +144,11 @@ export class CEA {
     }
     if (this.Header.dtdStartByte != 0) {
       for (let d = this.Header.dtdStartByte; d < 127 - 18; d += 18) {
-        let dtd = new DetailedTimingDescriptor();
-        dtd.Decode(this.raw.slice(d, d + 18 + 1));
-        this.DetailedTimingBlocks.push(dtd);
+        let dtd = new DetailedTimingDescriptor().Decode(this.raw.slice(d, d + 18 + 1));
+        // check if dtd before adding
+        if (dtd != null) {
+          this.DetailedTimingBlocks.push(dtd);
+        }
       }
     }
   }

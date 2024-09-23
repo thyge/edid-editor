@@ -6,6 +6,7 @@ const edidstore = useEdidStore();
 const uiStore = useUiStore();
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
+import { CardContent } from "@/components/ui/card";
 import { CirclePlus } from "lucide-vue-next";
 import {
   ResizableHandle,
@@ -17,6 +18,7 @@ const selectedBlock = ref(3);
 const displayElement = ref("header");
 import CEAHeader from "./cea/CEAHeader.vue";
 import CEADataBlock from "./cea/CEADataBock.vue";
+import DetailedTimingDescriptor from "./edid/DetailedTimingDesciptor.vue";
 function handleRemoveBlock(element: number) {
   blocks.splice(element, 1);
   console.log(element);
@@ -81,6 +83,10 @@ function handleAddBlock() {
     <ResizableHandle id="handle-demo-handle-1" with-handle />
     <ResizablePanel id="handle-demo-panel-2" :default-size="75">
       <CEAHeader v-if="displayElement === 'header'" />
+      <DetailedTimingDescriptor
+        v-else-if="displayElement.includes('dtd')"
+        :block="edidstore.mEEDID.CEA.DetailedTimingBlocks[selectedBlock]"
+      />
       <CEADataBlock v-else :blockNum="selectedBlock" />
     </ResizablePanel>
   </ResizablePanelGroup>

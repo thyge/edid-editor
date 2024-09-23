@@ -10,52 +10,52 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
 
 <template>
   <div class="grid grid-cols-3 gap-2 m-4">
-    <div class="content-center">Colorimetry Data Block</div>
+    <div class="content-center">{{ blocks[prop.blockNum].Header.Name }}</div>
   </div>
   <div class="grid grid-cols-3 gap-2 m-4 p-4 border rounded">
     <div class="content-center">xvYCC601</div>
     <div>
-      <Switch v-model:checked="blocks[prop.blockNum].Content.xvYCC601" />
+      <Switch v-model:checked="blocks[prop.blockNum].xvYCC601" />
     </div>
     <div></div>
     <div class="content-center">xvYCC709</div>
     <div>
-      <Switch v-model:checked="blocks[prop.blockNum].Content.xvYCC709" />
+      <Switch v-model:checked="blocks[prop.blockNum].xvYCC709" />
     </div>
     <div></div>
     <div class="content-center">sYCC601</div>
     <div>
-      <Switch v-model:checked="blocks[prop.blockNum].Content.sYCC601" />
+      <Switch v-model:checked="blocks[prop.blockNum].sYCC601" />
     </div>
     <div></div>
     <div class="content-center">opYCC601</div>
     <div>
-      <Switch v-model:checked="blocks[prop.blockNum].Content.opYCC601" />
+      <Switch v-model:checked="blocks[prop.blockNum].opYCC601" />
     </div>
     <div></div>
     <div class="content-center">opRGB</div>
     <div>
-      <Switch v-model:checked="blocks[prop.blockNum].Content.opRGB" />
+      <Switch v-model:checked="blocks[prop.blockNum].opRGB" />
     </div>
     <div></div>
     <div class="content-center">BT2020cYCC</div>
     <div>
-      <Switch v-model:checked="blocks[prop.blockNum].Content.BT2020cYCC" />
+      <Switch v-model:checked="blocks[prop.blockNum].BT2020cYCC" />
     </div>
     <div></div>
     <div class="content-center">BT2020YCC</div>
     <div>
-      <Switch v-model:checked="blocks[prop.blockNum].Content.BT2020YCC" />
+      <Switch v-model:checked="blocks[prop.blockNum].BT2020YCC" />
     </div>
     <div></div>
     <div class="content-center">BT2020RGB</div>
     <div>
-      <Switch v-model:checked="blocks[prop.blockNum].Content.BT2020RGB" />
+      <Switch v-model:checked="blocks[prop.blockNum].BT2020RGB" />
     </div>
     <div></div>
     <div class="content-center">DCI-P3</div>
     <div>
-      <Switch v-model:checked="blocks[prop.blockNum].Content.DCI_P3" />
+      <Switch v-model:checked="blocks[prop.blockNum].DCI_P3" />
     </div>
     <div></div>
   </div>

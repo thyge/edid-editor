@@ -17,40 +17,46 @@ import {
 
 <template>
   <div class="grid grid-cols-3 gap-2 m-4">
-    <div class="content-center">HDMI 1.4</div>
+    <div class="content-center">{{ blocks[prop.blockNum].Header.Name }}</div>
   </div>
   <div class="grid grid-cols-3 gap-2 m-4 p-4 border rounded">
+    <div class="content-center">Address</div>
+    <div class="content-center">
+      {{ blocks[prop.blockNum].Address.A }} :
+      {{ blocks[prop.blockNum].Address.B }} :
+      {{ blocks[prop.blockNum].Address.C }} :
+      {{ blocks[prop.blockNum].Address.D }}
+    </div>
+    <div></div>
     <div class="content-center">10 Bits Per Pixel</div>
     <div class="content-center">
-      <Switch v-model:checked="blocks[prop.blockNum].Content.BitDepth10" />
+      <Switch v-model:checked="blocks[prop.blockNum].BitDepth10" />
     </div>
     <div></div>
     <div class="content-center">12 Bits Per Pixel</div>
     <div class="content-center">
-      <Switch v-model:checked="blocks[prop.blockNum].Content.BitDepth12" />
+      <Switch v-model:checked="blocks[prop.blockNum].BitDepth12" />
     </div>
     <div></div>
     <div class="content-center">16 Bits Per Pixel</div>
     <div class="content-center">
-      <Switch v-model:checked="blocks[prop.blockNum].Content.BitDepth16" />
+      <Switch v-model:checked="blocks[prop.blockNum].BitDepth16" />
     </div>
     <div></div>
     <div class="content-center">DVI Dual Link</div>
     <div class="content-center">
-      <Switch
-        v-model:checked="blocks[prop.blockNum].Content.DVIDualLinkOperation"
-      />
+      <Switch v-model:checked="blocks[prop.blockNum].DVIDualLinkOperation" />
     </div>
     <div></div>
     <div class="content-center">DeepColour444</div>
     <div class="content-center">
-      <Switch v-model:checked="blocks[prop.blockNum].Content.DeepColour444" />
+      <Switch v-model:checked="blocks[prop.blockNum].DeepColour444" />
     </div>
     <div></div>
     <div class="content-center">Max_TMDS_Clock</div>
     <div class="content-center">
       <NumberField
-        v-model="blocks[prop.blockNum].Content.Max_TMDS_Clock"
+        v-model="blocks[prop.blockNum].Max_TMDS_Clock"
         :disabled="true"
       >
         <NumberFieldContent>

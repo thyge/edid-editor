@@ -17,14 +17,14 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
 
 <template>
   <div class="grid grid-cols-3 gap-2 m-4">
-    <div class="content-center">Video Capability Data Block</div>
+    <div class="content-center">{{ blocks[prop.blockNum].Header.Name }}</div>
   </div>
   <div class="grid grid-cols-3 gap-2 m-4 p-4 border rounded">
     <div class="content-center">YCC Quantization Range Selectable</div>
     <div>
       <Switch
         v-model:checked="
-          blocks[prop.blockNum].Content.YCCQuantizationRangeSelectable
+          blocks[prop.blockNum].YCCQuantizationRangeSelectable
         "
       />
     </div>
@@ -33,7 +33,7 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
     <div>
       <Switch
         v-model:checked="
-          blocks[prop.blockNum].Content.RGBQuantizationRangeSelectable
+          blocks[prop.blockNum].RGBQuantizationRangeSelectable
         "
       />
     </div>
@@ -41,7 +41,7 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
     <div class="content-center">PT Overscan Behavior</div>
     <div>
       <Select
-        v-model="blocks[prop.blockNum].Content.PTOverscanBehavior"
+        v-model="blocks[prop.blockNum].PTOverscanBehavior"
         disabled
       >
         <SelectTrigger>
@@ -65,7 +65,7 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
     <div class="content-center">IT Overscan Behavior</div>
     <div>
       <Select
-        v-model="blocks[prop.blockNum].Content.ITOverscanBehavior"
+        v-model="blocks[prop.blockNum].ITOverscanBehavior"
         disabled
       >
         <SelectTrigger>
@@ -91,7 +91,7 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
     <div class="content-center">CE Overscan Behavior</div>
     <div>
       <Select
-        v-model="blocks[prop.blockNum].Content.CEOverscanBehavior"
+        v-model="blocks[prop.blockNum].CEOverscanBehavior"
         disabled
       >
         <SelectTrigger>
