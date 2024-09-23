@@ -30,6 +30,7 @@ export class VideoCapabilityDataBlock implements CEADataBlock {
   CEOverscanBehavior: string = "";
   constructor(header: DataBlockHeader) {
     this.Header = header;
+    this.Header.Name = "Video Capability Data Block";
   }
 
   Decode(dbBytes: Uint8Array): VideoCapabilityDataBlock {
@@ -100,6 +101,7 @@ export class ColorimetryDataBlock implements CEADataBlock {
   DCIP3: boolean = false;
   constructor(header: DataBlockHeader) {
     this.Header = header;
+    this.Header.Name = "Colorimetry Data Block";
   }
   Decode(dbBytes: Uint8Array): ColorimetryDataBlock {
     this.xvYCC601 = dbBytes[2] & 0x80 ? true : false;
@@ -119,7 +121,7 @@ export class ColorimetryDataBlock implements CEADataBlock {
 }
 
 export class SpeakerLocationDataBlock implements CEADataBlock {
-  Header = new DataBlockHeader();
+  Header: DataBlockHeader;
   RearLeftRightCenter: boolean = false;
   FrontLeftRightCenter: boolean = false;
   RearCenter: boolean = false;
@@ -129,6 +131,7 @@ export class SpeakerLocationDataBlock implements CEADataBlock {
   FrontLeftRight: boolean = false;
   constructor(header: DataBlockHeader) {
     this.Header = header;
+    this.Header.Name = "Speaker Location Data Block";
   }
   Decode(dbBytes: Uint8Array): SpeakerLocationDataBlock {
     this.RearLeftRightCenter = dbBytes[1] & 0x40 ? true : false;
@@ -157,6 +160,7 @@ export class HDRStaticMetadataDataBlock implements CEADataBlock {
   ContentMinLuminance: number = 0;
   constructor(header: DataBlockHeader) {
     this.Header = header;
+    this.Header.Name = "HDR Static Metadata Data Block";
   }
   Decode(dbBytes: Uint8Array): HDRStaticMetadataDataBlock {
     this.HLG = dbBytes[2] & 0x08 ? true : false;
@@ -186,6 +190,7 @@ export class YCBCR420CapabilityMap implements CEADataBlock {
   vicCounter: number = 0;
   constructor(header: DataBlockHeader) {
     this.Header = header;
+    this.Header.Name = "YCBCR 420 Capability Map";
   }
   Decode(dbBytes: Uint8Array): YCBCR420CapabilityMap {
     for (let i = 2; i < dbBytes.length; i++) {

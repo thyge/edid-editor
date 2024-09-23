@@ -161,7 +161,7 @@ export class CEA {
 
 class CEAHeader {
   raw = new Uint8Array();
-  Version: string = 0;
+  Version: string = "";
   dtdStartByte = 0;
 
   Underscan = false;
@@ -207,6 +207,7 @@ export class DataBlockHeader {
   Type = CEADataBlockType.Uninitialized;
   ExtendedTag = CEAExtendedTag.Uninitialized;
   VSDB = VSDBTag.Uninitialized;
+  Name = "";
   ExtendedType = 0;
   Size = 0;
 
@@ -249,6 +250,7 @@ class VideoDataBlock implements CEADataBlock {
   VICs: {}[] = [];
   constructor(header: DataBlockHeader) {
     this.Header = header;
+    this.Header.Name = "Video Data Block";
   }
   Decode(dbBytes: Uint8Array): VideoDataBlock {
     this.Header.Decode(dbBytes.slice(0, 1));
@@ -301,6 +303,7 @@ class AudioDataBlock implements CEADataBlock {
 
   constructor(header: DataBlockHeader) {
     this.Header = header;
+    this.Header.Name = "Audio Data Block";
   }
 
   Decode(dbBytes: Uint8Array): AudioDataBlock {
@@ -335,6 +338,7 @@ class SpeakerAllocationDataBlock implements CEADataBlock {
   FrontLeftRight: boolean = false;
   constructor(header: DataBlockHeader) {
     this.Header = header;
+    this.Header.Name = "Speaker Allocation";
   }
   Decode(dbBytes: Uint8Array): SpeakerAllocationDataBlock {
     this.RearLeftRightCenter = dbBytes[1] & 0x40 ? true : false;
