@@ -37,8 +37,12 @@ export class DetailedTimingDescriptor {
   VerticalRefreshRate: number = 0;
   HorizontalRefreshRate: number = 0;
 
-  Decode(edidBytes: Uint8Array): DetailedTimingDescriptor {
+  Decode(edidBytes: Uint8Array): DetailedTimingDescriptor | null {
     this.raw = edidBytes;
+    if (edidBytes[0] === 0 && edidBytes[1] === 0) {
+      // catch this error
+      return null;
+    }
     this.PixelClockKHz = ((edidBytes[1] << 8) | edidBytes[0]) * 10000;
     if (this.PixelClockKHz === 0) {
       // catch this error
