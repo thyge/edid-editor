@@ -26,6 +26,7 @@ export class HDMI_1_4 implements CEADataBlock {
   Max_TMDS_Clock: number = 0;
   constructor(header: DataBlockHeader) {
     this.Header = header;
+    this.Header.Name = "HDMI 1.4";
   }
   Decode(dbBytes: Uint8Array): HDMI_1_4 {
     this.Address.A = dbBytes[4] >> 4;
@@ -76,6 +77,7 @@ export class HDMI_2_0 implements CEADataBlock {
 
   constructor(header: DataBlockHeader) {
     this.Header = header;
+    this.Header.Name = "HDMI 2.0";
   }
   Decode(dbBytes: Uint8Array): HDMI_2_0 {
     this.Max_TMDS_Frequency = dbBytes[5] * 5;

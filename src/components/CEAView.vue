@@ -13,7 +13,6 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import HexViewer from "./HexViewer.vue";
-const blocks = edidstore.mEEDID.CEA.DataBlocks;
 const selectedBlock = ref(3);
 const displayElement = ref("header");
 import CEAHeader from "./cea/CEAHeader.vue";
@@ -41,12 +40,8 @@ function handleAddBlock() {
         :pressed="displayElement === 'header'"
         >Header</Toggle
       >
-      <template v-for="(block, index) in blocks">
+      <template v-for="(block, index) in edidstore.mEEDID.CEA.DataBlocks">
         <Toggle
-          v-if="
-            (block.Header.Type === 'DBUseExtendedTag') ||
-              (block.Header.Type === 'DBVendorSpecificDataBlock')
-          "
           @click="
             displayElement = 'block' + index;
             selectedBlock = index;
@@ -54,19 +49,25 @@ function handleAddBlock() {
           variant="ghost"
           class="w-full justify-start"
           :pressed="displayElement === 'block' + index"
-          >{{ block.Content.ExtendedName }}</Toggle
+          >{{ block.Header.Name }}</Toggle
         >
+      </template>
+      <template
+        v-for="(dtd, index) in edidstore.mEEDID.CEA.DetailedTimingBlocks"
+      >
         <Toggle
-          v-else
           @click="
-            displayElement = 'block' + index;
+            displayElement = 'dtd' + index;
             selectedBlock = index;
           "
           variant="ghost"
           class="w-full justify-start"
-          :pressed="displayElement === 'block' + index"
-          >{{ block.Header.Type }}</Toggle
+          :pressed="displayElement === 'dtd' + index"
         >
+          {{ dtd.HorizontalActive }}x{{ dtd.VerticalActive }}@{{
+            Math.round(dtd.VerticalRefreshRate)
+          }}p
+        </Toggle>
       </template>
       <Button
         @click="handleAddBlock()"
