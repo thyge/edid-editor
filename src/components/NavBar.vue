@@ -40,6 +40,37 @@ function uploadFile(e) {
     reader.readAsText(file);
   }
 }
+function downloadBinFile() {
+  let edidarr = edidStore.mEEDID.raw;
+  let blob = new Blob([edidarr], { type: "application/octet-stream" });
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = "edid.bin";
+  a.click();
+}
+function toHexString(byte) {
+    if(byte>15)
+        return (byte & 0xFF).toString(16)
+    else
+        return '0'+(byte & 0xFF).toString(16)
+}
+function downloadTxtFile() {
+  let edidarr = edidStore.mEEDID.raw;
+  let txtEdid = "";
+  for (let i = 0; i < edidarr.length; i++) {
+    if (i % 16 === 0) {
+      txtEdid += "\n";
+    }
+    txtEdid += toHexString(edidarr[i]) + ",";
+  }
+  let blob = new Blob([txtEdid], { type: "text/plain" });
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = "edid.txt";
+  a.click();
+}
 </script>
 
 <template>
@@ -58,7 +89,8 @@ function uploadFile(e) {
             />
           </div>
         </MenubarItem>
-        <MenubarItem> Download </MenubarItem>
+        <MenubarItem @click="downloadBinFile"> Download bin file</MenubarItem>
+        <MenubarItem @click="downloadTxtFile"> Download txt file</MenubarItem>
       </MenubarContent>
     </MenubarMenu>
     <MenubarMenu>
