@@ -14,27 +14,31 @@ import { CEAExtendedTag } from "../../edidjs/cea_extended";
 
 <template>
   <ColorimetryDataBlock
-    v-if="blocks[prop.blockNum].Header.ExtendedTag === CEAExtendedTag.ColorimetryDB"
+    v-if="
+      blocks[prop.blockNum].Header.ExtendedTag === CEAExtendedTag.ColorimetryDB
+    "
     :blockNum="prop.blockNum"
   />
   <HDRStaticMetadataDataBlock
     v-else-if="
-      blocks[prop.blockNum].Header.ExtendedTag === CEAExtendedTag.HDRStaticMetadataDB
+      blocks[prop.blockNum].Header.ExtendedTag ===
+      CEAExtendedTag.HDRStaticMetadataDB
     "
     :blockNum="prop.blockNum"
   />
   <VideoCapabilityDataBlock
     v-else-if="
-      blocks[prop.blockNum].Header.ExtendedTag === CEAExtendedTag.VideoCapabilityDB
+      blocks[prop.blockNum].Header.ExtendedTag ===
+      CEAExtendedTag.VideoCapabilityDB
     "
     :blockNum="prop.blockNum"
   />
   <YCBCR420CapabilityMap
     v-else-if="
-      blocks[prop.blockNum].Header.ExtendedTag === CEAExtendedTag.YCBCR420CapabilityMap
+      blocks[prop.blockNum].Header.ExtendedTag ===
+      CEAExtendedTag.YCBCR420CapabilityMap
     "
     :blockNum="prop.blockNum"
   />
-  
   <div v-else>{{ blocks[prop.blockNum] }}</div>
 </template>
