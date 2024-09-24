@@ -331,25 +331,49 @@ class AudioDataBlock implements CEADataBlock {
 
 class SpeakerAllocationDataBlock implements CEADataBlock {
   Header = new DataBlockHeader();
-  RearLeftRightCenter: boolean = false;
-  FrontLeftRightCenter: boolean = false;
-  RearCenter: boolean = false;
-  RearLeftRight: boolean = false;
+  // Speaker allocation
+  FrontWide_LeftRight: boolean = false; // bit 7
+  // Deprecated, was Rear left/right center (RLC/RRC)
+  FrontCenter_LeftRight: boolean = false;
+  BackCenter: boolean = false;
+  Back_LeftRight: boolean = false;
   FrontCenter: boolean = false;
-  LFE: boolean = false;
-  FrontLeftRight: boolean = false;
+  LFEChannel: boolean = false;
+  Front_LeftRight: boolean = false;
+
+  // Speaker location
+  // Deprecated, was Top side left/right (TpSiL/TpSiR) bit 7
+  // Deprecated, was Side left/right (SiL/SiR)
+  // Deprecated, was Top back center (TpBC)
+  // Deprecated, was Low-frequency effects 2 (LFE2)
+  Surround_LeftRight: boolean = false;
+  TopFrontCenter: boolean = false;
+  TopCenter: boolean = false;
+  TopFront_LeftRight: boolean = false;
+
+  // Bits 7-3	Reserved, 0
+  // Bit 2	Deprecated, was Bottom front left/right (BtFL/BtFR)
+  // Bit 1	Deprecated, was Bottom front center (BtFC)
+  // Bit 0	Deprecated, was Top back left/right (TpBL/TpBR)
+  
   constructor(header: DataBlockHeader) {
     this.Header = header;
-    this.Header.Name = "Speaker Allocation";
+    this.Header.Name = "Speaker Allocation Data Block";
   }
   Decode(dbBytes: Uint8Array): SpeakerAllocationDataBlock {
-    this.RearLeftRightCenter = dbBytes[1] & 0x40 ? true : false;
-    this.FrontLeftRightCenter = dbBytes[1] & 0x20 ? true : false;
-    this.RearCenter = dbBytes[1] & 0x10 ? true : false;
-    this.RearLeftRight = dbBytes[1] & 0x08 ? true : false;
+    this.FrontWide_LeftRight = dbBytes[1] & 0x80 ? true : false;
+    this.FrontCenter_LeftRight = dbBytes[1] & 0x20 ? true : false;
+    this.BackCenter = dbBytes[1] & 0x10 ? true : false;
+    this.Back_LeftRight = dbBytes[1] & 0x08 ? true : false;
     this.FrontCenter = dbBytes[1] & 0x04 ? true : false;
-    this.LFE = dbBytes[1] & 0x02 ? true : false;
-    this.FrontLeftRight = dbBytes[1] & 0x01 ? true : false;
+    this.LFEChannel = dbBytes[1] & 0x02 ? true : false;
+    this.Front_LeftRight = dbBytes[1] & 0x01 ? true : false;
+    
+    this.Surround_LeftRight = dbBytes[2] & 0x08 ? true : false;
+    this.TopFrontCenter = dbBytes[2] & 0x04 ? true : false;
+    this.TopCenter = dbBytes[2] & 0x02 ? true : false;
+    this.TopFront_LeftRight = dbBytes[2] & 0x01 ? true : false;
+    
     return this;
   }
   Encode(): Uint8Array {
