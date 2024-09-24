@@ -18,7 +18,7 @@ const selectedBlock = ref(3);
 const displayElement = ref("header");
 import CEAHeader from "./cea/CEAHeader.vue";
 import CEADataBlock from "./cea/CEADataBock.vue";
-import DetailedTimingDescriptor from "./edid/DetailedTimingDesciptor.vue";
+import DetailedTimingDescriptor from "./DetailedTimingDesciptor.vue";
 function handleRemoveBlock(element: number) {
   blocks.splice(element, 1);
   console.log(element);

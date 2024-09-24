@@ -3,7 +3,7 @@ import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 const medid = edidstore.mEEDID.EDID;
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import DetailedTimingDescriptor from "./DetailedTimingDesciptor.vue";
+import DetailedTimingDescriptor from "../DetailedTimingDesciptor.vue";
 import { Trash, CirclePlus, Minus, CircleMinus } from "lucide-vue-next";
 const prop = defineProps<{
   num: number;
