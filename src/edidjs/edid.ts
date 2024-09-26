@@ -5,16 +5,184 @@ import {
   MakeDummyDescriptor,
 } from "./18ByteDescriptors.js";
 
-export class VideoInputDefinition {
-  VideoSignalInterface: string;
-  BitDepth: string;
-  Interface: string;
-  SignalLevelStandard: string;
-  VideoSetup: string;
+interface VideoSignalInterface {
+  SignalInterface: SignalInterface;
+}
+
+enum SignalInterface {
+  NotDefined = "NotDefined",
+  Digital = "Digital",
+  Analog = "Analog",
+}
+
+enum VideoInterface {
+  Undefined = "undefined",
+  DVI = "DVI",
+  HDMIa = "HDMIa",
+  HDMIb = "HDMIb",
+  MDDI = "MDDI",
+  DisplayPort = "DisplayPort",
+}
+
+enum BitDepth {
+  Undefined = "undefined",
+  Six = "6",
+  Eight = "8",
+  Ten = "10",
+  Twelve = "12",
+  Sixteen = "16",
+}
+
+class DigitalVideoInput implements VideoSignalInterface {
+  SignalInterface: SignalInterface;
+
+  BitDepth: BitDepth;
+  Interface: VideoInterface;
+  constructor(mbyte: number) {
+    this.SignalInterface = SignalInterface.Digital;
+    switch ((mbyte & 0x70) >> 4) {
+      case 0:
+        this.BitDepth = BitDepth.Undefined;
+        break;
+      case 1:
+        this.BitDepth = BitDepth.Six;
+        break;
+      case 2:
+        this.BitDepth = BitDepth.Eight;
+        break;
+      case 3:
+        this.BitDepth = BitDepth.Ten;
+        break;
+      case 4:
+        this.BitDepth = BitDepth.Twelve;
+        break;
+      case 6:
+        this.BitDepth = BitDepth.Sixteen;
+        break;
+      default:
+        this.BitDepth = BitDepth.Undefined;
+        break;
+    }
+    switch (mbyte & 0x7) {
+      case 1:
+        this.Interface = VideoInterface.DVI;
+        break;
+      case 2:
+        this.Interface = VideoInterface.HDMIa;
+        break;
+      case 3:
+        this.Interface = VideoInterface.HDMIb;
+        break;
+      case 4:
+        this.Interface = VideoInterface.MDDI;
+        break;
+      case 5:
+        this.Interface = VideoInterface.DisplayPort;
+        break;
+      default:
+        this.Interface = VideoInterface.Undefined;
+        break;
+    }
+  }
+}
+
+enum SignalLevelStandard {
+  NotDefined = -1,
+  V700_300_1000 = 0,
+  V714_286_1000 = 0x20,
+  V1000_400_1400 = 0x40,
+  V700_000_700 = 0x60,
+}
+
+enum SignalLevelStandardString {
+  NotDefined = "NotDefined",
+  V700_300_1000 = "0.700 : 0.300 : 1.000 V p-p",
+  V714_286_1000 = "0.714 : 0.286 : 1.000 V p-p",
+  V1000_400_1400 = "1.000 : 0.400 : 1.400 V p-p",
+  V700_000_700 = "0.700 : 0.000 : 0.700 V p-p",
+}
+enum VideoSetup {
+  BlankLevel = "Blank Level = Black Level",
+  BlankToBlack = "Blank-to-Black setup or pedestal",
+}
+
+
+class AnalogVideoInput implements VideoSignalInterface {
+  SignalInterface: SignalInterface;
+  SignalLevelStandard: SignalLevelStandard;
+  VideoSetup: VideoSetup;
   SeparateSyncHVSignals: boolean;
   CompositeSyncSignalonHorizontal: boolean;
   CompositeSyncSignalonGreenVideo: boolean
-  Serrations: string;
+  SerrationsOnVSync: boolean;
+  
+  constructor(mbyte: number) {
+    this.SignalInterface = SignalInterface.Analog;
+    this.SignalLevelStandard = mbyte & 0x60;
+    this.VideoSetup = mbyte & 0x10 ? VideoSetup.BlankToBlack : VideoSetup.BlankLevel;
+    this.SeparateSyncHVSignals = mbyte & 0x8 ? false : true;
+    this.CompositeSyncSignalonHorizontal = mbyte & 0x4 ? false : true;
+    this.CompositeSyncSignalonGreenVideo = mbyte & 0x2 ? false : true;
+    this.SerrationsOnVSync = mbyte & 0x1 ? true : false;
+  }
+}
+
+class DigitalColourEncoding implements VideoSignalInterface {
+  SignalInterface: SignalInterface;
+  RGB444: boolean;
+  YUV444: boolean;
+  YUV422: boolean;
+  constructor(mbyte: number) {
+    this.SignalInterface = SignalInterface.Digital;
+    this.RGB444 = mbyte & 0x8 ? true : false;
+    this.YUV444 = mbyte & 0x10 ? true : false;
+    this.YUV422 = mbyte & 0x20 ? true : false;
+  }
+}
+
+enum AnalogDisplayColorType {
+  Monochrome = 0,
+  RGB = 1,
+  NonRGB = 2,
+  Undefined = 3,
+}
+
+class AnalogueColourEncoding implements VideoSignalInterface {
+  SignalInterface: SignalInterface;
+  AnalogColour: AnalogDisplayColorType;
+  constructor(mbyte: number) {
+    this.SignalInterface = SignalInterface.Analog;
+    this.AnalogColour = mbyte & 0x3;
+  }
+}
+
+class FeatureSupport {
+  DPMSstandby: boolean = false;
+  DPMSsuspend: boolean = false;
+  DPMSactiveOff: boolean = false;
+  ColourEncoding: VideoSignalInterface = { SignalInterface: SignalInterface.NotDefined };
+  sRGB: boolean = false;
+  PreferredTiming: boolean = false;
+  GTFSupport: boolean = false; // 1.3
+  ContiniousFrequency: boolean = false; // 1.4
+
+  constructor(mbyte: number, digital_analog: SignalInterface) {
+    this.DPMSstandby = mbyte & 0x80 ? true : false;
+    this.DPMSsuspend = mbyte & 0x40 ? true : false;
+    this.DPMSactiveOff = mbyte & 0x20 ? true : false;
+    switch (digital_analog) {
+      case SignalInterface.Digital:
+        this.ColourEncoding = new DigitalColourEncoding(mbyte);
+        break;
+      case SignalInterface.Analog:
+        this.ColourEncoding = new AnalogueColourEncoding(mbyte);
+        break;
+    }
+    this.sRGB = mbyte & 0x4 ? true : false;
+    this.PreferredTiming = mbyte & 0x2 ? true : false;
+    this.GTFSupport = mbyte & 0x1 ? true : false;
+    this.ContiniousFrequency = mbyte & 0x1 ? true : false;
+  }
 }
 
 export class EDID {
@@ -26,7 +194,13 @@ export class EDID {
   ManufacturerID: string = "";
   WeekOfManufacture: number = 0;
   YearOfManufacture: number = 0;
-  VideoInputDefinition: VideoInputDefinition = {};
+  // Basic Display Parameters and Features
+  VideoSignalInterface: VideoSignalInterface;
+  HorizontalSizeCM: number = 0;
+  VerticalSizeCM: number = 0;
+  Gamma: number = 0;
+  FeatureSupport: FeatureSupport;
+  // 
   DisplayParameters = {};
   EstablishedTimings = {};
   StandardTimings = [];
@@ -34,6 +208,8 @@ export class EDID {
   Errors = [];
   DummyIdentifiers: number = 0;
 }
+
+
 
 EDID.prototype.DecodeEDID = function (bytes: Uint8Array) {
   this.raw = bytes;
@@ -84,112 +260,16 @@ EDID.prototype.DecodeEDID = function (bytes: Uint8Array) {
   // 0100 = MDDI
   // 0101 = DisplayPort
   if (this.raw[20] & 0x80) {
-    this.VideoInputDefinition.VideoSignalInterface = "Digital";
+    this.VideoSignalInterface = new DigitalVideoInput(this.raw[20]);
   } else {
-    this.VideoInputDefinition.VideoSignalInterface = "Analog";
-  }
-
-  // EDID 1.4
-  if (this.VideoInputDefinition.VideoSignalInterface === "Digital") {
-    switch (this.raw[20] & 0x70) {
-      case 0:
-        this.VideoInputDefinition.BitDepth = "undefined";
-        break;
-      case 16:
-        this.VideoInputDefinition.BitDepth = "6";
-        break;
-      case 32:
-        this.VideoInputDefinition.BitDepth = "8";
-        break;
-      case 48:
-        this.VideoInputDefinition.BitDepth = "10";
-        break;
-      case 64:
-        this.VideoInputDefinition.BitDepth = "12";
-        break;
-      case 96:
-        this.VideoInputDefinition.BitDepth = "16";
-        break;
-      case 112:
-        this.VideoInputDefinition.BitDepth = "reserved";
-        break;
-      default:
-        this.Errors.push("EDID.VideoBitDepth set incorrectly in EDID\n");
-    }
-    // EDID 1.4
-    switch (this.raw[20] & 0x7) {
-      case 0:
-        this.VideoInputDefinition.Interface = "undefined";
-        break;
-      case 1:
-        this.VideoInputDefinition.Interface = "DVI";
-        break;
-      case 2:
-        this.VideoInputDefinition.Interface = "HDMIa";
-        break;
-      case 3:
-        this.VideoInputDefinition.Interface = "HDMIb";
-        break;
-      case 4:
-        this.VideoInputDefinition.Interface = "MDDI";
-        break;
-      case 5:
-        this.VideoInputDefinition.Interface = "DisplayPort";
-        break;
-      default:
-        this.Errors.push("EDID.VideoInterface set incorrectly in EDID\n");
-    }
-  } else {
-    switch (this.raw[20] & 0x60) {
-      case 0:
-        this.VideoInputDefinition.SignalLevelStandard = "0.700 : 0.300 : 1.000 V p-p";
-        break;
-      case 0x20:
-        this.VideoInputDefinition.SignalLevelStandard = "0.714 : 0.286 : 1.000 V p-p";
-        break;
-      case 0x40:
-        this.VideoInputDefinition.SignalLevelStandard = "1.000 : 0.400 : 1.400 V p-p";
-        break;
-      case 0x60:
-        this.VideoInputDefinition.SignalLevelStandard = "0.700 : 0.000 : 0.700 V p-p";
-        break;
-      default:
-        this.Errors.push("EDID.VideoBitDepth set incorrectly in EDID\n");
-    }
-    switch (this.raw[20] & 0x10) {
-        case 0:
-          this.VideoInputDefinition.VideoSetup = "Video Setup: Blank Level = Black Level";
-          break;
-        case 0x10:
-          this.VideoInputDefinition.VideoSetup = "Video Setup: Blank-to-Black setup or pedestal";
-          break;
-        default:
-          this.Errors.push("EDID.VideoBitDepth set incorrectly in EDID\n");
-      }
-      if (this.raw[20] & 0x8) {
-        this.VideoInputDefinition.SeparateSyncHVSignals = false
-      } else {
-        this.VideoInputDefinition.SeparateSyncHVSignals = true
-      }
-      if (this.raw[20] & 0x4) {
-        this.VideoInputDefinition.CompositeSyncSignalonHorizontal = false
-      } else {
-        this.VideoInputDefinition.CompositeSyncSignalonHorizontal = true
-      }
-      if (this.raw[20] & 0x2) {
-        this.VideoInputDefinition.CompositeSyncSignalonGreenVideo = false
-      } else {
-        this.VideoInputDefinition.CompositeSyncSignalonGreenVideo = true
-      }
+    this.VideoSignalInterface = new AnalogVideoInput(this.raw[20]);
   }
 
   // Horizontal screen size
   // Vertical screen size
+  // EDID 1.4 H & V Screen Size and Aspect Ratio
   this.HorizontalSizeCM = this.raw[21];
   this.VerticalSizeCM = this.raw[22];
-
-  // EDID 1.4 H & V Screen Size and Aspect Ratio
-  // TODO
 
   // Display gamma
   if (this.raw[22] === 0xff) {
@@ -198,66 +278,7 @@ EDID.prototype.DecodeEDID = function (bytes: Uint8Array) {
   this.Gamma = this.raw[23] / 100 + 1;
 
   // DPMS
-  this.DPMSstandby = this.raw[24] & 0x80 ? true : false;
-  this.DPMSsuspend = this.raw[24] & 0x40 ? true : false;
-  this.DPMSactiveOff = this.raw[24] & 0x20 ? true : false;
-  // EDID 1.4 Supported features
-  if (this.VideoInputDefinition.VideoSignalInterface === "Digital") {
-    // 00 = RGB 4:4:4
-    // 01 = RGB 4:4:4 + YCrCb 4:4:4
-    // 10 = RGB 4:4:4 + YCrCb 4:2:2
-    // 11 = RGB 4:4:4 + YCrCb 4:4:4 + YCrCb 4:2:2
-    this.ColourEncoding = {
-      RGB444: false,
-      YUV444: false,
-      YUV422: false,
-    };
-    switch (this.raw[24] & 0x18) {
-      case 0:
-        this.ColourEncoding.RGB444 = true;
-        break;
-      case 8:
-        this.ColourEncoding.RGB444 = true;
-        this.ColourEncoding.YUV444 = true;
-        break;
-      case 16:
-        this.ColourEncoding.RGB444 = true;
-        this.ColourEncoding.YUV422 = true;
-        break;
-      case 24:
-        this.ColourEncoding.RGB444 = true;
-        this.ColourEncoding.YUV444 = true;
-        this.ColourEncoding.YUV422 = true;
-        break;
-    }
-  }
-
-  this.SRGB = (this.raw[24] & 0x4) > 0 ? true : false;
-  this.PreferredTiming = (this.raw[24] & 0x2) > 0 ? true : false;
-  if (parseInt(this.Revision) == 3) {
-    if (this.PreferredTiming != true) {
-      this.Errors.push(
-        "Table 3.14 note 4, bit 1 (at address 18h) shall be set to 1 (0 is invalid)"
-      );
-    }
-  }
-  // Continious frequency or GTF
-  // For EDID version 1, revision 3, bit 0 (at address 18h) indicated support for or no support for GTF (using the default GTF parameter values).
-  // For EDID version 1, revision 4, bit 0 (at address 18h) has been redefined to indicate
-  // Continuous Frequency Display (set bit 0 to 1) or Non-Continuous Frequency (Multi-Mode) Display (set bit 0 to 0).
-  // If bit 0 is set to 1, then the display will accept GTF or CVT generated timings (from a source)
-  // that are within the display’s range limits.
-  if (parseInt(this.Revision) > 3) {
-    // EDID 1.4
-    this.ContiniousFrequency = this.raw[24] & (0x1 > 0) ? true : false;
-  } else {
-    this.GTFSupport = this.raw[24] & (0x1 > 0) ? true : false;
-  }
-
-  // TODO:
-  // Bit 2	Standard sRGB colour space. Bytes 25–34 must contain sRGB standard values.
-  // EDID 1.4 Bit 1	Preferred timing mode specified in descriptor block 1. For EDID 1.3+ the preferred timing mode is always in the first Detailed Timing Descriptor. In that case, this bit specifies whether the preferred timing mode includes native pixel format and refresh rate.
-  // EDID 1.4 Bit 0	Continuous timings with GTF or CVT
+  this.FeatureSupport = new FeatureSupport(this.raw[24], this.VideoSignalInterface.SignalInterface);
 
   // Chromaticity coordinates.
   this.Chromaticity = {};
@@ -405,7 +426,7 @@ EDID.prototype.SetFeatureSupport = function () {
   this.raw[24] |= this.DPMSstandby ? 0x80 : 0;
   this.raw[24] |= this.DPMSsuspend ? 0x40 : 0;
   this.raw[24] |= this.DPMSactiveOff ? 0x20 : 0;
-  if (this.VideoInputDefinition.VideoSignalInterface === "Digital") {
+  if (this.VideoSignalInterface.SignalInterface === SignalInterface.Digital) {
     if (this.ColourEncoding.YUV444) {
       this.raw[24] |= 0x8;
     }
@@ -439,12 +460,13 @@ EDID.prototype.SetGamma = function () {
 
 EDID.prototype.SetVideoInputParameters = function () {
   // Catch not implemented analog EDID
-  if (this.VideoInputDefinition.VideoSignalInterface != "Digital") {
+  if (this.VideoSignalInterface.SignalInterface != SignalInterface.Digital) {
     return;
   }
   // Reset byte with digital
   this.raw[20] = 0x80;
-  switch (this.VideoInputDefinition.BitDepth) {
+  let digInt = this.VideoSignalInterface as DigitalVideoInput;
+  switch (digInt.BitDepth) {
     case "6":
       this.raw[20] |= 16;
       break;

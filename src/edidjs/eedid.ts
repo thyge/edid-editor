@@ -36,6 +36,7 @@ export class EEDID {
       let extBytes = new Uint8Array(this.raw.slice(i * 128, 128 + i * 128));
       if (i === 0) {
         this.EDID = new EDID();
+        console.log(this.EDID);
         this.EDID.DecodeEDID(extBytes);
         this.EDID.Extension = i;
       } else {
@@ -46,8 +47,7 @@ export class EEDID {
             this.CEA = new CEA();
             this.CEA.Decode(extBytes);
             this.CEA.Extension = i;
-            console.log(this.CEA);
-            this.CEA.Encode();
+            // this.CEA.Encode();
             break;
           case VideoTimingBlockExtension:
             break;
