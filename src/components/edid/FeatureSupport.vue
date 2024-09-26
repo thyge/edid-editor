@@ -2,6 +2,8 @@
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 import { Switch } from "@/components/ui/switch";
+import { ref } from "vue";
+const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
 </script>
 
 <template>
@@ -13,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
     <div>
       <Switch
         :disabled="edidstore.mEEDID.EDID.Revision < 4"
-        v-model:checked="edidstore.mEEDID.EDID.DPMSstandby"
+        v-model:checked="featureSupport.DPMSstandby"
         @update:checked="edidstore.setHeader()"
       />
     </div>
@@ -22,7 +24,7 @@ import { Switch } from "@/components/ui/switch";
     <div>
       <Switch
         :disabled="edidstore.mEEDID.EDID.Revision < 4"
-        v-model:checked="edidstore.mEEDID.EDID.DPMSsuspend"
+        v-model:checked="featureSupport.DPMSsuspend"
         @update:checked="edidstore.setHeader()"
       />
     </div>
@@ -31,15 +33,33 @@ import { Switch } from "@/components/ui/switch";
     <div>
       <Switch
         :disabled="edidstore.mEEDID.EDID.Revision < 4"
-        v-model:checked="edidstore.mEEDID.EDID.DPMSactiveOff"
+        v-model:checked="featureSupport.DPMSactiveOff"
         @update:checked="edidstore.setHeader()"
       />
     </div>
+
     <div>EDID 1.4 Only</div>
+    <div class="content-center">RGB 4:4:4 + YCrCb 4:4:4</div>
+    <div class="content-center">
+      <Switch
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
+        v-model:checked="featureSupport.ColourEncoding.YUV444"
+      />
+    </div>
+    <div class="content-center">EDID 1.4 Only</div>
+    <div class="content-center">RGB 4:4:4 + YCrCb 4:2:2</div>
+    <div class="content-center">
+      <Switch
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
+        v-model:checked="featureSupport.ColourEncoding.YUV422"
+      />
+    </div>
+    <div class="content-center">EDID 1.4 Only</div>
+
     <div>Native Pixel Format in Preferred Timing Mode</div>
     <div>
       <Switch
-        v-model:checked="edidstore.mEEDID.EDID.PreferredTiming"
+        v-model:checked="featureSupport.PreferredTiming"
         @update:checked="edidstore.setHeader()"
       />
     </div>
@@ -48,7 +68,7 @@ import { Switch } from "@/components/ui/switch";
       <div>GTF Support</div>
       <div>
         <Switch
-          v-model:checked="edidstore.mEEDID.EDID.GTFSupport"
+          v-model:checked="featureSupport.GTFSupport"
           @update:checked="edidstore.setHeader()"
         />
       </div>
@@ -58,7 +78,7 @@ import { Switch } from "@/components/ui/switch";
       <div>Continuous Frequency</div>
       <div>
         <Switch
-          v-model:checked="edidstore.mEEDID.EDID.ContiniousFrequency"
+          v-model:checked="featureSupport.ContiniousFrequency"
           @update:checked="edidstore.setHeader()"
         />
       </div>
