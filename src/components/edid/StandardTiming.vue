@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
-import { Table, TableRow, TableCell, TableBody } from "@/components/ui/table";
 import {
   NumberField,
   NumberFieldContent,
@@ -9,7 +8,6 @@ import {
   NumberFieldIncrement,
   NumberFieldInput,
 } from "@/components/ui/number-field";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -28,7 +26,7 @@ const prop = defineProps<{
       <div class="content-center">
         <Switch
           v-model:checked="
-            edidstore.mEEDID.EDID.StandardTimings[prop.id - 1].Enabled
+            edidstore.mEEDID.EDID.StandardTimings[prop.id].Enabled
           "
           @update:checked="edidstore.setHeader()"
         />
@@ -37,14 +35,13 @@ const prop = defineProps<{
       <div class="content-center">
         <NumberField
           v-model="
-            edidstore.mEEDID.EDID.StandardTimings[prop.id - 1].HorizontalActive
+            edidstore.mEEDID.EDID.StandardTimings[prop.id].HorizontalActive
           "
           :default-value="256"
           :min="256"
           :max="2288"
-          :disabled="
-            !edidstore.mEEDID.EDID.StandardTimings[prop.id - 1].Enabled
-          "
+          :disabled="!edidstore.mEEDID.EDID.StandardTimings[prop.id].Enabled"
+          @update:modelValue="edidstore.setHeader()"
         >
           <NumberFieldContent>
             <NumberFieldIncrement />
@@ -56,15 +53,12 @@ const prop = defineProps<{
       <div class="content-center">RefreshRate</div>
       <div class="content-center">
         <NumberField
-          v-model="
-            edidstore.mEEDID.EDID.StandardTimings[prop.id - 1].RefreshRate
-          "
+          v-model="edidstore.mEEDID.EDID.StandardTimings[prop.id].RefreshRate"
           :default-value="60"
           :min="60"
           :max="123"
-          :disabled="
-            !edidstore.mEEDID.EDID.StandardTimings[prop.id - 1].Enabled
-          "
+          :disabled="!edidstore.mEEDID.EDID.StandardTimings[prop.id].Enabled"
+          @update:modelValue="edidstore.setHeader()"
         >
           <NumberFieldContent>
             <NumberFieldIncrement />
@@ -76,12 +70,11 @@ const prop = defineProps<{
       <div class="content-center">Aspect Ratio</div>
       <div class="content-center">
         <RadioGroup
-          v-model="
-            edidstore.mEEDID.EDID.StandardTimings[prop.id - 1].AspectRatio
-          "
+          v-model="edidstore.mEEDID.EDID.StandardTimings[prop.id].AspectRatio"
           :disabled="
-            edidstore.mEEDID.EDID.StandardTimings[prop.id - 1].Enabled === false
+            edidstore.mEEDID.EDID.StandardTimings[prop.id].Enabled === false
           "
+          @update:modelValue="edidstore.setHeader()"
         >
           <div class="flex items-center space-x-2">
             <RadioGroupItem id="r1" value="16:10" />

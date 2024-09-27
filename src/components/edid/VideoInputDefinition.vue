@@ -9,14 +9,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-const signalInterface = ref(edidstore.mEEDID.EDID.VideoSignalInterface);
+import { Switch } from "@/components/ui/switch";
+const videoInputDef = ref(edidstore.mEEDID.EDID.VideoInputDefinition);
+const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
 </script>
 
 <template>
   <div class="grid grid-cols-3 gap-2 m-4">
     <div class="content-center">Video Signal Interface</div>
     <div class="content-center">
-      <Select v-model="signalInterface.SignalInterface">
+      <Select v-model="videoInputDef.SignalInterface">
         <SelectTrigger>
           <SelectValue></SelectValue>
         </SelectTrigger>
@@ -29,12 +31,16 @@ const signalInterface = ref(edidstore.mEEDID.EDID.VideoSignalInterface);
   </div>
 
   <div
-    v-if="signalInterface.SignalInterface === 'Digital'"
+    v-if="videoInputDef.SignalInterface === 'Digital'"
     class="grid grid-cols-3 gap-2 m-4 p-4 border rounded"
   >
     <div class="content-center">Display Bitdepth</div>
     <div class="content-center">
-      <Select v-model="signalInterface.BitDepth" @change="edidstore.setHeader">
+      <Select
+        v-model="videoInputDef.BitDepth"
+        @change="edidstore.setHeader"
+        @update:modelValue="edidstore.setHeader()"
+      >
         <SelectTrigger :disabled="edidstore.mEEDID.EDID.Revision < 4">
           <SelectValue></SelectValue>
         </SelectTrigger>
@@ -51,7 +57,11 @@ const signalInterface = ref(edidstore.mEEDID.EDID.VideoSignalInterface);
     <div class="content-center">EDID 1.4 Only</div>
     <div class="content-center">Display Interface</div>
     <div class="content-center">
-      <Select v-model="signalInterface.Interface" @change="edidstore.setHeader">
+      <Select
+        v-model="videoInputDef.Interface"
+        @change="edidstore.setHeader"
+        @update:modelValue="edidstore.setHeader()"
+      >
         <SelectTrigger :disabled="edidstore.mEEDID.EDID.Revision < 4">
           <SelectValue></SelectValue>
         </SelectTrigger>
@@ -65,9 +75,28 @@ const signalInterface = ref(edidstore.mEEDID.EDID.VideoSignalInterface);
         </SelectContent>
       </Select>
     </div>
+    <div class="content-center">EDID 1.4 Only</div>
+    <div class="content-center">RGB 4:4:4 + YCrCb 4:4:4</div>
+    <div class="content-center">
+      <Switch
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
+        v-model:checked="featureSupport.ColourEncoding.YUV444"
+        @update:checked="edidstore.setHeader()"
+      />
+    </div>
+    <div class="content-center">EDID 1.4 Only</div>
+    <div class="content-center">RGB 4:4:4 + YCrCb 4:2:2</div>
+    <div class="content-center">
+      <Switch
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
+        v-model:checked="featureSupport.ColourEncoding.YUV422"
+        @update:checked="edidstore.setHeader()"
+      />
+    </div>
+    <div class="content-center">EDID 1.4 Only</div>
   </div>
   <div
-    v-else-if="signalInterface.SignalInterface === 'Analog'"
+    v-else-if="videoInputDef.SignalInterface === 'Analog'"
     class="grid grid-cols-3 gap-2 p-4 m-4 border rounded"
   >
     <div class="content-center">Analog not supported</div>
