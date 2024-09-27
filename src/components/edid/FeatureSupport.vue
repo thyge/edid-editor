@@ -37,25 +37,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
         @update:checked="edidstore.setHeader()"
       />
     </div>
-
     <div>EDID 1.4 Only</div>
-    <div class="content-center">RGB 4:4:4 + YCrCb 4:4:4</div>
-    <div class="content-center">
-      <Switch
-        :disabled="edidstore.mEEDID.EDID.Revision < 4"
-        v-model:checked="featureSupport.ColourEncoding.YUV444"
-      />
-    </div>
-    <div class="content-center">EDID 1.4 Only</div>
-    <div class="content-center">RGB 4:4:4 + YCrCb 4:2:2</div>
-    <div class="content-center">
-      <Switch
-        :disabled="edidstore.mEEDID.EDID.Revision < 4"
-        v-model:checked="featureSupport.ColourEncoding.YUV422"
-      />
-    </div>
-    <div class="content-center">EDID 1.4 Only</div>
-
     <div>Native Pixel Format in Preferred Timing Mode</div>
     <div>
       <Switch

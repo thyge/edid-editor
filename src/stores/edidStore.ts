@@ -18,15 +18,7 @@ export const useEdidStore = defineStore('edids', {
   },
   actions: {
     setHeader(e) {
-      console.log("setHeader")
-      this.mEEDID.EDID.SetManufactureDate();
-      this.mEEDID.EDID.SetEDIDVersion();
-      this.mEEDID.EDID.SetFeatureSupport();
-      this.mEEDID.EDID.SetSize();
-      this.mEEDID.EDID.SetGamma();
-      this.mEEDID.EDID.SetVideoInputParameters();
-      this.mEEDID.EDID.SetSerialNumber();
-      this.mEEDID.EDID.CalcChecksum();
+      this.mEEDID.EDID.Encode();
       // Try to force hex view update
       // Vue does not update on individual array element change
       let tmp = this.mEEDID.EDID.raw.slice();

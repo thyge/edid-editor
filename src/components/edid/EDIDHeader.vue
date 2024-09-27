@@ -32,14 +32,14 @@ import { Input } from "@/components/ui/input";
     <div class="content-center">Manufacturer ID</div>
     <div class="content-center">
       <Input
-        v-model="edidstore.mEEDID.EDID.ManufacturerID"
+        v-model="edidstore.mEEDID.EDID.ManufacturerID.ID"
         type="text"
         maxlength="3"
         @input="edidstore.setHeader"
       />
     </div>
     <div class="content-center">
-      {{ edidstore.mEEDID.EDID.GetPNPCompanyName() }}
+      {{ edidstore.mEEDID.EDID.ManufacturerID.GetPNPCompanyName() }}
     </div>
     <div class="content-center">Serial Number</div>
     <div class="content-center">

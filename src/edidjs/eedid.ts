@@ -19,7 +19,7 @@ const DisplayDeviceDataBlock = 0xff;
 export class EEDID {
   raw: Uint8Array;
   Extensions: number;
-  EDID: EDID;
+  EDID: EDID = new EDID();
   CEA: CEA = new CEA();
   DID: DisplayID;
   Errors = [];
@@ -37,7 +37,7 @@ export class EEDID {
       if (i === 0) {
         this.EDID = new EDID();
         console.log(this.EDID);
-        this.EDID.DecodeEDID(extBytes);
+        this.EDID.Decode(extBytes);
         this.EDID.Extension = i;
       } else {
         switch (extBytes[0]) {
