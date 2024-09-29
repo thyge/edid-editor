@@ -2,14 +2,14 @@
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 const medid = edidstore.mEEDID.EDID;
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DetailedTimingDescriptor from "../DetailedTimingDesciptor.vue";
 import { Trash, CirclePlus, Minus, CircleMinus } from "lucide-vue-next";
 const prop = defineProps<{
   num: number;
 }>();
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { DescriptorType } from "../../edidjs/edid_descriptors";
 import ASCIIDescriptor from "./descriptors/ASCIIDescriptor.vue";
 import DisplayRangeLimits from "./descriptors/DisplayRangeLimits.vue";
 function handleRemoveBlock() {
@@ -24,14 +24,14 @@ function handleAddBlock() {
   <DetailedTimingDescriptor
     v-if="
       medid.DisplayDescriptors[prop.num - 1].Type ===
-      'Detailed Timing Descriptor'
+      DescriptorType.DetailedTimingDescriptor
     "
     :block="medid.DisplayDescriptors[prop.num - 1]"
   />
   <div v-else>
     <div class="grid grid-cols-4 gap-2 m-4">
       <div class="content-center col-span-3">
-        {{ medid.DisplayDescriptors[prop.num - 1].Type }}
+        {{ DescriptorType[medid.DisplayDescriptors[prop.num - 1].Type] }}
       </div>
       <div class="content-center">
         <Button @click="handleRemoveBlock()" variant="ghost" size="icon">
@@ -42,26 +42,17 @@ function handleAddBlock() {
     <ASCIIDescriptor
       v-if="
         medid.DisplayDescriptors[prop.num - 1].Type ===
-        'Display serial number (ASCII text)'
-      "
-      :num="prop.num"
-    />
-    <ASCIIDescriptor
-      v-if="
+          DescriptorType.DisplayProductSerialNumber ||
         medid.DisplayDescriptors[prop.num - 1].Type ===
-        'Unspecified text (ASCII text)'
-      "
-      :num="prop.num"
-    />
-    <ASCIIDescriptor
-      v-if="
-        medid.DisplayDescriptors[prop.num - 1].Type === 'Display Product Name'
+          DescriptorType.AlphanumericDataString ||
+        medid.DisplayDescriptors[prop.num - 1].Type ===
+          DescriptorType.DisplayProductName
       "
       :num="prop.num"
     />
     <DisplayRangeLimits
       v-if="
-        medid.DisplayDescriptors[prop.num - 1].Type === 'Display Range Limits'
+        medid.DisplayDescriptors[prop.num - 1].Type === DescriptorType.DisplayRangeLimits
       "
       :num="prop.num"
     />

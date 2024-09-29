@@ -1,5 +1,4 @@
-import { DetailedTimingDescriptor } from "./DetailedTimingDescriptor";
-
+import { AspectRatio } from "./edid";
 export enum DescriptorType {
   DetailedTimingDescriptor = -2,
   not_set = -1,
@@ -74,124 +73,201 @@ class DisplayProductName extends ASCIIDescriptor {
   }
 }
 
+enum VideoTimingSupportFlags {
+  not_set = "",
+  DefaultGTF = "DefaultGTF",
+  RangeLimitsOnly = "RangeLimitsOnly",
+  SecondaryGTF = "SecondaryGTF",
+  CVTSupported = "CVTSupported",
+}
+
+class CVTSupportDefinition {
+  CVTStandardVersionNumber: number = 0;
+  PrecisionPixelClock: number = 0;
+  MaximumActivePixels: number = 0;
+  SupportedAspectRatios: Array<AspectRatio> = [];
+  PreferredAspectRatio: AspectRatio = AspectRatio.SixteenNine;
+  CVTStandardBlanking: boolean = false;
+  CVTReducedBlanking: boolean = false;
+  HorizontalShrink: boolean = false;
+  HirozontalStretch: boolean = false;
+  VerticalShrink: boolean = false;
+  VerticalStretch: boolean = false;
+  PreferredVerticalRefreshRate: number = 0;
+
+  Decode(bytes: Uint8Array): CVTSupportDefinition {
+    let pixClockPrecision = (bytes[12] & 0x03) * 0.25;
+    this.PrecisionPixelClock = bytes[9] * 10 - pixClockPrecision;
+    // 8 × [Byte 13 + (256 × (Byte 12: bits 1, 0))]
+    let msb = (bytes[12] & 0x03) << 8;
+    this.MaximumActivePixels = bytes[13] + msb;
+    // Aspect Ratios
+    if (bytes[14] & 0x80) {
+      this.SupportedAspectRatios.push(AspectRatio.FourThree);
+    }
+    if (bytes[14] & 0x40) {
+      this.SupportedAspectRatios.push(AspectRatio.SixteenNine);
+    }
+    if (bytes[14] & 0x20) {
+      this.SupportedAspectRatios.push(AspectRatio.SixteenTen);
+    }
+    if (bytes[14] & 0x10) {
+      this.SupportedAspectRatios.push(AspectRatio.FiveFour);
+    }
+    if (bytes[14] & 0x08) {
+      this.SupportedAspectRatios.push(AspectRatio.FifteenNine);
+    }
+    switch (bytes[15] & 0xe0) {
+      case 0x00:
+        this.PreferredAspectRatio = AspectRatio.FourThree;
+        break;
+      case 0x20:
+        this.PreferredAspectRatio = AspectRatio.SixteenNine;
+        break;
+      case 0x40:
+        this.PreferredAspectRatio = AspectRatio.SixteenTen;
+        break;
+      case 0x60:
+        this.PreferredAspectRatio = AspectRatio.FiveFour;
+        break;
+      case 0x80:
+        this.PreferredAspectRatio = AspectRatio.FifteenNine;
+        break;
+    }
+    this.CVTReducedBlanking = bytes[15] & 0x10 ? true : false;
+    this.CVTStandardBlanking = bytes[15] & 0x08 ? true : false;
+    this.HorizontalShrink = bytes[16] & 0x80 ? true : false;
+    this.HirozontalStretch = bytes[16] & 0x40 ? true : false;
+    this.VerticalShrink = bytes[16] & 0x20 ? true : false;
+    this.VerticalStretch = bytes[16] & 0x10 ? true : false;
+    this.PreferredVerticalRefreshRate = bytes[17];
+    return this;
+  }
+  Encode(): Uint8Array {
+    return new Uint8Array();
+  }
+}
+
 class DisplayRangeLimits implements DisplayDescriptorInterface {
   raw: Uint8Array;
   Type: DescriptorType;
-  MinVerticalRateOffset: boolean;
-  MaxVerticalRateOffset: boolean;
-  MinHorizontalRateOffset: boolean;
-  MaxHorizontalRateOffset: boolean;
-  MinimumVerticalRate: number;
-  MaximumVerticalRate: number;
-  MinimumHorizontalRate: number;
-  MaximumHorizontalRate: number;
-  MaximumPixelClock: number;
-  VideoTimingSupportMode: string;
-  DefaultGTF: boolean;
-  RangeLimitsOnly: boolean;
-  SecondaryGTF: boolean;
-  CVTSupported: boolean;
+  MinimumVerticalRate: number = 0;
+  MaximumVerticalRate: number = 0;
+  MinimumHorizontalRate: number = 0;
+  MaximumHorizontalRate: number = 0;
+  MaximumPixelClockMHz: number = 0;
+  VideoTimingSupport: VideoTimingSupportFlags = VideoTimingSupportFlags.not_set;
+  CVTSupportDefinition: CVTSupportDefinition | null = null;
   constructor() {
     this.raw = new Uint8Array();
     this.Type = DescriptorType.DisplayRangeLimits;
-    this.MinVerticalRateOffset = false;
-    this.MaxVerticalRateOffset = false;
-    this.MinHorizontalRateOffset = false;
-    this.MaxHorizontalRateOffset = false;
-    this.MinimumVerticalRate = 0;
-    this.MaximumVerticalRate = 0;
-    this.MinimumHorizontalRate = 0;
-    this.MaximumHorizontalRate = 0;
-    this.MaximumPixelClock = 0;
-    this.VideoTimingSupportMode = "";
-    this.DefaultGTF = false;
-    this.RangeLimitsOnly = false;
-    this.SecondaryGTF = false;
-    this.CVTSupported = false;
   }
   Decode(bytes: Uint8Array): DisplayDescriptorInterface {
-    this.MinVerticalRateOffset = bytes[4] & 0x01 ? true : false;
-    this.MaxVerticalRateOffset = bytes[4] & 0x02 ? true : false;
-    this.MinHorizontalRateOffset = bytes[4] & 0x04 ? true : false;
-    this.MaxHorizontalRateOffset = bytes[4] & 0x08 ? true : false;
+    let MinVerticalRateOffset = bytes[4] & 0x01 ? true : false;
+    let MaxVerticalRateOffset = bytes[4] & 0x02 ? true : false;
+    let MinHorizontalRateOffset = bytes[4] & 0x04 ? true : false;
+    let MaxHorizontalRateOffset = bytes[4] & 0x08 ? true : false;
     // Vertical Minimum
-    if (this.MinVerticalRateOffset && this.MaxVerticalRateOffset) {
+    if (MinVerticalRateOffset && MaxVerticalRateOffset) {
       this.MinimumVerticalRate = bytes[5] + 256;
     } else {
       this.MinimumVerticalRate = bytes[5] + 1;
     }
     // Vertical Maximum
-    if (this.MaxVerticalRateOffset) {
+    if (MaxVerticalRateOffset) {
       this.MaximumVerticalRate = bytes[6] + 256;
     } else {
       this.MaximumVerticalRate = bytes[6] + 1;
     }
     // Horizontal Minimum
-    if (this.MinHorizontalRateOffset && this.MaxHorizontalRateOffset) {
+    if (MinHorizontalRateOffset && MaxHorizontalRateOffset) {
       this.MinimumHorizontalRate = bytes[7] + 256;
     } else {
       this.MinimumHorizontalRate = bytes[7] + 1;
     }
     // Horizontal Maximum
-    if (this.MaxHorizontalRateOffset) {
+    if (MaxHorizontalRateOffset) {
       this.MaximumHorizontalRate = bytes[8] + 256;
     } else {
       this.MaximumHorizontalRate = bytes[8] + 1;
     }
     // Maximum Pixel Clock
-    this.MaximumPixelClock = bytes[9] * 10;
+    this.MaximumPixelClockMHz = bytes[9] * 10;
 
     // Video Timing Support Flags: Bytes 10 → 17 indicate support for additional video timings.
     switch (bytes[10] & 0x7) {
-      case 0:
-        this.VideoTimingSupportMode = "DefaultGTF";
-        break;
-      case 1:
-        this.VideoTimingSupportMode = "RangeLimitsOnly";
-        break;
-      case 2:
-        this.VideoTimingSupportMode = "SecondaryGTF";
-        break;
-      case 4:
-        this.VideoTimingSupportMode = "CVTSupported";
-        break;
-      default:
-        break;
-    }
-    switch (bytes[10] & 0x7) {
       case 0x00:
-        this.DefaultGTF = true;
+        this.VideoTimingSupport = VideoTimingSupportFlags.DefaultGTF;
         break;
       case 0x01:
-        this.RangeLimitsOnly = true;
+        this.VideoTimingSupport = VideoTimingSupportFlags.RangeLimitsOnly;
         break;
       case 0x02:
-        this.SecondaryGTF = true;
+        this.VideoTimingSupport = VideoTimingSupportFlags.SecondaryGTF;
         break;
       case 0x04:
-        this.CVTSupported = true;
+        this.VideoTimingSupport = VideoTimingSupportFlags.CVTSupported;
         break;
     }
 
     // DefaultGTF and RangeLimitsOnly
     // 11 = 0x0A
     // 12-17 = 0x20
-
     // SecondaryGTF Depricated in EDID 1.4
+    if (this.VideoTimingSupport != VideoTimingSupportFlags.CVTSupported) {
+      return this;
+    }
 
     // CVTSupported
-    // Needs to be tested and impl
-    // Table 3.28 – Display Range Limits & CVT Support Definition
-    if (this.VideoTimingSupportMode === "CVTSupported") {
-      // Additional Pixel Clock Precision:
-      // Max. Pix Clk = [(Byte 9) × 10] – [(Byte 12: bits 7 → 2) × 0.25MHz]
-      console.log(this.MaximumPixelClock);
-      let pixAdjustment = bytes[10] & (0xfc >> 2);
-      pixAdjustment = pixAdjustment * 0.25;
-    }
+    this.CVTSupportDefinition = new CVTSupportDefinition().Decode(bytes);
     return this;
   }
   Encode(): Uint8Array {
+    this.raw[3] = this.Type;
+    // Vertical Minimum
+    if (this.MinimumVerticalRate > 255) {
+      this.raw[4] = 0x01;
+      this.raw[5] = this.MinimumVerticalRate - 256;
+    } else {
+      this.raw[5] = this.MinimumVerticalRate - 1;
+    }
+    // Vertical Maximum
+    if (this.MaximumVerticalRate > 255) {
+      this.raw[4] = this.raw[4] | 0x02;
+      this.raw[6] = this.MaximumVerticalRate - 256;
+    } else {
+      this.raw[6] = this.MaximumVerticalRate - 1;
+    }
+    // Horizontal Minimum
+    if (this.MinimumHorizontalRate > 255) {
+      this.raw[4] = this.raw[4] | 0x04;
+      this.raw[7] = this.MinimumHorizontalRate - 256;
+    } else {
+      this.raw[7] = this.MinimumHorizontalRate - 1;
+    }
+    // Horizontal Maximum
+    if (this.MaximumHorizontalRate > 255) {
+      this.raw[4] = this.raw[4] | 0x08;
+      this.raw[8] = this.MaximumHorizontalRate - 256;
+    } else {
+      this.raw[8] = this.MaximumHorizontalRate - 1;
+    }
+    // Maximum Pixel Clock
+    this.raw[9] = this.MaximumPixelClockMHz / 10;
+
+    this.raw[10] = this.VideoTimingSupport;
+    if (
+      this.VideoTimingSupport === VideoTimingSupportFlags.DefaultGTF ||
+      this.VideoTimingSupport === VideoTimingSupportFlags.RangeLimitsOnly
+    ) {
+      this.raw[11] = 0x0a;
+      this.raw[12] = 0x20;
+      this.raw[13] = 0x20;
+      this.raw[14] = 0x20;
+      this.raw[15] = 0x20;
+      this.raw[16] = 0x20;
+      this.raw[17] = 0x20;
+    }
     return this.raw;
   }
 }

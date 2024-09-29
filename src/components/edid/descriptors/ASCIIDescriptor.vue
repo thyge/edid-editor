@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
   <div class="grid grid-cols-3 gap-2 p-4 m-4 border rounded">
     <div class="content-center"> Text </div>
     <div class="content-center col-span-2">
-      <Input v-model="medid.DisplayDescriptors[prop.num - 1].Content" />
+      <Input v-model="medid.DisplayDescriptors[prop.num - 1].text" />
     </div>
   </div>
 </template>
