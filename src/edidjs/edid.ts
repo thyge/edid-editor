@@ -1,9 +1,7 @@
 import pnpLookup from "./pnp.ts";
-import {
-  DecodeDTD,
-  DecodeDisplayDescriptor,
-  MakeDummyDescriptor,
-} from "./18ByteDescriptors.js";
+import { DetailedTimingDescriptor } from "./DetailedTimingDescriptor.ts";
+import { DecodeDesciptor } from "./edid_descriptors.ts";
+import { DisplayDescriptorInterface } from "./edid_descriptors.ts";
 
 interface VideoSignalInterface {
   SignalInterface: SignalInterface;
@@ -136,13 +134,6 @@ enum SignalLevelStandard {
   V700_000_700 = 0x60,
 }
 
-enum SignalLevelStandardString {
-  NotDefined = "NotDefined",
-  V700_300_1000 = "0.700 : 0.300 : 1.000 V p-p",
-  V714_286_1000 = "0.714 : 0.286 : 1.000 V p-p",
-  V1000_400_1400 = "1.000 : 0.400 : 1.400 V p-p",
-  V700_000_700 = "0.700 : 0.000 : 0.700 V p-p",
-}
 enum VideoSetup {
   BlankLevel = "Blank Level = Black Level",
   BlankToBlack = "Blank-to-Black setup or pedestal",
@@ -441,7 +432,7 @@ class StandardTiming {
   Encode(): Uint8Array {
     let bytes = new Uint8Array(2);
     if (this.Enabled) {
-      bytes[0] = (this.HorizontalActive / 8) - 31;
+      bytes[0] = this.HorizontalActive / 8 - 31;
       bytes[1] = (this.RefreshRate - 60) & 0x3f;
       switch (this.AspectRatio) {
         case AspectRatio.SixteenTen:
@@ -487,7 +478,8 @@ export class EDID {
   Chromaticity: Chromaticity;
   EstablishedTimings: EstablishedTimings;
   StandardTimings: Array<StandardTiming> = [];
-  DisplayDescriptors = [];
+  PreferredTimingMode: DetailedTimingDescriptor;
+  DisplayDescriptors = Array<DisplayDescriptorInterface>();
   Errors = [];
   DummyIdentifiers: number = 0;
 
@@ -550,29 +542,48 @@ export class EDID {
       this.StandardTimings.push(stdTiming);
     }
     // Detailed timing descriptors
+    // Preferred Timing Mode (PTM)
+    // + 3 Descriptors
+    // If Descriptor decode
+    // if DTD decode
     for (let i = 54; i < 126; i += 18) {
       // if first 2 bytes / pixel clock is 0 then parse as Display Descriptor
       // first descriptor has to be DTD Preferred timing
       let descriptorBytes = this.raw.slice(i, i + 18);
-      // if (preferredTiming) {
-      //     this.PreferredTimingMode = DecodeDTD(descriptorBytes)
-      //     preferredTiming = false
-      //     continue
-      // }
-
-      let descHeader = (descriptorBytes[1] << 8) | descriptorBytes[0];
-      if (descHeader != 0) {
-        let dtd = DecodeDTD(descriptorBytes);
-        this.DisplayDescriptors.push(dtd);
+      if (
+        descriptorBytes[0] === 0 &&
+        descriptorBytes[1] === 0 &&
+        descriptorBytes[2] === 0
+      ) {
+        let mDesc = DecodeDesciptor(descriptorBytes);
+        this.DisplayDescriptors.push(mDesc);
       } else {
-        let dd = DecodeDisplayDescriptor(descriptorBytes);
-        // catch non identified descriptors
-        if (dd === null) {
-          break;
-        }
-        this.DisplayDescriptors.push(dd);
+        let dtd = new DetailedTimingDescriptor();
+        dtd.Decode(descriptorBytes);
+        this.DisplayDescriptors.push(dtd);
       }
+
+      // console.log(mDesc);
+      // // if (preferredTiming) {
+      // //     this.PreferredTimingMode = DecodeDTD(descriptorBytes)
+      // //     preferredTiming = false
+      // //     continue
+      // // }
+
+      // let descHeader = (descriptorBytes[1] << 8) | descriptorBytes[0];
+      // if (descHeader != 0) {
+      //   let dtd = DecodeDTD(descriptorBytes);
+      //   this.DisplayDescriptors.push(dtd);
+      // } else {
+      //   let dd = DecodeDisplayDescriptor(descriptorBytes);
+      //   // catch non identified descriptors
+      //   if (dd === null) {
+      //     break;
+      //   }
+      //   this.DisplayDescriptors.push(dd);
+      // }
     }
+    console.log(this.DisplayDescriptors);
     if (this.DisplayDescriptors.length < 4) {
       // Each of the four data blocks shall contain a detailed timing descriptor, a display descriptor or a dummy descriptor (Tag 10h)
       // using definitions described in Sections 3.10.2 and 3.10.3. Use of a data fill pattern is not permitted -
@@ -580,6 +591,7 @@ export class EDID {
       this.Errors.push("too few Display Descriptiors, should always be 4");
     }
   }
+
   Encode(): Uint8Array {
     console.log("Encoding EDID");
     // Header
@@ -649,6 +661,7 @@ export class EDID {
       let stdTiming = this.StandardTimings[i].Encode();
       this.raw[38 + i * 2] = stdTiming[0];
       this.raw[39 + i * 2] = stdTiming[1];
+      console.log(this.StandardTimings[i]);
     }
     // Display Descriptors
 
