@@ -1,27 +1,38 @@
 <script setup lang="ts">
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { useEdidStore } from "@/stores/edidStore";
+const edidStore = useEdidStore();
 const prop = defineProps<{
   block: any;
+  id: number;
 }>();
 const dtd = prop.block;
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { CircleMinus, CogIcon } from "lucide-vue-next";
+function removeBlock(id: number) {
+  edidStore.removeBlock(id);
+}
+function changeBlock() {
+  console.log("changing block");
+}
 </script>
 
 <template>
   <div>
-    <div class="gap-2 m-4">
-      <div>Detailed Timing Descriptor</div>
+    <div class="grid grid-cols-2 gap-2 m-4">
+      <div class="content-center">Detailed Timing Descriptor</div>
+      <div class="grid grid-cols-2 gap-2 m-4">
+        <Button variant="ghost" @click="removeBlock(id)">
+          <CircleMinus />
+        </Button>
+        <Button variant="ghost" @click="changeBlock(id)">
+          <CogIcon /></Button>
+      </div>
     </div>
     <div class="grid grid-cols-2 gap-2 p-4 m-4 border rounded">
       <div class="content-center">

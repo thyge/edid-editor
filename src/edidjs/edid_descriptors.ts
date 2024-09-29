@@ -26,7 +26,7 @@ class ASCIIDescriptor implements DisplayDescriptorInterface {
   Type: DescriptorType;
   text: string = "";
   constructor() {
-    this.raw = new Uint8Array();
+    this.raw = new Uint8Array(18);
     this.Type = DescriptorType.not_set;
   }
   Decode(bytes: Uint8Array): DisplayDescriptorInterface {
@@ -50,6 +50,9 @@ class ASCIIDescriptor implements DisplayDescriptorInterface {
       this.raw[d + 5] = this.text.charCodeAt(d);
     }
     this.raw[this.text.length + 5] = "\n".charCodeAt(0);
+    for (let d = this.text.length + 6; d < 19; d++) {
+      this.raw[d] = 0x20;
+    }
     return this.raw;
   }
 }
@@ -144,7 +147,8 @@ class CVTSupportDefinition {
     return this;
   }
   Encode(): Uint8Array {
-    return new Uint8Array();
+    let cvtBytes = new Uint8Array();
+    return cvtBytes;
   }
 }
 
@@ -157,9 +161,9 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
   MaximumHorizontalRate: number = 0;
   MaximumPixelClockMHz: number = 0;
   VideoTimingSupport: VideoTimingSupportFlags = VideoTimingSupportFlags.not_set;
-  CVTSupportDefinition: CVTSupportDefinition | null = null;
+  CVTSupportDefinition: CVTSupportDefinition = new CVTSupportDefinition();
   constructor() {
-    this.raw = new Uint8Array();
+    this.raw = new Uint8Array(18);
     this.Type = DescriptorType.DisplayRangeLimits;
   }
   Decode(bytes: Uint8Array): DisplayDescriptorInterface {
@@ -255,18 +259,35 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
     // Maximum Pixel Clock
     this.raw[9] = this.MaximumPixelClockMHz / 10;
 
-    this.raw[10] = this.VideoTimingSupport;
+    switch (this.VideoTimingSupport) {
+      
+      case VideoTimingSupportFlags.DefaultGTF:
+        this.raw[10] = 0x00
+        break;
+      case VideoTimingSupportFlags.RangeLimitsOnly:
+       this.raw[10] = 0x01
+        break;
+      case VideoTimingSupportFlags.SecondaryGTF:
+        this.raw[10] = 0x02
+        break;
+      case VideoTimingSupportFlags.CVTSupported:
+        this.raw[10] = 0x04
+        break;
+    }
     if (
       this.VideoTimingSupport === VideoTimingSupportFlags.DefaultGTF ||
       this.VideoTimingSupport === VideoTimingSupportFlags.RangeLimitsOnly
     ) {
-      this.raw[11] = 0x0a;
+      this.raw[11] = 0x0A;
       this.raw[12] = 0x20;
       this.raw[13] = 0x20;
       this.raw[14] = 0x20;
       this.raw[15] = 0x20;
       this.raw[16] = 0x20;
       this.raw[17] = 0x20;
+    } else if (this.VideoTimingSupport === VideoTimingSupportFlags.CVTSupported) {
+      let cvtBytes = this.CVTSupportDefinition.Encode();
+      console.log(cvtBytes);
     }
     return this.raw;
   }
@@ -314,7 +335,7 @@ class ColorPoint implements DisplayDescriptorInterface {
   }
 }
 
-class DummyDesciptor implements DisplayDescriptorInterface {
+export class DummyDesciptor implements DisplayDescriptorInterface {
   raw: Uint8Array;
   Type: DescriptorType;
   constructor() {

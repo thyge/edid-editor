@@ -352,7 +352,12 @@ class EstablishedTimings {
 }
 
 export class ManufacturerID {
-  ID: string = "";
+  ID: string;
+
+  constructor() {
+    this.ID = "";
+  }
+
   Decode(bytes: Uint8Array): ManufacturerID {
     this.ID = String.fromCharCode(((bytes[0] & 0x7c) >> 2) + 0x40);
     this.ID += String.fromCharCode(
@@ -465,7 +470,7 @@ export class EDID {
   Version: number = 0;
   Revision: string = "";
   SerialNumber: number = 0;
-  ManufacturerID: ManufacturerID;
+  ManufacturerID: ManufacturerID = new ManufacturerID();
   ManufacturerPC: number = 0;
   WeekOfManufacture: number = 0;
   YearOfManufacture: number = 0;
@@ -479,7 +484,6 @@ export class EDID {
   Chromaticity: Chromaticity;
   EstablishedTimings: EstablishedTimings;
   StandardTimings: Array<StandardTiming> = [];
-  PreferredTimingMode: DetailedTimingDescriptor;
   DisplayDescriptors = Array<DisplayDescriptorInterface>();
   Errors = [];
   DummyIdentifiers: number = 0;
@@ -487,7 +491,7 @@ export class EDID {
   Decode(bytes: Uint8Array) {
     this.raw = bytes;
     // Manufacturer ID. This is a legacy Plug and Play ID assigned by UEFI forum
-    this.ManufacturerID = new ManufacturerID().Decode(this.raw.slice(8, 10));
+    this.ManufacturerID.Decode(this.raw.slice(8, 10));
 
     // Manufacturer product code.
     this.ManufacturerPC = (this.raw[11] << 8) | this.raw[10];
@@ -544,9 +548,6 @@ export class EDID {
     }
     // Detailed timing descriptors
     // Preferred Timing Mode (PTM)
-    // + 3 Descriptors
-    // If Descriptor decode
-    // if DTD decode
     for (let i = 54; i < 126; i += 18) {
       // if first 2 bytes / pixel clock is 0 then parse as Display Descriptor
       // first descriptor has to be DTD Preferred timing
@@ -563,28 +564,7 @@ export class EDID {
         dtd.Decode(descriptorBytes);
         this.DisplayDescriptors.push(dtd);
       }
-
-      // console.log(mDesc);
-      // // if (preferredTiming) {
-      // //     this.PreferredTimingMode = DecodeDTD(descriptorBytes)
-      // //     preferredTiming = false
-      // //     continue
-      // // }
-
-      // let descHeader = (descriptorBytes[1] << 8) | descriptorBytes[0];
-      // if (descHeader != 0) {
-      //   let dtd = DecodeDTD(descriptorBytes);
-      //   this.DisplayDescriptors.push(dtd);
-      // } else {
-      //   let dd = DecodeDisplayDescriptor(descriptorBytes);
-      //   // catch non identified descriptors
-      //   if (dd === null) {
-      //     break;
-      //   }
-      //   this.DisplayDescriptors.push(dd);
-      // }
     }
-    console.log(this.DisplayDescriptors);
     if (this.DisplayDescriptors.length < 4) {
       // Each of the four data blocks shall contain a detailed timing descriptor, a display descriptor or a dummy descriptor (Tag 10h)
       // using definitions described in Sections 3.10.2 and 3.10.3. Use of a data fill pattern is not permitted -
@@ -662,10 +642,15 @@ export class EDID {
       let stdTiming = this.StandardTimings[i].Encode();
       this.raw[38 + i * 2] = stdTiming[0];
       this.raw[39 + i * 2] = stdTiming[1];
-      console.log(this.StandardTimings[i]);
     }
     // Display Descriptors
-
+    for (let i = 0; i < 4; i++) {
+      let dd = this.DisplayDescriptors[i];
+      let bytes = dd.Encode();
+      for (let j = 0; j < 18; j++) {
+        this.raw[54 + i * 18 + j] = bytes[j];
+      }
+    }
     // Checksum
     this.CalcChecksum();
     return this.raw;

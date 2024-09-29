@@ -131,9 +131,7 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
   }
   Encode(): Uint8Array {
     // Reset the raw array
-    for (let i = 0; i < this.raw.length; i++) {
-      this.raw[i] = 0;
-    }
+    this.raw = new Uint8Array(18);
     // Input the data
     this.raw[0] = (this.PixelClockKHz / 10000) & 0xff;
     this.raw[1] = (this.PixelClockKHz / 10000) >> 8;
@@ -206,55 +204,3 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     return this.raw;
   }
 }
-
-export const DD_SerialNumber = 0xff;
-export const DD_UnspecifiedText = 0xfe;
-export const DD_DisplayRangeLimits = 0xfd;
-export const DD_DisplayProductName = 0xfc;
-export const DD_ColorPointData = 0xfb;
-export const DD_StandardTimingDefinitions = 0xfa;
-export const DD_DCM = 0xf9;
-export const DD_CVT3_ByteCodes = 0xf8;
-export const DD_EstablishedTimingsIII = 0xf7;
-export const DD_DummyIdentifier = 0x10;
-export const DD_ManufacturerStart = 0x00;
-export const DD_ManufacturerEnd = 0x0f;
-
-export class DisplayDescriptor {
-  id = uuidv4();
-  raw = [];
-  Type;
-  Content = "";
-}
-
-DisplayDescriptor.prototype.Encode = function () {
-  // console.log("Encoding... current raw:")
-  // console.log(this.raw);
-};
-
-export function MakeDummyDescriptor() {
-  let dummyBytes = new Uint8Array(18);
-  dummyBytes[3] = DD_DummyIdentifier;
-  return DecodeDisplayDescriptor(dummyBytes, 0);
-}
-
-export class ASCIIDescriptor {
-  id = uuidv4();
-  raw = [];
-  Type = "";
-  Content = "";
-  mType;
-}
-
-ASCIIDescriptor.prototype.Encode = function () {
-  this.raw[3] = this.mType;
-  for (let d = 5; d < 19; d++) {
-    this.raw[d] = 0;
-  }
-  for (let d = 0; d < this.Content.length; d++) {
-    if (d > 14) {
-      break;
-    }
-    this.raw[d + 5] = this.Content.charCodeAt(d);
-  }
-};
