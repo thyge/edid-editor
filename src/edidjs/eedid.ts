@@ -36,7 +36,6 @@ export class EEDID {
       let extBytes = new Uint8Array(this.raw.slice(i * 128, 128 + i * 128));
       if (i === 0) {
         this.EDID = new EDID();
-        console.log(this.EDID);
         this.EDID.Decode(extBytes);
         this.EDID.Extension = i;
       } else {

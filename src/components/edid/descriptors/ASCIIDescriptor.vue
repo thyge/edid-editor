@@ -1,18 +1,35 @@
 <script setup lang="ts">
-import { useEdidStore } from "@/stores/edidStore";
-const edidstore = useEdidStore();
-const medid = edidstore.mEEDID.EDID;
 const prop = defineProps<{
-  num: number;
+  block: any;
+  id: number;
 }>();
 import { Input } from "@/components/ui/input";
+import { DescriptorType } from "../../../edidjs/edid_descriptors";
+import { useEdidStore } from "@/stores/edidStore";
+const edidstore = useEdidStore();
+import { Button } from "@/components/ui/button";
+import { CircleMinus, CogIcon } from "lucide-vue-next";
 </script>
 
 <template>
-  <div class="grid grid-cols-3 gap-2 p-4 m-4 border rounded">
-    <div class="content-center"> Text </div>
-    <div class="content-center col-span-2">
-      <Input v-model="medid.DisplayDescriptors[prop.num - 1].text" />
+  <div>
+    <div class="grid grid-cols-2 gap-2 m-4">
+      <div class="content-center">{{ DescriptorType[block.Type] }}</div>
+      <div class="grid grid-cols-2 gap-2 m-4">
+        <Button variant="ghost" @click="edidstore.removeBlock(id)">
+          <CircleMinus />
+        </Button>
+        <Button variant="ghost" @click="edidstore.changeBlock(id)">
+          <CogIcon
+        /></Button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-2 p-4 m-4 border rounded">
+      <div class="content-center">Text:</div>
+      <div class="content-center col-span-2">
+        <Input v-model="prop.block.text" @input="edidstore.updateEdid()" />
+      </div>
     </div>
   </div>
 </template>
