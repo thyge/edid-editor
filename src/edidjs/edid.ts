@@ -388,11 +388,12 @@ export class ManufacturerID {
   }
 }
 
-enum AspectRatio {
-  SixteenTen = "16:10",
+export enum AspectRatio {
   FourThree = "4:3",
   FiveFour = "5:4",
+  FifteenNine = "15:9", // CVT Support Definition
   SixteenNine = "16:9",
+  SixteenTen = "16:10",
 }
 
 class StandardTiming {
