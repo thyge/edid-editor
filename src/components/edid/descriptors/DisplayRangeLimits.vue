@@ -95,7 +95,7 @@ const edidstore = useEdidStore();
       <div class="content-center">
         <Select
           v-model="prop.block.VideoTimingSupport"
-          @update:modelValue="edidstore.setHeader()"
+          @update:modelValue="edidstore.updateEdid()"
         >
           <SelectTrigger>
             <SelectValue />

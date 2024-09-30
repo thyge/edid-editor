@@ -28,7 +28,7 @@ const prop = defineProps<{
           v-model:checked="
             edidstore.mEEDID.EDID.StandardTimings[prop.id].Enabled
           "
-          @update:checked="edidstore.setHeader()"
+          @update:checked="edidstore.updateEdid()"
         />
       </div>
       <div class="content-center">Horizontal Active Pixels</div>
@@ -41,7 +41,7 @@ const prop = defineProps<{
           :min="256"
           :max="2288"
           :disabled="!edidstore.mEEDID.EDID.StandardTimings[prop.id].Enabled"
-          @update:modelValue="edidstore.setHeader()"
+          @update:modelValue="edidstore.updateEdid()"
         >
           <NumberFieldContent>
             <NumberFieldIncrement />
@@ -58,7 +58,7 @@ const prop = defineProps<{
           :min="60"
           :max="123"
           :disabled="!edidstore.mEEDID.EDID.StandardTimings[prop.id].Enabled"
-          @update:modelValue="edidstore.setHeader()"
+          @update:modelValue="edidstore.updateEdid()"
         >
           <NumberFieldContent>
             <NumberFieldIncrement />
@@ -74,7 +74,7 @@ const prop = defineProps<{
           :disabled="
             edidstore.mEEDID.EDID.StandardTimings[prop.id].Enabled === false
           "
-          @update:modelValue="edidstore.setHeader()"
+          @update:modelValue="edidstore.updateEdid()"
         >
           <div class="flex items-center space-x-2">
             <RadioGroupItem id="r1" value="16:10" />

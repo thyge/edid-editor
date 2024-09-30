@@ -13,77 +13,77 @@ import { Switch } from "@/components/ui/switch";
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET720_400_70"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>800 x 600 @ 56Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET800_600_56"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>1024 x 768 @ 60Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET1024_768_60"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>720 x 400 @ 88Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET720_400_88"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>800 x 600 @ 60Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET800_600_60"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>1024 x 768 @ 70Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET1024_768_70"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>640 x 480 @ 60Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET640_480_60"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>800 x 600 @ 72Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET800_600_72"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>1024 x 768 @ 75Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET1024_768_75"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>640 x 480 @ 67Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET640_480_67"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>800 x 600 @ 75Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET800_600_75"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>1280 x 1024 @ 75Hz</div>
@@ -92,42 +92,42 @@ import { Switch } from "@/components/ui/switch";
         v-model:checked="
           edidstore.mEEDID.EDID.EstablishedTimings.ET1280_1024_75
         "
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>640 x 480 @ 72Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET640_480_72"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>832 x 624 @ 75Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET832_624_75"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>1152 x 870 @ 75Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET1152_870_75"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>640 x 480 @ 75Hz</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET640_480_75"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>1024 x 768 @ 87Hz Interlaced</div>
     <div>
       <Switch
         v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET1024_768_87"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
   </div>

@@ -38,8 +38,8 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
     <div class="content-center">
       <Select
         v-model="videoInputDef.BitDepth"
-        @change="edidstore.setHeader"
-        @update:modelValue="edidstore.setHeader()"
+        @change="edidstore.updateEdid"
+        @update:modelValue="edidstore.updateEdid()"
       >
         <SelectTrigger :disabled="edidstore.mEEDID.EDID.Revision < 4">
           <SelectValue></SelectValue>
@@ -59,8 +59,8 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
     <div class="content-center">
       <Select
         v-model="videoInputDef.Interface"
-        @change="edidstore.setHeader"
-        @update:modelValue="edidstore.setHeader()"
+        @change="edidstore.updateEdid"
+        @update:modelValue="edidstore.updateEdid()"
       >
         <SelectTrigger :disabled="edidstore.mEEDID.EDID.Revision < 4">
           <SelectValue></SelectValue>
@@ -81,7 +81,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
       <Switch
         :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model:checked="featureSupport.ColourEncoding.YUV444"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div class="content-center">EDID 1.4 Only</div>
@@ -90,7 +90,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
       <Switch
         :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model:checked="featureSupport.ColourEncoding.YUV422"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div class="content-center">EDID 1.4 Only</div>
