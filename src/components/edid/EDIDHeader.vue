@@ -35,7 +35,7 @@ import { Input } from "@/components/ui/input";
         v-model="edidstore.mEEDID.EDID.ManufacturerID.ID"
         type="text"
         maxlength="3"
-        @input="edidstore.setHeader"
+        @input="edidstore.updateEdid"
       />
     </div>
     <div class="content-center">
@@ -48,7 +48,7 @@ import { Input } from "@/components/ui/input";
         type="number"
         max="4294967295"
         min="0"
-        @input="edidstore.setHeader"
+        @input="edidstore.updateEdid"
       />
     </div>
     <div></div>
@@ -63,13 +63,13 @@ import { Input } from "@/components/ui/input";
           v-model="edidstore.mEEDID.EDID.YearOfManufacture"
           :min="1990"
           :max="2246"
-          @input="edidstore.setHeader"
+          @input="edidstore.updateEdid"
           id="yearofmanu"
         >
           <NumberFieldContent>
-            <NumberFieldIncrement @click="edidstore.setHeader" />
+            <NumberFieldIncrement @click="edidstore.updateEdid" />
             <NumberFieldInput />
-            <NumberFieldDecrement @click="edidstore.setHeader" />
+            <NumberFieldDecrement @click="edidstore.updateEdid" />
           </NumberFieldContent>
         </NumberField>
       </Label>
@@ -81,13 +81,13 @@ import { Input } from "@/components/ui/input";
           v-model="edidstore.mEEDID.EDID.WeekOfManufacture"
           :min="0"
           :max="52"
-          @input="edidstore.setHeader"
+          @input="edidstore.updateEdid"
           id="weekofmanu"
         >
           <NumberFieldContent>
-            <NumberFieldIncrement @click="edidstore.setHeader" />
+            <NumberFieldIncrement @click="edidstore.updateEdid" />
             <NumberFieldInput />
-            <NumberFieldDecrement @click="edidstore.setHeader" />
+            <NumberFieldDecrement @click="edidstore.updateEdid" />
           </NumberFieldContent>
         </NumberField>
       </Label>
@@ -96,7 +96,7 @@ import { Input } from "@/components/ui/input";
     <div class="content-center">
       <Select
         v-model="edidstore.mEEDID.EDID.Revision"
-        @update:modelValue="edidstore.setHeader()"
+        @update:modelValue="edidstore.updateEdid()"
       >
         <SelectTrigger>
           <SelectValue></SelectValue>

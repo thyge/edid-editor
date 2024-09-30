@@ -15,7 +15,7 @@ watch(
   () => edidstore.mEEDID.CEA.Header.Version,
   (value) => {
     console.log("Version changed to: " + value);
-    edidstore.setHeader();
+    edidstore.updateEdid();
   }
 );
 </script>
@@ -29,7 +29,7 @@ watch(
     <div class="content-center">
       <Select
         v-model="edidstore.mEEDID.CEA.Header.Version"
-        @update:modelValue="edidstore.setHeader()"
+        @update:modelValue="edidstore.updateEdid()"
       >
         <SelectTrigger>
           <SelectValue> </SelectValue>
@@ -46,7 +46,7 @@ watch(
     <div>
       <Switch
         v-model:checked="header.Underscan"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div></div>
@@ -54,7 +54,7 @@ watch(
     <div>
       <Switch
         v-model:checked="header.BasicAudio"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div></div>
@@ -62,7 +62,7 @@ watch(
     <div>
       <Switch
         v-model:checked="header.YCBCR444"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div></div>
@@ -70,7 +70,7 @@ watch(
     <div>
       <Switch
         v-model:checked="header.YCBCR422"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div></div>

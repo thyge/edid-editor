@@ -16,7 +16,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
       <Switch
         :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model:checked="featureSupport.DPMSstandby"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>EDID 1.4 Only</div>
@@ -25,7 +25,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
       <Switch
         :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model:checked="featureSupport.DPMSsuspend"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>EDID 1.4 Only</div>
@@ -34,7 +34,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
       <Switch
         :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model:checked="featureSupport.DPMSactiveOff"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div>EDID 1.4 Only</div>
@@ -42,7 +42,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
     <div>
       <Switch
         v-model:checked="featureSupport.PreferredTiming"
-        @update:checked="edidstore.setHeader()"
+        @update:checked="edidstore.updateEdid()"
       />
     </div>
     <div></div>
@@ -51,7 +51,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
       <div>
         <Switch
           v-model:checked="featureSupport.GTFSupport"
-          @update:checked="edidstore.setHeader()"
+          @update:checked="edidstore.updateEdid()"
         />
       </div>
       <div>No encoding support</div>
@@ -61,7 +61,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
       <div>
         <Switch
           v-model:checked="featureSupport.ContiniousFrequency"
-          @update:checked="edidstore.setHeader()"
+          @update:checked="edidstore.updateEdid()"
         />
       </div>
       <div>No encoding support</div>
