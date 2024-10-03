@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { useEdidStore } from "@/stores/edidStore";
-const edidStore = useEdidStore();
 const prop = defineProps<{
   block: any;
   id: number;
@@ -13,27 +11,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { CircleMinus, CogIcon } from "lucide-vue-next";
-function removeBlock(id: number) {
-  edidStore.removeBlock(id);
-}
-function changeBlock() {
-  console.log("changing block");
-}
+import Input from "./ui/input/Input.vue";
+import Switch from "./ui/switch/Switch.vue";
 </script>
 
 <template>
   <div>
-    <div class="grid grid-cols-2 gap-2 m-4">
-      <div class="content-center">Detailed Timing Descriptor</div>
-      <div class="grid grid-cols-2 gap-2 m-4">
-        <Button variant="ghost" @click="removeBlock(id)">
-          <CircleMinus />
-        </Button>
-        <Button variant="ghost" @click="changeBlock(id)">
-          <CogIcon /></Button>
-      </div>
-    </div>
     <div class="grid grid-cols-2 gap-2 p-4 m-4 border rounded">
       <div class="content-center">
         {{ dtd.HorizontalActive }} x {{ dtd.VerticalActive }}@{{
@@ -49,13 +32,22 @@ function changeBlock() {
                 <TableCell>Pixel Clock</TableCell>
                 <TableCell>{{ dtd.PixelClockKHz / 1000000 }}</TableCell>
                 <TableCell>Interlaced</TableCell>
-                <TableCell>{{ dtd.Interlaced }}</TableCell>
+                <TableCell>
+                  <Switch
+                    v-model:checked="dtd.Interlaced"
+                    @update:checked="dtd.ComputeTiming()"
+                  />
+                </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>Horizontal Active Pixels</TableCell>
-                <TableCell>{{ dtd.HorizontalActive }}</TableCell>
+                <TableCell>
+                  <Input v-model="dtd.HorizontalActive" />
+                </TableCell>
                 <TableCell>Vertical Active Pixels</TableCell>
-                <TableCell>{{ dtd.VerticalActive }}</TableCell>
+                <TableCell>
+                  <Input v-model="dtd.VerticalActive" />
+                </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>Horizontal Blanking Pixels</TableCell>
@@ -91,7 +83,9 @@ function changeBlock() {
                 <TableCell>Horizontal Clock</TableCell>
                 <TableCell>{{ dtd.HorizontalRefreshRate }}</TableCell>
                 <TableCell>Vertical Clock</TableCell>
-                <TableCell>{{ dtd.VerticalRefreshRate }}</TableCell>
+                <TableCell>
+                  <Input v-model="dtd.VerticalRefreshRate" />
+                </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>Stereo Viewing Support</TableCell>

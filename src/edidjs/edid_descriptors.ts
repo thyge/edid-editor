@@ -1,17 +1,57 @@
+import { DetailedTimingDescriptor } from "./DetailedTimingDescriptor";
 import { AspectRatio } from "./edid";
+
+const DescriptorDisplayProductSerialNumber = 0xff;
+const DescriptorAlphanumericDataString = 0xfe;
+const DescriptorDisplayRangeLimits = 0xfd;
+const DescriptorDisplayProductName = 0xfc;
+const DescriptorColorPointData = 0xfb;
+const DescriptorStandardTimingIdentification = 0xfa;
+const DescriptorDisplayColorManagement = 0xf9;
+const DescriptorCVT3ByteCodes = 0xf8;
+const DescriptorEstablishedTimingsIII = 0xf7;
+const DescriptorDummy = 0x10;
+
 export enum DescriptorType {
-  DetailedTimingDescriptor = -2,
-  not_set = -1,
-  DisplayProductSerialNumber = 0xff,
-  AlphanumericDataString = 0xfe,
-  DisplayRangeLimits = 0xfd,
-  DisplayProductName = 0xfc,
-  ColorPointData = 0xfb,
-  StandardTimingIdentification = 0xfa,
-  DisplayColorManagement = 0xf9,
-  CVT3ByteCodes = 0xf8,
-  EstablishedTimingsIII = 0xf7,
-  Dummy = 0x10,
+  DetailedTimingDescriptor = "DetailedTimingDescriptor",
+  not_set = "not_set",
+  DisplayProductSerialNumber = "DisplayProductSerialNumber",
+  AlphanumericDataString = "AlphanumericDataString",
+  DisplayRangeLimits = "DisplayRangeLimits",
+  DisplayProductName = "DisplayProductName",
+  ColorPointData = "ColorPointData",
+  StandardTimingIdentification = "StandardTimingIdentification",
+  DisplayColorManagement = "DisplayColorManagement",
+  CVT3ByteCodes = "CVT3ByteCodes",
+  EstablishedTimingsIII = "EstablishedTimingsIII",
+  Dummy = "Dummy",
+}
+
+export function DescriptorTypeToValue(type: DescriptorType): number {
+  switch (type) {
+    case DescriptorType.DisplayProductSerialNumber:
+      return DescriptorDisplayProductSerialNumber;
+    case DescriptorType.AlphanumericDataString:
+      return DescriptorAlphanumericDataString;
+    case DescriptorType.DisplayRangeLimits:
+      return DescriptorDisplayRangeLimits;
+    case DescriptorType.DisplayProductName:
+      return DescriptorDisplayProductName;
+    case DescriptorType.ColorPointData:
+      return DescriptorColorPointData;
+    case DescriptorType.StandardTimingIdentification:
+      return DescriptorStandardTimingIdentification;
+    case DescriptorType.DisplayColorManagement:
+      return DescriptorDisplayColorManagement;
+    case DescriptorType.CVT3ByteCodes:
+      return DescriptorCVT3ByteCodes;
+    case DescriptorType.EstablishedTimingsIII:
+      return DescriptorEstablishedTimingsIII;
+    case DescriptorType.Dummy:
+      return DescriptorDummy;
+    default:
+      return -1;
+  }
 }
 
 export interface DisplayDescriptorInterface {
@@ -39,7 +79,7 @@ class ASCIIDescriptor implements DisplayDescriptorInterface {
     return this;
   }
   Encode(): Uint8Array {
-    this.raw[3] = this.Type;
+    this.raw[3] = DescriptorTypeToValue(this.Type);
     for (let d = 5; d < 19; d++) {
       this.raw[d] = 0;
     }
@@ -69,7 +109,7 @@ class AlphanumericDataString extends ASCIIDescriptor {
     this.Type = DescriptorType.AlphanumericDataString;
   }
 }
-class DisplayProductName extends ASCIIDescriptor {
+export class DisplayProductName extends ASCIIDescriptor {
   constructor() {
     super();
     this.Type = DescriptorType.DisplayProductName;
@@ -227,7 +267,7 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
     return this;
   }
   Encode(): Uint8Array {
-    this.raw[3] = this.Type;
+    this.raw[3] = DescriptorTypeToValue(this.Type);
     // Vertical Minimum
     if (this.MinimumVerticalRate > 255) {
       this.raw[4] = 0x01;
@@ -260,32 +300,33 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
     this.raw[9] = this.MaximumPixelClockMHz / 10;
 
     switch (this.VideoTimingSupport) {
-      
       case VideoTimingSupportFlags.DefaultGTF:
-        this.raw[10] = 0x00
+        this.raw[10] = 0x00;
         break;
       case VideoTimingSupportFlags.RangeLimitsOnly:
-       this.raw[10] = 0x01
+        this.raw[10] = 0x01;
         break;
       case VideoTimingSupportFlags.SecondaryGTF:
-        this.raw[10] = 0x02
+        this.raw[10] = 0x02;
         break;
       case VideoTimingSupportFlags.CVTSupported:
-        this.raw[10] = 0x04
+        this.raw[10] = 0x04;
         break;
     }
     if (
       this.VideoTimingSupport === VideoTimingSupportFlags.DefaultGTF ||
       this.VideoTimingSupport === VideoTimingSupportFlags.RangeLimitsOnly
     ) {
-      this.raw[11] = 0x0A;
+      this.raw[11] = 0x0a;
       this.raw[12] = 0x20;
       this.raw[13] = 0x20;
       this.raw[14] = 0x20;
       this.raw[15] = 0x20;
       this.raw[16] = 0x20;
       this.raw[17] = 0x20;
-    } else if (this.VideoTimingSupport === VideoTimingSupportFlags.CVTSupported) {
+    } else if (
+      this.VideoTimingSupport === VideoTimingSupportFlags.CVTSupported
+    ) {
       let cvtBytes = this.CVTSupportDefinition.Encode();
       console.log(cvtBytes);
     }
@@ -339,13 +380,14 @@ export class DummyDesciptor implements DisplayDescriptorInterface {
   raw: Uint8Array;
   Type: DescriptorType;
   constructor() {
-    this.raw = new Uint8Array();
+    this.raw = new Uint8Array(18);
     this.Type = DescriptorType.Dummy;
   }
   Decode(bytes: Uint8Array): DisplayDescriptorInterface {
     return this;
   }
   Encode(): Uint8Array {
+    this.raw[3] = DescriptorTypeToValue(this.Type);
     return this.raw;
   }
 }
@@ -356,27 +398,82 @@ export function DecodeDesciptor(
   // console.log(bytes);
   // Check if 18 bytes is display desciprtor
   switch (bytes[3]) {
-    case DescriptorType.DisplayProductSerialNumber:
+    case DescriptorDisplayProductSerialNumber:
       return new DisplayProductSerialNumber().Decode(bytes);
-    case DescriptorType.AlphanumericDataString:
+    case DescriptorAlphanumericDataString:
       return new AlphanumericDataString().Decode(bytes);
-    case DescriptorType.DisplayRangeLimits:
+    case DescriptorDisplayRangeLimits:
       return new DisplayRangeLimits().Decode(bytes);
-    case DescriptorType.DisplayProductName:
+    case DescriptorDisplayProductName:
       return new DisplayProductName().Decode(bytes);
-    case DescriptorType.ColorPointData:
+    case DescriptorColorPointData:
       return new ColorPoint().Decode(bytes);
-    case DescriptorType.StandardTimingIdentification:
+    case DescriptorStandardTimingIdentification:
       return null;
-    case DescriptorType.DisplayColorManagement:
+    case DescriptorDisplayColorManagement:
       return null;
-    case DescriptorType.CVT3ByteCodes:
+    case DescriptorCVT3ByteCodes:
       return null;
-    case DescriptorType.EstablishedTimingsIII:
+    case DescriptorEstablishedTimingsIII:
       return null;
-    case DescriptorType.Dummy:
+    case DescriptorDummy:
       return new DummyDesciptor().Decode(bytes);
     default:
       return null;
+  }
+  // switch (bytes[3]) {
+  //   case DescriptorType.DisplayProductSerialNumber:
+  //     return new DisplayProductSerialNumber().Decode(bytes);
+  //   case DescriptorType.AlphanumericDataString:
+  //     return new AlphanumericDataString().Decode(bytes);
+  //   case DescriptorType.DisplayRangeLimits:
+  //     return new DisplayRangeLimits().Decode(bytes);
+  //   case DescriptorType.DisplayProductName:
+  //     return new DisplayProductName().Decode(bytes);
+  //   case DescriptorType.ColorPointData:
+  //     return new ColorPoint().Decode(bytes);
+  //   case DescriptorType.StandardTimingIdentification:
+  //     return null;
+  //   case DescriptorType.DisplayColorManagement:
+  //     return null;
+  //   case DescriptorType.CVT3ByteCodes:
+  //     return null;
+  //   case DescriptorType.EstablishedTimingsIII:
+  //     return null;
+  //   case DescriptorType.Dummy:
+  //     return new DummyDesciptor().Decode(bytes);
+  //   default:
+  //     return null;
+  // }
+}
+
+export function CreateDesciptor(
+  type: DescriptorType
+): DisplayDescriptorInterface {
+  switch (type) {
+    case DescriptorType.DetailedTimingDescriptor:
+      return new DetailedTimingDescriptor();
+    case DescriptorType.DisplayProductSerialNumber:
+      return new DisplayProductSerialNumber();
+    case DescriptorType.AlphanumericDataString:
+      return new AlphanumericDataString();
+    case DescriptorType.DisplayRangeLimits:
+      return new DisplayRangeLimits();
+    case DescriptorType.DisplayProductName:
+      return new DisplayProductName();
+    case DescriptorType.ColorPointData:
+      return new ColorPoint();
+    // case DescriptorType.StandardTimingIdentification:
+    //   return null;
+    // case DescriptorType.DisplayColorManagement:
+    //   return null;
+    // case DescriptorType.CVT3ByteCodes:
+    //   return null;
+    // case DescriptorType.EstablishedTimingsIII:
+    //   return null;
+    // case DescriptorType.Dummy:
+    //   return new DummyDesciptor();
+    default:
+      return new DummyDesciptor();;
   }
 }
