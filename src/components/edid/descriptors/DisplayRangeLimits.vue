@@ -24,94 +24,75 @@ const edidstore = useEdidStore();
 </script>
 
 <template>
-  <div>
-    <div class="grid grid-cols-2 gap-2 m-4">
-      <div class="content-center">Display Range Limits</div>
-      <div class="grid grid-cols-2 gap-2 m-4">
-        <Button variant="ghost" @click="edidstore.removeBlock(id)">
-          <CircleMinus />
-        </Button>
-        <Button variant="ghost" @click="edidstore.changeBlock(id)">
-          <CogIcon
-        /></Button>
-      </div>
-    </div>
-    <div class="grid grid-cols-2 gap-2 p-4 m-4 border rounded">
-      <div class="content-center">Min Vertical Rate Hz</div>
-      <NumberField v-model="prop.block.MinimumVerticalRate" :disabled="true">
+  <div class="grid grid-cols-2 gap-2 p-4 m-4 border rounded">
+    <div class="content-center">Min Vertical Rate Hz</div>
+    <NumberField v-model="prop.block.MinimumVerticalRate" :disabled="true">
+      <NumberFieldContent>
+        <NumberFieldIncrement />
+        <NumberFieldInput />
+        <NumberFieldDecrement />
+      </NumberFieldContent>
+    </NumberField>
+    <div>Max Vertical Rate Hz</div>
+    <div>
+      <NumberField v-model="prop.block.MaximumVerticalRate" :disabled="true">
         <NumberFieldContent>
           <NumberFieldIncrement />
           <NumberFieldInput />
           <NumberFieldDecrement />
         </NumberFieldContent>
       </NumberField>
-      <div>Max Vertical Rate Hz</div>
-      <div>
-        <NumberField v-model="prop.block.MaximumVerticalRate" :disabled="true">
-          <NumberFieldContent>
-            <NumberFieldIncrement />
-            <NumberFieldInput />
-            <NumberFieldDecrement />
-          </NumberFieldContent>
-        </NumberField>
-      </div>
-      <div class="content-center">Min Horizontal Rate KHz</div>
-      <div class="content-center">
-        <NumberField
-          v-model="prop.block.MinimumHorizontalRate"
-          :disabled="true"
-        >
-          <NumberFieldContent>
-            <NumberFieldIncrement />
-            <NumberFieldInput />
-            <NumberFieldDecrement />
-          </NumberFieldContent>
-        </NumberField>
-      </div>
-      <div class="content-center">Max Horizontal Rate KHz</div>
-      <div class="content-center">
-        <NumberField
-          v-model="prop.block.MaximumHorizontalRate"
-          :disabled="true"
-        >
-          <NumberFieldContent>
-            <NumberFieldIncrement />
-            <NumberFieldInput />
-            <NumberFieldDecrement />
-          </NumberFieldContent>
-        </NumberField>
-      </div>
-      <div class="content-center">Maximum Pixel Clock MHz</div>
-      <div class="content-center">
-        <NumberField v-model="prop.block.MaximumPixelClockMHz" :disabled="true">
-          <NumberFieldContent>
-            <NumberFieldIncrement />
-            <NumberFieldInput />
-            <NumberFieldDecrement />
-          </NumberFieldContent>
-        </NumberField>
-      </div>
-      <div class="content-center">VideoTimingSupportMode</div>
-      <div class="content-center">
-        <Select
-          v-model="prop.block.VideoTimingSupport"
-          @update:modelValue="edidstore.updateEdid()"
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="DefaultGTF"> DefaultGTF </SelectItem>
-            <SelectItem value="RangeLimitsOnly"> RangeLimitsOnly </SelectItem>
-            <SelectItem value="SecondaryGTF"> SecondaryGTF </SelectItem>
-            <SelectItem value="CVTSupported"> CVTSupported </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div v-if="prop.block.VideoTimingSupport === 'CVTSupported'">
-        <div class="content-center">CVT Support Definition</div>
-        {{ prop.block.CVTSupportDefinition }}
-      </div>
+    </div>
+    <div class="content-center">Min Horizontal Rate KHz</div>
+    <div class="content-center">
+      <NumberField v-model="prop.block.MinimumHorizontalRate" :disabled="true">
+        <NumberFieldContent>
+          <NumberFieldIncrement />
+          <NumberFieldInput />
+          <NumberFieldDecrement />
+        </NumberFieldContent>
+      </NumberField>
+    </div>
+    <div class="content-center">Max Horizontal Rate KHz</div>
+    <div class="content-center">
+      <NumberField v-model="prop.block.MaximumHorizontalRate" :disabled="true">
+        <NumberFieldContent>
+          <NumberFieldIncrement />
+          <NumberFieldInput />
+          <NumberFieldDecrement />
+        </NumberFieldContent>
+      </NumberField>
+    </div>
+    <div class="content-center">Maximum Pixel Clock MHz</div>
+    <div class="content-center">
+      <NumberField v-model="prop.block.MaximumPixelClockMHz" :disabled="true">
+        <NumberFieldContent>
+          <NumberFieldIncrement />
+          <NumberFieldInput />
+          <NumberFieldDecrement />
+        </NumberFieldContent>
+      </NumberField>
+    </div>
+    <div class="content-center">VideoTimingSupportMode</div>
+    <div class="content-center">
+      <Select
+        v-model="prop.block.VideoTimingSupport"
+        @update:modelValue="edidstore.updateEdid()"
+      >
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="DefaultGTF"> DefaultGTF </SelectItem>
+          <SelectItem value="RangeLimitsOnly"> RangeLimitsOnly </SelectItem>
+          <SelectItem value="SecondaryGTF"> SecondaryGTF </SelectItem>
+          <SelectItem value="CVTSupported"> CVTSupported </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    <div v-if="prop.block.VideoTimingSupport === 'CVTSupported'">
+      <div class="content-center">CVT Support Definition</div>
+      {{ prop.block.CVTSupportDefinition }}
     </div>
   </div>
 </template>

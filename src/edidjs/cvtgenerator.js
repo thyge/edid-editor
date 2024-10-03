@@ -1,6 +1,6 @@
 // Adapted from https://github.com/tomverbeure/tomverbeure.github.io/blob/master/video_timings_calculator.html
 // and VESA Coordinated Video Timings (CVT) Standard Version 1.2
-import { DetailedTimingDescriptor } from "./18ByteDescriptors.js"
+import DetailedTimingDescriptor from "./DetailedTimingDescriptor"
 export function calculate_cvt(
     horiz_pixels,
     vert_pixels,

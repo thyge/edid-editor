@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { EEDID } from '../edidjs/eedid.ts'
-import { DescriptorType } from '../edidjs/edid_descriptors.ts'
-import { DummyDesciptor } from '../edidjs/edid_descriptors.ts'
+import { DescriptorType, CreateDesciptor } from '../edidjs/edid_descriptors.ts'
 export const useEdidStore = defineStore('edids', {
   state: () => {
     return {
@@ -10,7 +9,7 @@ export const useEdidStore = defineStore('edids', {
   },
   getters: {
     getDisplayProductName(): string {
-      let dpm = this.mEEDID.EDID.DisplayDescriptors.find(e => e.Type === DescriptorType.DisplayProductName)
+      let dpm: DisplayProductName = this.mEEDID.EDID.DisplayDescriptors.find(e => e.Type === DescriptorType.DisplayProductName)
       if (dpm) {
         return dpm.text 
       } else {
@@ -29,10 +28,13 @@ export const useEdidStore = defineStore('edids', {
     removeBlock(id: number) {
       console.log("removing block", id);
       this.mEEDID.EDID.DisplayDescriptors.splice(id, 1);
-      this.mEEDID.EDID.DisplayDescriptors.push(new DummyDesciptor());
+      this.updateEdid();
     },
-    changeBlock(id: number) {
-      console.log("changing block", id);
+    addBlock(type: DescriptorType) {
+      console.log("adding block", type);
+      let block = CreateDesciptor(type);
+      this.mEEDID.EDID.DisplayDescriptors.push(block);
+      this.updateEdid();
     }
   },
 })

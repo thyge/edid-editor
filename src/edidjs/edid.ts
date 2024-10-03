@@ -1,6 +1,10 @@
 import pnpLookup from "./pnp.ts";
 import { DetailedTimingDescriptor } from "./DetailedTimingDescriptor.ts";
-import { DecodeDesciptor } from "./edid_descriptors.ts";
+import {
+  DecodeDesciptor,
+  DescriptorType,
+  DummyDesciptor,
+} from "./edid_descriptors.ts";
 import { DisplayDescriptorInterface } from "./edid_descriptors.ts";
 
 interface VideoSignalInterface {
@@ -558,6 +562,9 @@ export class EDID {
         descriptorBytes[2] === 0
       ) {
         let mDesc = DecodeDesciptor(descriptorBytes);
+        if (mDesc.Type === DescriptorType.Dummy) {
+          break;
+        }
         this.DisplayDescriptors.push(mDesc);
       } else {
         let dtd = new DetailedTimingDescriptor();
@@ -643,9 +650,14 @@ export class EDID {
       this.raw[38 + i * 2] = stdTiming[0];
       this.raw[39 + i * 2] = stdTiming[1];
     }
+
     // Display Descriptors
     for (let i = 0; i < 4; i++) {
       let dd = this.DisplayDescriptors[i];
+      // Add dummy descriptors if less than 4
+      if (dd === undefined) {
+        dd = new DummyDesciptor();
+      }
       let bytes = dd.Encode();
       for (let j = 0; j < 18; j++) {
         this.raw[54 + i * 18 + j] = bytes[j];
@@ -654,27 +666,6 @@ export class EDID {
     // Checksum
     this.CalcChecksum();
     return this.raw;
-  }
-
-  LayoutDisplayDescriptors() {
-    // store the first byte where dd starts
-    let startByte = 54;
-
-    // add dummy if less than 4 descriptors are present
-    let dummy = MakeDummyDescriptor();
-    if (this.DisplayDescriptors.length < 4) {
-      this.DisplayDescriptors.push(dummy);
-    }
-
-    // Add each descriptor back into raw edid
-    this.DisplayDescriptors.forEach((dd) => {
-      // Encode structure to raw field
-      dd.Encode();
-      for (let index = 0; index < 18; index++) {
-        this.raw[startByte] = dd.raw[index];
-        startByte++;
-      }
-    });
   }
 
   CalcChecksum() {

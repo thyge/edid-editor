@@ -13,18 +13,6 @@ import { CircleMinus, CogIcon } from "lucide-vue-next";
 
 <template>
   <div>
-    <div class="grid grid-cols-2 gap-2 m-4">
-      <div class="content-center">{{ DescriptorType[block.Type] }}</div>
-      <div class="grid grid-cols-2 gap-2 m-4">
-        <Button variant="ghost" @click="edidstore.removeBlock(id)">
-          <CircleMinus />
-        </Button>
-        <Button variant="ghost" @click="edidstore.changeBlock(id)">
-          <CogIcon
-        /></Button>
-      </div>
-    </div>
-
     <div class="grid grid-cols-3 gap-2 p-4 m-4 border rounded">
       <div class="content-center">Text:</div>
       <div class="content-center col-span-2">
