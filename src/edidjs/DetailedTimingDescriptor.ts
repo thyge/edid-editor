@@ -1,7 +1,127 @@
 import { DisplayDescriptorInterface, DescriptorType } from "./edid_descriptors";
-
+import { CVTGenerator, CVTMode } from "./cvtgenerator";
 
 // TODO: Detect which CVT mode the DTD is in
+// Table 3-1: Sync Polarities
+// Table3-2: Vertical Sync Duration
+export enum CVTMode {
+  NONCVT = "non-cvt",
+  CVT = "cvt",
+  CVTRB = "cvt_rb",
+  CVTRB2 = "cvt_rb2",
+}
+
+enum StereoMode {
+  NoStereo = "No Stereo",
+  FieldSequentialRight = "Field sequential, right image on sync signal",
+  FieldSequentialLeft = "Field sequential, left image on sync signal",
+  TwoWayInterleavedRight = "2-way interleaved, right image on even lines",
+  TwoWayInterleavedLeft = "2-way interleaved, left image on even lines",
+  FourWayInterleaved = "4-way interleaved",
+  SideBySideInterleaved = "side-by-side interleaved",
+}
+
+export enum SyncType {
+  AnalogComposite = "Analog Composite",
+  BipolarAnalogComposite = "Bipolar Analog Composite",
+  DigitalComposite = "Digital Composite",
+  DigitalSeparate = "Digital Separate",
+}
+interface SyncDefinition {
+  SyncType: SyncType;
+  Decode(edidBytes: Uint8Array): SyncDefinition;
+  Encode(): number;
+}
+// Analog Composite Sync
+class AnalogCompositeSync implements SyncDefinition {
+  SyncType: SyncType;
+  constructor() {
+    this.SyncType = SyncType.AnalogComposite;
+  }
+  Decode(edidBytes: Uint8Array): AnalogCompositeSync {
+    return this;
+  }
+  Encode(): number {
+    return 0;
+  }
+}
+// Bipolar Analog Composite Sync
+class BipolarAnalogCompositeSync implements SyncDefinition {
+  Serrations: boolean = false;
+  SyncOn: string = "Green Only";
+  SyncType: SyncType;
+  constructor() {
+    this.SyncType = SyncType.BipolarAnalogComposite;
+  }
+  Decode(edidBytes: Uint8Array): BipolarAnalogCompositeSync {
+    this.Serrations = (edidBytes[17] & 0x4) > 0 ? true : false;
+    this.SyncOn =
+      (edidBytes[17] & 0x2) > 0 ? "Green Only" : "On all three (RGB)";
+    return this;
+  }
+  Encode(): number {
+    let encoded = 0;
+    // analog
+    if (this.Serrations) {
+      encoded |= 4;
+    }
+    if (this.SyncOn === "Green Only") {
+      encoded |= 2;
+    }
+    return 0;
+  }
+}
+
+// Digital Composite Sync
+class DigitalCompositeSync implements SyncDefinition {
+  Serrations: boolean = false;
+  SyncType: SyncType;
+  constructor() {
+    this.SyncType = SyncType.DigitalComposite;
+  }
+  Decode(edidBytes: Uint8Array): DigitalCompositeSync {
+    this.Serrations = (edidBytes[17] & 0x4) > 0 ? true : false;
+    return this;
+  }
+  Encode(): number {
+    let encoded = 0;
+    // digital
+    encoded |= 16;
+    // composite
+    if (this.Serrations) {
+      encoded |= 4;
+    }
+    return encoded;
+  }
+}
+class DigitalSeparateSync implements SyncDefinition {
+  VerticalSync: string = "";
+  HorizontalSync: string = "";
+  SyncType: SyncType;
+  constructor() {
+    this.SyncType = SyncType.DigitalSeparate;
+  }
+  Decode(edidBytes: Uint8Array): DigitalSeparateSync {
+    this.VerticalSync = (edidBytes[17] & 0x4) > 0 ? "Positive" : "Negative";
+    this.HorizontalSync = (edidBytes[17] & 0x2) > 0 ? "Positive" : "Negative";
+    return this;
+  }
+  Encode(): number {
+    let encoded = 0;
+    // digital
+    encoded |= 16;
+    // separate
+    encoded |= 8;
+    if (this.VerticalSync === "Positive") {
+      encoded |= 4;
+    }
+    if (this.HorizontalSync === "Positive") {
+      encoded |= 2;
+    }
+    return encoded;
+  }
+}
+
 export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
   raw: Uint8Array = new Uint8Array();
   Type: DescriptorType;
@@ -25,18 +145,11 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
   VerticalBorder: number = 0;
 
   Interlaced: boolean = false;
-  StereoMode: string = "";
-  Digital: boolean = false;
-  Sync: string = "";
-  VerticalSyncPolarity: string = "";
-  HorizontalSyncPolarity: string = "";
-  SyncMode: {
-    BipolarCompositeSync: boolean;
-    Serrations: boolean;
-    SyncOn: string;
-  } = { BipolarCompositeSync: false, Serrations: false, SyncOn: "" };
+  StereoMode: StereoMode = StereoMode.NoStereo;
+  SyncDefinition: SyncDefinition;
 
   // Supplemental information
+  CVTMode: CVTMode = CVTMode.NONCVT;
   horTotPix: number = 0;
   verTotPix: number = 0;
   VerticalRefreshRate: number = 0;
@@ -70,58 +183,81 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     this.VerticalBorder = edidBytes[16];
     this.Interlaced = edidBytes[17] & 0x80 ? true : false;
 
-    switch (edidBytes[17] & 0x61) {
-      case 0:
-        this.StereoMode = "No Stereo";
-        break;
-      case 1:
-        if (edidBytes[17] & 0x1) {
-          this.StereoMode = "2-way interleaved, right image on even lines";
-        } else {
-          this.StereoMode = "Field sequential, right image on sync signal";
-        }
-        break;
-      case 2:
-        if (edidBytes[17] & 0x1) {
-          this.StereoMode = "2-way interleaved, left image on even lines";
-        } else {
-          this.StereoMode = "Field sequential, left image on sync signal";
-        }
-        break;
-      case 3:
-        if (edidBytes[17] & 0x1) {
-          this.StereoMode = "side-by-side interleaved";
-        } else {
-          this.StereoMode = "4-way interleaved";
-        }
-        break;
-    }
-    if ((edidBytes[17] & 0x10) > 0) {
-      // Digital
-      this.Digital = true;
-      if ((edidBytes[17] & 0x8) > 0) {
-        // Digital Separate Sync:
-        this.Sync = "Separate";
-        this.VerticalSyncPolarity =
-          (edidBytes[17] & 0x4) > 0 ? "Positive" : "Negative";
-        this.HorizontalSyncPolarity =
-          (edidBytes[17] & 0x2) > 0 ? "Positive" : "Negative";
-      } else {
-        // Digital Composite Sync:
-        this.SyncMode = "Composite";
-        this.SyncMode.Serrations = (edidBytes[17] & 0x4) > 0 ? true : false;
+    if (edidBytes[17] & 0x1) {
+      switch (edidBytes[17] & 0x60) {
+        case 1:
+          this.StereoMode = StereoMode.TwoWayInterleavedRight;
+          break;
+        case 2:
+          this.StereoMode = StereoMode.TwoWayInterleavedLeft;
+          break;
+        case 3:
+          this.StereoMode = StereoMode.SideBySideInterleaved;
+          break;
+        default:
+          this.StereoMode = StereoMode.NoStereo;
+          break;
       }
     } else {
-      // Analog
-      this.Digital = false;
-      this.SyncMode.BipolarCompositeSync =
-        (edidBytes[17] & 0x8) > 0 ? true : false;
-      this.SyncMode.Serrations = (edidBytes[17] & 0x4) > 0 ? true : false;
-      this.SyncMode.SyncOn =
-        (edidBytes[17] & 0x2) > 0
-          ? "Green Signal only"
-          : "all three (RGB) video signals";
+      switch (edidBytes[17] & 0x60) {
+        case 1:
+          this.StereoMode = StereoMode.FieldSequentialRight;
+          break;
+        case 2:
+          this.StereoMode = StereoMode.FieldSequentialLeft;
+          break;
+        case 3:
+          this.StereoMode = StereoMode.FourWayInterleaved;
+          break;
+        default:
+          this.StereoMode = StereoMode.NoStereo;
+          break;
+      }
     }
+    // Sync Signal Definitions
+    switch (edidBytes[17] & 0x18) {
+      case 0:
+        this.SyncDefinition = new AnalogCompositeSync().Decode(edidBytes);
+        break;
+      case 8:
+        this.SyncDefinition = new BipolarAnalogCompositeSync().Decode(edidBytes);
+        break;
+      case 16:
+        this.SyncDefinition = new DigitalCompositeSync().Decode(edidBytes);
+        break;
+      case 24:
+        this.SyncDefinition = new DigitalSeparateSync().Decode(edidBytes);
+        break;
+    }
+    // Reasoning about the CVT Mode
+    // Table 3-1: Sync Polarities
+    if (this.SyncDefinition.SyncType === SyncType.DigitalSeparate) {
+      let digitalSeparate = this.SyncDefinition as DigitalSeparateSync;
+      if (digitalSeparate.HorizontalSync === "Negative" && digitalSeparate.VerticalSync === "Positive") {
+        this.CVTMode = CVTMode.CVT;
+      }
+      else if (digitalSeparate.HorizontalSync === "Positive" && digitalSeparate.VerticalSync === "Negative") {
+        this.CVTMode = CVTMode.CVTRB;
+      }
+      else {
+        this.CVTMode = CVTMode.NONCVT;
+      }
+    }
+    // Table3-2: Vertical Sync Duration
+    switch (this.VerticalSyncPulseWidth) {
+      case 8:
+        this.CVTMode = CVTMode.CVTRB2;
+        break;
+      default:
+        this.CVTMode = CVTMode.NONCVT;
+    }
+    if (this.HorizontalBlanking === 80) {
+      this.CVTMode = CVTMode.CVTRB2;
+    }
+    else if (this.HorizontalBlanking === 160) {
+      this.CVTMode = CVTMode.CVTRB;
+    }
+
 
     // Supplemental information
     this.horTotPix = this.HorizontalActive + this.HorizontalBlanking;
@@ -170,282 +306,44 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     this.raw[16] = this.VerticalBorder;
 
     this.raw[17] |= this.Interlaced ? 0x80 : 0;
-
     switch (this.StereoMode) {
-      case "No Stereo":
+      case StereoMode.FieldSequentialRight:
+        this.raw[17] |= 32;
+        break;
+      case StereoMode.FieldSequentialLeft:
+        this.raw[17] |= 64;
+        break;
+      case StereoMode.TwoWayInterleavedRight:
+        this.raw[17] |= 33;
+        break;
+      case StereoMode.TwoWayInterleavedLeft:
+        this.raw[17] |= 65;
+        break;
+      case StereoMode.FourWayInterleaved:
+        this.raw[17] |= 96;
+        break;
+      case StereoMode.SideBySideInterleaved:
+        this.raw[17] |= 97;
+        break;
+      default: // NoStereo normal display
         this.raw[17] |= 0;
         break;
-      case "Field sequential, right image on sync signal":
-        this.raw[17] |= 0x20;
-        break;
-      case "Field sequential, left image on sync signal":
-        this.raw[17] |= 0x40;
-        break;
-      case "2-way interleaved, right image on even lines":
-        this.raw[17] |= 0x21;
-        break;
-      case "2-way interleaved, left image on even lines":
-        this.raw[17] |= 0x41;
-        break;
-      case "4-way interleaved":
-        this.raw[17] |= 0x60;
-        break;
-      case "side-by-side interleaved":
-        this.raw[17] |= 0x61;
-        break;
     }
-    this.raw[17] |= this.Interlaced ? 0x80 : 0;
-    this.raw[17] |= this.Digital ? 0x10 : 0;
-    if (this.Sync === "Separate") {
-      this.raw[17] |= 0x8;
-      this.raw[17] |= this.VerticalSyncPolarity === "Positive" ? 0x4 : 0;
-      this.raw[17] |= this.HorizontalSyncPolarity === "Positive" ? 0x2 : 0;
-    } else {
-      this.raw[17] |= this.Serrations ? 0x4 : 0;
-    }
-    return this.raw;
+    this.raw[17] |= this.SyncDefinition.Encode(); 
   }
-  Margins: boolean = false;
-  reduced_blanking: string = "cvt";
 
   // Adapted from https://github.com/tomverbeure/tomverbeure.github.io/blob/master/video_timings_calculator.html
   // and VESA Coordinated Video Timings (CVT) Standard Version 1.2
   ComputeTiming() {
     // map input names to CVT names
-    let H_PIXELS: number = this.HorizontalActive;
-    let V_LINES: number = this.VerticalActive;
-    let IP_FREQ_RQD: number = this.VerticalRefreshRate;
-    let MARGINS_RQD: boolean = this.Margins;
-    let INT_RQD: boolean = this.Interlaced;
-    // Table 5-2: Definition of Constants
-    const C_PRIME = 30;
-    let CLOCK_STEP = 0.25;
-    const H_SYNC_PER = 0.08;
-    const M_PRIME = 300;
-    const MIN_V_PORCH_RND = 3;
-    const MIN_V_BPORCH = 6;
-    const MIN_VSYNC_BP = 550;
-    let RB_H_BLANK = 160;
-    // const RB_H_SYNC         = 32
-    const RB_MIN_V_BLANK = 460;
-    let RB_V_FPORCH = 3;
-    let REFRESH_MULTIPLIER = 1;
-    // Table 5-3: Definition of Variables
-    const CELL_GRAN = 8;
-    let CELL_GRAN_RND = Math.floor(CELL_GRAN);
-    let MARGIN_PER = 0;
-    let ACT_FIELD_RATE;
-    let ACT_FRAME_RATE;
-    let ACT_H_FREQ;
-    let V_SYNC_RND: number;
-    let H_PERIOD_EST;
-    let ACT_VBI_LINES;
-    let TOTAL_V_LINES;
-    let TOTAL_PIXELS;
-    let ACT_PIXEL_FREQ;
-    let V_SYNC_BP;
-    let V_BLANK;
-    let V_FRONT_PORCH;
-    let H_BACK_PORCH;
-    // let V_BACK_PORCH
-    let IDEAL_DUTY_CYCLE;
-    let H_BLANK;
-    let H_SYNC;
-    // let H_BACK_PORCH
-    let H_FRONT_PORCH;
-    let H_POL = "Positive";
-    let V_POL = "Negative";
-    if (this.reduced_blanking === "cvt") {
-      H_POL = "Negative";
-      V_POL = "Positive";
-    }
-    // If cvt this will be recalculated
-    V_BLANK = RB_MIN_V_BLANK;
-    H_BLANK = RB_H_BLANK;
-
-    // 5.2 Computation of Common Parameters
-    let V_FIELD_RATE_RQD = INT_RQD ? IP_FREQ_RQD * 2 : IP_FREQ_RQD;
-    let H_PIXELS_RND = Math.floor(H_PIXELS / CELL_GRAN_RND) * CELL_GRAN_RND;
-    let LEFT_MARGIN = MARGINS_RQD
-      ? Math.floor((H_PIXELS_RND * MARGIN_PER) / 100 / CELL_GRAN_RND) *
-        CELL_GRAN_RND
-      : 0;
-    let RIGHT_MARGIN = LEFT_MARGIN;
-    let TOTAL_ACTIVE_PIXELS = H_PIXELS_RND + LEFT_MARGIN + RIGHT_MARGIN;
-    let V_LINES_RND = INT_RQD ? Math.floor(V_LINES / 2) : Math.floor(V_LINES);
-    let TOP_MARGIN = MARGINS_RQD
-      ? Math.floor((V_LINES_RND * MARGIN_PER) / 100)
-      : 0;
-    let BOT_MARGIN = TOP_MARGIN;
-    let INTERLACE = INT_RQD ? 0.5 : 0;
-
-    let ver_pixels = INT_RQD ? 2 * V_LINES_RND : V_LINES_RND;
-    let hor_pixels_4_3 =
-      (CELL_GRAN_RND * Math.round((ver_pixels * 4) / 3)) / CELL_GRAN_RND;
-    let hor_pixels_16_9 =
-      (CELL_GRAN_RND * Math.round((ver_pixels * 16) / 9)) / CELL_GRAN_RND;
-    let hor_pixels_16_10 =
-      (CELL_GRAN_RND * Math.round((ver_pixels * 16) / 10)) / CELL_GRAN_RND;
-    let hor_pixels_5_4 =
-      (CELL_GRAN_RND * Math.round((ver_pixels * 5) / 4)) / CELL_GRAN_RND;
-    let hor_pixels_15_9 =
-      (CELL_GRAN_RND * Math.round((ver_pixels * 15) / 9)) / CELL_GRAN_RND;
-
-    let ASPECT_RATIO = "Unknown";
-    ASPECT_RATIO =
-      hor_pixels_4_3 === H_PIXELS_RND
-        ? "4:3"
-        : (ASPECT_RATIO =
-            hor_pixels_16_9 === H_PIXELS_RND
-              ? "16:9"
-              : (ASPECT_RATIO =
-                  hor_pixels_16_10 === H_PIXELS_RND
-                    ? "16:10"
-                    : (ASPECT_RATIO =
-                        hor_pixels_5_4 === H_PIXELS_RND
-                          ? "5:4"
-                          : (ASPECT_RATIO =
-                              hor_pixels_15_9 === H_PIXELS_RND ? "15:9" : 0))));
-
-    switch (ASPECT_RATIO) {
-      case "4:3":
-        V_SYNC_RND = 5;
-        break;
-      case "16:9":
-        V_SYNC_RND = 6;
-        break;
-      case "16:10":
-        V_SYNC_RND = 7;
-        break;
-      case "5:4":
-        V_SYNC_RND = 7;
-        break;
-      case "15:9":
-        V_SYNC_RND = 10;
-        break;
-      default:
-        console.log(
-          "aspect ratio not set correctly. ASPECT_RATIO=" + ASPECT_RATIO
-        );
-    }
-    // Table 5-4: Delta between Original Reduced Blank Timing and Reduced Blank Timing V2
-    if (this.reduced_blanking === "cvt_rb2") {
-      CLOCK_STEP = 0.001;
-      REFRESH_MULTIPLIER = video_optimized ? 1000 / 1001 : 1;
-      RB_H_BLANK = 80;
-      RB_V_FPORCH = 1;
-      V_SYNC_RND = 8;
-    }
-
-    let VBI_LINES = 0;
-    let RB_MIN_VBI = 0;
-
-    if (this.reduced_blanking === "cvt") {
-      // 5.3 Computation of "CRT" Timing Parameters
-      H_PERIOD_EST =
-        ((1 / V_FIELD_RATE_RQD - MIN_VSYNC_BP / 1000000.0) /
-          (V_LINES_RND + 2 * TOP_MARGIN + MIN_V_PORCH_RND + INTERLACE)) *
-        1000000.0;
-      V_SYNC_BP = Math.floor(MIN_VSYNC_BP / H_PERIOD_EST) + 1;
-      if (V_SYNC_BP < V_SYNC_RND + MIN_V_BPORCH) {
-        V_SYNC_BP = V_SYNC_RND + MIN_V_BPORCH;
-      }
-      V_BLANK = V_SYNC_BP + MIN_V_PORCH_RND;
-      V_FRONT_PORCH = MIN_V_PORCH_RND;
-      // V_BACK_PORCH = V_SYNC_BP - V_SYNC_RND;
-      TOTAL_V_LINES =
-        V_LINES_RND +
-        TOP_MARGIN +
-        BOT_MARGIN +
-        V_SYNC_BP +
-        INTERLACE +
-        MIN_V_PORCH_RND;
-      IDEAL_DUTY_CYCLE = C_PRIME - (M_PRIME * H_PERIOD_EST) / 1000;
-      if (IDEAL_DUTY_CYCLE < 20) {
-        H_BLANK =
-          Math.floor(
-            (TOTAL_ACTIVE_PIXELS * 20) / (100 - 20) / (2 * CELL_GRAN_RND)
-          ) *
-          (2 * CELL_GRAN_RND);
-      } else {
-        H_BLANK =
-          Math.floor(
-            (TOTAL_ACTIVE_PIXELS * IDEAL_DUTY_CYCLE) /
-              (100 - IDEAL_DUTY_CYCLE) /
-              (2 * CELL_GRAN_RND)
-          ) *
-          (2 * CELL_GRAN_RND);
-      }
-      TOTAL_PIXELS = TOTAL_ACTIVE_PIXELS + H_BLANK;
-      ACT_PIXEL_FREQ =
-        CLOCK_STEP * Math.floor(TOTAL_PIXELS / H_PERIOD_EST / CLOCK_STEP);
-
-      // FIll in missing
-
-      H_SYNC =
-        Math.floor((H_SYNC_PER * TOTAL_PIXELS) / CELL_GRAN_RND) * CELL_GRAN_RND;
-      H_BACK_PORCH = H_BLANK / 2;
-      H_FRONT_PORCH = H_BLANK - H_SYNC - H_BACK_PORCH;
-    } else {
-      // 5.4 Computation of Reduced Blanking Timing Parameters
-      H_PERIOD_EST =
-        (1000000 / V_FIELD_RATE_RQD - RB_MIN_V_BLANK) /
-        (V_LINES_RND + TOP_MARGIN + BOT_MARGIN);
-      VBI_LINES = Math.floor(RB_MIN_V_BLANK / H_PERIOD_EST) + 1;
-      RB_MIN_VBI = RB_V_FPORCH + V_SYNC_RND + MIN_V_BPORCH;
-      ACT_VBI_LINES = VBI_LINES < RB_MIN_VBI ? RB_MIN_VBI : VBI_LINES;
-      TOTAL_V_LINES =
-        ACT_VBI_LINES + V_LINES_RND + TOP_MARGIN + BOT_MARGIN + INTERLACE;
-      TOTAL_PIXELS = RB_H_BLANK + TOTAL_ACTIVE_PIXELS;
-      ACT_PIXEL_FREQ =
-        CLOCK_STEP *
-        Math.floor(
-          (((V_FIELD_RATE_RQD * TOTAL_V_LINES * TOTAL_PIXELS) / 1000000) *
-            REFRESH_MULTIPLIER) /
-            CLOCK_STEP
-        );
-
-      // fill in other elements
-      if (this.reduced_blanking == "cvt_rb2") {
-        V_BLANK = ACT_VBI_LINES;
-        V_FRONT_PORCH = ACT_VBI_LINES - V_SYNC_RND - 6;
-        // V_BACK_PORCH  = 6;
-
-        H_SYNC = 32;
-        H_BACK_PORCH = 40;
-        H_FRONT_PORCH = H_BLANK - H_SYNC - H_BACK_PORCH;
-      } else {
-        V_BLANK = ACT_VBI_LINES;
-        V_FRONT_PORCH = 3;
-        // V_BACK_PORCH  = ACT_VBI_LINES - V_FRONT_PORCH - V_SYNC_RND;
-
-        H_SYNC = 32;
-        H_BACK_PORCH = 80;
-        H_FRONT_PORCH = H_BLANK - H_SYNC - H_BACK_PORCH;
-      }
-    }
-    ACT_H_FREQ = (1000 * ACT_PIXEL_FREQ) / TOTAL_PIXELS;
-    ACT_FIELD_RATE = (1000 * ACT_H_FREQ) / TOTAL_V_LINES;
-    ACT_FRAME_RATE = INT_RQD ? ACT_FIELD_RATE / 2 : ACT_FIELD_RATE;
-    // Update class with values
-    this.PixelClockKHz = ACT_PIXEL_FREQ * 1000000;
-    this.HorizontalActive = TOTAL_ACTIVE_PIXELS;
-    this.HorizontalBlanking = H_BLANK;
-    this.HorizontalFrontPorch = H_FRONT_PORCH;
-    this.HorizontalSyncPulseWidth = H_SYNC;
-    this.VerticalActive = V_LINES_RND;
-    this.VerticalBlanking = V_BLANK;
-    this.VerticalFrontPorch = V_FRONT_PORCH;
-    this.VerticalSyncPulseWidth = V_SYNC_RND;
-    this.HorizontalImageSize = TOTAL_ACTIVE_PIXELS;
-    this.VerticalImageSize = V_LINES_RND;
-    this.HorizontalBorder = TOP_MARGIN;
-    this.VerticalBorder = BOT_MARGIN;
-    this.Interlaced = INT_RQD;
-    this.VerticalRefreshRate = ACT_FRAME_RATE;
-    this.StereoMode = this.StereoMode;
-    this.Digital = true;
-    this.HorizontalSyncPolarity = H_POL;
-    this.VerticalSyncPolarity = V_POL;
+    let generator = new CVTGenerator();
+    generator.Generate(
+      this.HorizontalActive,
+      this.VerticalActive,
+      this.VerticalRefreshRate,
+      CVTMode.CVT,
+      false,
+      false
+    );
   }
 }
