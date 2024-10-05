@@ -6,13 +6,25 @@ const prop = defineProps<{
 }>();
 const dtd = prop.block;
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Button } from "@/components/ui/button";
 import Input from "./ui/input/Input.vue";
 import Switch from "./ui/switch/Switch.vue";
+import { SyncType } from "../edidjs/DetailedTimingDescriptor";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 </script>
 
 <template>
@@ -23,14 +35,19 @@ import Switch from "./ui/switch/Switch.vue";
           dtd.VerticalRefreshRate.toFixed(2)
         }}p - {{ (dtd.PixelClockKHz / 1000000).toFixed(2) }}Khz
       </div>
-      <Popover>
-        <PopoverTrigger> <Button>Edit Timing</Button> </PopoverTrigger>
-        <PopoverContent class="w-800">
+
+      <Dialog>
+        <DialogTrigger> <Button>Edit Timing</Button> </DialogTrigger>
+        <DialogContent class="sm:max-w-[600px] grid-rows-[auto_minmax(0,1fr)_auto] p-0 max-h-[90dvh]">
           <Table>
             <TableBody>
               <TableRow>
+                <TableCell>CVT Mode</TableCell>
+                <TableCell>{{ dtd.CVTMode }}</TableCell>
+              </TableRow>
+              <TableRow>
                 <TableCell>Pixel Clock</TableCell>
-                <TableCell>{{ dtd.PixelClockKHz / 1000000 }}</TableCell>
+                <TableCell>{{ dtd.PixelClockKHz / 1000000 }} MHz</TableCell>
                 <TableCell>Interlaced</TableCell>
                 <TableCell>
                   <Switch
@@ -88,25 +105,131 @@ import Switch from "./ui/switch/Switch.vue";
                 </TableCell>
               </TableRow>
               <TableRow>
+                <TableCell>Sync Type</TableCell>
+                <TableCell>
+                  <Select v-model="dtd.SyncDefinition.SyncType">
+                    <SelectTrigger>
+                      <SelectValue></SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Analog Composite"
+                        >Analog Composite</SelectItem
+                      >
+                      <SelectItem value="Bipolar Analog Composite"
+                        >Bipolar Analog Composite</SelectItem
+                      >
+                      <SelectItem value="Digital Composite"
+                        >Digital Composite</SelectItem
+                      >
+                      <SelectItem value="Digital Separate"
+                        >Digital Separate</SelectItem
+                      >
+                    </SelectContent>
+                  </Select>
+                </TableCell>
                 <TableCell>Stereo Viewing Support</TableCell>
-                <TableCell> {{ dtd.StereoMode }} </TableCell>
-                <TableCell>Sync</TableCell>
-                <TableCell> {{ dtd.Sync }} </TableCell>
+                <TableCell>
+                  <Select v-model="dtd.StereoMode">
+                    <SelectTrigger>
+                      <SelectValue></SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="No Stereo">No Stereo</SelectItem>
+                      <SelectItem value="Field Sequential Right on Even"
+                        >Field Sequential Right on Even</SelectItem
+                      >
+                      <SelectItem value="Field Sequential Left on Even"
+                        >Field Sequential Left on Even</SelectItem
+                      >
+                      <SelectItem value="2-way interleaved"
+                        >2-way interleaved</SelectItem
+                      >
+                      <SelectItem value="4-way interleaved"
+                        >4-way interleaved</SelectItem
+                      >
+                      <SelectItem value="Side by Side">Side by Side</SelectItem>
+                      <SelectItem value="Top and Bottom"
+                        >Top and Bottom</SelectItem
+                      >
+                    </SelectContent>
+                  </Select>
+                </TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell>Horizontal Sync Polarity</TableCell>
-                <TableCell> {{ dtd.HorizontalSyncPolarity }} </TableCell>
-                <TableCell>Vertical Sync Polarity</TableCell>
-                <TableCell> {{ dtd.VerticalSyncPolarity }} </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>Sync</TableCell>
-                <TableCell> {{ dtd.Sync }} </TableCell>
-              </TableRow>
+              <template
+                v-if="
+                  dtd.SyncDefinition.SyncType ===
+                  SyncType.BipolarAnalogComposite
+                "
+              >
+                <TableRow>
+                  <TableCell>Serrations</TableCell>
+                  <TableCell>
+                    <Switch v-model:checked="dtd.SyncDefinition.Serrations" />
+                  </TableCell>
+                  <TableCell>Sync On</TableCell>
+                  <TableCell>
+                    <Select v-model="dtd.SyncDefinition.SyncOn">
+                      <SelectTrigger>
+                        <SelectValue></SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Green Only">Green Only</SelectItem>
+                        <SelectItem value="On all three (RGB)">
+                          On all three (RGB)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                </TableRow>
+              </template>
+              <template
+                v-else-if="
+                  dtd.SyncDefinition.SyncType === SyncType.DigitalComposite
+                "
+              >
+                <TableRow>
+                  <TableCell>Serrations</TableCell>
+                  <TableCell>
+                    <Switch v-model:checked="dtd.SyncDefinition.Serrations" />
+                  </TableCell>
+                </TableRow>
+              </template>
+              <template
+                v-else-if="
+                  dtd.SyncDefinition.SyncType === SyncType.DigitalSeparate
+                "
+              >
+                <TableRow>
+                  <TableCell>Horizontal Sync</TableCell>
+                  <TableCell>
+                    <Select v-model="dtd.SyncDefinition.HorizontalSync">
+                      <SelectTrigger>
+                        <SelectValue></SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Positive">Positive</SelectItem>
+                        <SelectItem value="Negative">Negative</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>Vertical Sync</TableCell>
+                  <TableCell>
+                    <Select v-model="dtd.SyncDefinition.VerticalSync">
+                      <SelectTrigger>
+                        <SelectValue></SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Positive">Positive</SelectItem>
+                        <SelectItem value="Negative">Negative</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                </TableRow>
+              </template>
             </TableBody>
           </Table>
-        </PopoverContent>
-      </Popover>
+        </DialogContent>
+      </Dialog>
     </div>
   </div>
 </template>

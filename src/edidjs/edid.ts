@@ -11,7 +11,7 @@ interface VideoSignalInterface {
   SignalInterface: SignalInterface;
 }
 
-enum SignalInterface {
+export enum SignalInterface {
   NotDefined = "NotDefined",
   Digital = "Digital",
   Analog = "Analog",
