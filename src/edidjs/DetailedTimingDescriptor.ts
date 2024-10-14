@@ -1,14 +1,14 @@
 import { DisplayDescriptorInterface, DescriptorType } from "./edid_descriptors";
-import { CVTGenerator, CVTMode } from "./cvtgenerator";
+import { CVTGenerator } from "./cvtgenerator";
 
 // TODO: Detect which CVT mode the DTD is in
 // Table 3-1: Sync Polarities
 // Table3-2: Vertical Sync Duration
 export enum CVTMode {
   NONCVT = "non-cvt",
-  CVT = "cvt",
-  CVTRB = "cvt_rb",
-  CVTRB2 = "cvt_rb2",
+  CRT = "CRT",
+  CVT_RB = "cvt_rb",
+  CVT_RB2 = "cvt_rb2",
 }
 
 enum StereoMode {
@@ -129,11 +129,11 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
   // Range: 10 kHz to 655.35 MHz in 10 kHz steps
   PixelClockKHz: number = 0;
 
-  HorizontalActive: number = 0;
+  HorizontalActive: number = 1920;
   HorizontalBlanking: number = 0;
   HorizontalFrontPorch: number = 0;
   HorizontalSyncPulseWidth: number = 0;
-  VerticalActive: number = 0;
+  VerticalActive: number = 1080;
   VerticalBlanking: number = 0;
   VerticalFrontPorch: number = 0;
   VerticalSyncPulseWidth: number = 0;
@@ -146,13 +146,11 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
 
   Interlaced: boolean = false;
   StereoMode: StereoMode = StereoMode.NoStereo;
-  SyncDefinition: SyncDefinition;
+  SyncDefinition: SyncDefinition = new DigitalCompositeSync();
 
   // Supplemental information
-  CVTMode: CVTMode = CVTMode.NONCVT;
-  horTotPix: number = 0;
-  verTotPix: number = 0;
-  VerticalRefreshRate: number = 0;
+  CVTMode: CVTMode = CVTMode.CRT;
+  VerticalRefreshRate: number = 60;
   HorizontalRefreshRate: number = 0;
 
   constructor() {
@@ -220,7 +218,9 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
         this.SyncDefinition = new AnalogCompositeSync().Decode(edidBytes);
         break;
       case 8:
-        this.SyncDefinition = new BipolarAnalogCompositeSync().Decode(edidBytes);
+        this.SyncDefinition = new BipolarAnalogCompositeSync().Decode(
+          edidBytes
+        );
         break;
       case 16:
         this.SyncDefinition = new DigitalCompositeSync().Decode(edidBytes);
@@ -233,41 +233,46 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     // Table 3-1: Sync Polarities
     if (this.SyncDefinition.SyncType === SyncType.DigitalSeparate) {
       let digitalSeparate = this.SyncDefinition as DigitalSeparateSync;
-      if (digitalSeparate.HorizontalSync === "Negative" && digitalSeparate.VerticalSync === "Positive") {
-        this.CVTMode = CVTMode.CVT;
-      }
-      else if (digitalSeparate.HorizontalSync === "Positive" && digitalSeparate.VerticalSync === "Negative") {
-        this.CVTMode = CVTMode.CVTRB;
-      }
-      else {
+      if (
+        digitalSeparate.HorizontalSync === "Negative" &&
+        digitalSeparate.VerticalSync === "Positive"
+      ) {
+        this.CVTMode = CVTMode.CRT;
+      } else if (
+        digitalSeparate.HorizontalSync === "Positive" &&
+        digitalSeparate.VerticalSync === "Negative"
+      ) {
+        this.CVTMode = CVTMode.CVT_RB;
+      } else {
         this.CVTMode = CVTMode.NONCVT;
       }
     }
     // Table3-2: Vertical Sync Duration
     switch (this.VerticalSyncPulseWidth) {
       case 8:
-        this.CVTMode = CVTMode.CVTRB2;
+        this.CVTMode = CVTMode.CVT_RB2;
         break;
       default:
         this.CVTMode = CVTMode.NONCVT;
     }
     if (this.HorizontalBlanking === 80) {
-      this.CVTMode = CVTMode.CVTRB2;
+      this.CVTMode = CVTMode.CVT_RB2;
+    } else if (this.HorizontalBlanking === 160) {
+      this.CVTMode = CVTMode.CVT_RB;
     }
-    else if (this.HorizontalBlanking === 160) {
-      this.CVTMode = CVTMode.CVTRB;
-    }
-
 
     // Supplemental information
-    this.horTotPix = this.HorizontalActive + this.HorizontalBlanking;
-    this.verTotPix = this.VerticalActive + this.VerticalBlanking;
-    this.VerticalRefreshRate =
-      this.PixelClockKHz / (this.horTotPix * this.verTotPix);
-    this.HorizontalRefreshRate = this.PixelClockKHz / this.horTotPix;
+    let horTotPix = this.HorizontalActive + this.HorizontalBlanking;
+    let verTotPix = this.VerticalActive + this.VerticalBlanking;
+    this.VerticalRefreshRate = this.PixelClockKHz / (horTotPix * verTotPix);
+    this.HorizontalRefreshRate = this.PixelClockKHz / horTotPix;
+
+    // TODO: remove this
+    // this.ComputeTiming();
     return this;
   }
   Encode(): Uint8Array {
+    console.log("Encoding DTD");
     // Reset the raw array
     this.raw = new Uint8Array(18);
     // Input the data
@@ -329,21 +334,47 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
         this.raw[17] |= 0;
         break;
     }
-    this.raw[17] |= this.SyncDefinition.Encode(); 
+    this.raw[17] |= this.SyncDefinition.Encode();
   }
 
   // Adapted from https://github.com/tomverbeure/tomverbeure.github.io/blob/master/video_timings_calculator.html
   // and VESA Coordinated Video Timings (CVT) Standard Version 1.2
-  ComputeTiming() {
+  ComputeTiming(
+    hori_active: number,
+    vert_active: number,
+    refresh_rate: number,
+    cvt_mode: CVTMode,
+    margins: boolean,
+    interlaced: boolean
+  ) {
     // map input names to CVT names
     let generator = new CVTGenerator();
     generator.Generate(
-      this.HorizontalActive,
-      this.VerticalActive,
-      this.VerticalRefreshRate,
-      CVTMode.CVT,
-      false,
-      false
+      hori_active,
+      vert_active,
+      refresh_rate,
+      cvt_mode,
+      margins,
+      interlaced
     );
+    this.HorizontalActive = generator.HorizontalActive;
+    this.VerticalActive = generator.VerticalActive;
+
+    this.HorizontalBlanking = generator.HorizontalBlanking;
+    this.VerticalBlanking = generator.VerticalBlanking;
+
+    this.HorizontalFrontPorch = generator.HorizontalFrontPorch;
+    this.VerticalFrontPorch = generator.VerticalFrontPorch;
+
+    this.HorizontalSyncPulseWidth = generator.HorizontalSyncPulseWidth;
+    this.VerticalSyncPulseWidth = generator.VerticalSyncPulseWidth;
+
+    this.HorizontalBorder = generator.HorizontalBorder;
+    this.VerticalBorder = generator.VerticalBorder;
+
+    this.HorizontalRefreshRate = generator.HorizontalRefreshRate;
+    this.VerticalRefreshRate = generator.VerticalRefreshRate;
+
+    this.PixelClockKHz = generator.PixelClockKHz;
   }
 }
