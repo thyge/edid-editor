@@ -398,6 +398,7 @@ export class ManufacturerID {
 }
 
 export enum AspectRatio {
+  OneOne = "1:1",
   FourThree = "4:3",
   FiveFour = "5:4",
   FifteenNine = "15:9", // CVT Support Definition
