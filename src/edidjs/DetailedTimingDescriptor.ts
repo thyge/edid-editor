@@ -335,6 +335,7 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
         break;
     }
     this.raw[17] |= this.SyncDefinition.Encode();
+    return this.raw;
   }
 
   // Adapted from https://github.com/tomverbeure/tomverbeure.github.io/blob/master/video_timings_calculator.html
