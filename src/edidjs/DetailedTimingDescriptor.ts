@@ -157,9 +157,13 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     this.Type = DescriptorType.DetailedTimingDescriptor;
   }
 
-  Decode(edidBytes: Uint8Array): DisplayDescriptorInterface {
+  Decode(edidBytes: Uint8Array): DetailedTimingDescriptor | null {
     this.raw = edidBytes;
     this.PixelClockKHz = ((edidBytes[1] << 8) | edidBytes[0]) * 10000;
+    // Handle passing in empty data
+    if (this.PixelClockKHz === 0) {
+      return null;
+    }
     this.HorizontalActive = ((edidBytes[4] & 0xf0) << 4) | edidBytes[2];
     this.HorizontalBlanking = edidBytes[3] | ((edidBytes[4] & 0xf) << 8);
     this.VerticalActive = ((edidBytes[7] & 0xf0) << 4) | edidBytes[5];
