@@ -33,7 +33,7 @@ import {
       <div class="content-center">
         {{ dtd.HorizontalActive }} x {{ dtd.VerticalActive }}@{{
           dtd.VerticalRefreshRate.toFixed(2)
-        }}p - {{ (dtd.PixelClockKHz / 1000000).toFixed(2) }}Khz
+        }}p - {{ (dtd.PixelClockKHz / 1000000).toFixed(2) }} MHz
       </div>
 
       <Dialog>
