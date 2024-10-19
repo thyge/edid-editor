@@ -334,41 +334,39 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
   }
 }
 
-class ColorPoint implements DisplayDescriptorInterface {
+class ColorPoint {
+  WhitePointIndex: number = 0;
+  WhiteX: number = 0;
+  WhiteY: number = 0;
+  WhiteGamma: number = 0;
+  Decode(bytes: Uint8Array): ColorPoint {
+    this.WhitePointIndex = bytes[0];
+    this.WhiteX = (bytes[2] + (bytes[1] >> 4)) & 0x3;
+    this.WhiteY = (bytes[3] + (bytes[1] >> 2)) & 0x3;
+    this.WhiteGamma = bytes[4] / 100 + 1
+    return this;
+  }
+  Encode(): Uint8Array {
+    let colorBytes = new Uint8Array();
+    return colorBytes;
+  }
+}
+
+class ColorPointData implements DisplayDescriptorInterface {
   raw: Uint8Array;
   Type: DescriptorType;
-  RedX: number;
-  RedY: number;
-  GreenX: number;
-  GreenY: number;
-  BlueX: number;
-  BlueY: number;
-  WhiteX: number;
-  WhiteY: number;
-  Gamma: number;
+  WhitePoints: Array<ColorPoint> = [];
+  LineFeed: Number = 0
   constructor() {
     this.raw = new Uint8Array();
     this.Type = DescriptorType.ColorPointData;
-    this.RedX = 0;
-    this.RedY = 0;
-    this.GreenX = 0;
-    this.GreenY = 0;
-    this.BlueX = 0;
-    this.BlueY = 0;
-    this.WhiteX = 0;
-    this.WhiteY = 0;
-    this.Gamma = 0;
   }
   Decode(bytes: Uint8Array): DisplayDescriptorInterface {
-    this.RedX = bytes[4] + 1;
-    this.RedY = bytes[5] + 1;
-    this.GreenX = bytes[6] + 1;
-    this.GreenY = bytes[7] + 1;
-    this.BlueX = bytes[8] + 1;
-    this.BlueY = bytes[9] + 1;
-    this.WhiteX = bytes[10] + 1;
-    this.WhiteY = bytes[11] + 1;
-    this.Gamma = (bytes[12] + 100) / 100;
+    for (let index = 5; index < 15; index+=5) {
+      let cpBytes = bytes.slice(index, index+5)
+      this.WhitePoints.push((new ColorPoint).Decode(cpBytes))
+    }
+    this.LineFeed = bytes[15]
     return this;
   }
   Encode(): Uint8Array {
@@ -392,6 +390,68 @@ export class DummyDesciptor implements DisplayDescriptorInterface {
   }
 }
 
+export class StandardTimingIdentification
+  implements DisplayDescriptorInterface
+{
+  raw: Uint8Array;
+  Type: DescriptorType;
+  constructor() {
+    this.raw = new Uint8Array(18);
+    this.Type = DescriptorType.StandardTimingIdentification;
+  }
+  Decode(bytes: Uint8Array): StandardTimingIdentification {
+    return this;
+  }
+  Encode(): Uint8Array {
+    return this.raw;
+  }
+}
+
+export class DisplayColorManagement implements DisplayDescriptorInterface {
+  raw: Uint8Array;
+  Type: DescriptorType;
+  constructor() {
+    this.raw = new Uint8Array(18);
+    this.Type = DescriptorType.DisplayColorManagement;
+  }
+  Decode(bytes: Uint8Array): DisplayColorManagement {
+    return this;
+  }
+  Encode(): Uint8Array {
+    return this.raw;
+  }
+}
+
+export class CVT3ByteCodes implements DisplayDescriptorInterface {
+  raw: Uint8Array;
+  Type: DescriptorType;
+  constructor() {
+    this.raw = new Uint8Array(18);
+    this.Type = DescriptorType.CVT3ByteCodes;
+  }
+  Decode(bytes: Uint8Array): CVT3ByteCodes {
+    return this;
+  }
+  Encode(): Uint8Array {
+    return this.raw;
+  }
+}
+
+export class EstablishedTimingsIII implements DisplayDescriptorInterface {
+  raw: Uint8Array;
+  Type: DescriptorType;
+  constructor() {
+    this.raw = new Uint8Array(18);
+    this.Type = DescriptorType.EstablishedTimingsIII;
+  }
+  Decode(bytes: Uint8Array): EstablishedTimingsIII {
+    return this;
+  }
+  Encode(): Uint8Array {
+    return this.raw;
+  }
+}
+
 export function DecodeDesciptor(
   bytes: Uint8Array
 ): DisplayDescriptorInterface | null {
@@ -407,44 +467,20 @@ export function DecodeDesciptor(
     case DescriptorDisplayProductName:
       return new DisplayProductName().Decode(bytes);
     case DescriptorColorPointData:
-      return new ColorPoint().Decode(bytes);
+      return new ColorPointData().Decode(bytes);
     case DescriptorStandardTimingIdentification:
-      return null;
+      return new StandardTimingIdentification().Decode(bytes);
     case DescriptorDisplayColorManagement:
-      return null;
+      return new DisplayColorManagement().Decode(bytes);
     case DescriptorCVT3ByteCodes:
-      return null;
+      return new CVT3ByteCodes().Decode(bytes);
     case DescriptorEstablishedTimingsIII:
-      return null;
+      return new EstablishedTimingsIII().Decode(bytes);
     case DescriptorDummy:
       return new DummyDesciptor().Decode(bytes);
     default:
       return null;
   }
-  // switch (bytes[3]) {
-  //   case DescriptorType.DisplayProductSerialNumber:
-  //     return new DisplayProductSerialNumber().Decode(bytes);
-  //   case DescriptorType.AlphanumericDataString:
-  //     return new AlphanumericDataString().Decode(bytes);
-  //   case DescriptorType.DisplayRangeLimits:
-  //     return new DisplayRangeLimits().Decode(bytes);
-  //   case DescriptorType.DisplayProductName:
-  //     return new DisplayProductName().Decode(bytes);
-  //   case DescriptorType.ColorPointData:
-  //     return new ColorPoint().Decode(bytes);
-  //   case DescriptorType.StandardTimingIdentification:
-  //     return null;
-  //   case DescriptorType.DisplayColorManagement:
-  //     return null;
-  //   case DescriptorType.CVT3ByteCodes:
-  //     return null;
-  //   case DescriptorType.EstablishedTimingsIII:
-  //     return null;
-  //   case DescriptorType.Dummy:
-  //     return new DummyDesciptor().Decode(bytes);
-  //   default:
-  //     return null;
-  // }
 }
 
 export function CreateDesciptor(
@@ -462,18 +498,18 @@ export function CreateDesciptor(
     case DescriptorType.DisplayProductName:
       return new DisplayProductName();
     case DescriptorType.ColorPointData:
-      return new ColorPoint();
-    // case DescriptorType.StandardTimingIdentification:
-    //   return null;
-    // case DescriptorType.DisplayColorManagement:
-    //   return null;
-    // case DescriptorType.CVT3ByteCodes:
-    //   return null;
-    // case DescriptorType.EstablishedTimingsIII:
-    //   return null;
-    // case DescriptorType.Dummy:
-    //   return new DummyDesciptor();
+      return new ColorPointData();
+    case DescriptorType.StandardTimingIdentification:
+      return new StandardTimingIdentification();
+    case DescriptorType.DisplayColorManagement:
+      return new DisplayColorManagement();
+    case DescriptorType.CVT3ByteCodes:
+      return new CVT3ByteCodes();
+    case DescriptorType.EstablishedTimingsIII:
+      return new EstablishedTimingsIII();
+    case DescriptorType.Dummy:
+      return new DummyDesciptor();
     default:
-      return new DummyDesciptor();;
+      return new DummyDesciptor();
   }
 }
