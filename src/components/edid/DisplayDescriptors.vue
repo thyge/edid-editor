@@ -5,6 +5,7 @@ import DetailedTimingDescriptor from "../DetailedTimingDesciptor.vue";
 import { DescriptorType } from "../../edidjs/edid_descriptors";
 import ASCIIDescriptor from "./descriptors/ASCIIDescriptor.vue";
 import DisplayRangeLimits from "./descriptors/DisplayRangeLimits.vue";
+import ColorPointData from "./descriptors/ColorPointData.vue";
 import { Button } from "@/components/ui/button";
 import { CircleMinus, CogIcon, PlusCircle } from "lucide-vue-next";
 import {
@@ -62,6 +63,10 @@ import Descriptor from "./Descriptor.vue";
             :block="block"
             :id="index"
           />
+          <ColorPointData
+            v-else-if="block.Type === DescriptorType.ColorPointData"
+            :block="block"
+            :id="index" />
           <div v-else-if="block.Type != DescriptorType.Dummy">
             <div class="grid grid-cols-4 gap-2 m-4">
               <div class="content-center col-span-3">
