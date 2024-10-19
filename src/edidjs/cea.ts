@@ -1,6 +1,6 @@
 import { vicLookup } from "./vics.js";
 import { DetailedTimingDescriptor } from "./DetailedTimingDescriptor.ts";
-import { HDMI_1_4, HDMI_2_0, VSDBTag } from "./vsdb.js";
+import { HDMI_1_4, HDMI_2_0, VSDBTag, HMDSpecialisedMonitor } from "./vsdb";
 import {
   CEAExtendedTag,
   ColorimetryDataBlock,
@@ -65,6 +65,9 @@ export class CEA {
             case VSDBTag.IEEE_HDMIHDR10:
               break;
             case VSDBTag.IEEE_SpecializedMonitor:
+              let hmd_specialised = new HMDSpecialisedMonitor(dbHeader);
+              hmd_specialised.Decode(blockSlice);
+              this.DataBlocks.push(hmd_specialised);
               break;
             case VSDBTag.IEEE_NVIDIA:
               break;

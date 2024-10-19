@@ -103,3 +103,43 @@ export class HDMI_2_0 implements CEADataBlock {
     throw new Error("Method not implemented.");
   }
 }
+
+enum DisplayPrimaryUseCase {
+  TestEquipment = 0x1,
+  GenericDisplay = 0x2,
+  Television = 0x3,
+  ProductivityDisplay = 0x4,
+  GamingDisplay = 0x5,
+  PresentationDisplay = 0x6,
+  VRHeadset = 0x7,
+  ARHeadset = 0x8,
+  ViedeoWall = 0x9,
+  MedicalDisplay = 0x11,
+  DedicatedGamingDisplay = 0x12,
+  DedicatedVideoMonitorDisplay = 0x13,
+  AccessoryDisplay = 0x14,
+}
+
+export class HMDSpecialisedMonitor implements CEADataBlock {
+  Header: DataBlockHeader;
+  Version: number = 0;
+  DesktopUsage: boolean = false;
+  ThirdPartyUsage: boolean = false;
+  PrimaryUseCase: DisplayPrimaryUseCase = DisplayPrimaryUseCase.GenericDisplay;
+  ContainerID: Uint8Array = new Uint8Array(16);
+  constructor(header: DataBlockHeader) {
+    this.Header = header;
+    this.Header.Name = "Specialised Monitor";
+  }
+  Decode(dbBytes: Uint8Array): HMDSpecialisedMonitor {
+    this.Version = dbBytes[4];
+    this.DesktopUsage = dbBytes[5] & 0x40 ? true : false;
+    this.ThirdPartyUsage = dbBytes[5] & 0x20 ? true : false;
+    this.PrimaryUseCase = dbBytes[5] & 0x1f;
+    this.ContainerID = dbBytes.slice(6, 22);
+    return this;
+  }
+  Encode(): Uint8Array {
+    throw new Error("Method not implemented.");
+  }
+}
