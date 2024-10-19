@@ -66,6 +66,7 @@ export class CVTGenerator {
     margins: boolean,
     interlaced: boolean
   ): null {
+    console.log("generating CVT");
     // Input variables
     let IP_FREQ_RQD: number = desired_refreshrate;
     let MARGINS_RQD: boolean = margins;
@@ -196,7 +197,7 @@ export class CVTGenerator {
         this.CLOCK_STEP = 0.25;
         this.VerticalFrontPorch = 3;
         this.REFRESH_MULTIPLIER = 1;
-        this.HorizontalBlanking = 80;
+        this.HorizontalBlanking = 160;
         break;
       case CVTMode.CVT_RB2:
         this.CLOCK_STEP = 0.001;

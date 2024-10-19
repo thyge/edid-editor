@@ -13,17 +13,17 @@ const DescriptorEstablishedTimingsIII = 0xf7;
 const DescriptorDummy = 0x10;
 
 export enum DescriptorType {
-  DetailedTimingDescriptor = "DetailedTimingDescriptor",
+  DetailedTimingDescriptor = "Detailed Timing Descriptor",
   not_set = "not_set",
-  DisplayProductSerialNumber = "DisplayProductSerialNumber",
-  AlphanumericDataString = "AlphanumericDataString",
-  DisplayRangeLimits = "DisplayRangeLimits",
-  DisplayProductName = "DisplayProductName",
-  ColorPointData = "ColorPointData",
-  StandardTimingIdentification = "StandardTimingIdentification",
-  DisplayColorManagement = "DisplayColorManagement",
-  CVT3ByteCodes = "CVT3ByteCodes",
-  EstablishedTimingsIII = "EstablishedTimingsIII",
+  DisplayProductSerialNumber = "Display Product Serial Number",
+  AlphanumericDataString = "Alphanumeric Data String",
+  DisplayRangeLimits = "Display Range Limits",
+  DisplayProductName = "Display ProductName",
+  ColorPointData = "Color Point Data",
+  StandardTimingIdentification = "Standard Timing Identification",
+  DisplayColorManagement = "Display Color Management",
+  CVT3ByteCodes = "CVT 3 Byte Codes",
+  EstablishedTimingsIII = "Established Timings III",
   Dummy = "Dummy",
 }
 

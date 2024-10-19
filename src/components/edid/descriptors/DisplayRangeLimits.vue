@@ -17,22 +17,22 @@ import {
   NumberFieldIncrement,
   NumberFieldInput,
 } from "@/components/ui/number-field";
-import { Button } from "@/components/ui/button";
-import { CircleMinus, CogIcon } from "lucide-vue-next";
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 </script>
 
 <template>
-  <div class="grid grid-cols-2 gap-2 p-4 m-4 border rounded">
+  <div class="grid grid-cols-2">
     <div class="content-center">Min Vertical Rate Hz</div>
-    <NumberField v-model="prop.block.MinimumVerticalRate" :disabled="true">
-      <NumberFieldContent>
-        <NumberFieldIncrement />
-        <NumberFieldInput />
-        <NumberFieldDecrement />
-      </NumberFieldContent>
-    </NumberField>
+    <div>
+      <NumberField v-model="prop.block.MinimumVerticalRate" :disabled="true">
+        <NumberFieldContent>
+          <NumberFieldIncrement />
+          <NumberFieldInput />
+          <NumberFieldDecrement />
+        </NumberFieldContent>
+      </NumberField>
+    </div>
     <div>Max Vertical Rate Hz</div>
     <div>
       <NumberField v-model="prop.block.MaximumVerticalRate" :disabled="true">

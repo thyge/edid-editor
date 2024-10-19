@@ -352,7 +352,10 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     margins: boolean,
     interlaced: boolean
   ) {
-    // map input names to CVT names
+    // Don't compute if it's not a CVT mode
+    if (cvt_mode === CVTMode.NONCVT) {
+      return;
+    }
     let generator = new CVTGenerator();
     generator.Generate(
       hori_active,
@@ -381,5 +384,27 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     this.VerticalRefreshRate = generator.VerticalRefreshRate;
 
     this.PixelClockKHz = generator.PixelClockKHz;
+  }
+
+  cloneFrom(dtd: DetailedTimingDescriptor) {
+    this.PixelClockKHz = dtd.PixelClockKHz;
+    this.HorizontalActive = dtd.HorizontalActive;
+    this.HorizontalBlanking = dtd.HorizontalBlanking;
+    this.HorizontalFrontPorch = dtd.HorizontalFrontPorch;
+    this.HorizontalSyncPulseWidth = dtd.HorizontalSyncPulseWidth;
+    this.VerticalActive = dtd.VerticalActive;
+    this.VerticalBlanking = dtd.VerticalBlanking;
+    this.VerticalFrontPorch = dtd.VerticalFrontPorch;
+    this.VerticalSyncPulseWidth = dtd.VerticalSyncPulseWidth;
+    this.HorizontalImageSize = dtd.HorizontalImageSize;
+    this.VerticalImageSize = dtd.VerticalImageSize;
+    this.HorizontalBorder = dtd.HorizontalBorder;
+    this.VerticalBorder = dtd.VerticalBorder;
+    this.Interlaced = dtd.Interlaced;
+    this.StereoMode = dtd.StereoMode;
+    this.SyncDefinition = dtd.SyncDefinition;
+    this.CVTMode = dtd.CVTMode;
+    this.VerticalRefreshRate = dtd.VerticalRefreshRate;
+    this.HorizontalRefreshRate = dtd.HorizontalRefreshRate;
   }
 }

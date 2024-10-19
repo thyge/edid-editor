@@ -24,39 +24,15 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 const createType: DescriptorType = DescriptorType.DetailedTimingDescriptor;
+import Descriptor from "./Descriptor.vue";
 </script>
 
 <template>
   <template v-for="(block, index) in edidstore.mEEDID.EDID.DisplayDescriptors">
     <div>
-      <div class="grid grid-cols-2 gap-2 m-4">
-        <div
-          v-if="block.Type === DescriptorType.DetailedTimingDescriptor"
-          class="content-center"
-        >
-          Detailed Timing Descriptor
-        </div>
-        <div
-          v-else-if="
-            block.Type === DescriptorType.DisplayProductSerialNumber ||
-            block.Type === DescriptorType.AlphanumericDataString ||
-            block.Type === DescriptorType.DisplayProductName
-          "
-          class="content-center"
-        >
-          {{ block.Type }}
-        </div>
-        <div
-          v-else-if="block.Type === DescriptorType.DisplayRangeLimits"
-          class="content-center"
-        >
-          Display Range Limits
-        </div>
-        <div
-          v-if="block.Type != DescriptorType.Dummy"
-          class="grid grid-cols-2 gap-2 m-4"
-        >
-          <div></div>
+      <div class="gap-2 p-4 m-4 border rounded">
+        <div class="flex justify-between">
+          <div class="content-center">{{ block.Type }}</div>
           <Button
             variant="ghost"
             @click="edidstore.removeBlock(index)"
@@ -65,31 +41,32 @@ const createType: DescriptorType = DescriptorType.DetailedTimingDescriptor;
             <CircleMinus />
           </Button>
         </div>
-      </div>
-      <div>
-        <DetailedTimingDescriptor
-          v-if="block.Type === DescriptorType.DetailedTimingDescriptor"
-          :block="block"
-          :id="index"
-        />
-        <ASCIIDescriptor
-          v-else-if="
-            block.Type === DescriptorType.DisplayProductSerialNumber ||
-            block.Type === DescriptorType.AlphanumericDataString ||
-            block.Type === DescriptorType.DisplayProductName
-          "
-          :block="block"
-          :id="index"
-        />
-        <DisplayRangeLimits
-          v-else-if="block.Type === DescriptorType.DisplayRangeLimits"
-          :block="block"
-          :id="index"
-        />
-        <div v-else-if="block.Type != DescriptorType.Dummy">
-          <div class="grid grid-cols-4 gap-2 m-4">
-            <div class="content-center col-span-3">
-              {{ block.Type }}
+
+        <div class="p-2">
+          <DetailedTimingDescriptor
+            v-if="block.Type === DescriptorType.DetailedTimingDescriptor"
+            :block="block"
+            :id="index"
+          />
+          <ASCIIDescriptor
+            v-else-if="
+              block.Type === DescriptorType.DisplayProductSerialNumber ||
+              block.Type === DescriptorType.AlphanumericDataString ||
+              block.Type === DescriptorType.DisplayProductName
+            "
+            :block="block"
+            :id="index"
+          />
+          <DisplayRangeLimits
+            v-else-if="block.Type === DescriptorType.DisplayRangeLimits"
+            :block="block"
+            :id="index"
+          />
+          <div v-else-if="block.Type != DescriptorType.Dummy">
+            <div class="grid grid-cols-4 gap-2 m-4">
+              <div class="content-center col-span-3">
+                {{ block.Type }}
+              </div>
             </div>
           </div>
         </div>
@@ -97,7 +74,7 @@ const createType: DescriptorType = DescriptorType.DetailedTimingDescriptor;
     </div>
   </template>
   <div v-if="edidstore.mEEDID.EDID.DisplayDescriptors.length < 4">
-    <div class="grid grid-cols-2 gap-2 m-4">
+    <div class="flex justify-between gap-2 p-4 m-4">
       <div class="content-center">Add Block</div>
       <div class="grid grid-cols-2 gap-2 m-4">
         <div></div>
@@ -114,35 +91,38 @@ const createType: DescriptorType = DescriptorType.DetailedTimingDescriptor;
                 <SelectValue> </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="DetailedTimingDescriptor"
-                  >DetailedTimingDescriptor</SelectItem
-                >
-                <SelectItem value="DisplayProductSerialNumber"
-                  >DisplayProductSerialNumber</SelectItem
-                >
-                <SelectItem value="AlphanumericDataString"
-                  >AlphanumericDataString</SelectItem
-                >
-                <SelectItem value="DisplayRangeLimits"
-                  >DisplayRangeLimits</SelectItem
-                >
-                <SelectItem value="DisplayProductName"
-                  >DisplayProductName</SelectItem
-                >
-                <SelectItem value="ColorPointData">ColorPointData</SelectItem>
-                <SelectItem value="StandardTimingIdentification"
-                  >StandardTimingIdentification</SelectItem
-                >
-                <SelectItem value="DisplayColorManagement"
-                  >DisplayColorManagement</SelectItem
-                >
-                <SelectItem value="CVT3ByteCodes">CVT3ByteCodes</SelectItem>
-                <SelectItem value="EstablishedTimingsIII"
-                  >EstablishedTimingsIII</SelectItem
-                >
+                <SelectItem value="Detailed Timing Descriptor">
+                  Detailed Timing Descriptor
+                </SelectItem>
+                <SelectItem value="Display Product Serial Number">
+                  Display Product Serial Number
+                </SelectItem>
+                <SelectItem value="Alphanumeric Data String">
+                  Alphanumeric Data String
+                </SelectItem>
+                <SelectItem value="Display Range Limits">
+                  Display Range Limits
+                </SelectItem>
+                <SelectItem value="Display Product Name">
+                  Display Product Name
+                </SelectItem>
+                <SelectItem value="Color Point Data">
+                  Color Point Data
+                </SelectItem>
+                <SelectItem value="Standard Timing Identification">
+                  Standard Timing Identification
+                </SelectItem>
+                <SelectItem value="Display Color Management">
+                  Display Color Management
+                </SelectItem>
+                <SelectItem value="CVT 3 Byte Codes">
+                  CVT 3 Byte Codes
+                </SelectItem>
+                <SelectItem value="Established Timings III">
+                  Established Timings III
+                </SelectItem>
               </SelectContent>
             </Select>
-            {{ createType }}
             <DialogFooter>
               <DialogClose as-child>
                 <Button type="submit" @click="edidstore.addBlock(createType)">
