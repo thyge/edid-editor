@@ -347,7 +347,12 @@ class ColorPoint {
     return this;
   }
   Encode(): Uint8Array {
-    let colorBytes = new Uint8Array();
+    let colorBytes = new Uint8Array(5);
+    colorBytes[0] = this.WhitePointIndex;
+    colorBytes[1] = (this.WhiteX & 0x3) << 4 | (this.WhiteY & 0x3) << 2;
+    colorBytes[2] = this.WhiteX & 0xf;
+    colorBytes[3] = this.WhiteY & 0xf;
+    colorBytes[4] = (this.WhiteGamma*100) - 100;
     return colorBytes;
   }
 }
@@ -358,7 +363,7 @@ class ColorPointData implements DisplayDescriptorInterface {
   WhitePoints: Array<ColorPoint> = [];
   LineFeed: Number = 0
   constructor() {
-    this.raw = new Uint8Array();
+    this.raw = new Uint8Array(18);
     this.Type = DescriptorType.ColorPointData;
   }
   Decode(bytes: Uint8Array): DisplayDescriptorInterface {
@@ -366,10 +371,18 @@ class ColorPointData implements DisplayDescriptorInterface {
       let cpBytes = bytes.slice(index, index+5)
       this.WhitePoints.push((new ColorPoint).Decode(cpBytes))
     }
-    this.LineFeed = bytes[15]
     return this;
   }
   Encode(): Uint8Array {
+    this.raw[3] = DescriptorTypeToValue(this.Type);
+    let offset = 5
+    this.WhitePoints.forEach(wp => {
+      this.raw.set(wp.Encode(), offset)
+      offset+=5
+    });
+    this.raw[15] = 0xA0;
+    this.raw[16] = 0x20;
+    this.raw[17] = 0x20;
     return this.raw;
   }
 }
