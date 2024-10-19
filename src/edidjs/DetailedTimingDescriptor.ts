@@ -276,7 +276,6 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     return this;
   }
   Encode(): Uint8Array {
-    console.log("Encoding DTD");
     // Reset the raw array
     this.raw = new Uint8Array(18);
     // Input the data

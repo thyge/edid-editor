@@ -4,11 +4,8 @@ const prop = defineProps<{
   id: number;
 }>();
 import { Input } from "@/components/ui/input";
-import { DescriptorType } from "../../../edidjs/edid_descriptors";
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
-import { Button } from "@/components/ui/button";
-import { CircleMinus, CogIcon } from "lucide-vue-next";
 </script>
 
 <template>

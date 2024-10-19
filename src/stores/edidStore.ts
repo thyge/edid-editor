@@ -20,12 +20,13 @@ export const useEdidStore = defineStore('edids', {
   actions: {
     updateEdid() {
       this.mEEDID.EDID.Encode();
-      let cea_bytes = this.mEEDID.CEA.Encode();
-      this.mEEDID.CEA.raw = cea_bytes;
+      this.mEEDID.CEA.Encode();
       // Try to force hex view update
       // Vue does not update on individual array element change
       let tmp = this.mEEDID.EDID.raw.slice();
       this.mEEDID.EDID.raw = tmp;
+      tmp = this.mEEDID.CEA.raw.slice();
+      this.mEEDID.CEA.raw = tmp;
     },
     removeBlock(id: number) {
       console.log("removing block", id);

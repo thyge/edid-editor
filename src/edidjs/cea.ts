@@ -153,12 +153,24 @@ export class CEA {
       }
     }
   }
+  
   Encode() {
+    console.log("Encoding CEA");
     let headerBytes = this.Header.Encode();
     this.raw[0] = headerBytes[0];
     this.raw[1] = headerBytes[1];
     this.raw[2] = headerBytes[2];
     this.raw[3] = headerBytes[3];
+    this.CalcChecksum();
+    return this.raw;
+  }
+
+  CalcChecksum() {
+    let checksum = 0;
+    for (let i = 0; i < 127; i++) {
+      checksum += this.raw[i];
+    }
+    this.raw[127] = 256 - (checksum % 256);
   }
 }
 
