@@ -1,5 +1,5 @@
 import { DetailedTimingDescriptor } from "./DetailedTimingDescriptor";
-import { AspectRatio } from "./edid";
+import { AspectRatio, StandardTiming } from "./edid";
 
 const DescriptorDisplayProductSerialNumber = 0xff;
 const DescriptorAlphanumericDataString = 0xfe;
@@ -408,14 +408,22 @@ export class StandardTimingIdentification
 {
   raw: Uint8Array;
   Type: DescriptorType;
+  timings: Array<StandardTiming> = [];
   constructor() {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.StandardTimingIdentification;
   }
   Decode(bytes: Uint8Array): StandardTimingIdentification {
+    this.raw = bytes;
+    for (let index = 5; index < 17; index += 2) {
+      let timing = new StandardTiming();
+      timing.Decode(bytes.slice(index, index + 2));
+      this.timings.push(timing);
+    }
     return this;
   }
   Encode(): Uint8Array {
+    this.raw[3] = DescriptorTypeToValue(this.Type);
     return this.raw;
   }
 }
@@ -428,6 +436,7 @@ export class DisplayColorManagement implements DisplayDescriptorInterface {
     this.Type = DescriptorType.DisplayColorManagement;
   }
   Decode(bytes: Uint8Array): DisplayColorManagement {
+    this.raw = bytes;
     return this;
   }
   Encode(): Uint8Array {

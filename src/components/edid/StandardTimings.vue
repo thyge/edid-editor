@@ -8,7 +8,7 @@ import StandardTiming from "./StandardTiming.vue";
   <div class="grid md:grid-cols-1 lg:grid-cols-2">
     <StandardTiming
       v-for="(timing, index) in edidstore.mEEDID.EDID.StandardTimings"
-      :id="index"
+      :id="index" :timing="timing"
     />
   </div>
 </template>

@@ -25,7 +25,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 const createType: DescriptorType = DescriptorType.DetailedTimingDescriptor;
-import Descriptor from "./Descriptor.vue";
+import StandardTiming from "./StandardTiming.vue";
 </script>
 
 <template>
@@ -66,7 +66,29 @@ import Descriptor from "./Descriptor.vue";
           <ColorPointData
             v-else-if="block.Type === DescriptorType.ColorPointData"
             :block="block"
-            :id="index" />
+            :id="index"
+          />
+          <div
+            v-else-if="
+              block.Type === DescriptorType.StandardTimingIdentification ||
+              block.Type === DescriptorType.DisplayColorManagement ||
+              block.Type === DescriptorType.CVT3ByteCodes ||
+              block.Type === DescriptorType.EstablishedTimingsIII
+            "
+          >
+            <template v-for="(timing, index) in block.timings">
+              <StandardTiming :id="index + 8" :timing="timing" />
+            </template>
+          </div>
+          <div
+            v-else-if="
+              block.Type === DescriptorType.DisplayColorManagement ||
+              block.Type === DescriptorType.CVT3ByteCodes ||
+              block.Type === DescriptorType.EstablishedTimingsIII
+            "
+          >
+            {{ block }}
+          </div>
           <div v-else-if="block.Type != DescriptorType.Dummy">
             <div class="grid grid-cols-4 gap-2 m-4">
               <div class="content-center col-span-3">
