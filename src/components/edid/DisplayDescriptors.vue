@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 const createType: DescriptorType = DescriptorType.DetailedTimingDescriptor;
 import StandardTiming from "./StandardTiming.vue";
+import DisplayColorManagement from "./descriptors/ColorManagementData.vue";
 </script>
 
 <template>
@@ -70,10 +71,7 @@ import StandardTiming from "./StandardTiming.vue";
           />
           <div
             v-else-if="
-              block.Type === DescriptorType.StandardTimingIdentification ||
-              block.Type === DescriptorType.DisplayColorManagement ||
-              block.Type === DescriptorType.CVT3ByteCodes ||
-              block.Type === DescriptorType.EstablishedTimingsIII
+              block.Type === DescriptorType.StandardTimingIdentification
             "
           >
             <template v-for="(timing, index) in block.timings">
@@ -82,7 +80,13 @@ import StandardTiming from "./StandardTiming.vue";
           </div>
           <div
             v-else-if="
-              block.Type === DescriptorType.DisplayColorManagement ||
+              block.Type === DescriptorType.DisplayColorManagement
+            "
+          >
+            <DisplayColorManagement :block="block"/>
+          </div>
+          <div
+            v-else-if="
               block.Type === DescriptorType.CVT3ByteCodes ||
               block.Type === DescriptorType.EstablishedTimingsIII
             "

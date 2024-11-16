@@ -387,21 +387,7 @@ class ColorPointData implements DisplayDescriptorInterface {
   }
 }
 
-export class DummyDesciptor implements DisplayDescriptorInterface {
-  raw: Uint8Array;
-  Type: DescriptorType;
-  constructor() {
-    this.raw = new Uint8Array(18);
-    this.Type = DescriptorType.Dummy;
-  }
-  Decode(bytes: Uint8Array): DisplayDescriptorInterface {
-    return this;
-  }
-  Encode(): Uint8Array {
-    this.raw[3] = DescriptorTypeToValue(this.Type);
-    return this.raw;
-  }
-}
+
 
 export class StandardTimingIdentification
   implements DisplayDescriptorInterface
@@ -424,6 +410,9 @@ export class StandardTimingIdentification
   }
   Encode(): Uint8Array {
     this.raw[3] = DescriptorTypeToValue(this.Type);
+    for (let index = 0; index < this.timings.length; index++) {
+      this.raw.set(this.timings[index].Encode(), index * 2 + 5);
+    }
     return this.raw;
   }
 }
@@ -431,15 +420,73 @@ export class StandardTimingIdentification
 export class DisplayColorManagement implements DisplayDescriptorInterface {
   raw: Uint8Array;
   Type: DescriptorType;
+  Version: number = 3;
+  Red_a3: number = 0;
+  Red_a2: number = 0;
+  Green_a3: number = 0;
+  Green_a2: number = 0;
+  Blue_a3: number = 0;
+  Blue_a2: number = 0;
   constructor() {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.DisplayColorManagement;
   }
   Decode(bytes: Uint8Array): DisplayColorManagement {
     this.raw = bytes;
+    this.Version = bytes[5];
+    // Red a3 Least Significant Byte (LSB)
+    this.Red_a3 = bytes[6];
+    // Red a3 Most Significant Byte (MSB)
+    this.Red_a3 = this.Red_a3 + (bytes[7] << 8);
+    // Red a2 Least Significant Byte (LSB)
+    this.Red_a2 = bytes[8];
+    // Red a2 Most Significant Byte (MSB)
+    this.Red_a2 = this.Red_a2 + (bytes[9] << 8);
+    // Green a3 Least Significant Byte (LSB)
+    this.Green_a3 = bytes[10];
+    // Green a3 Most Significant Byte (MSB)
+    this.Green_a3 = this.Green_a3 + (bytes[11] << 8);
+    // Green a2 Least Significant Byte (LSB)
+    this.Green_a2 = bytes[12];
+    // Green a2 Most Significant Byte (MSB)
+    this.Green_a2 = this.Green_a2 + (bytes[13] << 8);
+    // Blue a3 Least Significant Byte (LSB)
+    this.Blue_a3 = bytes[14];
+    // Blue a3 Most Significant Byte (MSB)
+    this.Blue_a3 = this.Blue_a3 + (bytes[15] << 8);
+    // Blue a2 Least Significant Byte (LSB)
+    this.Blue_a2 = bytes[16];
+    // Blue a2 Most Significant Byte (MSB)
+    this.Blue_a2 = this.Blue_a2 + (bytes[17] << 8);
     return this;
   }
   Encode(): Uint8Array {
+    this.raw[3] = DescriptorTypeToValue(this.Type);
+    this.raw[5] = this.Version;
+    // Red a3 Least Significant Byte (LSB)
+    this.raw[6] = this.Red_a3 & 0xff;
+    // Red a3 Most Significant Byte (MSB)
+    this.raw[7] = this.Red_a3 >> 8;
+    // Red a2 Least Significant Byte (LSB)
+    this.raw[8] = this.Red_a2 & 0xff;
+    // Red a2 Most Significant Byte (MSB)
+    this.raw[9] = this.Red_a2 >> 8;
+    // Green a3 Least Significant Byte (LSB)
+    this.raw[10] = this.Green_a3 & 0xff;
+    // Green a3 Most Significant Byte (MSB)
+    this.raw[11] = this.Green_a3 >> 8;
+    // Green a2 Least Significant Byte (LSB)
+    this.raw[12] = this.Green_a2 & 0xff;
+    // Green a2 Most Significant Byte (MSB)
+    this.raw[13] = this.Green_a2 >> 8;
+    // Blue a3 Least Significant Byte (LSB)
+    this.raw[14] = this.Blue_a3 & 0xff;
+    // Blue a3 Most Significant Byte (MSB)
+    this.raw[15] = this.Blue_a3 >> 8;
+    // Blue a2 Least Significant Byte (LSB)
+    this.raw[16] = this.Blue_a2 & 0xff;
+    // Blue a2 Most Significant Byte (MSB)
+    this.raw[17] = this.Blue_a2 >> 8;
     return this.raw;
   }
 }
@@ -470,6 +517,22 @@ export class EstablishedTimingsIII implements DisplayDescriptorInterface {
     return this;
   }
   Encode(): Uint8Array {
+    return this.raw;
+  }
+}
+
+export class DummyDesciptor implements DisplayDescriptorInterface {
+  raw: Uint8Array;
+  Type: DescriptorType;
+  constructor() {
+    this.raw = new Uint8Array(18);
+    this.Type = DescriptorType.Dummy;
+  }
+  Decode(bytes: Uint8Array): DisplayDescriptorInterface {
+    return this;
+  }
+  Encode(): Uint8Array {
+    this.raw[3] = DescriptorTypeToValue(this.Type);
     return this.raw;
   }
 }
