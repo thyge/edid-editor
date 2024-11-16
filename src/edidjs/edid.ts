@@ -406,7 +406,7 @@ export enum AspectRatio {
   SixteenTen = "16:10",
 }
 
-class StandardTiming {
+export class StandardTiming {
   id: number;
   Enabled: boolean;
   HorizontalActive: number;
