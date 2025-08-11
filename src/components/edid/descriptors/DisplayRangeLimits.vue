@@ -25,7 +25,11 @@ const edidstore = useEdidStore();
   <div class="grid grid-cols-2">
     <div class="content-center">Min Vertical Rate Hz</div>
     <div>
-      <NumberField v-model="prop.block.MinimumVerticalRate" :disabled="true">
+      <NumberField
+        v-model="prop.block.MinimumVerticalRate"
+        :disabled="false"
+        @update:modelValue="edidstore.updateEdid()"
+      >
         <NumberFieldContent>
           <NumberFieldIncrement />
           <NumberFieldInput />
@@ -35,7 +39,11 @@ const edidstore = useEdidStore();
     </div>
     <div>Max Vertical Rate Hz</div>
     <div>
-      <NumberField v-model="prop.block.MaximumVerticalRate" :disabled="true">
+      <NumberField
+        v-model="prop.block.MaximumVerticalRate"
+        :disabled="false"
+        @update:modelValue="edidstore.updateEdid()"
+      >
         <NumberFieldContent>
           <NumberFieldIncrement />
           <NumberFieldInput />
@@ -45,7 +53,11 @@ const edidstore = useEdidStore();
     </div>
     <div class="content-center">Min Horizontal Rate KHz</div>
     <div class="content-center">
-      <NumberField v-model="prop.block.MinimumHorizontalRate" :disabled="true">
+      <NumberField
+        v-model="prop.block.MinimumHorizontalRate"
+        :disabled="false"
+        @update:modelValue="edidstore.updateEdid()"
+      >
         <NumberFieldContent>
           <NumberFieldIncrement />
           <NumberFieldInput />
@@ -55,7 +67,11 @@ const edidstore = useEdidStore();
     </div>
     <div class="content-center">Max Horizontal Rate KHz</div>
     <div class="content-center">
-      <NumberField v-model="prop.block.MaximumHorizontalRate" :disabled="true">
+      <NumberField
+        v-model="prop.block.MaximumHorizontalRate"
+        :disabled="false"
+        @update:modelValue="edidstore.updateEdid()"
+      >
         <NumberFieldContent>
           <NumberFieldIncrement />
           <NumberFieldInput />
@@ -65,7 +81,11 @@ const edidstore = useEdidStore();
     </div>
     <div class="content-center">Maximum Pixel Clock MHz</div>
     <div class="content-center">
-      <NumberField v-model="prop.block.MaximumPixelClockMHz" :disabled="true">
+      <NumberField
+        v-model="prop.block.MaximumPixelClockMHz"
+        :disabled="false"
+        @update:modelValue="edidstore.updateEdid()"
+      >
         <NumberFieldContent>
           <NumberFieldIncrement />
           <NumberFieldInput />

@@ -200,7 +200,7 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
   MinimumHorizontalRate: number = 0;
   MaximumHorizontalRate: number = 0;
   MaximumPixelClockMHz: number = 0;
-  VideoTimingSupport: VideoTimingSupportFlags = VideoTimingSupportFlags.not_set;
+  VideoTimingSupport: VideoTimingSupportFlags = VideoTimingSupportFlags.DefaultGTF;
   CVTSupportDefinition: CVTSupportDefinition = new CVTSupportDefinition();
   constructor() {
     this.raw = new Uint8Array(18);
