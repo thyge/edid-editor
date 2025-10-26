@@ -12,7 +12,7 @@ import StandardTimings from "./edid/StandardTimings.vue";
 import DisplayDescriptors from "./edid/DisplayDescriptors.vue";
 import { Toggle } from "@/components/ui/toggle";
 import HexViewer from "./HexViewer.vue";
-const displayElement = ref("DisplayDescriptors");
+const displayElement = ref("EDIDHeader");
 import {
   ResizableHandle,
   ResizablePanel,
