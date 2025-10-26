@@ -1,6 +1,6 @@
 import { EDID } from "./edid.ts";
 import { CEA } from "./cea.ts";
-import { DisplayID } from "./did.js";
+import { DisplayID } from "./did";
 
 const TimingExtension = 0x00;
 const CEAExtension = 0x02;
@@ -21,7 +21,7 @@ export class EEDID {
   Extensions: number;
   EDID: EDID = new EDID();
   CEA: CEA = new CEA();
-  DID: DisplayID;
+  DID: DisplayID = new DisplayID();
   Errors = [];
 
   constructor() {
@@ -31,7 +31,7 @@ export class EEDID {
 
   ParseEEDID(bytes: Uint8Array) {
     this.raw = bytes;
-    this.Extensions = this.raw[126];
+    this.Extensions = this.raw[126] ?? 0;
     for (let i = 0; i < this.Extensions + 1; i++) {
       let extBytes = new Uint8Array(this.raw.slice(i * 128, 128 + i * 128));
       if (i === 0) {
@@ -85,19 +85,19 @@ export class EEDID {
       for (let i = 0; i < this.EDID.raw.length; i++) {
         // Extension offset
         let ext = this.EDID.Extension * 128;
-        this.raw[ext + i] = this.EDID.raw[i];
+        this.raw[ext + i] = this.EDID.raw[i] ?? 0;
       }
     }
     if (this.CEA) {
       for (let i = 0; i < this.CEA.raw.length; i++) {
         let ext = this.CEA.Extension * 128;
-        this.raw[ext + i] = this.CEA.raw[i];
+        this.raw[ext + i] = this.CEA.raw[i] ?? 0;
       }
     }
     if (this.DID) {
-      for (let i = 0; i < this.CEA.raw.length; i++) {
-        let ext = this.CEA.Extension * 128;
-        this.raw[ext + i] = this.CEA.raw[i];
+      for (let i = 0; i < this.DID.raw.length; i++) {
+        let ext = this.DID.Extension * 128;
+        this.raw[ext + i] = this.DID.raw[i] ?? 0;
       }
     }
   }
