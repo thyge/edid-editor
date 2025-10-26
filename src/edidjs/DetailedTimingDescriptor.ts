@@ -1,4 +1,4 @@
-import { DisplayDescriptorInterface, DescriptorType } from "./edid_descriptors";
+import { type DisplayDescriptorInterface, DescriptorType } from "./edid_descriptors";
 import { CVTGenerator } from "./cvtgenerator";
 
 // TODO: Detect which CVT mode the DTD is in

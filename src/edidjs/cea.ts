@@ -263,7 +263,7 @@ class VIC {
   Native: boolean = false;
 }
 
-class VideoDataBlock implements CEADataBlock {
+export class VideoDataBlock implements CEADataBlock {
   Header = new DataBlockHeader();
   VICs: {}[] = [];
   constructor(header: DataBlockHeader) {

@@ -5,7 +5,7 @@ import {
   DescriptorType,
   DummyDesciptor,
 } from "./edid_descriptors.ts";
-import { DisplayDescriptorInterface } from "./edid_descriptors.ts";
+import { type DisplayDescriptorInterface } from "./edid_descriptors.ts";
 
 interface VideoSignalInterface {
   SignalInterface: SignalInterface;
