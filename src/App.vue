@@ -3,7 +3,7 @@ import EDIDView from "@/components/EDIDView.vue";
 import CEAView from "./components/CEAView.vue";
 import DisplayID from "./components/DisplayIDView.vue";
 import NavBar from "./components/NavBar.vue";
-import { useEdidStore } from "./stores/edidStore";
+import { useEdidStore } from "@/stores/edidStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const edidstore = useEdidStore();
 let txtEdid =
