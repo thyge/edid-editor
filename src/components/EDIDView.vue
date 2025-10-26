@@ -10,8 +10,8 @@ import Chromaticity from "./edid/Chromaticity.vue";
 import EstablishedTimings from "./edid/EstablishedTimings.vue";
 import StandardTimings from "./edid/StandardTimings.vue";
 import DisplayDescriptors from "./edid/DisplayDescriptors.vue";
-import { Toggle } from "@/components/ui/toggle";
 import HexViewer from "./HexViewer.vue";
+import { Button } from "@/components/ui/button";
 const displayElement = ref("EDIDHeader");
 import {
   ResizableHandle,
@@ -23,54 +23,54 @@ import {
 <template>
   <ResizablePanelGroup direction="horizontal">
     <ResizablePanel id="handle-demo-panel-1" :default-size="25">
-      <Toggle
+      <Button
         @click="displayElement = 'EDIDHeader'"
         class="w-full justify-start"
         variant="ghost"
         :pressed="displayElement === 'EDIDHeader'"
       >
         Header
-      </Toggle>
-      <Toggle
+      </Button>
+      <Button
         @click="displayElement = 'DisplayParameters'"
         class="w-full justify-start"
         variant="ghost"
         :pressed="displayElement === 'DisplayParameters'"
       >
         DisplayParameters
-      </Toggle>
-      <Toggle
+      </Button>
+      <Button
         @click="displayElement = 'Chromaticity'"
         class="w-full justify-start"
         variant="ghost"
         :pressed="displayElement === 'Chromaticity'"
       >
         Chromaticity
-      </Toggle>
-      <Toggle
+      </Button>
+      <Button
         @click="displayElement = 'EstablishedTimings'"
         class="w-full justify-start"
         variant="ghost"
         :pressed="displayElement === 'EstablishedTimings'"
       >
         EstablishedTimings
-      </Toggle>
-      <Toggle
+      </Button>
+      <Button
         @click="displayElement = 'StandardTimings'"
         class="w-full justify-start"
         variant="ghost"
         :pressed="displayElement === 'StandardTimings'"
       >
         StandardTimings
-      </Toggle>
-      <Toggle
+      </Button>
+      <Button
         @click="displayElement = 'DisplayDescriptors'"
         class="w-full justify-start"
         variant="ghost"
         :pressed="displayElement === 'DisplayDescriptors'"
       >
         DisplayDescriptors
-      </Toggle>
+      </Button>
       <HexViewer :data="edidstore.mEEDID.EDID.raw" v-if="uiStore.showHexView" />
     </ResizablePanel>
     <ResizableHandle id="handle-demo-handle-1" with-handle />

@@ -1,19 +1,25 @@
-import { defineStore } from 'pinia'
-import { EEDID } from '../edidjs/eedid.ts'
-import { DescriptorType, CreateDesciptor } from '../edidjs/edid_descriptors.ts'
-export const useEdidStore = defineStore('edids', {
+import { defineStore } from "pinia";
+import { EEDID } from "../edidjs/eedid.ts";
+import {
+  DescriptorType,
+  CreateDesciptor,
+  DisplayProductName,
+} from "../edidjs/edid_descriptors.ts";
+export const useEdidStore = defineStore("edids", {
   state: () => {
     return {
       mEEDID: new EEDID(),
-    }
+    };
   },
   getters: {
     getDisplayProductName(): string {
-      let dpm: DisplayProductName = this.mEEDID.EDID.DisplayDescriptors.find(e => e.Type === DescriptorType.DisplayProductName)
+      let dpm = this.mEEDID.EDID.DisplayDescriptors.find(
+        (e) => e.Type === DescriptorType.DisplayProductName
+      ) as DisplayProductName | undefined;
       if (dpm) {
-        return dpm.text 
+        return dpm.text;
       } else {
-        return ""
+        return "";
       }
     },
   },
@@ -38,6 +44,6 @@ export const useEdidStore = defineStore('edids', {
       let block = CreateDesciptor(type);
       this.mEEDID.EDID.DisplayDescriptors.push(block);
       this.updateEdid();
-    }
+    },
   },
-})
+});
