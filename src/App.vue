@@ -1,20 +1,22 @@
 <script setup lang="ts">
+import { useUiStore } from "@/stores/uiStore";
 import EDIDView from "@/components/EDIDView.vue";
-import { Separator } from "@/components/ui/separator"
+import CEAView from "@/components/CEAView.vue";
+import DisplayIDView from "@/components/DisplayIDView.vue";
+import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar.vue";
 import SidebarRight from "@/components/SidebarRight.vue";
-import CEAView from "./components/CEAView.vue";
-import DisplayID from "./components/DisplayIDView.vue";
-import NavBar from "./components/NavBar.vue";
-import { useEdidStore } from "@/stores/edidStore";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ModeToggle from "@/components/ModeToggle.vue";
+import { useEdidStore } from "@/stores/edidStore";
+
 const edidstore = useEdidStore();
+const uiStore = useUiStore();
+
 let txtEdid =
   "00,FF,FF,FF,FF,FF,FF,00,34,A9,1C,D1,01,01,01,01,\
   00,19,01,03,80,DD,7D,78,0A,06,12,AF,51,4E,AD,24,\
@@ -54,32 +56,13 @@ edidstore.mEEDID.ParseEEDID(byts);
         </div>
       </header>
       <div class="flex flex-1 flex-col gap-4 p-4">
-        <EDIDView />
-        <div class="mx-auto h-24 w-full max-w-3xl rounded-xl bg-muted/50" />
-        <div class="mx-auto h-[100vh] w-full max-w-3xl rounded-xl bg-muted/50" />
+        <EDIDView v-if="uiStore.activeBlock === 'edid'" />
+        <CEAView v-else-if="uiStore.activeBlock === 'cea'" />
+        <DisplayIDView v-else-if="uiStore.activeBlock === 'displayid'" />
       </div>
     </SidebarInset>
-    <SidebarRight />
+    <SidebarRight v-if="uiStore.showHexView" />
   </SidebarProvider>
-  <!-- <SidebarRight /> -->
-  <!-- <NavBar></NavBar>
-
-  <Tabs default-value="edid">
-    <TabsList class="grid w-full grid-cols-3">
-      <TabsTrigger value="edid"> EDID </TabsTrigger>
-      <TabsTrigger value="cea"> CEA </TabsTrigger>
-      <TabsTrigger value="displayid"> DisplayID </TabsTrigger>
-    </TabsList>
-    <TabsContent value="edid">
-      <EDIDView />
-    </TabsContent>
-    <TabsContent value="cea">
-      <CEAView />
-    </TabsContent>
-    <TabsContent value="displayid">
-      <DisplayID />
-    </TabsContent>
-  </Tabs> -->
 </template>
 
 <style scoped></style>

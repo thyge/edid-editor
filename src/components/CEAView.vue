@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useEdidStore } from "@/stores/edidStore";
-import { useUiStore } from "@/stores/uiStore";
 const edidstore = useEdidStore();
-const uiStore = useUiStore();
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { CardContent } from "@/components/ui/card";
@@ -13,7 +11,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import HexViewer from "./HexViewer.vue";
 const selectedBlock = ref(3);
 const displayElement = ref("header");
 import CEAHeader from "./cea/CEAHeader.vue";
@@ -78,7 +75,6 @@ function handleAddBlock() {
         class="w-full"
         ><CirclePlus
       /></Button>
-      <HexViewer :data="edidstore.mEEDID.CEA.raw" v-if="uiStore.showHexView" />
     </ResizablePanel>
     <ResizableHandle id="handle-demo-handle-1" with-handle />
     <ResizablePanel id="handle-demo-panel-2" :default-size="75">

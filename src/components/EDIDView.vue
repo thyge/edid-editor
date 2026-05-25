@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { useUiStore } from "../stores/uiStore";
-import { useEdidStore } from "../stores/edidStore";
-const uiStore = useUiStore();
+import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 import EDIDHeader from "./edid/EDIDHeader.vue";
 import DisplayParameters from "./edid/DisplayParameters.vue";
@@ -10,7 +8,6 @@ import Chromaticity from "./edid/Chromaticity.vue";
 import EstablishedTimings from "./edid/EstablishedTimings.vue";
 import StandardTimings from "./edid/StandardTimings.vue";
 import DisplayDescriptors from "./edid/DisplayDescriptors.vue";
-import HexViewer from "./HexViewer.vue";
 import { Button } from "@/components/ui/button";
 const displayElement = ref("EDIDHeader");
 import {
@@ -71,7 +68,6 @@ import {
       >
         DisplayDescriptors
       </Button>
-      <HexViewer :data="edidstore.mEEDID.EDID.raw as Uint8Array" v-if="uiStore.showHexView" />
     </ResizablePanel>
     <ResizableHandle id="handle-demo-handle-1" with-handle />
     <ResizablePanel id="handle-demo-panel-2" :default-size="75">
