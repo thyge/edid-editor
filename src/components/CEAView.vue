@@ -1,90 +1,31 @@
 <script setup lang="ts">
-import { ref } from "vue";
 import { useEdidStore } from "@/stores/edidStore";
+import { useUiStore } from "@/stores/uiStore";
 const edidstore = useEdidStore();
-import { Button } from "@/components/ui/button";
-import { Toggle } from "@/components/ui/toggle";
-import { CardContent } from "@/components/ui/card";
-import { CirclePlus } from "@lucide/vue";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
-const selectedBlock = ref(3);
-const displayElement = ref("header");
+const uiStore = useUiStore();
+import { computed } from "vue";
 import CEAHeader from "./cea/CEAHeader.vue";
 import CEADataBlock from "./cea/CEADataBock.vue";
 import DetailedTimingDescriptor from "./DetailedTimingDesciptor.vue";
-function handleRemoveBlock(element: number) {
-  edidstore.mEEDID.CEA.DataBlocks.splice(element, 1);
-  console.log(element);
-}
-function handleAddBlock() {
-  console.log("add block diag");
-  console.log(displayElement);
-}
+
+const blockIndex = computed(() => {
+  const parts = uiStore.activeSubSection.split("-");
+  if (parts.length === 2) {
+    const idx = parseInt(parts[1], 10);
+    if (!isNaN(idx)) return idx;
+  }
+  return -1;
+});
 </script>
 
 <template>
-  <ResizablePanelGroup direction="horizontal">
-    <ResizablePanel id="handle-demo-panel-1" :default-size="25">
-      <Toggle
-        @click="
-          displayElement = 'header';
-          selectedBlock = 0;
-        "
-        variant="default"
-        class="w-full justify-start"
-        :pressed="displayElement === 'header'"
-        >Header</Toggle
-      >
-      <template v-for="(block, index) in edidstore.mEEDID.CEA.DataBlocks">
-        <Toggle
-          @click="
-            displayElement = 'block' + index;
-            selectedBlock = index;
-          "
-          variant="default"
-          class="w-full justify-start"
-          :pressed="displayElement === 'block' + index"
-          >{{ block.Header.Name }}</Toggle
-        >
-      </template>
-      <template
-        v-for="(dtd, index) in edidstore.mEEDID.CEA.DetailedTimingBlocks"
-      >
-        <Toggle
-          @click="
-            displayElement = 'dtd' + index;
-            selectedBlock = index;
-          "
-          variant="default"
-          class="w-full justify-start"
-          :pressed="displayElement === 'dtd' + index"
-        >
-          {{ dtd.HorizontalActive }}x{{ dtd.VerticalActive }}@{{
-            Math.round(dtd.VerticalRefreshRate)
-          }}p
-        </Toggle>
-      </template>
-      <Button
-        @click="handleAddBlock()"
-        variant="default"
-        size="icon"
-        class="w-full"
-        ><CirclePlus
-      /></Button>
-    </ResizablePanel>
-    <ResizableHandle id="handle-demo-handle-1" with-handle />
-    <ResizablePanel id="handle-demo-panel-2" :default-size="75">
-      <CEAHeader v-if="displayElement === 'header'" />
-      <DetailedTimingDescriptor
-        v-else-if="displayElement.includes('dtd')"
-        :block="edidstore.mEEDID.CEA.DetailedTimingBlocks[selectedBlock]"
-        :id="selectedBlock"
-      />
-      <CEADataBlock v-else :blockNum="selectedBlock" />
-    </ResizablePanel>
-  </ResizablePanelGroup>
+  <div class="flex flex-1 flex-col gap-4">
+    <CEAHeader v-if="uiStore.activeSubSection === 'header'" />
+    <DetailedTimingDescriptor
+      v-else-if="uiStore.activeSubSection.startsWith('dtd-')"
+      :block="edidstore.mEEDID.CEA.DetailedTimingBlocks[blockIndex]"
+      :id="blockIndex"
+    />
+    <CEADataBlock v-else :blockNum="blockIndex" />
+  </div>
 </template>

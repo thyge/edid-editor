@@ -20,11 +20,11 @@ import {
   Monitor,
   CircuitBoard,
   BadgeCheck,
-  Upload,
   Download,
   FileText,
   CircleMinus,
   PlusCircle,
+  ChevronRight,
 } from "@lucide/vue";
 import {
   Dialog,
@@ -42,7 +42,18 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { computed, ref } from "vue";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarMenuAction,
+} from "@/components/ui/sidebar";
+import { ref, watch } from "vue";
 
 const edidStore = useEdidStore();
 const uiStore = useUiStore();
@@ -103,20 +114,20 @@ function downloadTxtFile() {
   a.click();
 }
 
-const navItems = computed(() => {
-  const items: Array<{ key: 'edid' | 'cea' | 'displayid'; label: string; icon: typeof Monitor }> = [
-    { key: "edid", label: "EDID", icon: Monitor },
-  ];
-  if (edidStore.mEEDID.hasCEA) {
-    items.push({ key: "cea", label: "CEA-861", icon: CircuitBoard });
-  }
-  if (edidStore.mEEDID.hasDisplayID) {
-    items.push({ key: "displayid", label: "DisplayID", icon: BadgeCheck });
-  }
-  return items;
-});
-
 const selectedBlockType = ref<'cea' | 'displayid'>("cea");
+
+const isEdidOpen = ref(true);
+const isCeaOpen = ref(false);
+const isDisplayIdOpen = ref(false);
+
+watch(
+  () => uiStore.activeBlock,
+  (block) => {
+    isEdidOpen.value = block === "edid";
+    isCeaOpen.value = block === "cea";
+    isDisplayIdOpen.value = block === "displayid";
+  }
+);
 </script>
 
 <template>
@@ -142,28 +153,176 @@ const selectedBlockType = ref<'cea' | 'displayid'>("cea");
         <SidebarGroupLabel>Blocks</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
-            <SidebarMenuItem v-for="item in navItems" :key="item.key">
-              <div class="flex items-center w-full">
-                <SidebarMenuButton
-                  class="flex-1"
-                  :is-active="uiStore.activeBlock === item.key"
-                  @click="uiStore.activeBlock = item.key"
-                >
-                  <component :is="item.icon" class="size-4" />
-                  <span>{{ item.label }}</span>
-                </SidebarMenuButton>
-                <Button
-                  v-if="item.key !== 'edid'"
-                  variant="ghost"
-                  size="sm"
-                  class="h-8 w-8 p-0"
-                  :aria-label="`Remove ${item.label} block`"
-                  @click.stop="edidStore.removeExtensionBlock(item.key)"
+            <!-- EDID -->
+            <Collapsible v-model:open="isEdidOpen" as-child class="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger as-child>
+                  <SidebarMenuButton tooltip="EDID">
+                    <Monitor class="size-4" />
+                    <span>EDID</span>
+                    <ChevronRight
+                      class="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                    />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        :is-active="uiStore.activeBlock === 'edid' && uiStore.activeSubSection === 'header'"
+                        @click="uiStore.navigateTo('edid', 'header')"
+                      >
+                        <span>Header</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        :is-active="uiStore.activeBlock === 'edid' && uiStore.activeSubSection === 'displayParameters'"
+                        @click="uiStore.navigateTo('edid', 'displayParameters')"
+                      >
+                        <span>Display Parameters</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        :is-active="uiStore.activeBlock === 'edid' && uiStore.activeSubSection === 'chromaticity'"
+                        @click="uiStore.navigateTo('edid', 'chromaticity')"
+                      >
+                        <span>Chromaticity</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        :is-active="uiStore.activeBlock === 'edid' && uiStore.activeSubSection === 'establishedTimings'"
+                        @click="uiStore.navigateTo('edid', 'establishedTimings')"
+                      >
+                        <span>Established Timings</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        :is-active="uiStore.activeBlock === 'edid' && uiStore.activeSubSection === 'standardTimings'"
+                        @click="uiStore.navigateTo('edid', 'standardTimings')"
+                      >
+                        <span>Standard Timings</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        :is-active="uiStore.activeBlock === 'edid' && uiStore.activeSubSection === 'displayDescriptors'"
+                        @click="uiStore.navigateTo('edid', 'displayDescriptors')"
+                      >
+                        <span>Display Descriptors</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+
+            <!-- CEA-861 -->
+            <Collapsible
+              v-if="edidStore.mEEDID.hasCEA"
+              v-model:open="isCeaOpen"
+              as-child
+              class="group/collapsible"
+            >
+              <SidebarMenuItem>
+                <CollapsibleTrigger as-child>
+                  <SidebarMenuButton tooltip="CEA-861">
+                    <CircuitBoard class="size-4" />
+                    <span>CEA-861</span>
+                    <ChevronRight
+                      class="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                    />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <SidebarMenuAction
+                  show-on-hover
+                  aria-label="Remove CEA-861 block"
+                  @click="edidStore.removeExtensionBlock('cea')"
                 >
                   <CircleMinus class="size-4" />
-                </Button>
-              </div>
-            </SidebarMenuItem>
+                </SidebarMenuAction>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        :is-active="uiStore.activeBlock === 'cea' && uiStore.activeSubSection === 'header'"
+                        @click="uiStore.navigateTo('cea', 'header')"
+                      >
+                        <span>Header</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem
+                      v-for="(block, index) in edidStore.mEEDID.CEA.DataBlocks"
+                      :key="'block-' + index"
+                    >
+                      <SidebarMenuSubButton
+                        :is-active="uiStore.activeBlock === 'cea' && uiStore.activeSubSection === 'block-' + index"
+                        @click="uiStore.navigateTo('cea', 'block-' + index)"
+                      >
+                        <span>{{ block.Header.Name }}</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem
+                      v-for="(dtd, index) in edidStore.mEEDID.CEA.DetailedTimingBlocks"
+                      :key="'dtd-' + index"
+                    >
+                      <SidebarMenuSubButton
+                        :is-active="uiStore.activeBlock === 'cea' && uiStore.activeSubSection === 'dtd-' + index"
+                        @click="uiStore.navigateTo('cea', 'dtd-' + index)"
+                      >
+                        <span
+                          >{{ dtd.HorizontalActive }}x{{ dtd.VerticalActive }}@{{
+                            Math.round(dtd.VerticalRefreshRate)
+                          }}p</span
+                        >
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+
+            <!-- DisplayID -->
+            <Collapsible
+              v-if="edidStore.mEEDID.hasDisplayID"
+              v-model:open="isDisplayIdOpen"
+              as-child
+              class="group/collapsible"
+            >
+              <SidebarMenuItem>
+                <CollapsibleTrigger as-child>
+                  <SidebarMenuButton tooltip="DisplayID">
+                    <BadgeCheck class="size-4" />
+                    <span>DisplayID</span>
+                    <ChevronRight
+                      class="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                    />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <SidebarMenuAction
+                  show-on-hover
+                  aria-label="Remove DisplayID block"
+                  @click="edidStore.removeExtensionBlock('displayid')"
+                >
+                  <CircleMinus class="size-4" />
+                </SidebarMenuAction>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        :is-active="uiStore.activeBlock === 'displayid' && uiStore.activeSubSection === 'header'"
+                        @click="uiStore.navigateTo('displayid', 'header')"
+                      >
+                        <span>Header</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
           </SidebarMenu>
 
           <div class="mt-2 px-2">
