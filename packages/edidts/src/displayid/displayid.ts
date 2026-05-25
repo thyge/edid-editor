@@ -18,6 +18,16 @@ export class DisplayID {
     NumberOfExtensions?: number;
     Extension: number = 0;
 
+    static decode(bytes: Uint8Array): DisplayID {
+        const d = new DisplayID();
+        d.DecodeDisplayID(bytes);
+        return d;
+    }
+
+    encode(): Uint8Array {
+        return this.raw;
+    }
+
     DecodeDisplayID(bytes: Uint8Array): void {
         // DisplayID structure does not include header byte
         const data = bytes.slice(1);

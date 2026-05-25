@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Switch } from "@/components/ui/switch";
-import { ColorimetryDataBlock } from "@/edidts";
+import { ColorimetryDataBlock } from "edidts";
 const prop = defineProps<{
   block: ColorimetryDataBlock;
 }>();

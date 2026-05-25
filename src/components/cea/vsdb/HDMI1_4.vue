@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HDMI_1_4 } from "@/edidts";
+import { HDMI_1_4 } from "edidts";
 import { Switch } from "@/components/ui/switch";
 import {
   NumberField,

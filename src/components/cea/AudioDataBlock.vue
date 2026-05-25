@@ -7,7 +7,7 @@ import {
   NumberFieldIncrement,
   NumberFieldInput,
 } from "@/components/ui/number-field";
-import { AudioDataBlock } from "@/edidts";
+import { AudioDataBlock } from "edidts";
 const prop = defineProps<{
   block: AudioDataBlock;
 }>();

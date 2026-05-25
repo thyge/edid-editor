@@ -47,46 +47,42 @@ export class CEA {
   DetailedTimingBlocks: DetailedTimingDescriptor[] = [];
   Extension = 0;
 
+  static decode(bytes: Uint8Array): CEA {
+    const c = new CEA();
+    c.Decode(bytes);
+    return c;
+  }
+
   Decode(bytes: Uint8Array) {
     this.raw = bytes;
-    this.Header.Decode(this.raw.slice(0, 4));
+    this.Header = CEAHeader.decode(this.raw.slice(0, 4));
     // Data Block Collection
     // If byte 2 is 04, the collection is of zero length (i.e. not present).
     for (let i = 4; i < this.Header.dtdStartByte; ) {
       let blockLength = this.raw[i] & 0x1f;
       let blockSlice = this.raw.slice(i, i + blockLength + 1);
-      let dbHeader = new DataBlockHeader().Decode(blockSlice);
+      let dbHeader = DataBlockHeader.decode(blockSlice);
       switch (dbHeader.Type) {
         case CEADataBlockType.DBAudioDataBlock:
-          let audioBlock = new AudioDataBlock(dbHeader);
-          audioBlock.Decode(blockSlice);
-          this.DataBlocks.push(audioBlock);
+          this.DataBlocks.push(AudioDataBlock.decode(blockSlice));
           break;
         case CEADataBlockType.DBVideoDataBlock:
-          let vidBlock = new VideoDataBlock(dbHeader);
-          vidBlock.Decode(blockSlice);
-          this.DataBlocks.push(vidBlock);
+          this.DataBlocks.push(VideoDataBlock.decode(blockSlice));
           break;
         case CEADataBlockType.DBVendorSpecificDataBlock:
           switch (dbHeader.VSDB) {
             case VSDBTag.IEEE_HDMI1_4:
-              let hdmi14 = new HDMI_1_4(dbHeader);
-              hdmi14.Decode(blockSlice);
-              this.DataBlocks.push(hdmi14);
+              this.DataBlocks.push(HDMI_1_4.decode(blockSlice));
               break;
             case VSDBTag.IEEE_HDMI2_0:
-              let hdmi20 = new HDMI_2_0(dbHeader);
-              hdmi20.Decode(blockSlice);
-              this.DataBlocks.push(hdmi20);
+              this.DataBlocks.push(HDMI_2_0.decode(blockSlice));
               break;
             case VSDBTag.IEEE_HDMIDolbyVision:
               break;
             case VSDBTag.IEEE_HDMIHDR10:
               break;
             case VSDBTag.IEEE_SpecializedMonitor:
-              let hmd_specialised = new HMDSpecialisedMonitor(dbHeader);
-              hmd_specialised.Decode(blockSlice);
-              this.DataBlocks.push(hmd_specialised);
+              this.DataBlocks.push(HMDSpecialisedMonitor.decode(blockSlice));
               break;
             case VSDBTag.IEEE_NVIDIA:
               break;
@@ -95,9 +91,7 @@ export class CEA {
           }
           break;
         case CEADataBlockType.DBSpeakerAllocationData:
-          let spkBlock = new SpeakerAllocationDataBlock(dbHeader);
-          spkBlock.Decode(blockSlice);
-          this.DataBlocks.push(spkBlock);
+          this.DataBlocks.push(SpeakerAllocationDataBlock.decode(blockSlice));
           break;
         case CEADataBlockType.DBVESAVDIFDataBlock:
           break;
@@ -106,9 +100,7 @@ export class CEA {
         case CEADataBlockType.DBUseExtendedTag:
           switch (dbHeader.ExtendedTag) {
             case CEAExtendedTag.VideoCapabilityDB:
-              let vcdb = new VideoCapabilityDataBlock(dbHeader);
-              vcdb.Decode(blockSlice);
-              this.DataBlocks.push(vcdb);
+              this.DataBlocks.push(VideoCapabilityDataBlock.decode(blockSlice));
               break;
             case CEAExtendedTag.VendorSpecificVideoDB:
               break;
@@ -119,14 +111,10 @@ export class CEA {
             case CEAExtendedTag.HDMIVideoDB:
               break;
             case CEAExtendedTag.ColorimetryDB:
-              let colDB = new ColorimetryDataBlock(dbHeader);
-              colDB.Decode(blockSlice);
-              this.DataBlocks.push(colDB);
+              this.DataBlocks.push(ColorimetryDataBlock.decode(blockSlice));
               break;
             case CEAExtendedTag.HDRStaticMetadataDB:
-              let hdrDB = new HDRStaticMetadataDataBlock(dbHeader);
-              hdrDB.Decode(blockSlice);
-              this.DataBlocks.push(hdrDB);
+              this.DataBlocks.push(HDRStaticMetadataDataBlock.decode(blockSlice));
               break;
             case CEAExtendedTag.VideoFormatPreferenceDB:
               break;
@@ -134,13 +122,11 @@ export class CEA {
               break;
             case CEAExtendedTag.YCBCR420CapabilityMap:
               // This needs some work
-              let y420 = new YCBCR420CapabilityMap(dbHeader);
+              let y420 = YCBCR420CapabilityMap.decode(blockSlice);
               let videodb = this.DataBlocks.find((db) => db.Header.Type == CEADataBlockType.DBVideoDataBlock);
               // in case we don't have VideoDataBlock, enable decoding with numbers
               if (videodb) {
                 y420.DecodeWithVICs(blockSlice, videodb as VideoDataBlock);
-              } else {
-                y420.Decode(blockSlice);
               }
               this.DataBlocks.push(y420);
               break;
@@ -153,9 +139,7 @@ export class CEA {
             case CEAExtendedTag.RoomConfigurationDB:
               break;
             case CEAExtendedTag.SpeakerLocationDB:
-              let spkDB = new SpeakerLocationDataBlock(dbHeader);
-              spkDB.Decode(blockSlice);
-              this.DataBlocks.push(spkDB);
+              this.DataBlocks.push(SpeakerLocationDataBlock.decode(blockSlice));
               break;
             default:
               break;
@@ -167,7 +151,7 @@ export class CEA {
     if (this.Header.dtdStartByte != 0) {
       for (let d = this.Header.dtdStartByte; d < 127 - 18; d += 18) {
         let dtd_bytes = this.raw.slice(d, d + 18);
-        let dtd = new DetailedTimingDescriptor().Decode(dtd_bytes);
+        let dtd = DetailedTimingDescriptor.decode(dtd_bytes);
         // check if dtd before adding
         if (dtd != null) {
           this.DetailedTimingBlocks.push(dtd);
@@ -231,6 +215,12 @@ class CEAHeader {
   YCBCR422 = false;
   numNativeDTDs = 0;
 
+  static decode(bytes: Uint8Array): CEAHeader {
+    const h = new CEAHeader();
+    h.Decode(bytes);
+    return h;
+  }
+
   Decode(bytes: Uint8Array) {
     this.Version = bytes[1];
     this.dtdStartByte = bytes[2];
@@ -266,6 +256,10 @@ export class DataBlockHeader {
   Name = "";
   ExtendedType = 0;
   Size = 0;
+
+  static decode(bytes: Uint8Array): DataBlockHeader {
+    return new DataBlockHeader().Decode(bytes);
+  }
 
   Decode(bytes: Uint8Array): DataBlockHeader {
     this.Type = bytes[0] >> 5;
@@ -310,6 +304,11 @@ export class VideoDataBlock implements CEADataBlock {
     this.Header = header;
     this.Header.Name = "Video Data Block";
   }
+  static decode(dbBytes: Uint8Array): VideoDataBlock {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new VideoDataBlock(header).Decode(dbBytes);
+  }
+
   Decode(dbBytes: Uint8Array): VideoDataBlock {
     this.Header.Decode(dbBytes.slice(0, 1));
     for (let v = 1; v < this.Header.Size + 1; v++) {
@@ -384,6 +383,11 @@ export class AudioDataBlock implements CEADataBlock {
     this.Header.Name = "Audio Data Block";
   }
 
+  static decode(dbBytes: Uint8Array): AudioDataBlock {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new AudioDataBlock(header).Decode(dbBytes);
+  }
+
   Decode(dbBytes: Uint8Array): AudioDataBlock {
     this.AudioType = (dbBytes[1] & 0x78) >> 3;
     this.Channels = (dbBytes[1] & 0x7) + 1;
@@ -453,6 +457,11 @@ export class SpeakerAllocationDataBlock implements CEADataBlock {
     this.Header = header;
     this.Header.Name = "Speaker Allocation Data Block";
   }
+  static decode(dbBytes: Uint8Array): SpeakerAllocationDataBlock {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new SpeakerAllocationDataBlock(header).Decode(dbBytes);
+  }
+
   Decode(dbBytes: Uint8Array): SpeakerAllocationDataBlock {
     this.FrontWide_LeftRight = dbBytes[1] & 0x80 ? true : false;
     this.FrontCenter_LeftRight = dbBytes[1] & 0x20 ? true : false;

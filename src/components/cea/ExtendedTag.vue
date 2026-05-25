@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ExtendedDataBlockUnion } from "@/edidts";
+import type { ExtendedDataBlockUnion } from "edidts";
 import ColorimetryDataBlock from "./extended/ColorimetryDataBlock.vue";
 import HDRStaticMetadataDataBlock from "./extended/HDRStaticMetadataDataBlock.vue";
 import VideoCapabilityDataBlock from "./extended/VideoCapabilityDataBlock.vue";

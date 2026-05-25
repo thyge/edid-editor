@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { VSDBUnion } from "@/edidts";
+import type { VSDBUnion } from "edidts";
 import HDMI1_4 from "./vsdb/HDMI1_4.vue";
 import HDMI2_0 from "./vsdb/HDMI2_0.vue";
 const prop = defineProps<{

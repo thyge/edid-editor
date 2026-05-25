@@ -1,4 +1,4 @@
-import type { CEADataBlock, DataBlockHeader } from "./cea.ts";
+import { type CEADataBlock, DataBlockHeader } from "./cea.ts";
 
 export const VSDBTag = {
   Uninitialized: 0,
@@ -32,6 +32,10 @@ export class HDMI_1_4 implements CEADataBlock {
   constructor(header: DataBlockHeader) {
     this.Header = header;
     this.Header.Name = "HDMI 1.4";
+  }
+  static decode(dbBytes: Uint8Array): HDMI_1_4 {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new HDMI_1_4(header).Decode(dbBytes);
   }
   Decode(dbBytes: Uint8Array): HDMI_1_4 {
     if (dbBytes.length < 6) {
@@ -118,6 +122,10 @@ export class HDMI_2_0 implements CEADataBlock {
     this.Header = header;
     this.Header.Name = "HDMI 2.0";
   }
+  static decode(dbBytes: Uint8Array): HDMI_2_0 {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new HDMI_2_0(header).Decode(dbBytes);
+  }
   Decode(dbBytes: Uint8Array): HDMI_2_0 {
     if (dbBytes.length < 6) {
       return this;
@@ -203,6 +211,10 @@ export class HMDSpecialisedMonitor implements CEADataBlock {
   constructor(header: DataBlockHeader) {
     this.Header = header;
     this.Header.Name = "Specialised Monitor";
+  }
+  static decode(dbBytes: Uint8Array): HMDSpecialisedMonitor {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new HMDSpecialisedMonitor(header).Decode(dbBytes);
   }
   Decode(dbBytes: Uint8Array): HMDSpecialisedMonitor {
     if (dbBytes.length < 6) {

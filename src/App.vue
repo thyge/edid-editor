@@ -15,7 +15,7 @@ import SidebarRight from "@/components/SidebarRight.vue";
 import ModeToggle from "@/components/ModeToggle.vue";
 import { useEdidStore } from "@/stores/edidStore";
 import { PanelRight } from "@lucide/vue";
-import { hexToUint8Array } from "@/edidts";
+import { EEDID, hexToUint8Array } from "edidts";
 
 const edidstore = useEdidStore();
 const uiStore = useUiStore();
@@ -37,7 +37,7 @@ const txtEdid =
   "00,00,1A,00,00,00,00,00,00,00,00,00,00,00,00,00," +
   "00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00," +
   "00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,5A";
-edidstore.mEEDID.ParseEEDID(hexToUint8Array(txtEdid));
+edidstore.mEEDID = EEDID.decode(hexToUint8Array(txtEdid));
 </script>
 
 <template>

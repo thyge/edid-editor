@@ -1,8 +1,11 @@
 {
-  "name": "my-vue-app",
+  "name": "edid-editor",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
@@ -11,6 +14,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "edidts": "workspace:*",
     "@lucide/vue": "^1.16.0",
     "@tailwindcss/vite": "^4.1.16",
     "@tanstack/vue-table": "^8.21.3",

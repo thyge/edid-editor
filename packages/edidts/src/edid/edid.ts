@@ -8,7 +8,6 @@ import {
   DisplayProductName,
   type DisplayDescriptorUnion,
 } from "./descriptors.ts";
-import { type DisplayDescriptorInterface } from "./descriptors.ts";
 
 interface VideoSignalInterface {
   SignalInterface: SignalInterface;
@@ -59,6 +58,9 @@ export class DigitalVideoInput implements VideoSignalInterface {
 
   BitDepth: BitDepth;
   Interface: VideoInterface;
+  static decode(mbyte: number): DigitalVideoInput {
+    return new DigitalVideoInput(mbyte);
+  }
   constructor(mbyte: number) {
     this.SignalInterface = SignalInterface.Digital;
     switch ((mbyte & 0x70) >> 4) {
@@ -175,6 +177,10 @@ class AnalogVideoInput implements VideoSignalInterface {
   CompositeSyncSignalonGreenVideo: boolean;
   SerrationsOnVSync: boolean;
 
+  static decode(mbyte: number): AnalogVideoInput {
+    return new AnalogVideoInput(mbyte);
+  }
+
   constructor(mbyte: number) {
     this.SignalInterface = SignalInterface.Analog;
     this.SignalLevelStandard = (mbyte & 0x60) as SignalLevelStandard;
@@ -203,6 +209,9 @@ export class DigitalColourEncoding implements VideoSignalInterface {
   RGB444: boolean;
   YUV444: boolean;
   YUV422: boolean;
+  static decode(mbyte: number): DigitalColourEncoding {
+    return new DigitalColourEncoding(mbyte);
+  }
   constructor(mbyte: number) {
     this.SignalInterface = SignalInterface.Digital;
     this.RGB444 = mbyte & 0x8 ? true : false;
@@ -230,6 +239,9 @@ type AnalogDisplayColorType = typeof AnalogDisplayColorType[keyof typeof AnalogD
 class AnalogueColourEncoding implements VideoSignalInterface {
   SignalInterface: SignalInterface;
   AnalogColour: AnalogDisplayColorType;
+  static decode(mbyte: number): AnalogueColourEncoding {
+    return new AnalogueColourEncoding(mbyte);
+  }
   constructor(mbyte: number) {
     this.SignalInterface = SignalInterface.Analog;
     this.AnalogColour = (mbyte & 0x3) as AnalogDisplayColorType;
@@ -253,6 +265,10 @@ class FeatureSupport {
   GTFSupport: boolean = false; // 1.3
   ContiniousFrequency: boolean = false; // 1.4
   Version: EdidVersion = EdidVersion.V14;
+
+  static decode(mbyte: number, digital_analog: SignalInterface, version?: EdidVersion): FeatureSupport {
+    return new FeatureSupport(mbyte, digital_analog, version);
+  }
 
   constructor(mbyte: number, digital_analog: SignalInterface, version?: EdidVersion) {
     this.Version = version ?? EdidVersion.V14;
@@ -302,6 +318,9 @@ class Chromaticity {
   BlueY: number;
   WhiteX: number;
   WhiteY: number;
+  static decode(bytes: Uint8Array): Chromaticity {
+    return new Chromaticity(bytes);
+  }
   constructor(bytes: Uint8Array) {
     this.raw = bytes;
     this.RedX = (((bytes[2] ?? 0) << 2) | (((bytes[0] ?? 0) >> 6) & 0x3)) / 1024;
@@ -355,6 +374,10 @@ class EstablishedTimings {
   ET1024_768_75: boolean;
   ET1280_1024_75: boolean;
   ET1152_870_75: boolean;
+
+  static decode(etBytes: Uint8Array): EstablishedTimings {
+    return new EstablishedTimings(etBytes);
+  }
 
   constructor(etBytes: Uint8Array) {
     this.ET720_400_70 = (etBytes[0] ?? 0) & 0x80 ? true : false;
@@ -412,6 +435,10 @@ export class ManufacturerID {
     this.ID = "";
   }
 
+  static decode(bytes: Uint8Array): ManufacturerID {
+    return new ManufacturerID().Decode(bytes);
+  }
+
   Decode(bytes: Uint8Array): ManufacturerID {
     this.ID = String.fromCharCode((((bytes[0] ?? 0) & 0x7c) >> 2) + 0x40);
     this.ID += String.fromCharCode(
@@ -466,6 +493,10 @@ export class StandardTiming {
   HorizontalActive: number = 0;
   AspectRatio: AspectRatio = AspectRatio.FourThree;
   RefreshRate: number = 60;
+
+  static decode(bytes: Uint8Array, version?: EdidVersion): StandardTiming {
+    return new StandardTiming().Decode(bytes, version);
+  }
 
   Decode(bytes: Uint8Array, version?: EdidVersion): StandardTiming {
     this.Enabled = false;
@@ -551,6 +582,12 @@ export class EDID {
   Errors: string[] = [];
   DummyIdentifiers: number = 0;
 
+  static decode(bytes: Uint8Array): EDID {
+    const e = new EDID();
+    e.Decode(bytes);
+    return e;
+  }
+
   get EdidVersion(): EdidVersion {
     if (this.Version !== 1) return EdidVersion.Other;
     const rev = parseInt(this.Revision, 10);
@@ -584,7 +621,7 @@ export class EDID {
       this.Errors.push("Checksum invalid");
     }
     // Manufacturer ID. This is a legacy Plug and Play ID assigned by UEFI forum
-    this.ManufacturerID.Decode(this.raw.slice(8, 10));
+    this.ManufacturerID = ManufacturerID.decode(this.raw.slice(8, 10));
 
     // Manufacturer product code.
     this.ManufacturerPC = readUint16LE(this.raw, 10);
@@ -603,9 +640,9 @@ export class EDID {
 
     // Basic display parameters
     if ((this.raw[20] ?? 0) & 0x80) {
-      this.VideoInputDefinition = new DigitalVideoInput(this.raw[20] ?? 0);
+      this.VideoInputDefinition = DigitalVideoInput.decode(this.raw[20] ?? 0);
     } else {
-      this.VideoInputDefinition = new AnalogVideoInput(this.raw[20] ?? 0);
+      this.VideoInputDefinition = AnalogVideoInput.decode(this.raw[20] ?? 0);
     }
     // Horizontal screen size
     // Vertical screen size
@@ -618,23 +655,22 @@ export class EDID {
     }
     this.Gamma = (this.raw[23] ?? 0) / 100 + 1;
     // DPMS
-    this.FeatureSupport = new FeatureSupport(
+    this.FeatureSupport = FeatureSupport.decode(
       this.raw[24] ?? 0,
       this.VideoInputDefinition.SignalInterface,
       this.EdidVersion
     );
 
     // Chromaticity coordinates.
-    this.Chromaticity = new Chromaticity(this.raw.slice(25, 35));
+    this.Chromaticity = Chromaticity.decode(this.raw.slice(25, 35));
 
     // Established timing bitmap. Supported bitmap for (formerly) very common timing modes.
-    this.EstablishedTimings = new EstablishedTimings(this.raw.slice(35, 38));
+    this.EstablishedTimings = EstablishedTimings.decode(this.raw.slice(35, 38));
 
     // Standard timing information
     for (let i = 38; i < 54; i += 2) {
       // Unused fields are filled with 01 01
-      let stdTiming = new StandardTiming();
-      stdTiming.Decode(this.raw.slice(i, i + 2), this.EdidVersion);
+      let stdTiming = StandardTiming.decode(this.raw.slice(i, i + 2), this.EdidVersion);
       this.StandardTimings.push(stdTiming);
     }
     // Detailed timing descriptors
@@ -656,8 +692,7 @@ export class EDID {
           this.DisplayDescriptors.push(mDesc);
         }
       } else {
-        let dtd = new DetailedTimingDescriptor();
-        let decodedDtd = dtd.Decode(descriptorBytes);
+        let decodedDtd = DetailedTimingDescriptor.decode(descriptorBytes);
         if (decodedDtd) {
           this.DisplayDescriptors.push(decodedDtd);
         }

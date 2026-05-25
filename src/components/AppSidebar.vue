@@ -53,6 +53,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuAction,
 } from "@/components/ui/sidebar";
+import { EEDID } from "edidts";
 import { ref, watch } from "vue";
 
 const edidStore = useEdidStore();
@@ -66,7 +67,7 @@ function uploadFile(e: Event) {
   if (ext === "bin") {
     reader.onload = (event) => {
       const edidarr = new Uint8Array(event.target?.result as ArrayBuffer);
-      edidStore.mEEDID.ParseEEDID(edidarr);
+      edidStore.mEEDID = EEDID.decode(edidarr);
     };
     reader.readAsArrayBuffer(file);
   } else if (ext === "txt") {
@@ -76,7 +77,7 @@ function uploadFile(e: Event) {
       const edidarr = Uint8Array.from(
         (txtEdid.match(/.{1,2}/g) ?? []).map((byte: string) => parseInt(byte, 16))
       );
-      edidStore.mEEDID.ParseEEDID(edidarr);
+      edidStore.mEEDID = EEDID.decode(edidarr);
     };
     reader.readAsText(file);
   }
@@ -240,7 +241,7 @@ watch(
                 <SidebarMenuAction
                   show-on-hover
                   aria-label="Remove CEA-861 block"
-                  @click="edidStore.removeExtensionBlock('cea')"
+                  @click="edidStore.removeFirstExtensionBlock('cea')"
                 >
                   <CircleMinus class="size-4" />
                 </SidebarMenuAction>
@@ -305,7 +306,7 @@ watch(
                 <SidebarMenuAction
                   show-on-hover
                   aria-label="Remove DisplayID block"
-                  @click="edidStore.removeExtensionBlock('displayid')"
+                  @click="edidStore.removeFirstExtensionBlock('displayid')"
                 >
                   <CircleMinus class="size-4" />
                 </SidebarMenuAction>
@@ -332,7 +333,6 @@ watch(
                   size="sm"
                   variant="outline"
                   class="w-full"
-                  :disabled="edidStore.mEEDID.hasCEA && edidStore.mEEDID.hasDisplayID"
                 >
                   <PlusCircle class="size-4 mr-2" />
                   Add Block
@@ -347,10 +347,10 @@ watch(
                     <SelectValue placeholder="Select block type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cea" :disabled="edidStore.mEEDID.hasCEA">
+                    <SelectItem value="cea">
                       CEA-861
                     </SelectItem>
-                    <SelectItem value="displayid" :disabled="edidStore.mEEDID.hasDisplayID">
+                    <SelectItem value="displayid">
                       DisplayID
                     </SelectItem>
                   </SelectContent>
@@ -358,7 +358,6 @@ watch(
                 <DialogFooter>
                   <DialogClose as-child>
                     <Button
-                      :disabled="(selectedBlockType === 'cea' && edidStore.mEEDID.hasCEA) || (selectedBlockType === 'displayid' && edidStore.mEEDID.hasDisplayID)"
                       @click="edidStore.addExtensionBlock(selectedBlockType)"
                     >
                       Add

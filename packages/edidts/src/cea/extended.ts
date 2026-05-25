@@ -1,4 +1,4 @@
-import type { CEADataBlock, DataBlockHeader } from "./cea.ts";
+import { type CEADataBlock, DataBlockHeader } from "./cea.ts";
 import { VideoDataBlock, VIC } from "./cea";
 
 export enum CEAExtendedTag {
@@ -33,6 +33,11 @@ export class VideoCapabilityDataBlock implements CEADataBlock {
   constructor(header: DataBlockHeader) {
     this.Header = header;
     this.Header.Name = "Video Capability Data Block";
+  }
+
+  static decode(dbBytes: Uint8Array): VideoCapabilityDataBlock {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new VideoCapabilityDataBlock(header).Decode(dbBytes);
   }
 
   Decode(dbBytes: Uint8Array): VideoCapabilityDataBlock {
@@ -130,6 +135,10 @@ export class ColorimetryDataBlock implements CEADataBlock {
     this.Header = header;
     this.Header.Name = "Colorimetry Data Block";
   }
+  static decode(dbBytes: Uint8Array): ColorimetryDataBlock {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new ColorimetryDataBlock(header).Decode(dbBytes);
+  }
   Decode(dbBytes: Uint8Array): ColorimetryDataBlock {
     this.xvYCC601 = dbBytes[2] & 0x80 ? true : false;
     this.xvYCC709 = dbBytes[2] & 0x40 ? true : false;
@@ -177,6 +186,10 @@ export class SpeakerLocationDataBlock implements CEADataBlock {
     this.Header = header;
     this.Header.Name = "Speaker Location Data Block";
   }
+  static decode(dbBytes: Uint8Array): SpeakerLocationDataBlock {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new SpeakerLocationDataBlock(header).Decode(dbBytes);
+  }
   Decode(dbBytes: Uint8Array): SpeakerLocationDataBlock {
     this.RearLeftRightCenter = dbBytes[1] & 0x40 ? true : false;
     this.FrontLeftRightCenter = dbBytes[1] & 0x20 ? true : false;
@@ -219,6 +232,10 @@ export class HDRStaticMetadataDataBlock implements CEADataBlock {
   constructor(header: DataBlockHeader) {
     this.Header = header;
     this.Header.Name = "HDR Static Metadata Data Block";
+  }
+  static decode(dbBytes: Uint8Array): HDRStaticMetadataDataBlock {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new HDRStaticMetadataDataBlock(header).Decode(dbBytes);
   }
   Decode(dbBytes: Uint8Array): HDRStaticMetadataDataBlock {
     this.HLG = dbBytes[2] & 0x08 ? true : false;
@@ -278,6 +295,10 @@ export class YCBCR420CapabilityMap implements CEADataBlock {
   constructor(header: DataBlockHeader) {
     this.Header = header;
     this.Header.Name = "YCBCR 420 Capability Map";
+  }
+  static decode(dbBytes: Uint8Array): YCBCR420CapabilityMap {
+    const header = new DataBlockHeader().Decode(dbBytes);
+    return new YCBCR420CapabilityMap(header).Decode(dbBytes);
   }
   Decode(dbBytes: Uint8Array): YCBCR420CapabilityMap {
     let counter = 0;

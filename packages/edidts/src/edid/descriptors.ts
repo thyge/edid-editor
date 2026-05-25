@@ -108,6 +108,9 @@ export class DisplayProductSerialNumber extends ASCIIDescriptor {
     super();
     this.Type = DescriptorType.DisplayProductSerialNumber;
   }
+  static decode(bytes: Uint8Array): DisplayProductSerialNumber {
+    return new DisplayProductSerialNumber().Decode(bytes) as DisplayProductSerialNumber;
+  }
 }
 export class AlphanumericDataString extends ASCIIDescriptor {
   kind = 'alphanumericDataString' as const;
@@ -115,12 +118,18 @@ export class AlphanumericDataString extends ASCIIDescriptor {
     super();
     this.Type = DescriptorType.AlphanumericDataString;
   }
+  static decode(bytes: Uint8Array): AlphanumericDataString {
+    return new AlphanumericDataString().Decode(bytes) as AlphanumericDataString;
+  }
 }
 export class DisplayProductName extends ASCIIDescriptor {
   kind = 'displayProductName' as const;
   constructor() {
     super();
     this.Type = DescriptorType.DisplayProductName;
+  }
+  static decode(bytes: Uint8Array): DisplayProductName {
+    return new DisplayProductName().Decode(bytes) as DisplayProductName;
   }
 }
 
@@ -147,6 +156,10 @@ class CVTSupportDefinition {
   VerticalShrink: boolean = false;
   VerticalStretch: boolean = false;
   PreferredVerticalRefreshRate: number = 0;
+
+  static decode(bytes: Uint8Array): CVTSupportDefinition {
+    return new CVTSupportDefinition().Decode(bytes) as CVTSupportDefinition;
+  }
 
   Decode(bytes: Uint8Array): CVTSupportDefinition {
     let pixClockPrecision = ((bytes[12] ?? 0) & 0x03) * 0.25;
@@ -274,6 +287,9 @@ export class DisplayRangeLimits implements DisplayDescriptorInterface {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.DisplayRangeLimits;
   }
+  static decode(bytes: Uint8Array): DisplayRangeLimits {
+    return new DisplayRangeLimits().Decode(bytes) as DisplayRangeLimits;
+  }
   Decode(bytes: Uint8Array): DisplayDescriptorInterface {
     let MinVerticalRateOffset = (bytes[4] ?? 0) & 0x01 ? true : false;
     let MaxVerticalRateOffset = (bytes[4] ?? 0) & 0x02 ? true : false;
@@ -331,7 +347,7 @@ export class DisplayRangeLimits implements DisplayDescriptorInterface {
     }
 
     // CVTSupported
-    this.CVTSupportDefinition = new CVTSupportDefinition().Decode(bytes);
+    this.CVTSupportDefinition = CVTSupportDefinition.decode(bytes);
     return this;
   }
   Encode(): Uint8Array {
@@ -409,6 +425,9 @@ class ColorPoint {
   WhiteX: number = 0;
   WhiteY: number = 0;
   WhiteGamma: number = 0;
+  static decode(bytes: Uint8Array): ColorPoint {
+    return new ColorPoint().Decode(bytes) as ColorPoint;
+  }
   Decode(bytes: Uint8Array): ColorPoint {
     this.WhitePointIndex = bytes[0] ?? 0;
     this.WhiteX = (((bytes[2] ?? 0) << 2) | (((bytes[1] ?? 0) >> 4) & 0x3)) / 1024;
@@ -439,10 +458,13 @@ export class ColorPointData implements DisplayDescriptorInterface {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.ColorPointData;
   }
+  static decode(bytes: Uint8Array): ColorPointData {
+    return new ColorPointData().Decode(bytes) as ColorPointData;
+  }
   Decode(bytes: Uint8Array): DisplayDescriptorInterface {
     for (let index = 5; index < 15; index+=5) {
       let cpBytes = bytes.slice(index, index+5)
-      this.WhitePoints.push((new ColorPoint).Decode(cpBytes))
+      this.WhitePoints.push(ColorPoint.decode(cpBytes))
     }
     return this;
   }
@@ -472,6 +494,9 @@ export class StandardTimingIdentification
   constructor() {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.StandardTimingIdentification;
+  }
+  static decode(bytes: Uint8Array): StandardTimingIdentification {
+    return new StandardTimingIdentification().Decode(bytes) as StandardTimingIdentification;
   }
   Decode(bytes: Uint8Array): StandardTimingIdentification {
     this.raw = bytes;
@@ -508,6 +533,9 @@ export class DisplayColorManagement implements DisplayDescriptorInterface {
   constructor() {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.DisplayColorManagement;
+  }
+  static decode(bytes: Uint8Array): DisplayColorManagement {
+    return new DisplayColorManagement().Decode(bytes) as DisplayColorManagement;
   }
   Decode(bytes: Uint8Array): DisplayColorManagement {
     this.raw = bytes;
@@ -578,6 +606,10 @@ export class CVT3ByteCodeDescriptor {
   Supports75Hz: boolean = false;
   Supports85Hz: boolean = false;
   Supports60HzReducedBlanking: boolean = false;
+
+  static decode(bytes: Uint8Array): CVT3ByteCodeDescriptor {
+    return new CVT3ByteCodeDescriptor().Decode(bytes) as CVT3ByteCodeDescriptor;
+  }
 
   Decode(bytes: Uint8Array): CVT3ByteCodeDescriptor {
     const value = readUint16LE(bytes, 0);
@@ -672,6 +704,10 @@ export class CVT3ByteCodes implements DisplayDescriptorInterface {
     this.Type = DescriptorType.CVT3ByteCodes;
   }
 
+  static decode(bytes: Uint8Array): CVT3ByteCodes {
+    return new CVT3ByteCodes().Decode(bytes) as CVT3ByteCodes;
+  }
+
   Decode(bytes: Uint8Array): CVT3ByteCodes {
     this.raw = bytes;
     this.Version = bytes[5] ?? 1;
@@ -681,8 +717,7 @@ export class CVT3ByteCodes implements DisplayDescriptorInterface {
       if (bytes[offset] === 0 && bytes[offset + 1] === 0 && bytes[offset + 2] === 0) {
         continue;
       }
-      const desc = new CVT3ByteCodeDescriptor();
-      desc.Decode(bytes.slice(offset, offset + 3));
+      const desc = CVT3ByteCodeDescriptor.decode(bytes.slice(offset, offset + 3));
       this.Descriptors.push(desc);
     }
     return this;
@@ -717,6 +752,10 @@ export class EstablishedTimingsIII implements DisplayDescriptorInterface {
     this.Type = DescriptorType.EstablishedTimingsIII;
   }
 
+  static decode(bytes: Uint8Array): EstablishedTimingsIII {
+    return new EstablishedTimingsIII().Decode(bytes) as EstablishedTimingsIII;
+  }
+
   Decode(bytes: Uint8Array): EstablishedTimingsIII {
     this.raw = bytes;
     this.Timings = bytes.slice(5, 17);
@@ -737,6 +776,9 @@ export class DummyDesciptor implements DisplayDescriptorInterface {
   constructor() {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.Dummy;
+  }
+  static decode(bytes: Uint8Array): DummyDesciptor {
+    return new DummyDesciptor().Decode(bytes) as DummyDesciptor;
   }
   Decode(_bytes: Uint8Array): DisplayDescriptorInterface {
     return this;
@@ -766,56 +808,26 @@ export function DecodeDesciptor(
   // console.log(bytes);
   // Check if 18 bytes is display desciprtor
   switch (bytes[3]) {
-    case DescriptorDisplayProductSerialNumber: {
-      const d = new DisplayProductSerialNumber();
-      d.Decode(bytes);
-      return d;
-    }
-    case DescriptorAlphanumericDataString: {
-      const d = new AlphanumericDataString();
-      d.Decode(bytes);
-      return d;
-    }
-    case DescriptorDisplayRangeLimits: {
-      const d = new DisplayRangeLimits();
-      d.Decode(bytes);
-      return d;
-    }
-    case DescriptorDisplayProductName: {
-      const d = new DisplayProductName();
-      d.Decode(bytes);
-      return d;
-    }
-    case DescriptorColorPointData: {
-      const d = new ColorPointData();
-      d.Decode(bytes);
-      return d;
-    }
-    case DescriptorStandardTimingIdentification: {
-      const d = new StandardTimingIdentification();
-      d.Decode(bytes);
-      return d;
-    }
-    case DescriptorDisplayColorManagement: {
-      const d = new DisplayColorManagement();
-      d.Decode(bytes);
-      return d;
-    }
-    case DescriptorCVT3ByteCodes: {
-      const d = new CVT3ByteCodes();
-      d.Decode(bytes);
-      return d;
-    }
-    case DescriptorEstablishedTimingsIII: {
-      const d = new EstablishedTimingsIII();
-      d.Decode(bytes);
-      return d;
-    }
-    case DescriptorDummy: {
-      const d = new DummyDesciptor();
-      d.Decode(bytes);
-      return d;
-    }
+    case DescriptorDisplayProductSerialNumber:
+      return DisplayProductSerialNumber.decode(bytes);
+    case DescriptorAlphanumericDataString:
+      return AlphanumericDataString.decode(bytes);
+    case DescriptorDisplayRangeLimits:
+      return DisplayRangeLimits.decode(bytes);
+    case DescriptorDisplayProductName:
+      return DisplayProductName.decode(bytes);
+    case DescriptorColorPointData:
+      return ColorPointData.decode(bytes);
+    case DescriptorStandardTimingIdentification:
+      return StandardTimingIdentification.decode(bytes);
+    case DescriptorDisplayColorManagement:
+      return DisplayColorManagement.decode(bytes);
+    case DescriptorCVT3ByteCodes:
+      return CVT3ByteCodes.decode(bytes);
+    case DescriptorEstablishedTimingsIII:
+      return EstablishedTimingsIII.decode(bytes);
+    case DescriptorDummy:
+      return DummyDesciptor.decode(bytes);
     default:
       return null;
   }

@@ -39,7 +39,10 @@ class AnalogCompositeSync implements SyncDefinition {
   constructor() {
     this.SyncType = SyncType.AnalogComposite;
   }
-  Decode(edidBytes: Uint8Array): AnalogCompositeSync {
+  static decode(_edidBytes: Uint8Array): AnalogCompositeSync {
+    return new AnalogCompositeSync().Decode(_edidBytes);
+  }
+  Decode(_edidBytes: Uint8Array): AnalogCompositeSync {
     return this;
   }
   Encode(): number {
@@ -53,6 +56,9 @@ class BipolarAnalogCompositeSync implements SyncDefinition {
   SyncType: SyncType;
   constructor() {
     this.SyncType = SyncType.BipolarAnalogComposite;
+  }
+  static decode(edidBytes: Uint8Array): BipolarAnalogCompositeSync {
+    return new BipolarAnalogCompositeSync().Decode(edidBytes);
   }
   Decode(edidBytes: Uint8Array): BipolarAnalogCompositeSync {
     this.Serrations = (edidBytes[17] & 0x4) > 0 ? true : false;
@@ -80,6 +86,9 @@ class DigitalCompositeSync implements SyncDefinition {
   constructor() {
     this.SyncType = SyncType.DigitalComposite;
   }
+  static decode(edidBytes: Uint8Array): DigitalCompositeSync {
+    return new DigitalCompositeSync().Decode(edidBytes);
+  }
   Decode(edidBytes: Uint8Array): DigitalCompositeSync {
     this.Serrations = (edidBytes[17] & 0x4) > 0 ? true : false;
     return this;
@@ -101,6 +110,9 @@ class DigitalSeparateSync implements SyncDefinition {
   SyncType: SyncType;
   constructor() {
     this.SyncType = SyncType.DigitalSeparate;
+  }
+  static decode(edidBytes: Uint8Array): DigitalSeparateSync {
+    return new DigitalSeparateSync().Decode(edidBytes);
   }
   Decode(edidBytes: Uint8Array): DigitalSeparateSync {
     this.VerticalSync = (edidBytes[17] & 0x4) > 0 ? "Positive" : "Negative";
@@ -157,6 +169,10 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
 
   constructor() {
     this.Type = DescriptorType.DetailedTimingDescriptor;
+  }
+
+  static decode(edidBytes: Uint8Array): DetailedTimingDescriptor | null {
+    return new DetailedTimingDescriptor().Decode(edidBytes);
   }
 
   Decode(edidBytes: Uint8Array): DetailedTimingDescriptor | null {
@@ -221,18 +237,16 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     // Sync Signal Definitions
     switch (edidBytes[17] & 0x18) {
       case 0:
-        this.SyncDefinition = new AnalogCompositeSync().Decode(edidBytes);
+        this.SyncDefinition = AnalogCompositeSync.decode(edidBytes);
         break;
       case 8:
-        this.SyncDefinition = new BipolarAnalogCompositeSync().Decode(
-          edidBytes
-        );
+        this.SyncDefinition = BipolarAnalogCompositeSync.decode(edidBytes);
         break;
       case 16:
-        this.SyncDefinition = new DigitalCompositeSync().Decode(edidBytes);
+        this.SyncDefinition = DigitalCompositeSync.decode(edidBytes);
         break;
       case 24:
-        this.SyncDefinition = new DigitalSeparateSync().Decode(edidBytes);
+        this.SyncDefinition = DigitalSeparateSync.decode(edidBytes);
         break;
     }
     // Reasoning about the CVT Mode

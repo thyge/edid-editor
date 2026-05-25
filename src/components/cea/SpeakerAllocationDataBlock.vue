@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SpeakerAllocationDataBlock } from "@/edidts";
+import { SpeakerAllocationDataBlock } from "edidts";
 import { Switch } from "@/components/ui/switch";
 const prop = defineProps<{
   block: SpeakerAllocationDataBlock;

@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { VideoCapabilityDataBlock } from "@/edidts";
+import { VideoCapabilityDataBlock } from "edidts";
 const prop = defineProps<{
   block: VideoCapabilityDataBlock;
 }>();

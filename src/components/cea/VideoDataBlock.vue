@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { VideoDataBlock } from "@/edidts";
+import { VideoDataBlock } from "edidts";
 const prop = defineProps<{
   block: VideoDataBlock;
 }>();

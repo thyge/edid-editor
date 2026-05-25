@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { YCBCR420CapabilityMap } from "@/edidts";
+import { YCBCR420CapabilityMap } from "edidts";
 const prop = defineProps<{
   block: YCBCR420CapabilityMap;
 }>();

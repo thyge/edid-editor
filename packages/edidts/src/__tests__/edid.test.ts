@@ -5,15 +5,13 @@ import { APPENDIX_A_EXAMPLE_1 } from "./fixtures";
 
 describe("EDID", () => {
   it("decodes without errors", () => {
-    const edid = new EDID();
-    edid.Decode(APPENDIX_A_EXAMPLE_1.slice(0, 128));
+    const edid = EDID.decode(APPENDIX_A_EXAMPLE_1.slice(0, 128));
     expect(edid.Errors).toEqual([]);
   });
 
   it("roundtrips the first 128 bytes", () => {
-    const edid = new EDID();
     const original = APPENDIX_A_EXAMPLE_1.slice(0, 128);
-    edid.Decode(original);
+    const edid = EDID.decode(original);
     const encoded = edid.Encode();
     expect(encoded).toEqual(original);
   });
@@ -21,21 +19,18 @@ describe("EDID", () => {
 
 describe("CEA", () => {
   it("decodes without throwing", () => {
-    const cea = new CEA();
-    cea.Decode(APPENDIX_A_EXAMPLE_1.slice(128, 256));
+    const cea = CEA.decode(APPENDIX_A_EXAMPLE_1.slice(128, 256));
     expect(cea.Header.Version).toBe(3);
     expect(cea.DataBlocks.length).toBeGreaterThan(0);
   });
 
   it("roundtrips the CEA extension block", () => {
-    const cea = new CEA();
     const original = APPENDIX_A_EXAMPLE_1.slice(128, 256);
-    cea.Decode(original);
+    const cea = CEA.decode(original);
     const encoded = cea.Encode();
 
     // Re-decode the encoded bytes and verify they match
-    const cea2 = new CEA();
-    cea2.Decode(encoded);
+    const cea2 = CEA.decode(encoded);
 
     // Header
     expect(cea2.Header.Version).toBe(cea.Header.Version);
@@ -59,9 +54,8 @@ describe("CEA", () => {
   it("produces byte-identical output when re-encoding a clean fixture", () => {
     // This test verifies encode matches decode for blocks we fully parse.
     // HDMI 1.4 VSDB has 11 unparsed optional bytes, so this won't be exact.
-    const cea = new CEA();
     const original = APPENDIX_A_EXAMPLE_1.slice(128, 256);
-    cea.Decode(original);
+    const cea = CEA.decode(original);
     const encoded = cea.Encode();
 
     // Compare up to the first VSDB (which has unparsed optional fields)

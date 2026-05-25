@@ -11,7 +11,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { StandardTiming } from "@/edidts";
+import { StandardTiming } from "edidts";
 const prop = defineProps<{
   id: number;
   timing: StandardTiming;
