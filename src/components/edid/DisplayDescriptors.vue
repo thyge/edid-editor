@@ -2,7 +2,7 @@
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 import DetailedTimingDescriptor from "../DetailedTimingDesciptor.vue";
-import { DescriptorType } from "../../edidjs/edid_descriptors";
+import { DescriptorType } from "../../edidts/edid_descriptors";
 import ASCIIDescriptor from "./descriptors/ASCIIDescriptor.vue";
 import DisplayRangeLimits from "./descriptors/DisplayRangeLimits.vue";
 import ColorPointData from "./descriptors/ColorPointData.vue";

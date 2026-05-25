@@ -5,7 +5,7 @@ const prop = defineProps<{
   blockNum: any;
 }>();
 const blocks = edidstore.mEEDID.CEA.DataBlocks;
-import { VSDBTag } from "../../edidjs/vsdb";
+import { VSDBTag } from "../../edidts/vsdb";
 import HDMI1_4 from "./vsdb/HDMI1_4.vue";
 import HDMI2_0 from "./vsdb/HDMI2_0.vue";
 </script>

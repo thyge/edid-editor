@@ -10,7 +10,7 @@ import AudioDataBlock from "./AudioDataBlock.vue";
 import VSDB from "./VSDB.vue";
 import SpeakerAllocationDataBlock from "./SpeakerAllocationDataBlock.vue";
 import ExtendedTag from "./ExtendedTag.vue";
-import { CEADataBlockType } from "../../edidjs/cea";
+import { CEADataBlockType } from "../../edidts/cea";
 </script>
 
 <template>

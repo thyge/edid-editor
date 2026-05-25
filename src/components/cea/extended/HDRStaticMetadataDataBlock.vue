@@ -5,7 +5,7 @@ const prop = defineProps<{
   blockNum: any;
 }>();
 import { Switch } from "@/components/ui/switch";
-import { HDRStaticMetadataDataBlock } from "../../../edidjs/cea_extended";
+import { HDRStaticMetadataDataBlock } from "../../../edidts/cea_extended";
 const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as HDRStaticMetadataDataBlock;
 </script>
 

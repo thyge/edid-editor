@@ -9,7 +9,7 @@ import ColorimetryDataBlock from "./extended/ColorimetryDataBlock.vue";
 import HDRStaticMetadataDataBlock from "./extended/HDRStaticMetadataDataBlock.vue";
 import VideoCapabilityDataBlock from "./extended/VideoCapabilityDataBlock.vue";
 import YCBCR420CapabilityMap from "./extended/YCBCR420CapabilityMap.vue";
-import { CEAExtendedTag } from "../../edidjs/cea_extended";
+import { CEAExtendedTag } from "../../edidts/cea_extended";
 </script>
 
 <template>

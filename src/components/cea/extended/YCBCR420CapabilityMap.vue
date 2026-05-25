@@ -4,7 +4,7 @@ const edidstore = useEdidStore();
 const prop = defineProps<{
   blockNum: any;
 }>();
-import { YCBCR420CapabilityMap } from "../../../edidjs/cea_extended";
+import { YCBCR420CapabilityMap } from "../../../edidts/cea_extended";
 const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as YCBCR420CapabilityMap;
 </script>
 

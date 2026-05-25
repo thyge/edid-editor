@@ -12,7 +12,7 @@ const edidstore = useEdidStore();
 const prop = defineProps<{
   blockNum: any;
 }>();
-import { AudioDataBlock } from "../../edidjs/cea";
+import { AudioDataBlock } from "../../edidts/cea";
 const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as AudioDataBlock;
 </script>
 

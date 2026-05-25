@@ -4,7 +4,7 @@ const edidstore = useEdidStore();
 const prop = defineProps<{
   blockNum: any;
 }>();
-import { SpeakerAllocationDataBlock } from "../../edidjs/cea";
+import { SpeakerAllocationDataBlock } from "../../edidts/cea";
 const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as SpeakerAllocationDataBlock;
 import { Switch } from "@/components/ui/switch";
 </script>
