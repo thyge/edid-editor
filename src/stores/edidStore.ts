@@ -5,9 +5,9 @@ import {
   DisplayID,
   DescriptorType,
   CreateDesciptor,
-  calcEDIDChecksum,
-} from "@/edidts";
+} from "edidts";
 import { useUiStore } from "./uiStore.ts";
+
 export const useEdidStore = defineStore("edids", {
   state: () => {
     return {
@@ -16,70 +16,34 @@ export const useEdidStore = defineStore("edids", {
   },
   getters: {},
   actions: {
-    rebuildMasterRaw() {
-      let totalSize = 128;
-      if (this.mEEDID.hasCEA) totalSize += 128;
-      if (this.mEEDID.hasDisplayID) totalSize += 128;
-
-      const newRaw = new Uint8Array(totalSize);
-
-      // Overlay EDID block
-      newRaw.set(this.mEEDID.EDID.raw.slice(0, 128), 0);
-      this.mEEDID.EDID.raw = newRaw.subarray(0, 128);
-      this.mEEDID.EDID.Extension = 0;
-
-      let offset = 128;
-      if (this.mEEDID.hasCEA) {
-        newRaw.set(this.mEEDID.CEA.raw.slice(0, 128), offset);
-        this.mEEDID.CEA.raw = newRaw.subarray(offset, offset + 128);
-        this.mEEDID.CEA.Extension = offset / 128;
-        offset += 128;
-      }
-      if (this.mEEDID.hasDisplayID) {
-        newRaw.set(this.mEEDID.DID.raw.slice(0, 128), offset);
-        this.mEEDID.DID.raw = newRaw.subarray(offset, offset + 128);
-        this.mEEDID.DID.Extension = offset / 128;
-        offset += 128;
-      }
-
-      this.mEEDID.raw = newRaw;
-      this.mEEDID.Extensions = (totalSize / 128) - 1;
-      this.mEEDID.raw[126] = this.mEEDID.Extensions;
-      this.mEEDID.EDID.CalcChecksum();
-      if (this.mEEDID.hasCEA) {
-        this.mEEDID.CEA.raw[127] = calcEDIDChecksum(this.mEEDID.CEA.raw);
-      }
-    },
     updateEdid() {
-      this.mEEDID.EDID.Encode();
-      if (this.mEEDID.hasCEA) {
-        this.mEEDID.CEA.Encode();
-      }
-      this.rebuildMasterRaw();
+      this.mEEDID.encode();
     },
     removeBlock(id: number) {
-      console.log("removing block", id);
       this.mEEDID.EDID.DisplayDescriptors.splice(id, 1);
       this.updateEdid();
     },
     addBlock(type: DescriptorType) {
-      console.log("adding block", type);
-      let block = CreateDesciptor(type);
+      const block = CreateDesciptor(type);
       this.mEEDID.EDID.DisplayDescriptors.push(block);
       this.updateEdid();
     },
     addExtensionBlock(type: 'cea' | 'displayid') {
       if (type === 'cea') {
-        if (this.mEEDID.hasCEA) return;
         const cea = new CEA();
         cea.raw = new Uint8Array(128);
         cea.Header.Version = 3;
         cea.Header.dtdStartByte = 4;
         cea.Encode();
+        this.mEEDID.blocks.push({
+          tag: 0x02,
+          extension: this.mEEDID.blocks.length + 1,
+          raw: new Uint8Array(cea.raw),
+          block: cea,
+        });
+        // Sync legacy property for components still using it
         this.mEEDID.CEA = cea;
-        this.mEEDID.hasCEA = true;
       } else {
-        if (this.mEEDID.hasDisplayID) return;
         const did = new DisplayID();
         did.raw = new Uint8Array(128);
         did.raw[0] = 0x70;
@@ -88,25 +52,46 @@ export const useEdidStore = defineStore("edids", {
           checksum += did.raw[i]!;
         }
         did.raw[127] = 256 - (checksum % 256);
+        this.mEEDID.blocks.push({
+          tag: 0x70,
+          extension: this.mEEDID.blocks.length + 1,
+          raw: new Uint8Array(did.raw),
+          block: did,
+        });
+        // Sync legacy property for components still using it
         this.mEEDID.DID = did;
-        this.mEEDID.hasDisplayID = true;
       }
-      this.rebuildMasterRaw();
+      this.updateEdid();
     },
-    removeExtensionBlock(type: 'cea' | 'displayid') {
+    removeExtensionBlock(index: number) {
       const uiStore = useUiStore();
-      if (type === 'cea') {
-        if (!this.mEEDID.hasCEA) return;
-        this.mEEDID.hasCEA = false;
-      } else {
-        if (!this.mEEDID.hasDisplayID) return;
-        this.mEEDID.hasDisplayID = false;
+      const removed = this.mEEDID.blocks[index];
+      if (!removed) return;
+      this.mEEDID.blocks.splice(index, 1);
+      // Sync legacy properties
+      if (removed.tag === 0x02) {
+        const nextCea = this.mEEDID.ceaBlocks[0];
+        this.mEEDID.CEA = nextCea?.block ?? new CEA();
+        if (uiStore.activeBlock === 'cea') {
+          uiStore.activeBlock = 'edid';
+          uiStore.activeSubSection = 'header';
+        }
+      } else if (removed.tag === 0x70) {
+        const nextDid = this.mEEDID.displayIDBlocks[0];
+        this.mEEDID.DID = nextDid?.block ?? new DisplayID();
+        if (uiStore.activeBlock === 'displayid') {
+          uiStore.activeBlock = 'edid';
+          uiStore.activeSubSection = 'header';
+        }
       }
-      if (uiStore.activeBlock === type) {
-        uiStore.activeBlock = 'edid';
-        uiStore.activeSubSection = 'header';
+      this.updateEdid();
+    },
+    removeFirstExtensionBlock(type: 'cea' | 'displayid') {
+      const tag = type === 'cea' ? 0x02 : 0x70;
+      const index = this.mEEDID.blocks.findIndex((b) => b.tag === tag);
+      if (index >= 0) {
+        this.removeExtensionBlock(index);
       }
-      this.rebuildMasterRaw();
     },
   },
 });

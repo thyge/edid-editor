@@ -2,7 +2,17 @@
 // All external consumers (stores, components) should import from here.
 
 // Top-level container
-export { EEDID } from "./eedid.ts";
+export {
+  EEDID,
+  ExtensionBlockParser,
+} from "./eedid.ts";
+export type {
+  BaseExtensionBlock,
+  CEAExtensionBlock,
+  DisplayIDExtensionBlock,
+  UnknownExtensionBlock,
+  ExtensionBlock,
+} from "./eedid.ts";
 
 // EDID spec (values)
 export {

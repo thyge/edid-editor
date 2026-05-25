@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Input from "./ui/input/Input.vue";
 import Switch from "./ui/switch/Switch.vue";
-import { SyncType } from "@/edidts";
+import { SyncType } from "edidts";
 import {
   Select,
   SelectContent,

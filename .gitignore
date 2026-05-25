@@ -1,6 +1,7 @@
 .DS_Store
 node_modules
 /dist
+packages/*/dist
 
 
 # local env files
@@ -27,3 +28,4 @@ pnpm-debug.log*
 TODO.MD
 *.pdf
 src/edidts/__tests__/fixtures_proprietary.ts
+packages/*/src/__tests__/fixtures_proprietary.ts

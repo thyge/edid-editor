@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Switch } from "@/components/ui/switch";
-import { HDRStaticMetadataDataBlock } from "@/edidts";
+import { HDRStaticMetadataDataBlock } from "edidts";
 const prop = defineProps<{
   block: HDRStaticMetadataDataBlock;
 }>();
