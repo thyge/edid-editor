@@ -1,12 +1,9 @@
 <script setup lang="ts">
-import { useEdidStore } from "@/stores/edidStore";
-const edidstore = useEdidStore();
-const prop = defineProps<{
-  blockNum: any;
-}>();
-import { SpeakerAllocationDataBlock } from "../../edidts/cea";
-const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as SpeakerAllocationDataBlock;
+import { SpeakerAllocationDataBlock } from "@/edidts";
 import { Switch } from "@/components/ui/switch";
+const prop = defineProps<{
+  block: SpeakerAllocationDataBlock;
+}>();
 </script>
 
 <template>

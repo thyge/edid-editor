@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useEdidStore } from "@/stores/edidStore";
 import { Switch } from "@/components/ui/switch";
 import {
   NumberField,
@@ -8,12 +7,10 @@ import {
   NumberFieldIncrement,
   NumberFieldInput,
 } from "@/components/ui/number-field";
-const edidstore = useEdidStore();
+import { AudioDataBlock } from "@/edidts";
 const prop = defineProps<{
-  blockNum: any;
+  block: AudioDataBlock;
 }>();
-import { AudioDataBlock } from "../../edidts/cea";
-const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as AudioDataBlock;
 </script>
 
 <template>

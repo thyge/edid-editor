@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { EDID } from "../edid";
+import { EDID } from "../edid/edid";
 import { APPENDIX_A_EXAMPLE_1 } from "./fixtures";
 
 describe("EDID", () => {

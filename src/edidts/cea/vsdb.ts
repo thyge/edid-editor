@@ -13,6 +13,8 @@ export const VSDBTag = {
 export type VSDBTag = typeof VSDBTag[keyof typeof VSDBTag];
 
 export class HDMI_1_4 implements CEADataBlock {
+  kind = 'vsdb' as const;
+  vsdbKind = 'hdmi14' as const;
   Header: DataBlockHeader;
   Address: {
     A: number;
@@ -70,6 +72,8 @@ const HDMI2_0MaxFixedRateLink = {
 type HDMI2_0MaxFixedRateLink = typeof HDMI2_0MaxFixedRateLink[keyof typeof HDMI2_0MaxFixedRateLink];
 
 export class HDMI_2_0 implements CEADataBlock {
+  kind = 'vsdb' as const;
+  vsdbKind = 'hdmi20' as const;
   Header: DataBlockHeader;
   Max_TMDS_Frequency: number = 0;
   SCDC_Present: boolean = false;
@@ -138,7 +142,11 @@ const DisplayPrimaryUseCase = {
 
 type DisplayPrimaryUseCase = typeof DisplayPrimaryUseCase[keyof typeof DisplayPrimaryUseCase];
 
+export type VSDBUnion = HDMI_1_4 | HDMI_2_0 | HMDSpecialisedMonitor;
+
 export class HMDSpecialisedMonitor implements CEADataBlock {
+  kind = 'vsdb' as const;
+  vsdbKind = 'hmdSpecialized' as const;
   Header: DataBlockHeader;
   Version: number = 0;
   DesktopUsage: boolean = false;

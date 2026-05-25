@@ -1,4 +1,4 @@
-import { AspectRatio } from "./edid";
+import { AspectRatio } from "../edid/edid";
 import { CVTMode } from "./DetailedTimingDescriptor";
 // Adapted from https://github.com/tomverbeure/tomverbeure.github.io/blob/master/video_timings_calculator.html
 // and VESA Coordinated Video Timings (CVT) Standard Version 1.2

@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { useEdidStore } from "@/stores/edidStore";
-const edidstore = useEdidStore();
+import { YCBCR420CapabilityMap } from "@/edidts";
 const prop = defineProps<{
-  blockNum: any;
+  block: YCBCR420CapabilityMap;
 }>();
-import { YCBCR420CapabilityMap } from "../../../edidts/cea_extended";
-const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as YCBCR420CapabilityMap;
 </script>
 
 <template>

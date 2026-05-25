@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { useEdidStore } from "@/stores/edidStore";
-const edidstore = useEdidStore();
+import { VideoDataBlock } from "@/edidts";
 const prop = defineProps<{
-  blockNum: any;
+  block: VideoDataBlock;
 }>();
-import { VideoDataBlock } from "../../edidts/cea";
-const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as VideoDataBlock;
 </script>
 
 <template>

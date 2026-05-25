@@ -1,12 +1,9 @@
 <script setup lang="ts">
-import { useEdidStore } from "@/stores/edidStore";
-const edidstore = useEdidStore();
-const prop = defineProps<{
-  blockNum: any;
-}>();
 import { Switch } from "@/components/ui/switch";
-import { HDRStaticMetadataDataBlock } from "../../../edidts/cea_extended";
-const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as HDRStaticMetadataDataBlock;
+import { HDRStaticMetadataDataBlock } from "@/edidts";
+const prop = defineProps<{
+  block: HDRStaticMetadataDataBlock;
+}>();
 </script>
 
 <template>

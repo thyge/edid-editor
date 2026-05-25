@@ -4,44 +4,33 @@ const edidstore = useEdidStore();
 const prop = defineProps<{
   blockNum: number;
 }>();
-const blocks = edidstore.mEEDID.CEA.DataBlocks;
+const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum]!;
 import VideoDataBlock from "./VideoDataBlock.vue";
 import AudioDataBlock from "./AudioDataBlock.vue";
 import VSDB from "./VSDB.vue";
 import SpeakerAllocationDataBlock from "./SpeakerAllocationDataBlock.vue";
 import ExtendedTag from "./ExtendedTag.vue";
-import { CEADataBlockType } from "../../edidts/cea";
 </script>
 
 <template>
   <VideoDataBlock
-    :blockNum="blockNum"
-    v-if="blocks[blockNum].Header.Type === CEADataBlockType.DBVideoDataBlock"
+    :block="block"
+    v-if="block.kind === 'video'"
   />
   <AudioDataBlock
-    :blockNum="blockNum"
-    v-else-if="
-      blocks[blockNum].Header.Type === CEADataBlockType.DBAudioDataBlock
-    "
+    :block="block"
+    v-else-if="block.kind === 'audio'"
   />
   <VSDB
-    :blockNum="blockNum"
-    v-else-if="
-      blocks[blockNum].Header.Type ===
-      CEADataBlockType.DBVendorSpecificDataBlock
-    "
+    :block="block"
+    v-else-if="block.kind === 'vsdb'"
   />
   <SpeakerAllocationDataBlock
-    :blockNum="blockNum"
-    v-else-if="
-      blocks[blockNum].Header.Type ===
-      CEADataBlockType.DBSpeakerAllocationData
-    "
+    :block="block"
+    v-else-if="block.kind === 'speaker'"
   />
   <ExtendedTag
-    :blockNum="blockNum"
-    v-else-if="
-      blocks[blockNum].Header.Type === CEADataBlockType.DBUseExtendedTag
-    "
+    :block="block"
+    v-else-if="block.kind === 'extended'"
   />
 </template>

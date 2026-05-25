@@ -1,9 +1,4 @@
 <script setup lang="ts">
-import { useEdidStore } from "@/stores/edidStore";
-const edidstore = useEdidStore();
-const prop = defineProps<{
-  blockNum: any;
-}>();
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -12,8 +7,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { VideoCapabilityDataBlock } from "../../../edidts/cea_extended";
-const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as VideoCapabilityDataBlock;
+import { VideoCapabilityDataBlock } from "@/edidts";
+const prop = defineProps<{
+  block: VideoCapabilityDataBlock;
+}>();
 </script>
 
 <template>
