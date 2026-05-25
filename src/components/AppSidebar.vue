@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SidebarProps } from "@/components/ui/sidebar";
 
-import { ArchiveX, Command, Download, FilePlus, Inbox, Send, Trash2, Upload } from "lucide-vue-next";
+import { ArchiveX, Command, Download, FilePlus, Inbox, Send, Trash2, Upload } from "@lucide/vue";
 import { h, ref } from "vue";
 import { Label } from "@/components/ui/label";
 import {
@@ -100,11 +100,6 @@ const { setOpen } = useSidebar();
                     () => {
                       activeItem = item;
 
-                      const mail = data.mails.sort(() => Math.random() - 0.5);
-                      mails = mail.slice(
-                        0,
-                        Math.max(5, Math.floor(Math.random() * 10) + 1)
-                      );
                       setOpen(true);
                     }
                   "

@@ -4,7 +4,8 @@ const edidstore = useEdidStore();
 const prop = defineProps<{
   blockNum: any;
 }>();
-const blocks = edidstore.mEEDID.CEA.DataBlocks;
+import { HDMI_1_4 } from "../../../edidjs/vsdb";
+const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as HDMI_1_4;
 import { Switch } from "@/components/ui/switch";
 import {
   NumberField,
@@ -17,46 +18,46 @@ import {
 
 <template>
   <div class="grid grid-cols-3 gap-2 m-4">
-    <div class="content-center">{{ blocks[prop.blockNum].Header.Name }}</div>
+    <div class="content-center">{{ block.Header.Name }}</div>
   </div>
   <div class="grid grid-cols-3 gap-2 m-4 p-4 border rounded">
     <div class="content-center">Address</div>
     <div class="content-center">
-      {{ blocks[prop.blockNum].Address.A }} :
-      {{ blocks[prop.blockNum].Address.B }} :
-      {{ blocks[prop.blockNum].Address.C }} :
-      {{ blocks[prop.blockNum].Address.D }}
+      {{ block.Address.A }} :
+      {{ block.Address.B }} :
+      {{ block.Address.C }} :
+      {{ block.Address.D }}
     </div>
     <div></div>
     <div class="content-center">10 Bits Per Pixel</div>
     <div class="content-center">
-      <Switch v-model:checked="blocks[prop.blockNum].BitDepth10" />
+      <Switch v-model:checked="block.BitDepth10" />
     </div>
     <div></div>
     <div class="content-center">12 Bits Per Pixel</div>
     <div class="content-center">
-      <Switch v-model:checked="blocks[prop.blockNum].BitDepth12" />
+      <Switch v-model:checked="block.BitDepth12" />
     </div>
     <div></div>
     <div class="content-center">16 Bits Per Pixel</div>
     <div class="content-center">
-      <Switch v-model:checked="blocks[prop.blockNum].BitDepth16" />
+      <Switch v-model:checked="block.BitDepth16" />
     </div>
     <div></div>
     <div class="content-center">DVI Dual Link</div>
     <div class="content-center">
-      <Switch v-model:checked="blocks[prop.blockNum].DVIDualLinkOperation" />
+      <Switch v-model:checked="block.DVIDualLinkOperation" />
     </div>
     <div></div>
     <div class="content-center">DeepColour444</div>
     <div class="content-center">
-      <Switch v-model:checked="blocks[prop.blockNum].DeepColour444" />
+      <Switch v-model:checked="block.DeepColour444" />
     </div>
     <div></div>
     <div class="content-center">Max_TMDS_Clock</div>
     <div class="content-center">
       <NumberField
-        v-model="blocks[prop.blockNum].Max_TMDS_Clock"
+        v-model="block.Max_TMDS_Clock"
         :disabled="true"
       >
         <NumberFieldContent>

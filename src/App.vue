@@ -34,7 +34,7 @@ let txtEdid =
 txtEdid = txtEdid.replaceAll(",", "");
 txtEdid = txtEdid.replaceAll(" ", "");
 let byts = Uint8Array.from(
-  txtEdid.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+  (txtEdid.match(/.{1,2}/g) ?? []).map((byte) => parseInt(byte, 16))
 );
 edidstore.mEEDID.ParseEEDID(byts);
 </script>

@@ -2,6 +2,7 @@
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 import { ref } from "vue";
+import { DigitalVideoInput, DigitalColourEncoding } from "../../edidjs/edid";
 import {
   Select,
   SelectContent,
@@ -12,6 +13,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 const videoInputDef = ref(edidstore.mEEDID.EDID.VideoInputDefinition);
 const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
+const digitalInput = videoInputDef.value as DigitalVideoInput;
+const digitalColour = featureSupport.value.ColourEncoding as DigitalColourEncoding;
 </script>
 
 <template>
@@ -37,11 +40,11 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
     <div class="content-center">Display Bitdepth</div>
     <div class="content-center">
       <Select
-        v-model="videoInputDef.BitDepth"
+        v-model="digitalInput.BitDepth"
         @change="edidstore.updateEdid"
         @update:modelValue="edidstore.updateEdid()"
       >
-        <SelectTrigger :disabled="edidstore.mEEDID.EDID.Revision < 4">
+        <SelectTrigger :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4">
           <SelectValue></SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -58,11 +61,11 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
     <div class="content-center">Display Interface</div>
     <div class="content-center">
       <Select
-        v-model="videoInputDef.Interface"
+        v-model="digitalInput.Interface"
         @change="edidstore.updateEdid"
         @update:modelValue="edidstore.updateEdid()"
       >
-        <SelectTrigger :disabled="edidstore.mEEDID.EDID.Revision < 4">
+        <SelectTrigger :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4">
           <SelectValue></SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -79,8 +82,8 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
     <div class="content-center">RGB 4:4:4 + YCrCb 4:4:4</div>
     <div class="content-center">
       <Switch
-        :disabled="edidstore.mEEDID.EDID.Revision < 4"
-        v-model:checked="featureSupport.ColourEncoding.YUV444"
+        :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4"
+        v-model:checked="digitalColour.YUV444"
         @update:checked="edidstore.updateEdid()"
       />
     </div>
@@ -88,8 +91,8 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
     <div class="content-center">RGB 4:4:4 + YCrCb 4:2:2</div>
     <div class="content-center">
       <Switch
-        :disabled="edidstore.mEEDID.EDID.Revision < 4"
-        v-model:checked="featureSupport.ColourEncoding.YUV422"
+        :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4"
+        v-model:checked="digitalColour.YUV422"
         @update:checked="edidstore.updateEdid()"
       />
     </div>

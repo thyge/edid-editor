@@ -71,7 +71,7 @@ import {
       >
         DisplayDescriptors
       </Button>
-      <HexViewer :data="edidstore.mEEDID.EDID.raw" v-if="uiStore.showHexView" />
+      <HexViewer :data="edidstore.mEEDID.EDID.raw as Uint8Array" v-if="uiStore.showHexView" />
     </ResizablePanel>
     <ResizableHandle id="handle-demo-handle-1" with-handle />
     <ResizablePanel id="handle-demo-panel-2" :default-size="75">

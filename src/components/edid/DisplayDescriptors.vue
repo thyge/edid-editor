@@ -7,7 +7,7 @@ import ASCIIDescriptor from "./descriptors/ASCIIDescriptor.vue";
 import DisplayRangeLimits from "./descriptors/DisplayRangeLimits.vue";
 import ColorPointData from "./descriptors/ColorPointData.vue";
 import { Button } from "@/components/ui/button";
-import { CircleMinus, CogIcon, PlusCircle } from "lucide-vue-next";
+import { CircleMinus, CogIcon, PlusCircle } from "@lucide/vue";
 import {
   Dialog,
   DialogContent,
@@ -74,8 +74,8 @@ import DisplayColorManagement from "./descriptors/ColorManagementData.vue";
               block.Type === DescriptorType.StandardTimingIdentification
             "
           >
-            <template v-for="(timing, index) in block.timings">
-              <StandardTiming :id="index + 8" :timing="timing" />
+            <template v-for="(timing, index) in (block as any).timings">
+              <StandardTiming :id="(index as number) + 8" :timing="timing" />
             </template>
           </div>
           <div

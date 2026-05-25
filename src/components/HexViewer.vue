@@ -1,13 +1,8 @@
 <script setup lang="ts">
 import { useEdidStore } from "@/stores/edidStore";
-const prop = defineProps(
-  {
-    data: {
-      type: Uint8Array,
-      required: true,
-    },
-  }
-);
+const prop = defineProps<{
+  data: Uint8Array;
+}>();
 </script>
 
 <template>

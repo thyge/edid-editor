@@ -42,7 +42,7 @@ const BitDepth = {
 
 type BitDepth = typeof BitDepth[keyof typeof BitDepth];
 
-class DigitalVideoInput implements VideoSignalInterface {
+export class DigitalVideoInput implements VideoSignalInterface {
   SignalInterface: SignalInterface;
 
   BitDepth: BitDepth;
@@ -186,7 +186,7 @@ class AnalogVideoInput implements VideoSignalInterface {
   }
 }
 
-class DigitalColourEncoding implements VideoSignalInterface {
+export class DigitalColourEncoding implements VideoSignalInterface {
   SignalInterface: SignalInterface;
   RGB444: boolean;
   YUV444: boolean;

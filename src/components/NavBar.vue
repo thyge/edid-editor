@@ -16,24 +16,24 @@ const uiStore = useUiStore();
 import { useColorMode } from "@vueuse/core";
 import { Icon } from "@iconify/vue";
 const mode = useColorMode();
-function uploadFile(e) {
-  let file = e.target.files[0];
+function uploadFile(e: Event) {
+  let file = (e.target as HTMLInputElement).files?.[0];
   if (typeof file === "undefined" || file === null) {
     return;
   }
   let reader = new FileReader();
   if (file.name.split(".").pop() === "bin") {
     reader.onload = function (event) {
-      let edidarr = new Uint8Array(event.target.result);
+      let edidarr = new Uint8Array(event.target?.result as ArrayBuffer);
       edidStore.mEEDID.ParseEEDID(edidarr);
     };
     reader.readAsArrayBuffer(file);
   } else if (file.name.split(".").pop() === "txt") {
     reader.onload = function (event) {
-      let txtEdid = event.target.result.replaceAll(",", "");
+      let txtEdid = ((event.target?.result as string) ?? "").replaceAll(",", "");
       txtEdid = txtEdid.replaceAll(" ", "");
       let edidarr = Uint8Array.from(
-        txtEdid.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+        (txtEdid.match(/.{1,2}/g) ?? []).map((byte: string) => parseInt(byte, 16))
       );
       edidStore.mEEDID.ParseEEDID(edidarr);
     };
@@ -42,14 +42,14 @@ function uploadFile(e) {
 }
 function downloadBinFile() {
   let edidarr = edidStore.mEEDID.raw;
-  let blob = new Blob([edidarr], { type: "application/octet-stream" });
+  let blob = new Blob([edidarr as unknown as BlobPart], { type: "application/octet-stream" });
   let url = URL.createObjectURL(blob);
   let a = document.createElement("a");
   a.href = url;
   a.download = "edid.bin";
   a.click();
 }
-function toHexString(byte) {
+function toHexString(byte: number) {
     if(byte>15)
         return (byte & 0xFF).toString(16)
     else

@@ -7,7 +7,7 @@ const uiStore = useUiStore();
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { CardContent } from "@/components/ui/card";
-import { CirclePlus } from "lucide-vue-next";
+import { CirclePlus } from "@lucide/vue";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -20,7 +20,7 @@ import CEAHeader from "./cea/CEAHeader.vue";
 import CEADataBlock from "./cea/CEADataBock.vue";
 import DetailedTimingDescriptor from "./DetailedTimingDesciptor.vue";
 function handleRemoveBlock(element: number) {
-  blocks.splice(element, 1);
+  edidstore.mEEDID.CEA.DataBlocks.splice(element, 1);
   console.log(element);
 }
 function handleAddBlock() {
@@ -37,7 +37,7 @@ function handleAddBlock() {
           displayElement = 'header';
           selectedBlock = 0;
         "
-        variant="ghost"
+        variant="default"
         class="w-full justify-start"
         :pressed="displayElement === 'header'"
         >Header</Toggle
@@ -48,7 +48,7 @@ function handleAddBlock() {
             displayElement = 'block' + index;
             selectedBlock = index;
           "
-          variant="ghost"
+          variant="default"
           class="w-full justify-start"
           :pressed="displayElement === 'block' + index"
           >{{ block.Header.Name }}</Toggle
@@ -62,7 +62,7 @@ function handleAddBlock() {
             displayElement = 'dtd' + index;
             selectedBlock = index;
           "
-          variant="ghost"
+          variant="default"
           class="w-full justify-start"
           :pressed="displayElement === 'dtd' + index"
         >
@@ -73,7 +73,7 @@ function handleAddBlock() {
       </template>
       <Button
         @click="handleAddBlock()"
-        variant="ghost"
+        variant="default"
         size="icon"
         class="w-full"
         ><CirclePlus
@@ -86,6 +86,7 @@ function handleAddBlock() {
       <DetailedTimingDescriptor
         v-else-if="displayElement.includes('dtd')"
         :block="edidstore.mEEDID.CEA.DetailedTimingBlocks[selectedBlock]"
+        :id="selectedBlock"
       />
       <CEADataBlock v-else :blockNum="selectedBlock" />
     </ResizablePanel>
