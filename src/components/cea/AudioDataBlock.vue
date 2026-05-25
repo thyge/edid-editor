@@ -12,7 +12,8 @@ const edidstore = useEdidStore();
 const prop = defineProps<{
   blockNum: any;
 }>();
-const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum];
+import { AudioDataBlock } from "../../edidjs/cea";
+const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as AudioDataBlock;
 </script>
 
 <template>

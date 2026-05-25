@@ -30,8 +30,7 @@ const wanted_refresh_rate = dtd.VerticalRefreshRate;
 const wanted_mode = dtd.CVTMode;
 const wanted_margins = dtd.HorizontalBorder > 0;
 const wanted_interlaced = dtd.Interlaced;
-function updateDtd(event: Event) {
-  console.log(event);
+function updateDtd(_event?: unknown) {
   // If you are in non cvt mode you can update dtd directly
   // If you are in other mode, you must calculate
   if (wanted_mode === CVTMode.NONCVT) {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SidebarProps } from "@/components/ui/sidebar"
-import { Plus } from "lucide-vue-next"
+import { Plus } from "@lucide/vue"
 import {
   Sidebar,
   SidebarContent,

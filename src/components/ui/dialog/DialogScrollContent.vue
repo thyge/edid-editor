@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import type { DialogContentEmits, DialogContentProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
+import { X } from "@lucide/vue"
 import { reactiveOmit } from "@vueuse/core"
-import { X } from "lucide-vue-next"
 import {
   DialogClose,
   DialogContent,
-
   DialogOverlay,
   DialogPortal,
   useForwardPropsEmits,
 } from "reka-ui"
 import { cn } from "@/lib/utils"
+
+defineOptions({
+  inheritAttrs: false,
+})
 
 const props = defineProps<DialogContentProps & { class?: HTMLAttributes["class"] }>()
 const emits = defineEmits<DialogContentEmits>()
@@ -33,7 +36,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
             props.class,
           )
         "
-        v-bind="forwarded"
+        v-bind="{ ...$attrs, ...forwarded }"
         @pointer-down-outside="(event) => {
           const originalEvent = event.detail.originalEvent;
           const target = originalEvent.target as HTMLElement;

@@ -12,19 +12,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-const blocks = edidstore.mEEDID.CEA.DataBlocks;
+import { VideoCapabilityDataBlock } from "../../../edidjs/cea_extended";
+const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as VideoCapabilityDataBlock;
 </script>
 
 <template>
   <div class="grid grid-cols-3 gap-2 m-4">
-    <div class="content-center">{{ blocks[prop.blockNum].Header.Name }}</div>
+    <div class="content-center">{{ block.Header.Name }}</div>
   </div>
   <div class="grid grid-cols-3 gap-2 m-4 p-4 border rounded">
     <div class="content-center">YCC Quantization Range Selectable</div>
     <div>
       <Switch
         v-model:checked="
-          blocks[prop.blockNum].YCCQuantizationRangeSelectable
+          block.YCCQuantizationRangeSelectable
         "
       />
     </div>
@@ -33,7 +34,7 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
     <div>
       <Switch
         v-model:checked="
-          blocks[prop.blockNum].RGBQuantizationRangeSelectable
+          block.RGBQuantizationRangeSelectable
         "
       />
     </div>
@@ -41,7 +42,7 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
     <div class="content-center">PT Overscan Behavior</div>
     <div>
       <Select
-        v-model="blocks[prop.blockNum].PTOverscanBehavior"
+        v-model="block.PTOverscanBehavior"
         disabled
       >
         <SelectTrigger>
@@ -65,7 +66,7 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
     <div class="content-center">IT Overscan Behavior</div>
     <div>
       <Select
-        v-model="blocks[prop.blockNum].ITOverscanBehavior"
+        v-model="block.ITOverscanBehavior"
         disabled
       >
         <SelectTrigger>
@@ -91,7 +92,7 @@ const blocks = edidstore.mEEDID.CEA.DataBlocks;
     <div class="content-center">CE Overscan Behavior</div>
     <div>
       <Select
-        v-model="blocks[prop.blockNum].CEOverscanBehavior"
+        v-model="block.CEOverscanBehavior"
         disabled
       >
         <SelectTrigger>

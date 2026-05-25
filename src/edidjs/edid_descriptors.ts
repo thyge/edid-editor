@@ -59,7 +59,7 @@ export function DescriptorTypeToValue(type: DescriptorType): number {
 export interface DisplayDescriptorInterface {
   raw: Uint8Array;
   Type: DescriptorType;
-  Decode(bytes: Uint8Array): DisplayDescriptorInterface;
+  Decode(bytes: Uint8Array): DisplayDescriptorInterface | null;
   Encode(): Uint8Array;
 }
 

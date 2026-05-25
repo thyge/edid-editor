@@ -22,7 +22,7 @@ export enum CEADataBlockType {
 }
 
 export class CEA {
-  raw = new Uint8Array();
+  raw: Uint8Array = new Uint8Array();
   Header = new CEAHeader();
   DataBlocks: CEADataBlock[] = [];
   DetailedTimingBlocks: DetailedTimingDescriptor[] = [];
@@ -224,7 +224,7 @@ class CEAHeader {
 export class DataBlockHeader {
   Type = CEADataBlockType.Uninitialized;
   ExtendedTag = CEAExtendedTag.Uninitialized;
-  VSDB = VSDBTag.Uninitialized;
+  VSDB: number = VSDBTag.Uninitialized;
   Name = "";
   ExtendedType = 0;
   Size = 0;
@@ -253,7 +253,7 @@ export interface CEADataBlock {
   Encode(): Uint8Array;
 }
 
-class VIC {
+export class VIC {
   VIC: number = 0;
   Name: string = "";
   Description: string = "";
@@ -265,7 +265,7 @@ class VIC {
 
 export class VideoDataBlock implements CEADataBlock {
   Header = new DataBlockHeader();
-  VICs: {}[] = [];
+  VICs: VIC[] = [];
   constructor(header: DataBlockHeader) {
     this.Header = header;
     this.Header.Name = "Video Data Block";
@@ -304,7 +304,7 @@ enum AudioType {
   Reserved = 0,
 }
 
-class AudioDataBlock implements CEADataBlock {
+export class AudioDataBlock implements CEADataBlock {
   Header = new DataBlockHeader();
   AudioType: AudioType = AudioType.Reserved;
   Channels: number = 0;
@@ -345,7 +345,7 @@ class AudioDataBlock implements CEADataBlock {
   }
 }
 
-class SpeakerAllocationDataBlock implements CEADataBlock {
+export class SpeakerAllocationDataBlock implements CEADataBlock {
   Header = new DataBlockHeader();
   // Speaker allocation
   FrontWide_LeftRight: boolean = false; // bit 7

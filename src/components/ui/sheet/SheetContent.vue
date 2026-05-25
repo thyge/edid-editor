@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import type { DialogContentEmits, DialogContentProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
+import { X } from "@lucide/vue"
 import { reactiveOmit } from "@vueuse/core"
-import { X } from "lucide-vue-next"
 import {
   DialogClose,
   DialogContent,
-
   DialogPortal,
   useForwardPropsEmits,
 } from "reka-ui"
@@ -48,7 +47,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
         side === 'bottom'
           && 'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t',
         props.class)"
-      v-bind="{ ...forwarded, ...$attrs }"
+      v-bind="{ ...$attrs, ...forwarded }"
     >
       <slot />
 

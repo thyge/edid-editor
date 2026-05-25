@@ -1,5 +1,5 @@
 import type { CEADataBlock, DataBlockHeader } from "./cea.ts";
-import { VideoDataBlock } from "./cea";
+import { VideoDataBlock, VIC } from "./cea";
 
 export enum CEAExtendedTag {
   Uninitialized = -1,
@@ -186,7 +186,7 @@ export class HDRStaticMetadataDataBlock implements CEADataBlock {
 export class YCBCR420CapabilityMap implements CEADataBlock {
   Header: DataBlockHeader;
   VideDBNumber: number[] = [];
-  VICs: {}[] = [];
+  VICs: VIC[] = [];
   vicCounter: number = 0;
   constructor(header: DataBlockHeader) {
     this.Header = header;
