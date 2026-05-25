@@ -24,7 +24,26 @@ import {
   Upload,
   Download,
   FileText,
+  CircleMinus,
+  PlusCircle,
 } from "@lucide/vue";
+import {
+  Dialog,
+  DialogContent,
+  DialogClose,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { computed, ref } from "vue";
 
 const edidStore = useEdidStore();
 const uiStore = useUiStore();
@@ -85,11 +104,20 @@ function downloadTxtFile() {
   a.click();
 }
 
-const navItems = [
-  { key: "edid" as const, label: "EDID", icon: Monitor },
-  { key: "cea" as const, label: "CEA-861", icon: CircuitBoard },
-  { key: "displayid" as const, label: "DisplayID", icon: BadgeCheck },
-];
+const navItems = computed(() => {
+  const items: Array<{ key: 'edid' | 'cea' | 'displayid'; label: string; icon: typeof Monitor }> = [
+    { key: "edid", label: "EDID", icon: Monitor },
+  ];
+  if (edidStore.mEEDID.hasCEA) {
+    items.push({ key: "cea", label: "CEA-861", icon: CircuitBoard });
+  }
+  if (edidStore.mEEDID.hasDisplayID) {
+    items.push({ key: "displayid", label: "DisplayID", icon: BadgeCheck });
+  }
+  return items;
+});
+
+const selectedBlockType = ref<'cea' | 'displayid'>("cea");
 </script>
 
 <template>
@@ -116,15 +144,72 @@ const navItems = [
         <SidebarGroupContent>
           <SidebarMenu>
             <SidebarMenuItem v-for="item in navItems" :key="item.key">
-              <SidebarMenuButton
-                :is-active="uiStore.activeBlock === item.key"
-                @click="uiStore.activeBlock = item.key"
-              >
-                <component :is="item.icon" class="size-4" />
-                <span>{{ item.label }}</span>
-              </SidebarMenuButton>
+              <div class="flex items-center w-full">
+                <SidebarMenuButton
+                  class="flex-1"
+                  :is-active="uiStore.activeBlock === item.key"
+                  @click="uiStore.activeBlock = item.key"
+                >
+                  <component :is="item.icon" class="size-4" />
+                  <span>{{ item.label }}</span>
+                </SidebarMenuButton>
+                <Button
+                  v-if="item.key !== 'edid'"
+                  variant="ghost"
+                  size="sm"
+                  class="h-8 w-8 p-0"
+                  :aria-label="`Remove ${item.label} block`"
+                  @click.stop="edidStore.removeExtensionBlock(item.key)"
+                >
+                  <CircleMinus class="size-4" />
+                </Button>
+              </div>
             </SidebarMenuItem>
           </SidebarMenu>
+
+          <div class="mt-2 px-2">
+            <Dialog>
+              <DialogTrigger as-child>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  class="w-full"
+                  :disabled="edidStore.mEEDID.hasCEA && edidStore.mEEDID.hasDisplayID"
+                >
+                  <PlusCircle class="size-4 mr-2" />
+                  Add Block
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Extension Block</DialogTitle>
+                </DialogHeader>
+                <Select v-model="selectedBlockType">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select block type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cea" :disabled="edidStore.mEEDID.hasCEA">
+                      CEA-861
+                    </SelectItem>
+                    <SelectItem value="displayid" :disabled="edidStore.mEEDID.hasDisplayID">
+                      DisplayID
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <DialogFooter>
+                  <DialogClose as-child>
+                    <Button
+                      :disabled="(selectedBlockType === 'cea' && edidStore.mEEDID.hasCEA) || (selectedBlockType === 'displayid' && edidStore.mEEDID.hasDisplayID)"
+                      @click="edidStore.addExtensionBlock(selectedBlockType)"
+                    >
+                      Add
+                    </Button>
+                  </DialogClose>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </SidebarGroupContent>
       </SidebarGroup>
     </SidebarContent>
