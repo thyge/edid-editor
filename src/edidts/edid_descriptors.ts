@@ -191,8 +191,65 @@ class CVTSupportDefinition {
     return this;
   }
   Encode(): Uint8Array {
-    let cvtBytes = new Uint8Array();
-    return cvtBytes;
+    let bytes = new Uint8Array(18);
+    // Byte 9 = Maximum Pixel Clock (in 10 MHz steps)
+    // Byte 12 bits 1:0 = precision offset (0–3 × 0.25)
+    // PrecisionPixelClock = byte9 × 10 − (lowBits × 0.25)
+    // lowBits also serve as MSB of MaximumActivePixels
+    let lowBits = (this.MaximumActivePixels >> 8) & 0x03;
+    let byte9 = Math.round((this.PrecisionPixelClock + lowBits * 0.25) / 10);
+    if (Math.abs(byte9 * 10 - lowBits * 0.25 - this.PrecisionPixelClock) > 0.125) {
+      for (let test = 0; test <= 3; test++) {
+        let testByte9 = Math.round((this.PrecisionPixelClock + test * 0.25) / 10);
+        if (Math.abs(testByte9 * 10 - test * 0.25 - this.PrecisionPixelClock) <= 0.125) {
+          lowBits = test;
+          byte9 = testByte9;
+          break;
+        }
+      }
+    }
+    bytes[9] = byte9;
+    bytes[12] = lowBits;
+    bytes[13] = this.MaximumActivePixels & 0xff;
+
+    // Byte 14 – Supported Aspect Ratios
+    if (this.SupportedAspectRatios.includes(AspectRatio.FourThree)) bytes[14] |= 0x80;
+    if (this.SupportedAspectRatios.includes(AspectRatio.SixteenNine)) bytes[14] |= 0x40;
+    if (this.SupportedAspectRatios.includes(AspectRatio.SixteenTen)) bytes[14] |= 0x20;
+    if (this.SupportedAspectRatios.includes(AspectRatio.FiveFour)) bytes[14] |= 0x10;
+    if (this.SupportedAspectRatios.includes(AspectRatio.FifteenNine)) bytes[14] |= 0x08;
+
+    // Byte 15 – Preferred Aspect Ratio + blanking
+    switch (this.PreferredAspectRatio) {
+      case AspectRatio.FourThree:
+        bytes[15] |= 0x00;
+        break;
+      case AspectRatio.SixteenNine:
+        bytes[15] |= 0x20;
+        break;
+      case AspectRatio.SixteenTen:
+        bytes[15] |= 0x40;
+        break;
+      case AspectRatio.FiveFour:
+        bytes[15] |= 0x60;
+        break;
+      case AspectRatio.FifteenNine:
+        bytes[15] |= 0x80;
+        break;
+    }
+    if (this.CVTReducedBlanking) bytes[15] |= 0x10;
+    if (this.CVTStandardBlanking) bytes[15] |= 0x08;
+
+    // Byte 16 – stretch/shrink
+    if (this.HorizontalShrink) bytes[16] |= 0x80;
+    if (this.HirozontalStretch) bytes[16] |= 0x40;
+    if (this.VerticalShrink) bytes[16] |= 0x20;
+    if (this.VerticalStretch) bytes[16] |= 0x10;
+
+    // Byte 17 – Preferred Vertical Refresh Rate
+    bytes[17] = this.PreferredVerticalRefreshRate;
+
+    return bytes;
   }
 }
 
@@ -498,17 +555,138 @@ export class DisplayColorManagement implements DisplayDescriptorInterface {
   }
 }
 
+export class CVT3ByteCodeDescriptor {
+  AddressableLines: number = 0;
+  AspectRatio: AspectRatio = AspectRatio.FourThree;
+  PreferredRefreshRate: number = 60;
+  Supports50Hz: boolean = false;
+  Supports60Hz: boolean = false;
+  Supports75Hz: boolean = false;
+  Supports85Hz: boolean = false;
+  Supports60HzReducedBlanking: boolean = false;
+
+  Decode(bytes: Uint8Array): CVT3ByteCodeDescriptor {
+    const value = ((bytes[1] ?? 0) << 8) | (bytes[0] ?? 0);
+    this.AddressableLines = (value + 1) * 2;
+    switch (((bytes[1] ?? 0) >> 2) & 0x03) {
+      case 0:
+        this.AspectRatio = AspectRatio.FourThree;
+        break;
+      case 1:
+        this.AspectRatio = AspectRatio.SixteenNine;
+        break;
+      case 2:
+        this.AspectRatio = AspectRatio.SixteenTen;
+        break;
+      case 3:
+        this.AspectRatio = AspectRatio.FifteenNine;
+        break;
+    }
+    switch ((bytes[2] ?? 0) >> 6) {
+      case 0:
+        this.PreferredRefreshRate = 50;
+        break;
+      case 1:
+        this.PreferredRefreshRate = 60;
+        break;
+      case 2:
+        this.PreferredRefreshRate = 75;
+        break;
+      case 3:
+        this.PreferredRefreshRate = 85;
+        break;
+    }
+    this.Supports50Hz = (bytes[2] ?? 0) & 0x08 ? true : false;
+    this.Supports60Hz = (bytes[2] ?? 0) & 0x04 ? true : false;
+    this.Supports75Hz = (bytes[2] ?? 0) & 0x02 ? true : false;
+    this.Supports85Hz = (bytes[2] ?? 0) & 0x01 ? true : false;
+    this.Supports60HzReducedBlanking = (bytes[2] ?? 0) & 0x10 ? true : false;
+    return this;
+  }
+
+  Encode(): Uint8Array {
+    const bytes = new Uint8Array(3);
+    const value = this.AddressableLines / 2 - 1;
+    bytes[0] = value & 0xff;
+    bytes[1] = (value >> 8) & 0x0f;
+    switch (this.AspectRatio) {
+      case AspectRatio.FourThree:
+        bytes[1] |= 0 << 2;
+        break;
+      case AspectRatio.SixteenNine:
+        bytes[1] |= 1 << 2;
+        break;
+      case AspectRatio.SixteenTen:
+        bytes[1] |= 2 << 2;
+        break;
+      case AspectRatio.FifteenNine:
+        bytes[1] |= 3 << 2;
+        break;
+    }
+    switch (this.PreferredRefreshRate) {
+      case 50:
+        bytes[2] |= 0 << 6;
+        break;
+      case 60:
+        bytes[2] |= 1 << 6;
+        break;
+      case 75:
+        bytes[2] |= 2 << 6;
+        break;
+      case 85:
+        bytes[2] |= 3 << 6;
+        break;
+    }
+    if (this.Supports50Hz) bytes[2] |= 0x08;
+    if (this.Supports60Hz) bytes[2] |= 0x04;
+    if (this.Supports75Hz) bytes[2] |= 0x02;
+    if (this.Supports85Hz) bytes[2] |= 0x01;
+    if (this.Supports60HzReducedBlanking) bytes[2] |= 0x10;
+    return bytes;
+  }
+}
+
 export class CVT3ByteCodes implements DisplayDescriptorInterface {
   raw: Uint8Array;
   Type: DescriptorType;
+  Version: number = 1;
+  Descriptors: CVT3ByteCodeDescriptor[] = [];
+
   constructor() {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.CVT3ByteCodes;
   }
-  Decode(_bytes: Uint8Array): CVT3ByteCodes {
+
+  Decode(bytes: Uint8Array): CVT3ByteCodes {
+    this.raw = bytes;
+    this.Version = bytes[5] ?? 1;
+    this.Descriptors = [];
+    for (let i = 0; i < 4; i++) {
+      const offset = 6 + i * 3;
+      if (bytes[offset] === 0 && bytes[offset + 1] === 0 && bytes[offset + 2] === 0) {
+        continue;
+      }
+      const desc = new CVT3ByteCodeDescriptor();
+      desc.Decode(bytes.slice(offset, offset + 3));
+      this.Descriptors.push(desc);
+    }
     return this;
   }
+
   Encode(): Uint8Array {
+    this.raw[3] = DescriptorTypeToValue(this.Type);
+    this.raw[5] = this.Version;
+    for (let i = 0; i < 4; i++) {
+      const offset = 6 + i * 3;
+      const desc = this.Descriptors[i];
+      if (desc) {
+        this.raw.set(desc.Encode(), offset);
+      } else {
+        this.raw[offset] = 0;
+        this.raw[offset + 1] = 0;
+        this.raw[offset + 2] = 0;
+      }
+    }
     return this.raw;
   }
 }
@@ -516,14 +694,22 @@ export class CVT3ByteCodes implements DisplayDescriptorInterface {
 export class EstablishedTimingsIII implements DisplayDescriptorInterface {
   raw: Uint8Array;
   Type: DescriptorType;
+  Timings: Uint8Array = new Uint8Array(12);
+
   constructor() {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.EstablishedTimingsIII;
   }
-  Decode(_bytes: Uint8Array): EstablishedTimingsIII {
+
+  Decode(bytes: Uint8Array): EstablishedTimingsIII {
+    this.raw = bytes;
+    this.Timings = bytes.slice(5, 17);
     return this;
   }
+
   Encode(): Uint8Array {
+    this.raw[3] = DescriptorTypeToValue(this.Type);
+    this.raw.set(this.Timings, 5);
     return this.raw;
   }
 }
