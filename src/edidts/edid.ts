@@ -21,6 +21,15 @@ export const SignalInterface = {
 
 export type SignalInterface = typeof SignalInterface[keyof typeof SignalInterface];
 
+export const EdidVersion = {
+  Pre13: "Pre13",
+  V13: "1.3",
+  V14: "1.4",
+  Other: "Other",
+} as const;
+
+export type EdidVersion = typeof EdidVersion[keyof typeof EdidVersion];
+
 const VideoInterface = {
   Undefined: "undefined",
   DVI: "DVI",
@@ -447,7 +456,7 @@ export class StandardTiming {
   AspectRatio: AspectRatio = AspectRatio.FourThree;
   RefreshRate: number = 60;
 
-  Decode(bytes: Uint8Array): StandardTiming {
+  Decode(bytes: Uint8Array, version?: EdidVersion): StandardTiming {
     this.Enabled = false;
     if (bytes[0] === 0x1 && bytes[1] === 0x1) {
       this.Enabled = false;
@@ -456,7 +465,10 @@ export class StandardTiming {
     }
     switch ((bytes[1] ?? 0) >> 6) {
       case 0:
-        this.AspectRatio = AspectRatio.SixteenTen;
+        this.AspectRatio =
+          version === EdidVersion.Pre13
+            ? AspectRatio.OneOne
+            : AspectRatio.SixteenTen;
         break;
       case 1:
         this.AspectRatio = AspectRatio.FourThree;
@@ -481,6 +493,7 @@ export class StandardTiming {
       bytes[1] = (this.RefreshRate - 60) & 0x3f;
       switch (this.AspectRatio) {
         case AspectRatio.SixteenTen:
+        case AspectRatio.OneOne:
           bytes[1] |= 0 << 6;
           break;
         case AspectRatio.FourThree:
@@ -527,6 +540,16 @@ export class EDID {
   Errors: string[] = [];
   DummyIdentifiers: number = 0;
 
+  get EdidVersion(): EdidVersion {
+    if (this.Version !== 1) return EdidVersion.Other;
+    const rev = parseInt(this.Revision, 10);
+    if (isNaN(rev)) return EdidVersion.Other;
+    if (rev <= 2) return EdidVersion.Pre13;
+    if (rev === 3) return EdidVersion.V13;
+    if (rev >= 4) return EdidVersion.V14;
+    return EdidVersion.Other;
+  }
+
   get displayProductName(): string {
     const dpm = this.DisplayDescriptors.find(
       (d) => d.Type === DescriptorType.DisplayProductName
@@ -536,6 +559,19 @@ export class EDID {
 
   Decode(bytes: Uint8Array) {
     this.raw = bytes;
+    // Header validation
+    const header = [0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00];
+    for (let i = 0; i < 8; i++) {
+      if (this.raw[i] !== header[i]) {
+        this.Errors.push(`Invalid header byte at offset ${i}`);
+      }
+    }
+    // Checksum verification
+    let sum = 0;
+    for (let i = 0; i < 128; i++) sum += this.raw[i] ?? 0;
+    if ((sum & 0xff) !== 0) {
+      this.Errors.push("Checksum invalid");
+    }
     // Manufacturer ID. This is a legacy Plug and Play ID assigned by UEFI forum
     this.ManufacturerID.Decode(this.raw.slice(8, 10));
 
@@ -550,7 +586,7 @@ export class EDID {
 
     // Week of manufacture
     this.WeekOfManufacture = this.raw[16] ?? 0;
-    // Year of manufacture
+    // Year of manufacture or Model Year
     this.YearOfManufacture = (this.raw[17] ?? 0) + 1990;
     // Version
     this.Version = this.raw[18] ?? 0;
@@ -589,7 +625,7 @@ export class EDID {
     for (let i = 38; i < 54; i += 2) {
       // Unused fields are filled with 01 01
       let stdTiming = new StandardTiming();
-      stdTiming.Decode(this.raw.slice(i, i + 2));
+      stdTiming.Decode(this.raw.slice(i, i + 2), this.EdidVersion);
       this.StandardTimings.push(stdTiming);
     }
     // Detailed timing descriptors
@@ -649,16 +685,15 @@ export class EDID {
       this.raw[15] = 0;
     }
 
-    // Week of Manufacture
+    // Week of Manufacture: clamp to 0–52, 0 means not specified
     if (this.WeekOfManufacture > 52) {
       this.raw[16] = 52;
     } else if (this.WeekOfManufacture < 0) {
-      this.raw[16] = 52;
+      this.raw[16] = 0;
     } else {
       this.raw[16] = this.WeekOfManufacture;
     }
     // Year of Manufacture or Model Year
-    this.raw[16] = this.WeekOfManufacture;
     if (this.YearOfManufacture >= 1990) {
       this.raw[17] = this.YearOfManufacture - 1990;
     } else {
