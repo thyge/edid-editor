@@ -1,10 +1,26 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { useEdidStore } from "@/stores/edidStore";
 import { useUiStore } from "@/stores/uiStore";
 import HexViewer from "@/components/HexViewer.vue";
 
 const edidStore = useEdidStore();
 const uiStore = useUiStore();
+
+const sections = computed(() => {
+  const result: Array<{ name: string; start: number }> = [];
+  let offset = 0;
+  result.push({ name: "EDID", start: offset });
+  offset += 128;
+  if (edidStore.mEEDID.hasCEA) {
+    result.push({ name: "CEA-861", start: offset });
+    offset += 128;
+  }
+  if (edidStore.mEEDID.hasDisplayID) {
+    result.push({ name: "DisplayID", start: offset });
+  }
+  return result;
+});
 </script>
 
 <template>
@@ -23,7 +39,7 @@ const uiStore = useUiStore();
       <span class="text-sm font-medium">Hex View</span>
     </div>
     <div class="flex-1 overflow-auto p-2">
-      <HexViewer :data="edidStore.mEEDID.raw" />
+      <HexViewer :data="edidStore.mEEDID.raw" :sections="sections" />
     </div>
   </div>
 </template>
