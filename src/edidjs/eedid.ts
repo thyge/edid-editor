@@ -22,6 +22,8 @@ export class EEDID {
   EDID: EDID = new EDID();
   CEA: CEA = new CEA();
   DID: DisplayID = new DisplayID();
+  hasCEA: boolean = false;
+  hasDisplayID: boolean = false;
   Errors = [];
 
   constructor() {
@@ -32,6 +34,8 @@ export class EEDID {
   ParseEEDID(bytes: Uint8Array) {
     this.raw = bytes;
     this.Extensions = this.raw[126] ?? 0;
+    this.hasCEA = false;
+    this.hasDisplayID = false;
     for (let i = 0; i < this.Extensions + 1; i++) {
       let extBytes = new Uint8Array(this.raw.slice(i * 128, 128 + i * 128));
       if (i === 0) {
@@ -46,6 +50,7 @@ export class EEDID {
             this.CEA = new CEA();
             this.CEA.Decode(extBytes);
             this.CEA.Extension = i;
+            this.hasCEA = true;
             // this.CEA.Encode();
             break;
           case VideoTimingBlockExtension:
@@ -62,6 +67,7 @@ export class EEDID {
             this.DID = new DisplayID();
             this.DID.DecodeDisplayID(extBytes);
             this.DID.Extension = i;
+            this.hasDisplayID = true;
             break;
           case DisplayTransferCharacteristicsDataBlock1:
             break;
