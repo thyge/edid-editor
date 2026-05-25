@@ -24,7 +24,7 @@ export class EEDID {
   DID: DisplayID = new DisplayID();
   hasCEA: boolean = false;
   hasDisplayID: boolean = false;
-  Errors = [];
+  Errors: string[] = [];
 
   constructor() {
     this.raw = new Uint8Array();

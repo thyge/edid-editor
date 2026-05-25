@@ -1,4 +1,4 @@
-import { vicLookup } from "./vics.js";
+import { vicLookup } from "./vics.ts";
 import { DetailedTimingDescriptor } from "./DetailedTimingDescriptor.ts";
 import { HDMI_1_4, HDMI_2_0, VSDBTag, HMDSpecialisedMonitor } from "./vsdb";
 import {
@@ -273,7 +273,14 @@ export class VideoDataBlock implements CEADataBlock {
   Decode(dbBytes: Uint8Array): VideoDataBlock {
     this.Header.Decode(dbBytes.slice(0, 1));
     for (let v = 1; v < this.Header.Size; v++) {
-      let vic = vicLookup[dbBytes[v] & 0x7f];
+      let entry = vicLookup[dbBytes[v] & 0x7f];
+      let vic = new VIC();
+      vic.VIC = entry.VIC;
+      vic.Name = entry.Name;
+      vic.Description = entry.Description;
+      vic.PixelMHz = entry.PixelMHz;
+      vic.HorizontalActive = entry.HorizontalActive;
+      vic.VerticalActive = entry.VerticalActive;
       vic.Native = (dbBytes[v] & 0x80) > 0 ? true : false;
       this.VICs.push(vic);
     }
