@@ -1,62 +1,25 @@
 <script setup lang="ts">
-import type { SidebarProps } from "@/components/ui/sidebar"
-import { Plus } from "@lucide/vue"
+import { useEdidStore } from "@/stores/edidStore";
+import HexViewer from "@/components/HexViewer.vue";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarSeparator,
-} from "@/components/ui/sidebar"
-const props = withDefaults(defineProps<SidebarProps>(), {
-  collapsible: "none",
-})
-// This is sample data.
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  calendars: [
-    {
-      name: "My Calendars",
-      items: ["Personal", "Work", "Family"],
-    },
-    {
-      name: "Favorites",
-      items: ["Holidays", "Birthdays"],
-    },
-    {
-      name: "Other",
-      items: ["Travel", "Reminders", "Deadlines"],
-    },
-  ],
-}
+} from "@/components/ui/sidebar";
+
+const edidStore = useEdidStore();
 </script>
+
 <template>
   <Sidebar
     class="sticky hidden lg:flex top-0 h-svh border-l"
-    v-bind="props"
+    collapsible="none"
   >
-  HexView
-    <SidebarHeader class="h-16 border-b border-sidebar-border">
+    <SidebarHeader class="h-16 border-b border-sidebar-border flex items-center px-4">
+      <span class="text-sm font-medium">Hex View</span>
     </SidebarHeader>
-    <SidebarContent>
-      <SidebarSeparator class="mx-0" />
+    <SidebarContent class="p-2 overflow-auto">
+      <HexViewer :data="edidStore.mEEDID.raw" />
     </SidebarContent>
-    <SidebarFooter>
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton>
-            <Plus />
-            <span>New Calendar</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarFooter>
   </Sidebar>
 </template>
