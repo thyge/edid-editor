@@ -1,3 +1,12 @@
+// Auto-generated EDID fixtures from goedid parser samples
+
+export function hexToUint8Array(hex: string): Uint8Array {
+  const clean = hex.replaceAll(",", "").replaceAll(" ", "");
+  return Uint8Array.from(
+    (clean.match(/.{1,2}/g) ?? []).map((byte) => parseInt(byte, 16))
+  );
+}
+
 // Appendix A Example 1 — LCD Desktop IT Display (256 bytes, base EDID + CEA extension)
 export const APPENDIX_A_EXAMPLE_1_HEX =
   "00,FF,FF,FF,FF,FF,FF,00,34,A9,1C,D1,01,01,01,01," +
@@ -16,12 +25,5 @@ export const APPENDIX_A_EXAMPLE_1_HEX =
   "00,00,1A,00,00,00,00,00,00,00,00,00,00,00,00,00," +
   "00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00," +
   "00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,5A";
-
-export function hexToUint8Array(hex: string): Uint8Array {
-  const clean = hex.replaceAll(",", "").replaceAll(" ", "");
-  return Uint8Array.from(
-    (clean.match(/.{1,2}/g) ?? []).map((byte) => parseInt(byte, 16))
-  );
-}
 
 export const APPENDIX_A_EXAMPLE_1 = hexToUint8Array(APPENDIX_A_EXAMPLE_1_HEX);

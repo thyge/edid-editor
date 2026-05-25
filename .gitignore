@@ -26,3 +26,4 @@ pnpm-debug.log*
 *.sw?
 TODO.MD
 *.pdf
+src/edidts/__tests__/fixtures_proprietary.ts
