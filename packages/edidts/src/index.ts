@@ -14,17 +14,21 @@ export type {
   ExtensionBlock,
 } from "./eedid.ts";
 
-// EDID spec (values)
+// EDID spec (values + types)
 export {
   EDID,
   ManufacturerID,
   StandardTiming,
   DigitalVideoInput,
   DigitalColourEncoding,
+  AnalogVideoInput,
   SignalInterface,
   EdidVersion,
   AspectRatio,
-} from "./edid/edid.ts";
+  FeatureSupport,
+  Chromaticity,
+  EstablishedTimings,
+} from "./edid/index.ts";
 
 // EDID descriptors (values)
 export {
@@ -42,13 +46,13 @@ export {
   CVT3ByteCodes,
   EstablishedTimingsIII,
   DummyDesciptor,
-} from "./edid/descriptors.ts";
+} from "./edid/index.ts";
 
 // EDID descriptors (types)
 export type {
   DisplayDescriptorInterface,
   DisplayDescriptorUnion,
-} from "./edid/descriptors.ts";
+} from "./edid/index.ts";
 
 // CEA spec (values)
 export {

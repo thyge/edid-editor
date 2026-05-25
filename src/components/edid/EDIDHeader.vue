@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import { watch } from "vue";
+import { computed } from "vue";
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
+
+const revisionString = computed({
+  get: () => String(edidstore.mEEDID.EDID.Revision),
+  set: (val) => {
+    edidstore.mEEDID.EDID.Revision = parseInt(val, 10);
+    edidstore.updateEdid();
+  },
+});
 import {
   Select,
   SelectContent,
@@ -95,8 +103,7 @@ import { Input } from "@/components/ui/input";
     <div class="content-center">Version and Revision</div>
     <div class="content-center">
       <Select
-        v-model="edidstore.mEEDID.EDID.Revision"
-        @update:modelValue="edidstore.updateEdid()"
+        v-model="revisionString"
       >
         <SelectTrigger>
           <SelectValue></SelectValue>

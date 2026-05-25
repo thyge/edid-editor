@@ -1,4 +1,19 @@
-import pnpLookup from "../common/pnp.ts";
+import { ManufacturerID } from "./edid-header.ts";
+import {
+  DigitalVideoInput,
+  AnalogVideoInput,
+  SignalInterface,
+  type VideoSignalInterface,
+} from "./video-input.ts";
+import {
+  FeatureSupport,
+  DigitalColourEncoding,
+  AnalogueColourEncoding,
+  EdidVersion,
+} from "./feature-support.ts";
+import { Chromaticity } from "./color-characteristics.ts";
+import { EstablishedTimings } from "./established-timing.ts";
+import { StandardTiming, AspectRatio } from "./standard-timing.ts";
 import { DetailedTimingDescriptor } from "../common/DetailedTimingDescriptor.ts";
 import { calcEDIDChecksum, readUint16LE, readUint32LE } from "../common/utils.ts";
 import {
@@ -7,562 +22,38 @@ import {
   DummyDesciptor,
   DisplayProductName,
   type DisplayDescriptorUnion,
-} from "./descriptors.ts";
+} from "./display-descriptor.ts";
 
-interface VideoSignalInterface {
-  SignalInterface: SignalInterface;
-  Encode(): number;
-}
-
-export const SignalInterface = {
-  NotDefined: "NotDefined",
-  Digital: "Digital",
-  Analog: "Analog",
-} as const;
-
-export type SignalInterface = typeof SignalInterface[keyof typeof SignalInterface];
-
-export const EdidVersion = {
-  Pre13: "Pre13",
-  V13: "1.3",
-  V14: "1.4",
-  Other: "Other",
-} as const;
-
-export type EdidVersion = typeof EdidVersion[keyof typeof EdidVersion];
-
-const VideoInterface = {
-  Undefined: "undefined",
-  DVI: "DVI",
-  HDMIa: "HDMIa",
-  HDMIb: "HDMIb",
-  MDDI: "MDDI",
-  DisplayPort: "DisplayPort",
-} as const;
-
-type VideoInterface = typeof VideoInterface[keyof typeof VideoInterface];
-
-const BitDepth = {
-  Undefined: "undefined",
-  Six: "6",
-  Eight: "8",
-  Ten: "10",
-  Twelve: "12",
-  Sixteen: "16",
-} as const;
-
-type BitDepth = typeof BitDepth[keyof typeof BitDepth];
-
-export class DigitalVideoInput implements VideoSignalInterface {
-  SignalInterface: SignalInterface;
-
-  BitDepth: BitDepth;
-  Interface: VideoInterface;
-  static decode(mbyte: number): DigitalVideoInput {
-    return new DigitalVideoInput(mbyte);
-  }
-  constructor(mbyte: number) {
-    this.SignalInterface = SignalInterface.Digital;
-    switch ((mbyte & 0x70) >> 4) {
-      case 0:
-        this.BitDepth = BitDepth.Undefined;
-        break;
-      case 1:
-        this.BitDepth = BitDepth.Six;
-        break;
-      case 2:
-        this.BitDepth = BitDepth.Eight;
-        break;
-      case 3:
-        this.BitDepth = BitDepth.Ten;
-        break;
-      case 4:
-        this.BitDepth = BitDepth.Twelve;
-        break;
-      case 6:
-        this.BitDepth = BitDepth.Sixteen;
-        break;
-      default:
-        this.BitDepth = BitDepth.Undefined;
-        break;
-    }
-    switch (mbyte & 0x7) {
-      case 1:
-        this.Interface = VideoInterface.DVI;
-        break;
-      case 2:
-        this.Interface = VideoInterface.HDMIa;
-        break;
-      case 3:
-        this.Interface = VideoInterface.HDMIb;
-        break;
-      case 4:
-        this.Interface = VideoInterface.MDDI;
-        break;
-      case 5:
-        this.Interface = VideoInterface.DisplayPort;
-        break;
-      default:
-        this.Interface = VideoInterface.Undefined;
-        break;
-    }
-  }
-  Encode(): number {
-    let mbyte = 0x80;
-    switch (this.BitDepth) {
-      case BitDepth.Six:
-        mbyte |= 16;
-        break;
-      case BitDepth.Eight:
-        mbyte |= 32;
-        break;
-      case BitDepth.Ten:
-        mbyte |= 48;
-        break;
-      case BitDepth.Twelve:
-        mbyte |= 64;
-        break;
-      case BitDepth.Sixteen:
-        mbyte |= 96;
-        break;
-      default:
-        break;
-    }
-    switch (this.Interface) {
-      case VideoInterface.DVI:
-        mbyte |= 1;
-        break;
-      case VideoInterface.HDMIa:
-        mbyte |= 2;
-        break;
-      case VideoInterface.HDMIb:
-        mbyte |= 3;
-        break;
-      case VideoInterface.MDDI:
-        mbyte |= 4;
-        break;
-      case VideoInterface.DisplayPort:
-        mbyte |= 5;
-        break;
-      default:
-        break;
-    }
-    return mbyte;
-  }
-}
-
-const SignalLevelStandard = {
-  NotDefined: -1,
-  V700_300_1000: 0,
-  V714_286_1000: 0x20,
-  V1000_400_1400: 0x40,
-  V700_000_700: 0x60,
-} as const;
-
-type SignalLevelStandard = typeof SignalLevelStandard[keyof typeof SignalLevelStandard];
-
-const VideoSetup = {
-  BlankLevel: "Blank Level = Black Level",
-  BlankToBlack: "Blank-to-Black setup or pedestal",
-} as const;
-
-type VideoSetup = typeof VideoSetup[keyof typeof VideoSetup];
-
-class AnalogVideoInput implements VideoSignalInterface {
-  SignalInterface: SignalInterface;
-  SignalLevelStandard: SignalLevelStandard;
-  VideoSetup: VideoSetup;
-  SeparateSyncHVSignals: boolean;
-  CompositeSyncSignalonHorizontal: boolean;
-  CompositeSyncSignalonGreenVideo: boolean;
-  SerrationsOnVSync: boolean;
-
-  static decode(mbyte: number): AnalogVideoInput {
-    return new AnalogVideoInput(mbyte);
-  }
-
-  constructor(mbyte: number) {
-    this.SignalInterface = SignalInterface.Analog;
-    this.SignalLevelStandard = (mbyte & 0x60) as SignalLevelStandard;
-    this.VideoSetup =
-      mbyte & 0x10 ? VideoSetup.BlankToBlack : VideoSetup.BlankLevel;
-    this.SeparateSyncHVSignals = mbyte & 0x8 ? false : true;
-    this.CompositeSyncSignalonHorizontal = mbyte & 0x4 ? false : true;
-    this.CompositeSyncSignalonGreenVideo = mbyte & 0x2 ? false : true;
-    this.SerrationsOnVSync = mbyte & 0x1 ? true : false;
-  }
-
-  Encode(): number {
-    let mbyte = 0;
-    mbyte |= this.SignalLevelStandard;
-    mbyte |= this.VideoSetup === VideoSetup.BlankToBlack ? 0x10 : 0;
-    mbyte |= this.SeparateSyncHVSignals ? 0 : 0x8;
-    mbyte |= this.CompositeSyncSignalonHorizontal ? 0 : 0x4;
-    mbyte |= this.CompositeSyncSignalonGreenVideo ? 0 : 0x2;
-    mbyte |= this.SerrationsOnVSync ? 0x1 : 0;
-    return mbyte;
-  }
-}
-
-export class DigitalColourEncoding implements VideoSignalInterface {
-  SignalInterface: SignalInterface;
-  RGB444: boolean;
-  YUV444: boolean;
-  YUV422: boolean;
-  static decode(mbyte: number): DigitalColourEncoding {
-    return new DigitalColourEncoding(mbyte);
-  }
-  constructor(mbyte: number) {
-    this.SignalInterface = SignalInterface.Digital;
-    this.RGB444 = mbyte & 0x8 ? true : false;
-    this.YUV444 = mbyte & 0x10 ? true : false;
-    this.YUV422 = mbyte & 0x20 ? true : false;
-  }
-  Encode(): number {
-    let mbyte = 0;
-    mbyte |= this.RGB444 ? 0x8 : 0;
-    mbyte |= this.YUV444 ? 0x10 : 0;
-    mbyte |= this.YUV422 ? 0x20 : 0;
-    return mbyte;
-  }
-}
-
-const AnalogDisplayColorType = {
-  Monochrome: 0,
-  RGB: 1,
-  NonRGB: 2,
-  Undefined: 3,
-} as const;
-
-type AnalogDisplayColorType = typeof AnalogDisplayColorType[keyof typeof AnalogDisplayColorType];
-
-class AnalogueColourEncoding implements VideoSignalInterface {
-  SignalInterface: SignalInterface;
-  AnalogColour: AnalogDisplayColorType;
-  static decode(mbyte: number): AnalogueColourEncoding {
-    return new AnalogueColourEncoding(mbyte);
-  }
-  constructor(mbyte: number) {
-    this.SignalInterface = SignalInterface.Analog;
-    this.AnalogColour = (mbyte & 0x3) as AnalogDisplayColorType;
-  }
-
-  Encode(): number {
-    return this.AnalogColour;
-  }
-}
-
-class FeatureSupport {
-  DPMSstandby: boolean = false;
-  DPMSsuspend: boolean = false;
-  DPMSactiveOff: boolean = false;
-  ColourEncoding: VideoSignalInterface = {
-    SignalInterface: SignalInterface.NotDefined,
-    Encode: () => 0,
-  };
-  sRGB: boolean = false;
-  PreferredTiming: boolean = false;
-  GTFSupport: boolean = false; // 1.3
-  ContiniousFrequency: boolean = false; // 1.4
-  Version: EdidVersion = EdidVersion.V14;
-
-  static decode(mbyte: number, digital_analog: SignalInterface, version?: EdidVersion): FeatureSupport {
-    return new FeatureSupport(mbyte, digital_analog, version);
-  }
-
-  constructor(mbyte: number, digital_analog: SignalInterface, version?: EdidVersion) {
-    this.Version = version ?? EdidVersion.V14;
-    this.DPMSstandby = mbyte & 0x80 ? true : false;
-    this.DPMSsuspend = mbyte & 0x40 ? true : false;
-    this.DPMSactiveOff = mbyte & 0x20 ? true : false;
-    switch (digital_analog) {
-      case SignalInterface.Digital:
-        this.ColourEncoding = new DigitalColourEncoding(mbyte);
-        break;
-      case SignalInterface.Analog:
-        this.ColourEncoding = new AnalogueColourEncoding(mbyte);
-        break;
-    }
-    this.sRGB = mbyte & 0x4 ? true : false;
-    this.PreferredTiming = mbyte & 0x2 ? true : false;
-    if (this.Version === EdidVersion.V13) {
-      this.GTFSupport = mbyte & 0x1 ? true : false;
-    } else {
-      this.ContiniousFrequency = mbyte & 0x1 ? true : false;
-    }
-  }
-  Encode(): number {
-    let mbyte = 0;
-    mbyte |= this.DPMSstandby ? 0x80 : 0;
-    mbyte |= this.DPMSsuspend ? 0x40 : 0;
-    mbyte |= this.DPMSactiveOff ? 0x20 : 0;
-    mbyte |= this.ColourEncoding.Encode();
-    mbyte |= this.sRGB ? 0x4 : 0;
-    mbyte |= this.PreferredTiming ? 0x2 : 0;
-    if (this.Version === EdidVersion.V13) {
-      mbyte |= this.GTFSupport ? 0x1 : 0;
-    } else {
-      mbyte |= this.ContiniousFrequency ? 0x1 : 0;
-    }
-    return mbyte;
-  }
-}
-
-class Chromaticity {
-  raw: Uint8Array;
-  RedX: number;
-  RedY: number;
-  GreenX: number;
-  GreenY: number;
-  BlueX: number;
-  BlueY: number;
-  WhiteX: number;
-  WhiteY: number;
-  static decode(bytes: Uint8Array): Chromaticity {
-    return new Chromaticity(bytes);
-  }
-  constructor(bytes: Uint8Array) {
-    this.raw = bytes;
-    this.RedX = (((bytes[2] ?? 0) << 2) | (((bytes[0] ?? 0) >> 6) & 0x3)) / 1024;
-    this.RedY = (((bytes[3] ?? 0) << 2) | (((bytes[0] ?? 0) >> 4) & 0x3)) / 1024;
-    this.GreenX = (((bytes[4] ?? 0) << 2) | (((bytes[0] ?? 0) >> 2) & 0x3)) / 1024;
-    this.GreenY = (((bytes[5] ?? 0) << 2) | ((bytes[0] ?? 0) & 0x3)) / 1024;
-    this.BlueX = (((bytes[6] ?? 0) << 2) | (((bytes[1] ?? 0) >> 6) & 0x3)) / 1024;
-    this.BlueY = (((bytes[7] ?? 0) << 2) | (((bytes[1] ?? 0) >> 4) & 0x3)) / 1024;
-    this.WhiteX = (((bytes[8] ?? 0) << 2) | (((bytes[1] ?? 0) >> 2) & 0x3)) / 1024;
-    this.WhiteY = (((bytes[9] ?? 0) << 2) | ((bytes[1] ?? 0) & 0x3)) / 1024;
-  }
-  Encode(): Uint8Array {
-    const bytes = new Uint8Array(10);
-    bytes[0] =
-      (((this.RedX * 1024) & 0x3) << 6) |
-      (((this.RedY * 1024) & 0x3) << 4) |
-      (((this.GreenX * 1024) & 0x3) << 2) |
-      ((this.GreenY * 1024) & 0x3);
-    bytes[1] =
-      (((this.BlueX * 1024) & 0x3) << 6) |
-      (((this.BlueY * 1024) & 0x3) << 4) |
-      (((this.WhiteX * 1024) & 0x3) << 2) |
-      ((this.WhiteY * 1024) & 0x3);
-    bytes[2] = (this.RedX * 1024) >> 2;
-    bytes[3] = (this.RedY * 1024) >> 2;
-    bytes[4] = (this.GreenX * 1024) >> 2;
-    bytes[5] = (this.GreenY * 1024) >> 2;
-    bytes[6] = (this.BlueX * 1024) >> 2;
-    bytes[7] = (this.BlueY * 1024) >> 2;
-    bytes[8] = (this.WhiteX * 1024) >> 2;
-    bytes[9] = (this.WhiteY * 1024) >> 2;
-    return bytes;
-  }
-}
-
-class EstablishedTimings {
-  ET720_400_70: boolean;
-  ET720_400_88: boolean;
-  ET640_480_60: boolean;
-  ET640_480_67: boolean;
-  ET640_480_72: boolean;
-  ET640_480_75: boolean;
-  ET800_600_56: boolean;
-  ET800_600_60: boolean;
-  ET800_600_72: boolean;
-  ET800_600_75: boolean;
-  ET832_624_75: boolean;
-  ET1024_768_87: boolean;
-  ET1024_768_60: boolean;
-  ET1024_768_70: boolean;
-  ET1024_768_75: boolean;
-  ET1280_1024_75: boolean;
-  ET1152_870_75: boolean;
-
-  static decode(etBytes: Uint8Array): EstablishedTimings {
-    return new EstablishedTimings(etBytes);
-  }
-
-  constructor(etBytes: Uint8Array) {
-    this.ET720_400_70 = (etBytes[0] ?? 0) & 0x80 ? true : false;
-    this.ET720_400_88 = (etBytes[0] ?? 0) & 0x40 ? true : false;
-    this.ET640_480_60 = (etBytes[0] ?? 0) & 0x20 ? true : false;
-    this.ET640_480_67 = (etBytes[0] ?? 0) & 0x10 ? true : false;
-    this.ET640_480_72 = (etBytes[0] ?? 0) & 0x08 ? true : false;
-    this.ET640_480_75 = (etBytes[0] ?? 0) & 0x04 ? true : false;
-    this.ET800_600_56 = (etBytes[0] ?? 0) & 0x02 ? true : false;
-    this.ET800_600_60 = (etBytes[0] ?? 0) & 0x01 ? true : false;
-
-    this.ET800_600_72 = (etBytes[1] ?? 0) & 0x80 ? true : false;
-    this.ET800_600_75 = (etBytes[1] ?? 0) & 0x40 ? true : false;
-    this.ET832_624_75 = (etBytes[1] ?? 0) & 0x20 ? true : false;
-    this.ET1024_768_87 = (etBytes[1] ?? 0) & 0x10 ? true : false;
-    this.ET1024_768_60 = (etBytes[1] ?? 0) & 0x08 ? true : false;
-    this.ET1024_768_70 = (etBytes[1] ?? 0) & 0x04 ? true : false;
-    this.ET1024_768_75 = (etBytes[1] ?? 0) & 0x02 ? true : false;
-    this.ET1280_1024_75 = (etBytes[1] ?? 0) & 0x01 ? true : false;
-
-    this.ET1152_870_75 = (etBytes[2] ?? 0) & 0x80 ? true : false;
-  }
-  Encode(): Uint8Array {
-    let etBytes = new Uint8Array(3);
-    etBytes[0] = 0;
-    etBytes[0] |= this.ET720_400_70 ? 0x80 : 0;
-    etBytes[0] |= this.ET720_400_88 ? 0x40 : 0;
-    etBytes[0] |= this.ET640_480_60 ? 0x20 : 0;
-    etBytes[0] |= this.ET640_480_67 ? 0x10 : 0;
-    etBytes[0] |= this.ET640_480_72 ? 0x08 : 0;
-    etBytes[0] |= this.ET640_480_75 ? 0x04 : 0;
-    etBytes[0] |= this.ET800_600_56 ? 0x02 : 0;
-    etBytes[0] |= this.ET800_600_60 ? 0x01 : 0;
-
-    etBytes[1] = 0;
-    etBytes[1] |= this.ET800_600_72 ? 0x80 : 0;
-    etBytes[1] |= this.ET800_600_75 ? 0x40 : 0;
-    etBytes[1] |= this.ET832_624_75 ? 0x20 : 0;
-    etBytes[1] |= this.ET1024_768_87 ? 0x10 : 0;
-    etBytes[1] |= this.ET1024_768_60 ? 0x08 : 0;
-    etBytes[1] |= this.ET1024_768_70 ? 0x04 : 0;
-    etBytes[1] |= this.ET1024_768_75 ? 0x02 : 0;
-    etBytes[1] |= this.ET1280_1024_75 ? 0x01 : 0;
-
-    etBytes[2] = 0;
-    etBytes[2] |= this.ET1152_870_75 ? 0x80 : 0;
-    return etBytes;
-  }
-}
-
-export class ManufacturerID {
-  ID: string;
-
-  constructor() {
-    this.ID = "";
-  }
-
-  static decode(bytes: Uint8Array): ManufacturerID {
-    return new ManufacturerID().Decode(bytes);
-  }
-
-  Decode(bytes: Uint8Array): ManufacturerID {
-    this.ID = String.fromCharCode((((bytes[0] ?? 0) & 0x7c) >> 2) + 0x40);
-    this.ID += String.fromCharCode(
-      (((bytes[0] ?? 0) & 0x03) << 3) + (((bytes[1] ?? 0) & 0xe0) >> 5) + 0x40
-    );
-    this.ID += String.fromCharCode(((bytes[1] ?? 0) & 0x1f) + 0x40);
-    return this;
-  }
-
-  Encode(): Uint8Array {
-    // reset bytes
-    let raw = new Uint8Array(2);
-    // ASCII to bytes
-    var bytes = [];
-    bytes.push(this.ID.charCodeAt(0));
-    bytes.push(this.ID.charCodeAt(1));
-    bytes.push(this.ID.charCodeAt(2));
-    // Compressed ascii = -0x40
-    raw[0] = raw[0] || 0;
-    raw[1] = raw[1] || 0;
-    raw[0] |= ((bytes[0] ?? 0) - 0x40) << 2;
-    raw[0] |= ((bytes[1] ?? 0) - 0x40) >> 3;
-    raw[1] |= ((bytes[1] ?? 0) - 0x40) << 5;
-    raw[1] |= (bytes[2] ?? 0) - 0x40;
-    return raw;
-  }
-
-  GetPNPCompanyName(): string {
-    let obj = pnpLookup.find((o) => o.ID === this.ID);
-    if (obj) {
-      return obj.Company;
-    } else {
-      return "Unknown";
-    }
-  }
-}
-
-export const AspectRatio = {
-  OneOne: "1:1",
-  FourThree: "4:3",
-  FiveFour: "5:4",
-  FifteenNine: "15:9", // CVT Support Definition
-  SixteenNine: "16:9",
-  SixteenTen: "16:10",
-} as const;
-
-export type AspectRatio = typeof AspectRatio[keyof typeof AspectRatio];
-
-export class StandardTiming {
-  id: number = 0;
-  Enabled: boolean = false;
-  HorizontalActive: number = 0;
-  AspectRatio: AspectRatio = AspectRatio.FourThree;
-  RefreshRate: number = 60;
-
-  static decode(bytes: Uint8Array, version?: EdidVersion): StandardTiming {
-    return new StandardTiming().Decode(bytes, version);
-  }
-
-  Decode(bytes: Uint8Array, version?: EdidVersion): StandardTiming {
-    this.Enabled = false;
-    if (bytes[0] === 0x1 && bytes[1] === 0x1) {
-      this.Enabled = false;
-    } else {
-      this.Enabled = true;
-    }
-    switch ((bytes[1] ?? 0) >> 6) {
-      case 0:
-        this.AspectRatio =
-          version === EdidVersion.Pre13
-            ? AspectRatio.OneOne
-            : AspectRatio.SixteenTen;
-        break;
-      case 1:
-        this.AspectRatio = AspectRatio.FourThree;
-        break;
-      case 2:
-        this.AspectRatio = AspectRatio.FiveFour;
-        break;
-      case 3:
-        this.AspectRatio = AspectRatio.SixteenNine;
-        break;
-      default:
-        break;
-    }
-    this.HorizontalActive = ((bytes[0] ?? 0) + 31) * 8;
-    this.RefreshRate = ((bytes[1] ?? 0) & 0x3f) + 60;
-    return this;
-  }
-  Encode(): Uint8Array {
-    let bytes = new Uint8Array(2);
-    if (this.Enabled) {
-      bytes[0] = this.HorizontalActive / 8 - 31;
-      bytes[1] = (this.RefreshRate - 60) & 0x3f;
-      switch (this.AspectRatio) {
-        case AspectRatio.SixteenTen:
-        case AspectRatio.OneOne:
-          bytes[1] |= 0 << 6;
-          break;
-        case AspectRatio.FourThree:
-          bytes[1] |= 1 << 6;
-          break;
-        case AspectRatio.FiveFour:
-          bytes[1] |= 2 << 6;
-          break;
-        case AspectRatio.SixteenNine:
-          bytes[1] |= 3 << 6;
-          break;
-        default:
-          break;
-      }
-    } else {
-      bytes[0] = 1;
-      bytes[1] = 1;
-    }
-    return bytes;
-  }
-}
+export {
+  ManufacturerID,
+} from "./edid-header.ts";
+export {
+  DigitalVideoInput,
+  AnalogVideoInput,
+  SignalInterface,
+} from "./video-input.ts";
+export {
+  FeatureSupport,
+  DigitalColourEncoding,
+  AnalogueColourEncoding,
+  EdidVersion,
+} from "./feature-support.ts";
+export { Chromaticity } from "./color-characteristics.ts";
+export { EstablishedTimings } from "./established-timing.ts";
+export { StandardTiming, AspectRatio } from "./standard-timing.ts";
+export {
+  DecodeDesciptor,
+  DescriptorType,
+  DummyDesciptor,
+  DisplayProductName,
+  type DisplayDescriptorUnion,
+} from "./display-descriptor.ts";
 
 export class EDID {
   raw: Uint8Array = new Uint8Array();
   Extension: number = 0;
   Version: number = 0;
-  Revision: string = "";
+  Revision: number = 0;
   SerialNumber: number = 0;
   ManufacturerID: ManufacturerID = new ManufacturerID();
   ManufacturerPC: number = 0;
@@ -590,8 +81,7 @@ export class EDID {
 
   get EdidVersion(): EdidVersion {
     if (this.Version !== 1) return EdidVersion.Other;
-    const rev = parseInt(this.Revision, 10);
-    if (isNaN(rev)) return EdidVersion.Other;
+    const rev = this.Revision;
     if (rev <= 2) return EdidVersion.Pre13;
     if (rev === 3) return EdidVersion.V13;
     if (rev >= 4) return EdidVersion.V14;
@@ -636,7 +126,7 @@ export class EDID {
     // Version
     this.Version = this.raw[18] ?? 0;
     // Revision
-    this.Revision = (this.raw[19] ?? 0).toString(); // needs to be toString because of v-model issues
+    this.Revision = this.raw[19] ?? 0;
 
     // Basic display parameters
     if ((this.raw[20] ?? 0) & 0x80) {
@@ -708,72 +198,75 @@ export class EDID {
 
   Encode(): Uint8Array {
     console.log("Encoding EDID");
+    const raw = new Uint8Array(128);
+    raw.set(this.raw.slice(0, 128));
     // Header
+    raw.set([0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00], 0);
     // Manufacturer ID
     let mid_bytes = this.ManufacturerID.Encode();
-    this.raw[8] = mid_bytes[0] ?? 0;
-    this.raw[9] = mid_bytes[1] ?? 0;
+    raw[8] = mid_bytes[0] ?? 0;
+    raw[9] = mid_bytes[1] ?? 0;
     // ID Product Code
-    this.raw[10] = this.ManufacturerPC & 0xff;
-    this.raw[11] = (this.ManufacturerPC >> 8) & 0xff;
+    raw[10] = this.ManufacturerPC & 0xff;
+    raw[11] = (this.ManufacturerPC >> 8) & 0xff;
     // ID Serial Number
     if (this.SerialNumber <= 4294967295 && this.SerialNumber >= 0) {
-      this.raw[12] = this.SerialNumber & 0xff;
-      this.raw[13] = (this.SerialNumber >> 8) & 0xff;
-      this.raw[14] = (this.SerialNumber >> 16) & 0xff;
-      this.raw[15] = (this.SerialNumber >> 24) & 0xff;
+      raw[12] = this.SerialNumber & 0xff;
+      raw[13] = (this.SerialNumber >> 8) & 0xff;
+      raw[14] = (this.SerialNumber >> 16) & 0xff;
+      raw[15] = (this.SerialNumber >> 24) & 0xff;
     } else {
-      this.raw[12] = 0;
-      this.raw[13] = 0;
-      this.raw[14] = 0;
-      this.raw[15] = 0;
+      raw[12] = 0;
+      raw[13] = 0;
+      raw[14] = 0;
+      raw[15] = 0;
     }
 
     // Week of Manufacture: clamp to 0–52, 0 means not specified
     if (this.WeekOfManufacture > 52) {
-      this.raw[16] = 52;
+      raw[16] = 52;
     } else if (this.WeekOfManufacture < 0) {
-      this.raw[16] = 0;
+      raw[16] = 0;
     } else {
-      this.raw[16] = this.WeekOfManufacture;
+      raw[16] = this.WeekOfManufacture;
     }
     // Year of Manufacture or Model Year
     if (this.YearOfManufacture >= 1990) {
-      this.raw[17] = this.YearOfManufacture - 1990;
+      raw[17] = this.YearOfManufacture - 1990;
     } else {
-      this.raw[17] = 0;
+      raw[17] = 0;
     }
     // EDID Version
-    this.raw[18] = this.Version;
+    raw[18] = this.Version;
     // EDID Revision
-    this.raw[19] = parseInt(this.Revision);
+    raw[19] = this.Revision;
     // Video Input Definition
-    this.raw[20] = this.VideoInputDefinition.Encode();
+    raw[20] = this.VideoInputDefinition.Encode();
     // Horizontal Screen Size or Aspect Ratio
-    this.raw[21] = this.HorizontalSizeCM & 0xff;
+    raw[21] = this.HorizontalSizeCM & 0xff;
     // Vertical Screen Size or Aspect Ratio
-    this.raw[22] = this.VerticalSizeCM & 0xff;
+    raw[22] = this.VerticalSizeCM & 0xff;
     // Display Gamma
     if (this.Gamma >= 1.0 && this.Gamma <= 3.54) {
-      this.raw[23] = this.Gamma * 100 - 100;
+      raw[23] = this.Gamma * 100 - 100;
     }
     // Features Support
-    this.raw[24] = this.FeatureSupport.Encode();
+    raw[24] = this.FeatureSupport.Encode();
     // Chromaticity
     let chromaticity = this.Chromaticity.Encode();
     for (let i = 0; i < 9; i++) {
-      this.raw[25 + i] = chromaticity[i] ?? 0;
+      raw[25 + i] = chromaticity[i] ?? 0;
     }
     // Established Timings
     let etBytes = this.EstablishedTimings.Encode();
-    this.raw[35] = etBytes[0] ?? 0;
-    this.raw[36] = etBytes[1] ?? 0;
-    this.raw[37] = etBytes[2] ?? 0;
+    raw[35] = etBytes[0] ?? 0;
+    raw[36] = etBytes[1] ?? 0;
+    raw[37] = etBytes[2] ?? 0;
     // Standard Timings
     for (let i = 0; i < 8; i++) {
       let stdTiming = this.StandardTimings[i]?.Encode();
-      this.raw[38 + i * 2] = stdTiming?.[0] ?? 0;
-      this.raw[39 + i * 2] = stdTiming?.[1] ?? 0;
+      raw[38 + i * 2] = stdTiming?.[0] ?? 0;
+      raw[39 + i * 2] = stdTiming?.[1] ?? 0;
     }
 
     // Display Descriptors
@@ -785,15 +278,11 @@ export class EDID {
       }
       let bytes = dd.Encode();
       for (let j = 0; j < 18; j++) {
-        this.raw[54 + i * 18 + j] = bytes[j] ?? 0;
+        raw[54 + i * 18 + j] = bytes[j] ?? 0;
       }
     }
     // Checksum
-    this.CalcChecksum();
-    return this.raw;
-  }
-
-  CalcChecksum() {
-    this.raw[127] = calcEDIDChecksum(this.raw);
+    raw[127] = calcEDIDChecksum(raw);
+    return raw;
   }
 }

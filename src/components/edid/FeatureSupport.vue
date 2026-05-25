@@ -14,7 +14,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
     <div>DPMS Standby</div>
     <div>
       <Switch
-        :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4"
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model:checked="featureSupport.DPMSstandby"
         @update:checked="edidstore.updateEdid()"
       />
@@ -23,7 +23,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
     <div>DPMS Suspend</div>
     <div>
       <Switch
-        :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4"
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model:checked="featureSupport.DPMSsuspend"
         @update:checked="edidstore.updateEdid()"
       />
@@ -32,7 +32,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
     <div>DPMS ActiveOff</div>
     <div>
       <Switch
-        :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4"
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model:checked="featureSupport.DPMSactiveOff"
         @update:checked="edidstore.updateEdid()"
       />
@@ -46,7 +46,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
       />
     </div>
     <div></div>
-    <template v-if="parseInt(edidstore.mEEDID.EDID.Revision) < 4">
+    <template v-if="edidstore.mEEDID.EDID.Revision < 4">
       <div>GTF Support</div>
       <div>
         <Switch
@@ -56,7 +56,7 @@ const featureSupport = ref(edidstore.mEEDID.EDID.FeatureSupport);
       </div>
       <div>No encoding support</div>
     </template>
-    <template v-if="parseInt(edidstore.mEEDID.EDID.Revision) > 3">
+    <template v-if="edidstore.mEEDID.EDID.Revision > 3">
       <div>Continuous Frequency</div>
       <div>
         <Switch

@@ -76,10 +76,6 @@ export class EEDID {
   blocks: ExtensionBlock[] = [];
   Errors: string[] = [];
 
-  // Legacy properties for backward compatibility during frontend migration
-  private _legacyCEA: CEA = new CEA();
-  private _legacyDID: DisplayID = new DisplayID();
-
   get EDID(): EDID {
     return this.edid;
   }
@@ -88,17 +84,11 @@ export class EEDID {
   }
 
   get CEA(): CEA {
-    return this._legacyCEA;
-  }
-  set CEA(value: CEA) {
-    this._legacyCEA = value;
+    return this.ceaBlocks[0]?.block ?? new CEA();
   }
 
   get DID(): DisplayID {
-    return this._legacyDID;
-  }
-  set DID(value: DisplayID) {
-    this._legacyDID = value;
+    return this.displayIDBlocks[0]?.block ?? new DisplayID();
   }
 
   get hasCEA(): boolean {
@@ -152,18 +142,6 @@ export class EEDID {
       }
     }
 
-    // Sync legacy properties for backward compatibility
-    const firstCea = eedid.ceaBlocks[0];
-    if (firstCea) {
-      eedid.CEA = firstCea.block;
-      eedid.CEA.Extension = firstCea.extension;
-    }
-    const firstDid = eedid.displayIDBlocks[0];
-    if (firstDid) {
-      eedid.DID = firstDid.block;
-      eedid.DID.Extension = firstDid.extension;
-    }
-
     return eedid;
   }
 
@@ -173,32 +151,9 @@ export class EEDID {
     this.raw = decoded.raw;
     this.edid = decoded.edid;
     this.blocks = decoded.blocks;
-    this.CEA = decoded.CEA;
-    this.DID = decoded.DID;
   }
 
   encode(): Uint8Array {
-    // Sync legacy CEA/DID back into blocks before encoding
-    // Find existing CEA block index or append
-    const ceaIndex = this.blocks.findIndex((b) => b.tag === CEAExtension);
-    if (ceaIndex >= 0) {
-      this.blocks[ceaIndex] = {
-        tag: 0x02,
-        extension: ceaIndex + 1,
-        raw: new Uint8Array(128),
-        block: this.CEA,
-      };
-    }
-    const didIndex = this.blocks.findIndex((b) => b.tag === DisplayIDExtension);
-    if (didIndex >= 0) {
-      this.blocks[didIndex] = {
-        tag: 0x70,
-        extension: didIndex + 1,
-        raw: new Uint8Array(128),
-        block: this.DID,
-      };
-    }
-
     // Encode base EDID
     const edidBytes = this.edid.Encode();
     const edidRaw = new Uint8Array(128);
