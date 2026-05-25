@@ -1,8 +1,17 @@
+#!/bin/bash
+set -euo pipefail
+
+ORIGIN_URL=$(git remote get-url origin)
+
 npm run build
-git checkout --orphan gh-pages
-git --work-tree dist add --all
-git --work-tree dist commit -m "gh-pages"
-git push origin HEAD:gh-pages --force
-rm -r dist
-git checkout -f main
-git branch -D gh-pages
+
+cd dist
+git init
+git add .
+git commit -m "gh-pages"
+git remote add origin "$ORIGIN_URL"
+git push --force origin HEAD:gh-pages
+cd ..
+rm -rf dist
+
+echo "Deployed to gh-pages"
