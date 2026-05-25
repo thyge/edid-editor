@@ -81,4 +81,11 @@ export {
   SyncType,
 } from "./common/DetailedTimingDescriptor.ts";
 export { CVTGenerator } from "./common/cvtgenerator.ts";
-export { formatByte } from "./common/utils.ts";
+export {
+  formatByte,
+  calcEDIDChecksum,
+  hexToUint8Array,
+  readUint16LE,
+  readUint16BE,
+  readUint32LE,
+} from "./common/utils.ts";

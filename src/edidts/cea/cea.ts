@@ -1,5 +1,6 @@
 import { vicLookup } from "../common/vics.ts";
 import { DetailedTimingDescriptor } from "../common/DetailedTimingDescriptor.ts";
+import { calcEDIDChecksum } from "../common/utils.ts";
 import {
   HDMI_1_4,
   HDMI_2_0,
@@ -165,7 +166,7 @@ export class CEA {
     }
     if (this.Header.dtdStartByte != 0) {
       for (let d = this.Header.dtdStartByte; d < 127 - 18; d += 18) {
-        let dtd_bytes = this.raw.slice(d, d + 18 + 1);
+        let dtd_bytes = this.raw.slice(d, d + 18);
         let dtd = new DetailedTimingDescriptor().Decode(dtd_bytes);
         // check if dtd before adding
         if (dtd != null) {
@@ -176,28 +177,52 @@ export class CEA {
   }
   
   Encode() {
-    console.log("Encoding CEA");
-    let headerBytes = this.Header.Encode();
-    this.raw[0] = headerBytes[0];
-    this.raw[1] = headerBytes[1];
-    this.raw[2] = headerBytes[2];
-    this.raw[3] = headerBytes[3];
-    this.CalcChecksum();
-    return this.raw;
-  }
+    let newRaw = new Uint8Array(128);
 
-  CalcChecksum() {
-    let checksum = 0;
-    for (let i = 0; i < 127; i++) {
-      checksum += this.raw[i];
+    // Encode all data blocks
+    let dataBlockBytes: Uint8Array[] = [];
+    let totalDataBlockSize = 0;
+    for (let db of this.DataBlocks) {
+      let encoded = db.Encode();
+      dataBlockBytes.push(encoded);
+      totalDataBlockSize += encoded.length;
     }
-    this.raw[127] = 256 - (checksum % 256);
+
+    // Set DTD start offset
+    this.Header.dtdStartByte = 4 + totalDataBlockSize;
+
+    // Write header (4 bytes)
+    let headerBytes = this.Header.Encode();
+    newRaw.set(headerBytes, 0);
+
+    // Write data blocks
+    let offset = 4;
+    for (let dbBytes of dataBlockBytes) {
+      newRaw.set(dbBytes, offset);
+      offset += dbBytes.length;
+    }
+
+    // Write DTDs (18 bytes each)
+    offset = this.Header.dtdStartByte;
+    for (let dtd of this.DetailedTimingBlocks) {
+      if (offset + 18 > 127) {
+        console.warn("CEA block overflow: skipping remaining DTDs");
+        break;
+      }
+      let dtdBytes = dtd.Encode();
+      newRaw.set(dtdBytes.slice(0, 18), offset);
+      offset += 18;
+    }
+
+    this.raw = newRaw;
+    this.raw[127] = calcEDIDChecksum(this.raw);
+    return this.raw;
   }
 }
 
 class CEAHeader {
   raw = new Uint8Array();
-  Version: string = "";
+  Version = 1;
   dtdStartByte = 0;
 
   Underscan = false;
@@ -207,14 +232,9 @@ class CEAHeader {
   numNativeDTDs = 0;
 
   Decode(bytes: Uint8Array) {
-    this.Version = bytes[1].toString();
+    this.Version = bytes[1];
     this.dtdStartByte = bytes[2];
-    if (parseInt(this.Version)  > 1) {
-      // Bit 7	1 if display supports underscan, 0 if not
-      // Bit 6	1 if display supports basic audio, 0 if not
-      // Bit 5	1 if display supports YCbCr 4∶4∶4, 0 if not
-      // Bit 4	1 if display supports YCbCr 4∶2∶2, 0 if not
-      // Bit 3–0	Total number of native formats in the DTDs included in this block
+    if (this.Version > 1) {
       this.Underscan = bytes[3] & 0x80 ? true : false;
       this.BasicAudio = bytes[3] & 0x40 ? true : false;
       this.YCBCR444 = bytes[3] & 0x20 ? true : false;
@@ -226,9 +246,9 @@ class CEAHeader {
   Encode() {
     let rawHeader = new Uint8Array(4);
     rawHeader[0] = 0x02;
-    rawHeader[1] = parseInt(this.Version);
+    rawHeader[1] = this.Version;
     rawHeader[2] = this.dtdStartByte;
-    if (parseInt(this.Version) > 1) {
+    if (this.Version > 1) {
       rawHeader[3] |= this.Underscan ? 0x80 : 0x00;
       rawHeader[3] |= this.BasicAudio ? 0x40 : 0x00;
       rawHeader[3] |= this.YCBCR444 ? 0x20 : 0x00;
@@ -292,22 +312,34 @@ export class VideoDataBlock implements CEADataBlock {
   }
   Decode(dbBytes: Uint8Array): VideoDataBlock {
     this.Header.Decode(dbBytes.slice(0, 1));
-    for (let v = 1; v < this.Header.Size; v++) {
-      let entry = vicLookup[dbBytes[v] & 0x7f];
+    for (let v = 1; v < this.Header.Size + 1; v++) {
+      let vicId = dbBytes[v] & 0x7f;
+      let entry = vicLookup[vicId - 1];
       let vic = new VIC();
-      vic.VIC = entry.VIC;
-      vic.Name = entry.Name;
-      vic.Description = entry.Description;
-      vic.PixelMHz = entry.PixelMHz;
-      vic.HorizontalActive = entry.HorizontalActive;
-      vic.VerticalActive = entry.VerticalActive;
+      if (entry) {
+        vic.VIC = entry.VIC;
+        vic.Name = entry.Name;
+        vic.Description = entry.Description;
+        vic.PixelMHz = entry.PixelMHz;
+        vic.HorizontalActive = entry.HorizontalActive;
+        vic.VerticalActive = entry.VerticalActive;
+      } else {
+        vic.VIC = vicId;
+        vic.Name = "Unknown";
+        vic.Description = "";
+      }
       vic.Native = (dbBytes[v] & 0x80) > 0 ? true : false;
       this.VICs.push(vic);
     }
     return this;
   }
   Encode(): Uint8Array {
+    this.Header.Size = this.VICs.length;
     let rawBlock = new Uint8Array(this.Header.Size + 1);
+    rawBlock[0] = (this.Header.Type << 5) | (this.Header.Size & 0x1f);
+    for (let i = 0; i < this.VICs.length; i++) {
+      rawBlock[i + 1] = this.VICs[i].VIC | (this.VICs[i].Native ? 0x80 : 0x00);
+    }
     return rawBlock;
   }
 }
@@ -369,7 +401,23 @@ export class AudioDataBlock implements CEADataBlock {
     return this;
   }
   Encode(): Uint8Array {
-    throw new Error("Method not implemented.");
+    this.Header.Size = 3;
+    let rawBlock = new Uint8Array(this.Header.Size + 1);
+    rawBlock[0] = (this.Header.Type << 5) | (this.Header.Size & 0x1f);
+    rawBlock[1] = ((this.AudioType & 0x0f) << 3) | ((this.Channels - 1) & 0x07);
+    rawBlock[2] = 0;
+    if (this.Sampling192) rawBlock[2] |= 0x40;
+    if (this.Sampling176) rawBlock[2] |= 0x20;
+    if (this.Sampling96) rawBlock[2] |= 0x10;
+    if (this.Sampling88) rawBlock[2] |= 0x08;
+    if (this.Sampling48) rawBlock[2] |= 0x04;
+    if (this.Sampling44_1) rawBlock[2] |= 0x02;
+    if (this.Sampling32) rawBlock[2] |= 0x01;
+    rawBlock[3] = 0;
+    if (this.BitDepth24) rawBlock[3] |= 0x04;
+    if (this.BitDepth20) rawBlock[3] |= 0x02;
+    if (this.BitDepth16) rawBlock[3] |= 0x01;
+    return rawBlock;
   }
 }
 
@@ -422,6 +470,22 @@ export class SpeakerAllocationDataBlock implements CEADataBlock {
     return this;
   }
   Encode(): Uint8Array {
-    throw new Error("Method not implemented.");
+    this.Header.Size = 3;
+    let rawBlock = new Uint8Array(this.Header.Size + 1);
+    rawBlock[0] = (this.Header.Type << 5) | (this.Header.Size & 0x1f);
+    rawBlock[1] = 0;
+    if (this.FrontWide_LeftRight) rawBlock[1] |= 0x80;
+    if (this.FrontCenter_LeftRight) rawBlock[1] |= 0x20;
+    if (this.BackCenter) rawBlock[1] |= 0x10;
+    if (this.Back_LeftRight) rawBlock[1] |= 0x08;
+    if (this.FrontCenter) rawBlock[1] |= 0x04;
+    if (this.LFEChannel) rawBlock[1] |= 0x02;
+    if (this.Front_LeftRight) rawBlock[1] |= 0x01;
+    rawBlock[2] = 0;
+    if (this.Surround_LeftRight) rawBlock[2] |= 0x08;
+    if (this.TopFrontCenter) rawBlock[2] |= 0x04;
+    if (this.TopCenter) rawBlock[2] |= 0x02;
+    if (this.TopFront_LeftRight) rawBlock[2] |= 0x01;
+    return rawBlock;
   }
 }

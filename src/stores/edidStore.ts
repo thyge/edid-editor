@@ -5,6 +5,7 @@ import {
   DisplayID,
   DescriptorType,
   CreateDesciptor,
+  calcEDIDChecksum,
 } from "@/edidts";
 import { useUiStore } from "./uiStore.ts";
 export const useEdidStore = defineStore("edids", {
@@ -45,6 +46,9 @@ export const useEdidStore = defineStore("edids", {
       this.mEEDID.Extensions = (totalSize / 128) - 1;
       this.mEEDID.raw[126] = this.mEEDID.Extensions;
       this.mEEDID.EDID.CalcChecksum();
+      if (this.mEEDID.hasCEA) {
+        this.mEEDID.CEA.raw[127] = calcEDIDChecksum(this.mEEDID.CEA.raw);
+      }
     },
     updateEdid() {
       this.mEEDID.EDID.Encode();
@@ -69,7 +73,7 @@ export const useEdidStore = defineStore("edids", {
         if (this.mEEDID.hasCEA) return;
         const cea = new CEA();
         cea.raw = new Uint8Array(128);
-        cea.Header.Version = '3';
+        cea.Header.Version = 3;
         cea.Header.dtdStartByte = 4;
         cea.Encode();
         this.mEEDID.CEA = cea;

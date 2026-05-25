@@ -1,5 +1,6 @@
 import { type DisplayDescriptorInterface, DescriptorType } from "../edid/descriptors";
 import { CVTGenerator } from "./cvtgenerator";
+import { readUint16LE } from "./utils.ts";
 
 // TODO: Detect which CVT mode the DTD is in
 // Table 3-1: Sync Polarities
@@ -160,7 +161,7 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
 
   Decode(edidBytes: Uint8Array): DetailedTimingDescriptor | null {
     this.raw = edidBytes;
-    this.PixelClockKHz = ((edidBytes[1] << 8) | edidBytes[0]) * 10000;
+    this.PixelClockKHz = readUint16LE(edidBytes, 0) * 10000;
     // Handle passing in empty data
     if (this.PixelClockKHz === 0) {
       return null;
