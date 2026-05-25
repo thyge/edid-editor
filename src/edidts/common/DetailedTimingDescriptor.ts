@@ -1,4 +1,4 @@
-import { type DisplayDescriptorInterface, DescriptorType } from "./edid_descriptors";
+import { type DisplayDescriptorInterface, DescriptorType } from "../edid/descriptors";
 import { CVTGenerator } from "./cvtgenerator";
 
 // TODO: Detect which CVT mode the DTD is in
@@ -123,6 +123,7 @@ class DigitalSeparateSync implements SyncDefinition {
 }
 
 export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
+  kind = 'detailedTiming' as const;
   raw: Uint8Array = new Uint8Array();
   Type: DescriptorType;
   // Stored Value = Pixel clock ÷ 10,000

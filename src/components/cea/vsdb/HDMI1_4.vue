@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import { useEdidStore } from "@/stores/edidStore";
-const edidstore = useEdidStore();
-const prop = defineProps<{
-  blockNum: any;
-}>();
-import { HDMI_1_4 } from "../../../edidts/vsdb";
-const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as HDMI_1_4;
+import { HDMI_1_4 } from "@/edidts";
 import { Switch } from "@/components/ui/switch";
 import {
   NumberField,
@@ -14,6 +8,9 @@ import {
   NumberFieldIncrement,
   NumberFieldInput,
 } from "@/components/ui/number-field";
+const prop = defineProps<{
+  block: HDMI_1_4;
+}>();
 </script>
 
 <template>

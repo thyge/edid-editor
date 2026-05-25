@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { formatByte } from "../edidts/utils";
+import { formatByte } from "@/edidts";
 
 interface Section {
   name: string;

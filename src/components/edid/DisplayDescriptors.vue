@@ -2,7 +2,7 @@
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 import DetailedTimingDescriptor from "../DetailedTimingDesciptor.vue";
-import { DescriptorType, descriptorTypeOptions } from "../../edidts/edid_descriptors";
+import { DescriptorType, descriptorTypeOptions } from "@/edidts";
 import ASCIIDescriptor from "./descriptors/ASCIIDescriptor.vue";
 import DisplayRangeLimits from "./descriptors/DisplayRangeLimits.vue";
 import ColorPointData from "./descriptors/ColorPointData.vue";
@@ -46,57 +46,53 @@ import DisplayColorManagement from "./descriptors/ColorManagementData.vue";
 
         <div class="p-2">
           <DetailedTimingDescriptor
-            v-if="block.Type === DescriptorType.DetailedTimingDescriptor"
+            v-if="block.kind === 'detailedTiming'"
             :block="block"
             :id="index"
           />
           <ASCIIDescriptor
             v-else-if="
-              block.Type === DescriptorType.DisplayProductSerialNumber ||
-              block.Type === DescriptorType.AlphanumericDataString ||
-              block.Type === DescriptorType.DisplayProductName
+              block.kind === 'displayProductSerialNumber' ||
+              block.kind === 'alphanumericDataString' ||
+              block.kind === 'displayProductName'
             "
             :block="block"
             :id="index"
           />
           <DisplayRangeLimits
-            v-else-if="block.Type === DescriptorType.DisplayRangeLimits"
+            v-else-if="block.kind === 'displayRangeLimits'"
             :block="block"
             :id="index"
           />
           <ColorPointData
-            v-else-if="block.Type === DescriptorType.ColorPointData"
+            v-else-if="block.kind === 'colorPointData'"
             :block="block"
             :id="index"
           />
           <div
-            v-else-if="
-              block.Type === DescriptorType.StandardTimingIdentification
-            "
+            v-else-if="block.kind === 'standardTimingIdentification'"
           >
-            <template v-for="(timing, index) in (block as any).timings">
-              <StandardTiming :id="(index as number) + 8" :timing="timing" />
+            <template v-for="(timing, tIndex) in block.timings">
+              <StandardTiming :id="tIndex + 8" :timing="timing" />
             </template>
           </div>
           <div
-            v-else-if="
-              block.Type === DescriptorType.DisplayColorManagement
-            "
+            v-else-if="block.kind === 'displayColorManagement'"
           >
             <DisplayColorManagement :block="block"/>
           </div>
           <div
             v-else-if="
-              block.Type === DescriptorType.CVT3ByteCodes ||
-              block.Type === DescriptorType.EstablishedTimingsIII
+              block.kind === 'cvt3ByteCodes' ||
+              block.kind === 'establishedTimingsIII'
             "
           >
             {{ block }}
           </div>
-          <div v-else-if="block.Type != DescriptorType.Dummy">
+          <div v-else>
             <div class="grid grid-cols-4 gap-2 m-4">
               <div class="content-center col-span-3">
-                {{ block.Type }}
+                Unknown descriptor
               </div>
             </div>
           </div>

@@ -1,12 +1,13 @@
-import pnpLookup from "./pnp.ts";
-import { DetailedTimingDescriptor } from "./DetailedTimingDescriptor.ts";
+import pnpLookup from "../common/pnp.ts";
+import { DetailedTimingDescriptor } from "../common/DetailedTimingDescriptor.ts";
 import {
   DecodeDesciptor,
   DescriptorType,
   DummyDesciptor,
   DisplayProductName,
-} from "./edid_descriptors.ts";
-import { type DisplayDescriptorInterface } from "./edid_descriptors.ts";
+  type DisplayDescriptorUnion,
+} from "./descriptors.ts";
+import { type DisplayDescriptorInterface } from "./descriptors.ts";
 
 interface VideoSignalInterface {
   SignalInterface: SignalInterface;
@@ -545,7 +546,7 @@ export class EDID {
   Chromaticity: Chromaticity = new Chromaticity(new Uint8Array(10));
   EstablishedTimings: EstablishedTimings = new EstablishedTimings(new Uint8Array(3));
   StandardTimings: Array<StandardTiming> = [];
-  DisplayDescriptors = Array<DisplayDescriptorInterface>();
+  DisplayDescriptors: DisplayDescriptorUnion[] = [];
   Errors: string[] = [];
   DummyIdentifiers: number = 0;
 
@@ -660,7 +661,7 @@ export class EDID {
         let dtd = new DetailedTimingDescriptor();
         let decodedDtd = dtd.Decode(descriptorBytes);
         if (decodedDtd) {
-          this.DisplayDescriptors.push(decodedDtd as DisplayDescriptorInterface);
+          this.DisplayDescriptors.push(decodedDtd);
         }
       }
     }

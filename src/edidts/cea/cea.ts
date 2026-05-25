@@ -1,6 +1,11 @@
-import { vicLookup } from "./vics.ts";
-import { DetailedTimingDescriptor } from "./DetailedTimingDescriptor.ts";
-import { HDMI_1_4, HDMI_2_0, VSDBTag, HMDSpecialisedMonitor } from "./vsdb";
+import { vicLookup } from "../common/vics.ts";
+import { DetailedTimingDescriptor } from "../common/DetailedTimingDescriptor.ts";
+import {
+  HDMI_1_4,
+  HDMI_2_0,
+  VSDBTag,
+  HMDSpecialisedMonitor,
+} from "./vsdb";
 import {
   CEAExtendedTag,
   ColorimetryDataBlock,
@@ -8,7 +13,20 @@ import {
   VideoCapabilityDataBlock,
   HDRStaticMetadataDataBlock,
   YCBCR420CapabilityMap,
-} from "./cea_extended.ts";
+} from "./extended.ts";
+
+export type CEADataBlockUnion =
+  | VideoDataBlock
+  | AudioDataBlock
+  | SpeakerAllocationDataBlock
+  | HDMI_1_4
+  | HDMI_2_0
+  | HMDSpecialisedMonitor
+  | VideoCapabilityDataBlock
+  | ColorimetryDataBlock
+  | HDRStaticMetadataDataBlock
+  | YCBCR420CapabilityMap
+  | SpeakerLocationDataBlock;
 
 export enum CEADataBlockType {
   Uninitialized = 0,
@@ -24,7 +42,7 @@ export enum CEADataBlockType {
 export class CEA {
   raw: Uint8Array = new Uint8Array();
   Header = new CEAHeader();
-  DataBlocks: CEADataBlock[] = [];
+  DataBlocks: CEADataBlockUnion[] = [];
   DetailedTimingBlocks: DetailedTimingDescriptor[] = [];
   Extension = 0;
 
@@ -248,6 +266,7 @@ export class DataBlockHeader {
 }
 
 export interface CEADataBlock {
+  kind: string;
   Header: DataBlockHeader;
   Decode(dbBytes: Uint8Array): CEADataBlock;
   Encode(): Uint8Array;
@@ -264,6 +283,7 @@ export class VIC {
 }
 
 export class VideoDataBlock implements CEADataBlock {
+  kind = 'video' as const;
   Header = new DataBlockHeader();
   VICs: VIC[] = [];
   constructor(header: DataBlockHeader) {
@@ -312,6 +332,7 @@ enum AudioType {
 }
 
 export class AudioDataBlock implements CEADataBlock {
+  kind = 'audio' as const;
   Header = new DataBlockHeader();
   AudioType: AudioType = AudioType.Reserved;
   Channels: number = 0;
@@ -353,6 +374,7 @@ export class AudioDataBlock implements CEADataBlock {
 }
 
 export class SpeakerAllocationDataBlock implements CEADataBlock {
+  kind = 'speaker' as const;
   Header = new DataBlockHeader();
   // Speaker allocation
   FrontWide_LeftRight: boolean = false; // bit 7

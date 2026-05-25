@@ -1,6 +1,6 @@
-import { EDID } from "./edid.ts";
-import { CEA } from "./cea.ts";
-import { DisplayID } from "./did";
+import { EDID } from "./edid/edid.ts";
+import { CEA } from "./cea/cea.ts";
+import { DisplayID } from "./displayid/displayid.ts";
 
 const TimingExtension = 0x00;
 const CEAExtension = 0x02;

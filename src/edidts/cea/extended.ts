@@ -22,6 +22,8 @@ export enum CEAExtendedTag {
 
 // Make enums of OverscanBehavior
 export class VideoCapabilityDataBlock implements CEADataBlock {
+  kind = 'extended' as const;
+  extendedKind = 'videoCapability' as const;
   Header: DataBlockHeader;
   YCCQuantizationRangeSelectable: boolean = false;
   RGBQuantizationRangeSelectable: boolean = false;
@@ -89,6 +91,8 @@ export class VideoCapabilityDataBlock implements CEADataBlock {
 }
 
 export class ColorimetryDataBlock implements CEADataBlock {
+  kind = 'extended' as const;
+  extendedKind = 'colorimetry' as const;
   Header: DataBlockHeader;
   xvYCC601: boolean = false;
   xvYCC709: boolean = false;
@@ -121,6 +125,8 @@ export class ColorimetryDataBlock implements CEADataBlock {
 }
 
 export class SpeakerLocationDataBlock implements CEADataBlock {
+  kind = 'extended' as const;
+  extendedKind = 'speakerLocation' as const;
   Header: DataBlockHeader;
   RearLeftRightCenter: boolean = false;
   FrontLeftRightCenter: boolean = false;
@@ -149,6 +155,8 @@ export class SpeakerLocationDataBlock implements CEADataBlock {
 }
 
 export class HDRStaticMetadataDataBlock implements CEADataBlock {
+  kind = 'extended' as const;
+  extendedKind = 'hdr' as const;
   Header: DataBlockHeader;
   HLG: boolean = false;
   ST2084: boolean = false;
@@ -183,7 +191,16 @@ export class HDRStaticMetadataDataBlock implements CEADataBlock {
   }
 }
 
+export type ExtendedDataBlockUnion =
+  | VideoCapabilityDataBlock
+  | ColorimetryDataBlock
+  | HDRStaticMetadataDataBlock
+  | YCBCR420CapabilityMap
+  | SpeakerLocationDataBlock;
+
 export class YCBCR420CapabilityMap implements CEADataBlock {
+  kind = 'extended' as const;
+  extendedKind = 'ycbcr420' as const;
   Header: DataBlockHeader;
   VideDBNumber: number[] = [];
   VICs: VIC[] = [];

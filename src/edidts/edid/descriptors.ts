@@ -1,4 +1,4 @@
-import { DetailedTimingDescriptor } from "./DetailedTimingDescriptor";
+import { DetailedTimingDescriptor } from "../common/DetailedTimingDescriptor";
 import { AspectRatio, StandardTiming } from "./edid";
 
 const DescriptorDisplayProductSerialNumber = 0xff;
@@ -57,6 +57,7 @@ export function DescriptorTypeToValue(type: DescriptorType): number {
 }
 
 export interface DisplayDescriptorInterface {
+  kind: string;
   raw: Uint8Array;
   Type: DescriptorType;
   Decode(bytes: Uint8Array): DisplayDescriptorInterface | null;
@@ -64,6 +65,7 @@ export interface DisplayDescriptorInterface {
 }
 
 class ASCIIDescriptor implements DisplayDescriptorInterface {
+  kind: string = '';
   raw: Uint8Array;
   Type: DescriptorType;
   text: string = "";
@@ -99,19 +101,22 @@ class ASCIIDescriptor implements DisplayDescriptorInterface {
   }
 }
 
-class DisplayProductSerialNumber extends ASCIIDescriptor {
+export class DisplayProductSerialNumber extends ASCIIDescriptor {
+  kind = 'displayProductSerialNumber' as const;
   constructor() {
     super();
     this.Type = DescriptorType.DisplayProductSerialNumber;
   }
 }
-class AlphanumericDataString extends ASCIIDescriptor {
+export class AlphanumericDataString extends ASCIIDescriptor {
+  kind = 'alphanumericDataString' as const;
   constructor() {
     super();
     this.Type = DescriptorType.AlphanumericDataString;
   }
 }
 export class DisplayProductName extends ASCIIDescriptor {
+  kind = 'displayProductName' as const;
   constructor() {
     super();
     this.Type = DescriptorType.DisplayProductName;
@@ -253,7 +258,8 @@ class CVTSupportDefinition {
   }
 }
 
-class DisplayRangeLimits implements DisplayDescriptorInterface {
+export class DisplayRangeLimits implements DisplayDescriptorInterface {
+  kind = 'displayRangeLimits' as const;
   raw: Uint8Array;
   Type: DescriptorType;
   MinimumVerticalRate: number = 0;
@@ -422,7 +428,8 @@ class ColorPoint {
   }
 }
 
-class ColorPointData implements DisplayDescriptorInterface {
+export class ColorPointData implements DisplayDescriptorInterface {
+  kind = 'colorPointData' as const;
   raw: Uint8Array;
   Type: DescriptorType;
   WhitePoints: Array<ColorPoint> = [];
@@ -457,6 +464,7 @@ class ColorPointData implements DisplayDescriptorInterface {
 export class StandardTimingIdentification
   implements DisplayDescriptorInterface
 {
+  kind = 'standardTimingIdentification' as const;
   raw: Uint8Array;
   Type: DescriptorType;
   timings: Array<StandardTiming> = [];
@@ -486,6 +494,7 @@ export class StandardTimingIdentification
 }
 
 export class DisplayColorManagement implements DisplayDescriptorInterface {
+  kind = 'displayColorManagement' as const;
   raw: Uint8Array;
   Type: DescriptorType;
   Version: number = 3;
@@ -651,6 +660,7 @@ export class CVT3ByteCodeDescriptor {
 }
 
 export class CVT3ByteCodes implements DisplayDescriptorInterface {
+  kind = 'cvt3ByteCodes' as const;
   raw: Uint8Array;
   Type: DescriptorType;
   Version: number = 1;
@@ -696,6 +706,7 @@ export class CVT3ByteCodes implements DisplayDescriptorInterface {
 }
 
 export class EstablishedTimingsIII implements DisplayDescriptorInterface {
+  kind = 'establishedTimingsIII' as const;
   raw: Uint8Array;
   Type: DescriptorType;
   Timings: Uint8Array = new Uint8Array(12);
@@ -719,6 +730,7 @@ export class EstablishedTimingsIII implements DisplayDescriptorInterface {
 }
 
 export class DummyDesciptor implements DisplayDescriptorInterface {
+  kind = 'dummy' as const;
   raw: Uint8Array;
   Type: DescriptorType;
   constructor() {
@@ -734,32 +746,75 @@ export class DummyDesciptor implements DisplayDescriptorInterface {
   }
 }
 
+export type DisplayDescriptorUnion =
+  | DetailedTimingDescriptor
+  | DisplayProductSerialNumber
+  | AlphanumericDataString
+  | DisplayProductName
+  | DisplayRangeLimits
+  | ColorPointData
+  | StandardTimingIdentification
+  | DisplayColorManagement
+  | CVT3ByteCodes
+  | EstablishedTimingsIII
+  | DummyDesciptor;
+
 export function DecodeDesciptor(
   bytes: Uint8Array
-): DisplayDescriptorInterface | null {
+): DisplayDescriptorUnion | null {
   // console.log(bytes);
   // Check if 18 bytes is display desciprtor
   switch (bytes[3]) {
-    case DescriptorDisplayProductSerialNumber:
-      return new DisplayProductSerialNumber().Decode(bytes);
-    case DescriptorAlphanumericDataString:
-      return new AlphanumericDataString().Decode(bytes);
-    case DescriptorDisplayRangeLimits:
-      return new DisplayRangeLimits().Decode(bytes);
-    case DescriptorDisplayProductName:
-      return new DisplayProductName().Decode(bytes);
-    case DescriptorColorPointData:
-      return new ColorPointData().Decode(bytes);
-    case DescriptorStandardTimingIdentification:
-      return new StandardTimingIdentification().Decode(bytes);
-    case DescriptorDisplayColorManagement:
-      return new DisplayColorManagement().Decode(bytes);
-    case DescriptorCVT3ByteCodes:
-      return new CVT3ByteCodes().Decode(bytes);
-    case DescriptorEstablishedTimingsIII:
-      return new EstablishedTimingsIII().Decode(bytes);
-    case DescriptorDummy:
-      return new DummyDesciptor().Decode(bytes);
+    case DescriptorDisplayProductSerialNumber: {
+      const d = new DisplayProductSerialNumber();
+      d.Decode(bytes);
+      return d;
+    }
+    case DescriptorAlphanumericDataString: {
+      const d = new AlphanumericDataString();
+      d.Decode(bytes);
+      return d;
+    }
+    case DescriptorDisplayRangeLimits: {
+      const d = new DisplayRangeLimits();
+      d.Decode(bytes);
+      return d;
+    }
+    case DescriptorDisplayProductName: {
+      const d = new DisplayProductName();
+      d.Decode(bytes);
+      return d;
+    }
+    case DescriptorColorPointData: {
+      const d = new ColorPointData();
+      d.Decode(bytes);
+      return d;
+    }
+    case DescriptorStandardTimingIdentification: {
+      const d = new StandardTimingIdentification();
+      d.Decode(bytes);
+      return d;
+    }
+    case DescriptorDisplayColorManagement: {
+      const d = new DisplayColorManagement();
+      d.Decode(bytes);
+      return d;
+    }
+    case DescriptorCVT3ByteCodes: {
+      const d = new CVT3ByteCodes();
+      d.Decode(bytes);
+      return d;
+    }
+    case DescriptorEstablishedTimingsIII: {
+      const d = new EstablishedTimingsIII();
+      d.Decode(bytes);
+      return d;
+    }
+    case DescriptorDummy: {
+      const d = new DummyDesciptor();
+      d.Decode(bytes);
+      return d;
+    }
     default:
       return null;
   }
@@ -780,10 +835,10 @@ export const descriptorTypeOptions = [
 
 export function CreateDesciptor(
   type: DescriptorType
-): DisplayDescriptorInterface {
+): DisplayDescriptorUnion {
   switch (type) {
     case DescriptorType.DetailedTimingDescriptor:
-      return new DetailedTimingDescriptor() as unknown as DisplayDescriptorInterface;
+      return new DetailedTimingDescriptor();
     case DescriptorType.DisplayProductSerialNumber:
       return new DisplayProductSerialNumber();
     case DescriptorType.AlphanumericDataString:

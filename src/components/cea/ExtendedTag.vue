@@ -1,44 +1,30 @@
 <script setup lang="ts">
-import { useEdidStore } from "@/stores/edidStore";
-const edidstore = useEdidStore();
-const prop = defineProps<{
-  blockNum: any;
-}>();
-const blocks = edidstore.mEEDID.CEA.DataBlocks;
+import type { ExtendedDataBlockUnion } from "@/edidts";
 import ColorimetryDataBlock from "./extended/ColorimetryDataBlock.vue";
 import HDRStaticMetadataDataBlock from "./extended/HDRStaticMetadataDataBlock.vue";
 import VideoCapabilityDataBlock from "./extended/VideoCapabilityDataBlock.vue";
 import YCBCR420CapabilityMap from "./extended/YCBCR420CapabilityMap.vue";
-import { CEAExtendedTag } from "../../edidts/cea_extended";
+const prop = defineProps<{
+  block: ExtendedDataBlockUnion;
+}>();
 </script>
 
 <template>
   <ColorimetryDataBlock
-    v-if="
-      blocks[prop.blockNum].Header.ExtendedTag === CEAExtendedTag.ColorimetryDB
-    "
-    :blockNum="prop.blockNum"
+    v-if="block.extendedKind === 'colorimetry'"
+    :block="block"
   />
   <HDRStaticMetadataDataBlock
-    v-else-if="
-      blocks[prop.blockNum].Header.ExtendedTag ===
-      CEAExtendedTag.HDRStaticMetadataDB
-    "
-    :blockNum="prop.blockNum"
+    v-else-if="block.extendedKind === 'hdr'"
+    :block="block"
   />
   <VideoCapabilityDataBlock
-    v-else-if="
-      blocks[prop.blockNum].Header.ExtendedTag ===
-      CEAExtendedTag.VideoCapabilityDB
-    "
-    :blockNum="prop.blockNum"
+    v-else-if="block.extendedKind === 'videoCapability'"
+    :block="block"
   />
   <YCBCR420CapabilityMap
-    v-else-if="
-      blocks[prop.blockNum].Header.ExtendedTag ===
-      CEAExtendedTag.YCBCR420CapabilityMap
-    "
-    :blockNum="prop.blockNum"
+    v-else-if="block.extendedKind === 'ycbcr420'"
+    :block="block"
   />
-  <div v-else>{{ blocks[prop.blockNum] }}</div>
+  <div v-else>{{ block }}</div>
 </template>
