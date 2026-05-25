@@ -53,6 +53,7 @@ edidstore.mEEDID.ParseEEDID(byts);
           <SidebarTrigger />
           <Separator orientation="vertical" class="mr-2 h-4" />
           <div class="ml-auto flex items-center gap-2">
+            <ModeToggle />
             <Button
               variant="ghost"
               size="icon"
@@ -63,7 +64,6 @@ edidstore.mEEDID.ParseEEDID(byts);
               <PanelRight />
               <span class="sr-only">Toggle Hex View</span>
             </Button>
-            <ModeToggle />
           </div>
         </div>
       </header>

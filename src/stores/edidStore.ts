@@ -100,6 +100,7 @@ export const useEdidStore = defineStore("edids", {
       }
       if (uiStore.activeBlock === type) {
         uiStore.activeBlock = 'edid';
+        uiStore.activeSubSection = 'header';
       }
       this.rebuildMasterRaw();
     },
