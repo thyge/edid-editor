@@ -273,7 +273,7 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
     let MinHorizontalRateOffset = (bytes[4] ?? 0) & 0x04 ? true : false;
     let MaxHorizontalRateOffset = (bytes[4] ?? 0) & 0x08 ? true : false;
     // Vertical Minimum
-    if (MinVerticalRateOffset && MaxVerticalRateOffset) {
+    if (MinVerticalRateOffset) {
       this.MinimumVerticalRate = (bytes[5] ?? 0) + 256;
     } else {
       this.MinimumVerticalRate = (bytes[5] ?? 0) + 1;
@@ -285,7 +285,7 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
       this.MaximumVerticalRate = (bytes[6] ?? 0) + 1;
     }
     // Horizontal Minimum
-    if (MinHorizontalRateOffset && MaxHorizontalRateOffset) {
+    if (MinHorizontalRateOffset) {
       this.MinimumHorizontalRate = (bytes[7] ?? 0) + 256;
     } else {
       this.MinimumHorizontalRate = (bytes[7] ?? 0) + 1;
@@ -358,7 +358,7 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
       this.raw[8] = this.MaximumHorizontalRate - 1;
     }
     // Maximum Pixel Clock
-    this.raw[9] = this.MaximumPixelClockMHz / 10;
+    this.raw[9] = Math.round(this.MaximumPixelClockMHz / 10);
 
     switch (this.VideoTimingSupport) {
       case VideoTimingSupportFlags.DefaultGTF:
@@ -389,7 +389,9 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
       this.VideoTimingSupport === VideoTimingSupportFlags.CVTSupported
     ) {
       let cvtBytes = this.CVTSupportDefinition.Encode();
-      console.log(cvtBytes);
+      for (let i = 0; i < cvtBytes.length; i++) {
+        this.raw[11 + i] = cvtBytes[i] ?? 0;
+      }
     }
     return this.raw;
   }
@@ -402,18 +404,20 @@ class ColorPoint {
   WhiteGamma: number = 0;
   Decode(bytes: Uint8Array): ColorPoint {
     this.WhitePointIndex = bytes[0] ?? 0;
-    this.WhiteX = ((bytes[2] ?? 0) + ((bytes[1] ?? 0) >> 4)) & 0x3;
-    this.WhiteY = ((bytes[3] ?? 0) + ((bytes[1] ?? 0) >> 2)) & 0x3;
+    this.WhiteX = (((bytes[2] ?? 0) << 2) | (((bytes[1] ?? 0) >> 4) & 0x3)) / 1024;
+    this.WhiteY = (((bytes[3] ?? 0) << 2) | (((bytes[1] ?? 0) >> 2) & 0x3)) / 1024;
     this.WhiteGamma = (bytes[4] ?? 0) / 100 + 1;
     return this;
   }
   Encode(): Uint8Array {
     let colorBytes = new Uint8Array(5);
+    let wx = Math.round(this.WhiteX * 1024);
+    let wy = Math.round(this.WhiteY * 1024);
     colorBytes[0] = this.WhitePointIndex;
-    colorBytes[1] = (this.WhiteX & 0x3) << 4 | (this.WhiteY & 0x3) << 2;
-    colorBytes[2] = this.WhiteX & 0xf;
-    colorBytes[3] = this.WhiteY & 0xf;
-    colorBytes[4] = (this.WhiteGamma*100) - 100;
+    colorBytes[1] = ((wx & 0x3) << 4) | ((wy & 0x3) << 2);
+    colorBytes[2] = (wx >> 2) & 0xff;
+    colorBytes[3] = (wy >> 2) & 0xff;
+    colorBytes[4] = (this.WhiteGamma * 100) - 100;
     return colorBytes;
   }
 }
@@ -422,7 +426,7 @@ class ColorPointData implements DisplayDescriptorInterface {
   raw: Uint8Array;
   Type: DescriptorType;
   WhitePoints: Array<ColorPoint> = [];
-  LineFeed: Number = 0
+  LineFeed: number = 0
   constructor() {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.ColorPointData;
@@ -441,7 +445,7 @@ class ColorPointData implements DisplayDescriptorInterface {
       this.raw.set(wp.Encode(), offset)
       offset+=5
     });
-    this.raw[15] = 0xA0;
+    this.raw[15] = 0x0A;
     this.raw[16] = 0x20;
     this.raw[17] = 0x20;
     return this.raw;

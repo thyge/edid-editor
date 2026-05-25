@@ -250,8 +250,10 @@ class FeatureSupport {
   PreferredTiming: boolean = false;
   GTFSupport: boolean = false; // 1.3
   ContiniousFrequency: boolean = false; // 1.4
+  Version: EdidVersion = EdidVersion.V14;
 
-  constructor(mbyte: number, digital_analog: SignalInterface) {
+  constructor(mbyte: number, digital_analog: SignalInterface, version?: EdidVersion) {
+    this.Version = version ?? EdidVersion.V14;
     this.DPMSstandby = mbyte & 0x80 ? true : false;
     this.DPMSsuspend = mbyte & 0x40 ? true : false;
     this.DPMSactiveOff = mbyte & 0x20 ? true : false;
@@ -265,8 +267,11 @@ class FeatureSupport {
     }
     this.sRGB = mbyte & 0x4 ? true : false;
     this.PreferredTiming = mbyte & 0x2 ? true : false;
-    this.GTFSupport = mbyte & 0x1 ? true : false;
-    this.ContiniousFrequency = mbyte & 0x1 ? true : false;
+    if (this.Version === EdidVersion.V13) {
+      this.GTFSupport = mbyte & 0x1 ? true : false;
+    } else {
+      this.ContiniousFrequency = mbyte & 0x1 ? true : false;
+    }
   }
   Encode(): number {
     let mbyte = 0;
@@ -276,7 +281,11 @@ class FeatureSupport {
     mbyte |= this.ColourEncoding.Encode();
     mbyte |= this.sRGB ? 0x4 : 0;
     mbyte |= this.PreferredTiming ? 0x2 : 0;
-    mbyte |= this.ContiniousFrequency ? 0x1 : 0;
+    if (this.Version === EdidVersion.V13) {
+      mbyte |= this.GTFSupport ? 0x1 : 0;
+    } else {
+      mbyte |= this.ContiniousFrequency ? 0x1 : 0;
+    }
     return mbyte;
   }
 }
@@ -612,7 +621,8 @@ export class EDID {
     // DPMS
     this.FeatureSupport = new FeatureSupport(
       this.raw[24] ?? 0,
-      this.VideoInputDefinition.SignalInterface
+      this.VideoInputDefinition.SignalInterface,
+      this.EdidVersion
     );
 
     // Chromaticity coordinates.
