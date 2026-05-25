@@ -13,6 +13,7 @@ import DisplayID from "./components/DisplayIDView.vue";
 import NavBar from "./components/NavBar.vue";
 import { useEdidStore } from "@/stores/edidStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ModeToggle from "@/components/ModeToggle.vue";
 const edidstore = useEdidStore();
 let txtEdid =
   "00,FF,FF,FF,FF,FF,FF,00,34,A9,1C,D1,01,01,01,01,\
@@ -47,6 +48,9 @@ edidstore.mEEDID.ParseEEDID(byts);
         <div class="flex flex-1 items-center gap-2 px-3">
           <SidebarTrigger />
           <Separator orientation="vertical" class="mr-2 h-4" />
+          <div class="ml-auto flex items-center gap-2">
+            <ModeToggle />
+          </div>
         </div>
       </header>
       <div class="flex flex-1 flex-col gap-4 p-4">
