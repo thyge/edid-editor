@@ -41,8 +41,6 @@ export const useEdidStore = defineStore("edids", {
           raw: new Uint8Array(cea.raw),
           block: cea,
         });
-        // Sync legacy property for components still using it
-        this.mEEDID.CEA = cea;
       } else {
         const did = new DisplayID();
         did.raw = new Uint8Array(128);
@@ -58,8 +56,6 @@ export const useEdidStore = defineStore("edids", {
           raw: new Uint8Array(did.raw),
           block: did,
         });
-        // Sync legacy property for components still using it
-        this.mEEDID.DID = did;
       }
       this.updateEdid();
     },
@@ -68,17 +64,12 @@ export const useEdidStore = defineStore("edids", {
       const removed = this.mEEDID.blocks[index];
       if (!removed) return;
       this.mEEDID.blocks.splice(index, 1);
-      // Sync legacy properties
       if (removed.tag === 0x02) {
-        const nextCea = this.mEEDID.ceaBlocks[0];
-        this.mEEDID.CEA = nextCea?.block ?? new CEA();
         if (uiStore.activeBlock === 'cea') {
           uiStore.activeBlock = 'edid';
           uiStore.activeSubSection = 'header';
         }
       } else if (removed.tag === 0x70) {
-        const nextDid = this.mEEDID.displayIDBlocks[0];
-        this.mEEDID.DID = nextDid?.block ?? new DisplayID();
         if (uiStore.activeBlock === 'displayid') {
           uiStore.activeBlock = 'edid';
           uiStore.activeSubSection = 'header';

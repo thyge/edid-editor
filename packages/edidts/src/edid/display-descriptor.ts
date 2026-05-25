@@ -1,5 +1,5 @@
 import { DetailedTimingDescriptor } from "../common/DetailedTimingDescriptor";
-import { AspectRatio, StandardTiming } from "./edid";
+import { AspectRatio, StandardTiming } from "./standard-timing.ts";
 import { readUint16LE } from "../common/utils.ts";
 
 const DescriptorDisplayProductSerialNumber = 0xff;

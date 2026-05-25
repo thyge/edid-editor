@@ -25,8 +25,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 const createType: DescriptorType = DescriptorType.DetailedTimingDescriptor;
-import StandardTiming from "./StandardTiming.vue";
-import DisplayColorManagement from "./descriptors/ColorManagementData.vue";
+import { descriptorComponents } from "./descriptorComponents";
 </script>
 
 <template>
@@ -45,50 +44,12 @@ import DisplayColorManagement from "./descriptors/ColorManagementData.vue";
         </div>
 
         <div class="p-2">
-          <DetailedTimingDescriptor
-            v-if="block.kind === 'detailedTiming'"
+          <component
+            :is="descriptorComponents[block.kind]"
+            v-if="descriptorComponents[block.kind]"
             :block="block"
             :id="index"
           />
-          <ASCIIDescriptor
-            v-else-if="
-              block.kind === 'displayProductSerialNumber' ||
-              block.kind === 'alphanumericDataString' ||
-              block.kind === 'displayProductName'
-            "
-            :block="block"
-            :id="index"
-          />
-          <DisplayRangeLimits
-            v-else-if="block.kind === 'displayRangeLimits'"
-            :block="block"
-            :id="index"
-          />
-          <ColorPointData
-            v-else-if="block.kind === 'colorPointData'"
-            :block="block"
-            :id="index"
-          />
-          <div
-            v-else-if="block.kind === 'standardTimingIdentification'"
-          >
-            <template v-for="(timing, tIndex) in block.timings">
-              <StandardTiming :id="tIndex + 8" :timing="timing" />
-            </template>
-          </div>
-          <div
-            v-else-if="block.kind === 'displayColorManagement'"
-          >
-            <DisplayColorManagement :block="block"/>
-          </div>
-          <div
-            v-else-if="
-              block.kind === 'cvt3ByteCodes' ||
-              block.kind === 'establishedTimingsIII'
-            "
-          >
-            {{ block }}
-          </div>
           <div v-else>
             <div class="grid grid-cols-4 gap-2 m-4">
               <div class="content-center col-span-3">

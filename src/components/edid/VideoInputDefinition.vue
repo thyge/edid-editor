@@ -44,7 +44,7 @@ const digitalColour = featureSupport.value.ColourEncoding as DigitalColourEncodi
         @change="edidstore.updateEdid"
         @update:modelValue="edidstore.updateEdid()"
       >
-        <SelectTrigger :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4">
+        <SelectTrigger :disabled="edidstore.mEEDID.EDID.Revision < 4">
           <SelectValue></SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -65,7 +65,7 @@ const digitalColour = featureSupport.value.ColourEncoding as DigitalColourEncodi
         @change="edidstore.updateEdid"
         @update:modelValue="edidstore.updateEdid()"
       >
-        <SelectTrigger :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4">
+        <SelectTrigger :disabled="edidstore.mEEDID.EDID.Revision < 4">
           <SelectValue></SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -82,7 +82,7 @@ const digitalColour = featureSupport.value.ColourEncoding as DigitalColourEncodi
     <div class="content-center">RGB 4:4:4 + YCrCb 4:4:4</div>
     <div class="content-center">
       <Switch
-        :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4"
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model:checked="digitalColour.YUV444"
         @update:checked="edidstore.updateEdid()"
       />
@@ -91,7 +91,7 @@ const digitalColour = featureSupport.value.ColourEncoding as DigitalColourEncodi
     <div class="content-center">RGB 4:4:4 + YCrCb 4:2:2</div>
     <div class="content-center">
       <Switch
-        :disabled="parseInt(edidstore.mEEDID.EDID.Revision) < 4"
+        :disabled="edidstore.mEEDID.EDID.Revision < 4"
         v-model:checked="digitalColour.YUV422"
         @update:checked="edidstore.updateEdid()"
       />

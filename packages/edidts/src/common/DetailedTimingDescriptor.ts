@@ -1,4 +1,4 @@
-import { type DisplayDescriptorInterface, DescriptorType } from "../edid/descriptors";
+import { type DisplayDescriptorInterface, DescriptorType } from "../edid/display-descriptor.ts";
 import { CVTGenerator } from "./cvtgenerator";
 import { readUint16LE } from "./utils.ts";
 
