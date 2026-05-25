@@ -1,4 +1,14 @@
-export let vicLookup = [
+export interface VICEntry {
+  VIC: number;
+  Name: string;
+  Description: string;
+  PixelMHz: number;
+  HorizontalActive: number;
+  VerticalActive: number;
+  Native: "no" | "yes";
+}
+
+export const vicLookup: VICEntry[] = [
     {
 		VIC:              1,
 		Name:             "DMT0659",

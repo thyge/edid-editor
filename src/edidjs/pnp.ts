@@ -1,5 +1,11 @@
 
-const pnpLookup = [
+export interface PNPEntry {
+  ID: string;
+  Company: string;
+  Date: string;
+}
+
+const pnpLookup: PNPEntry[] = [
     {
 		ID:      "TTL",
 		Company: "2-TEL B.V",
