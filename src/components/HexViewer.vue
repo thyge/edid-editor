@@ -12,10 +12,10 @@ const props = defineProps<{
   sections?: Section[];
 }>();
 
-function isSectionStart(rowIndex: number): string | undefined {
+function isSectionEnd(rowIndex: number): string | undefined {
   if (!props.sections) return undefined;
-  const offset = rowIndex * 8;
-  const section = props.sections.find((s) => s.start === offset);
+  const nextOffset = (rowIndex + 1) * 8;
+  const section = props.sections.find((s) => s.start === nextOffset);
   return section?.name;
 }
 
@@ -33,12 +33,6 @@ function rowOffset(index: number): string {
       :key="row"
     >
       <div
-        v-if="isSectionStart(row - 1)"
-        class="border-t border-sidebar-border pt-1 mt-1 mb-0.5"
-      >
-        <span class="text-[10px] text-muted-foreground uppercase tracking-wider">{{ isSectionStart(row - 1) }}</span>
-      </div>
-      <div
         class="flex items-center gap-1.5 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-sm -mx-1 px-1 py-0.5 transition-colors"
       >
         <div class="w-8 shrink-0 text-muted-foreground text-right">
@@ -53,6 +47,12 @@ function rowOffset(index: number): string {
             {{ (row - 1) * 8 + col - 1 < props.data.length ? formatByte(props.data[(row - 1) * 8 + col - 1]) : "" }}
           </div>
         </div>
+      </div>
+      <div
+        v-if="isSectionEnd(row - 1)"
+        class="border-t border-sidebar-border pt-1 mt-1 mb-0.5"
+      >
+        <span class="text-[10px] text-muted-foreground uppercase tracking-wider">{{ isSectionEnd(row - 1) }}</span>
       </div>
     </div>
   </div>
