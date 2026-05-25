@@ -575,6 +575,19 @@ export function DecodeDesciptor(
   }
 }
 
+export const descriptorTypeOptions = [
+  { value: DescriptorType.DetailedTimingDescriptor, label: "Detailed Timing Descriptor" },
+  { value: DescriptorType.DisplayProductSerialNumber, label: "Display Product Serial Number" },
+  { value: DescriptorType.AlphanumericDataString, label: "Alphanumeric Data String" },
+  { value: DescriptorType.DisplayRangeLimits, label: "Display Range Limits" },
+  { value: DescriptorType.DisplayProductName, label: "Display Product Name" },
+  { value: DescriptorType.ColorPointData, label: "Color Point Data" },
+  { value: DescriptorType.StandardTimingIdentification, label: "Standard Timing Identification" },
+  { value: DescriptorType.DisplayColorManagement, label: "Display Color Management" },
+  { value: DescriptorType.CVT3ByteCodes, label: "CVT 3 Byte Codes" },
+  { value: DescriptorType.EstablishedTimingsIII, label: "Established Timings III" },
+] as const;
+
 export function CreateDesciptor(
   type: DescriptorType
 ): DisplayDescriptorInterface {

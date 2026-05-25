@@ -53,7 +53,7 @@ import { Input } from "@/components/ui/input";
     </div>
     <div></div>
     <div class="content-center">Product Name</div>
-    <div class="content-center">{{ edidstore.getDisplayProductName }}</div>
+    <div class="content-center">{{ edidstore.mEEDID.EDID.displayProductName }}</div>
     <div></div>
     <div class="content-center">Date of manufacture</div>
     <div class="content-center">

@@ -29,11 +29,7 @@ import CVTCalculator from "./CVTCalculator.vue";
 </script>
 
 <template>
-  <div class="content-center">
-    {{ dtd.HorizontalActive }} x {{ dtd.VerticalActive }}@{{
-      dtd.VerticalRefreshRate.toFixed(2)
-    }}p - {{ (dtd.PixelClockKHz / 1000000).toFixed(2) }} MHz
-  </div>
+  <div class="content-center">{{ dtd.toDisplayString() }}</div>
 
   <Dialog>
     <DialogTrigger> <Button>Edit Timing</Button> </DialogTrigger>

@@ -123,7 +123,7 @@ const selectedBlockType = ref<'cea' | 'displayid'>("cea");
   <Sidebar>
     <SidebarHeader class="border-b p-4">
       <div class="text-sm font-medium text-foreground">
-        {{ edidStore.getDisplayProductName || "EDID Editor" }}
+        {{ edidStore.mEEDID.EDID.displayProductName || "EDID Editor" }}
       </div>
       <div class="mt-2">
         <Label for="upload" class="text-xs text-muted-foreground">Upload EDID</Label>

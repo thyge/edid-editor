@@ -5,7 +5,6 @@ import { DisplayID } from "../edidts/did.ts";
 import {
   DescriptorType,
   CreateDesciptor,
-  DisplayProductName,
 } from "../edidts/edid_descriptors.ts";
 import { useUiStore } from "./uiStore.ts";
 export const useEdidStore = defineStore("edids", {
@@ -14,18 +13,7 @@ export const useEdidStore = defineStore("edids", {
       mEEDID: new EEDID(),
     };
   },
-  getters: {
-    getDisplayProductName(): string {
-      let dpm = this.mEEDID.EDID.DisplayDescriptors.find(
-        (e) => e.Type === DescriptorType.DisplayProductName
-      ) as DisplayProductName | undefined;
-      if (dpm) {
-        return dpm.text;
-      } else {
-        return "";
-      }
-    },
-  },
+  getters: {},
   actions: {
     rebuildMasterRaw() {
       let totalSize = 128;

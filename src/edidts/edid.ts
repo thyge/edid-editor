@@ -4,6 +4,7 @@ import {
   DecodeDesciptor,
   DescriptorType,
   DummyDesciptor,
+  DisplayProductName,
 } from "./edid_descriptors.ts";
 import { type DisplayDescriptorInterface } from "./edid_descriptors.ts";
 
@@ -525,6 +526,13 @@ export class EDID {
   DisplayDescriptors = Array<DisplayDescriptorInterface>();
   Errors: string[] = [];
   DummyIdentifiers: number = 0;
+
+  get displayProductName(): string {
+    const dpm = this.DisplayDescriptors.find(
+      (d) => d.Type === DescriptorType.DisplayProductName
+    ) as DisplayProductName | undefined;
+    return dpm?.text ?? "";
+  }
 
   Decode(bytes: Uint8Array) {
     this.raw = bytes;
