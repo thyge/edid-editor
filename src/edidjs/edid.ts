@@ -9,31 +9,38 @@ import { type DisplayDescriptorInterface } from "./edid_descriptors.ts";
 
 interface VideoSignalInterface {
   SignalInterface: SignalInterface;
+  Encode(): number;
 }
 
-export enum SignalInterface {
-  NotDefined = "NotDefined",
-  Digital = "Digital",
-  Analog = "Analog",
-}
+export const SignalInterface = {
+  NotDefined: "NotDefined",
+  Digital: "Digital",
+  Analog: "Analog",
+} as const;
 
-enum VideoInterface {
-  Undefined = "undefined",
-  DVI = "DVI",
-  HDMIa = "HDMIa",
-  HDMIb = "HDMIb",
-  MDDI = "MDDI",
-  DisplayPort = "DisplayPort",
-}
+export type SignalInterface = typeof SignalInterface[keyof typeof SignalInterface];
 
-enum BitDepth {
-  Undefined = "undefined",
-  Six = "6",
-  Eight = "8",
-  Ten = "10",
-  Twelve = "12",
-  Sixteen = "16",
-}
+const VideoInterface = {
+  Undefined: "undefined",
+  DVI: "DVI",
+  HDMIa: "HDMIa",
+  HDMIb: "HDMIb",
+  MDDI: "MDDI",
+  DisplayPort: "DisplayPort",
+} as const;
+
+type VideoInterface = typeof VideoInterface[keyof typeof VideoInterface];
+
+const BitDepth = {
+  Undefined: "undefined",
+  Six: "6",
+  Eight: "8",
+  Ten: "10",
+  Twelve: "12",
+  Sixteen: "16",
+} as const;
+
+type BitDepth = typeof BitDepth[keyof typeof BitDepth];
 
 class DigitalVideoInput implements VideoSignalInterface {
   SignalInterface: SignalInterface;
@@ -130,18 +137,22 @@ class DigitalVideoInput implements VideoSignalInterface {
   }
 }
 
-enum SignalLevelStandard {
-  NotDefined = -1,
-  V700_300_1000 = 0,
-  V714_286_1000 = 0x20,
-  V1000_400_1400 = 0x40,
-  V700_000_700 = 0x60,
-}
+const SignalLevelStandard = {
+  NotDefined: -1,
+  V700_300_1000: 0,
+  V714_286_1000: 0x20,
+  V1000_400_1400: 0x40,
+  V700_000_700: 0x60,
+} as const;
 
-enum VideoSetup {
-  BlankLevel = "Blank Level = Black Level",
-  BlankToBlack = "Blank-to-Black setup or pedestal",
-}
+type SignalLevelStandard = typeof SignalLevelStandard[keyof typeof SignalLevelStandard];
+
+const VideoSetup = {
+  BlankLevel: "Blank Level = Black Level",
+  BlankToBlack: "Blank-to-Black setup or pedestal",
+} as const;
+
+type VideoSetup = typeof VideoSetup[keyof typeof VideoSetup];
 
 class AnalogVideoInput implements VideoSignalInterface {
   SignalInterface: SignalInterface;
@@ -154,13 +165,24 @@ class AnalogVideoInput implements VideoSignalInterface {
 
   constructor(mbyte: number) {
     this.SignalInterface = SignalInterface.Analog;
-    this.SignalLevelStandard = mbyte & 0x60;
+    this.SignalLevelStandard = (mbyte & 0x60) as SignalLevelStandard;
     this.VideoSetup =
       mbyte & 0x10 ? VideoSetup.BlankToBlack : VideoSetup.BlankLevel;
     this.SeparateSyncHVSignals = mbyte & 0x8 ? false : true;
     this.CompositeSyncSignalonHorizontal = mbyte & 0x4 ? false : true;
     this.CompositeSyncSignalonGreenVideo = mbyte & 0x2 ? false : true;
     this.SerrationsOnVSync = mbyte & 0x1 ? true : false;
+  }
+
+  Encode(): number {
+    let mbyte = 0;
+    mbyte |= this.SignalLevelStandard;
+    mbyte |= this.VideoSetup === VideoSetup.BlankToBlack ? 0x10 : 0;
+    mbyte |= this.SeparateSyncHVSignals ? 0 : 0x8;
+    mbyte |= this.CompositeSyncSignalonHorizontal ? 0 : 0x4;
+    mbyte |= this.CompositeSyncSignalonGreenVideo ? 0 : 0x2;
+    mbyte |= this.SerrationsOnVSync ? 0x1 : 0;
+    return mbyte;
   }
 }
 
@@ -184,19 +206,25 @@ class DigitalColourEncoding implements VideoSignalInterface {
   }
 }
 
-enum AnalogDisplayColorType {
-  Monochrome = 0,
-  RGB = 1,
-  NonRGB = 2,
-  Undefined = 3,
-}
+const AnalogDisplayColorType = {
+  Monochrome: 0,
+  RGB: 1,
+  NonRGB: 2,
+  Undefined: 3,
+} as const;
+
+type AnalogDisplayColorType = typeof AnalogDisplayColorType[keyof typeof AnalogDisplayColorType];
 
 class AnalogueColourEncoding implements VideoSignalInterface {
   SignalInterface: SignalInterface;
   AnalogColour: AnalogDisplayColorType;
   constructor(mbyte: number) {
     this.SignalInterface = SignalInterface.Analog;
-    this.AnalogColour = mbyte & 0x3;
+    this.AnalogColour = (mbyte & 0x3) as AnalogDisplayColorType;
+  }
+
+  Encode(): number {
+    return this.AnalogColour;
   }
 }
 
@@ -206,6 +234,7 @@ class FeatureSupport {
   DPMSactiveOff: boolean = false;
   ColourEncoding: VideoSignalInterface = {
     SignalInterface: SignalInterface.NotDefined,
+    Encode: () => 0,
   };
   sRGB: boolean = false;
   PreferredTiming: boolean = false;
@@ -254,14 +283,14 @@ class Chromaticity {
   WhiteY: number;
   constructor(bytes: Uint8Array) {
     this.raw = bytes;
-    this.RedX = ((bytes[2] << 2) | ((bytes[0] >> 6) & 0x3)) / 1024;
-    this.RedY = ((bytes[3] << 2) | ((bytes[0] >> 4) & 0x3)) / 1024;
-    this.GreenX = ((bytes[4] << 2) | ((bytes[0] >> 2) & 0x3)) / 1024;
-    this.GreenY = ((bytes[5] << 2) | (bytes[0] & 0x3)) / 1024;
-    this.BlueX = ((bytes[6] << 2) | ((bytes[1] >> 6) & 0x3)) / 1024;
-    this.BlueY = ((bytes[7] << 2) | ((bytes[1] >> 4) & 0x3)) / 1024;
-    this.WhiteX = ((bytes[8] << 2) | ((bytes[1] >> 2) & 0x3)) / 1024;
-    this.WhiteY = ((bytes[9] << 2) | (bytes[1] & 0x3)) / 1024;
+    this.RedX = (((bytes[2] ?? 0) << 2) | (((bytes[0] ?? 0) >> 6) & 0x3)) / 1024;
+    this.RedY = (((bytes[3] ?? 0) << 2) | (((bytes[0] ?? 0) >> 4) & 0x3)) / 1024;
+    this.GreenX = (((bytes[4] ?? 0) << 2) | (((bytes[0] ?? 0) >> 2) & 0x3)) / 1024;
+    this.GreenY = (((bytes[5] ?? 0) << 2) | ((bytes[0] ?? 0) & 0x3)) / 1024;
+    this.BlueX = (((bytes[6] ?? 0) << 2) | (((bytes[1] ?? 0) >> 6) & 0x3)) / 1024;
+    this.BlueY = (((bytes[7] ?? 0) << 2) | (((bytes[1] ?? 0) >> 4) & 0x3)) / 1024;
+    this.WhiteX = (((bytes[8] ?? 0) << 2) | (((bytes[1] ?? 0) >> 2) & 0x3)) / 1024;
+    this.WhiteY = (((bytes[9] ?? 0) << 2) | ((bytes[1] ?? 0) & 0x3)) / 1024;
   }
   Encode(): Uint8Array {
     const bytes = new Uint8Array(10);
@@ -307,25 +336,25 @@ class EstablishedTimings {
   ET1152_870_75: boolean;
 
   constructor(etBytes: Uint8Array) {
-    this.ET720_400_70 = etBytes[0] & 0x80 ? true : false;
-    this.ET720_400_88 = etBytes[0] & 0x40 ? true : false;
-    this.ET640_480_60 = etBytes[0] & 0x20 ? true : false;
-    this.ET640_480_67 = etBytes[0] & 0x10 ? true : false;
-    this.ET640_480_72 = etBytes[0] & 0x08 ? true : false;
-    this.ET640_480_75 = etBytes[0] & 0x04 ? true : false;
-    this.ET800_600_56 = etBytes[0] & 0x02 ? true : false;
-    this.ET800_600_60 = etBytes[0] & 0x01 ? true : false;
+    this.ET720_400_70 = (etBytes[0] ?? 0) & 0x80 ? true : false;
+    this.ET720_400_88 = (etBytes[0] ?? 0) & 0x40 ? true : false;
+    this.ET640_480_60 = (etBytes[0] ?? 0) & 0x20 ? true : false;
+    this.ET640_480_67 = (etBytes[0] ?? 0) & 0x10 ? true : false;
+    this.ET640_480_72 = (etBytes[0] ?? 0) & 0x08 ? true : false;
+    this.ET640_480_75 = (etBytes[0] ?? 0) & 0x04 ? true : false;
+    this.ET800_600_56 = (etBytes[0] ?? 0) & 0x02 ? true : false;
+    this.ET800_600_60 = (etBytes[0] ?? 0) & 0x01 ? true : false;
 
-    this.ET800_600_72 = etBytes[1] & 0x80 ? true : false;
-    this.ET800_600_75 = etBytes[1] & 0x40 ? true : false;
-    this.ET832_624_75 = etBytes[1] & 0x20 ? true : false;
-    this.ET1024_768_87 = etBytes[1] & 0x10 ? true : false;
-    this.ET1024_768_60 = etBytes[1] & 0x08 ? true : false;
-    this.ET1024_768_70 = etBytes[1] & 0x04 ? true : false;
-    this.ET1024_768_75 = etBytes[1] & 0x02 ? true : false;
-    this.ET1280_1024_75 = etBytes[1] & 0x01 ? true : false;
+    this.ET800_600_72 = (etBytes[1] ?? 0) & 0x80 ? true : false;
+    this.ET800_600_75 = (etBytes[1] ?? 0) & 0x40 ? true : false;
+    this.ET832_624_75 = (etBytes[1] ?? 0) & 0x20 ? true : false;
+    this.ET1024_768_87 = (etBytes[1] ?? 0) & 0x10 ? true : false;
+    this.ET1024_768_60 = (etBytes[1] ?? 0) & 0x08 ? true : false;
+    this.ET1024_768_70 = (etBytes[1] ?? 0) & 0x04 ? true : false;
+    this.ET1024_768_75 = (etBytes[1] ?? 0) & 0x02 ? true : false;
+    this.ET1280_1024_75 = (etBytes[1] ?? 0) & 0x01 ? true : false;
 
-    this.ET1152_870_75 = etBytes[2] & 0x80 ? true : false;
+    this.ET1152_870_75 = (etBytes[2] ?? 0) & 0x80 ? true : false;
   }
   Encode(): Uint8Array {
     let etBytes = new Uint8Array(3);
@@ -363,11 +392,11 @@ export class ManufacturerID {
   }
 
   Decode(bytes: Uint8Array): ManufacturerID {
-    this.ID = String.fromCharCode(((bytes[0] & 0x7c) >> 2) + 0x40);
+    this.ID = String.fromCharCode((((bytes[0] ?? 0) & 0x7c) >> 2) + 0x40);
     this.ID += String.fromCharCode(
-      ((bytes[0] & 0x03) << 3) + ((bytes[1] & 0xe0) >> 5) + 0x40
+      (((bytes[0] ?? 0) & 0x03) << 3) + (((bytes[1] ?? 0) & 0xe0) >> 5) + 0x40
     );
-    this.ID += String.fromCharCode((bytes[1] & 0x1f) + 0x40);
+    this.ID += String.fromCharCode(((bytes[1] ?? 0) & 0x1f) + 0x40);
     return this;
   }
 
@@ -380,10 +409,12 @@ export class ManufacturerID {
     bytes.push(this.ID.charCodeAt(1));
     bytes.push(this.ID.charCodeAt(2));
     // Compressed ascii = -0x40
-    raw[0] |= (bytes[0] - 0x40) << 2;
-    raw[0] |= (bytes[1] - 0x40) >> 3;
-    raw[1] |= (bytes[1] - 0x40) << 5;
-    raw[1] |= bytes[2] - 0x40;
+    raw[0] = raw[0] || 0;
+    raw[1] = raw[1] || 0;
+    raw[0] |= ((bytes[0] ?? 0) - 0x40) << 2;
+    raw[0] |= ((bytes[1] ?? 0) - 0x40) >> 3;
+    raw[1] |= ((bytes[1] ?? 0) - 0x40) << 5;
+    raw[1] |= (bytes[2] ?? 0) - 0x40;
     return raw;
   }
 
@@ -397,21 +428,23 @@ export class ManufacturerID {
   }
 }
 
-export enum AspectRatio {
-  OneOne = "1:1",
-  FourThree = "4:3",
-  FiveFour = "5:4",
-  FifteenNine = "15:9", // CVT Support Definition
-  SixteenNine = "16:9",
-  SixteenTen = "16:10",
-}
+export const AspectRatio = {
+  OneOne: "1:1",
+  FourThree: "4:3",
+  FiveFour: "5:4",
+  FifteenNine: "15:9", // CVT Support Definition
+  SixteenNine: "16:9",
+  SixteenTen: "16:10",
+} as const;
+
+export type AspectRatio = typeof AspectRatio[keyof typeof AspectRatio];
 
 export class StandardTiming {
-  id: number;
-  Enabled: boolean;
-  HorizontalActive: number;
-  AspectRatio: AspectRatio;
-  RefreshRate: number;
+  id: number = 0;
+  Enabled: boolean = false;
+  HorizontalActive: number = 0;
+  AspectRatio: AspectRatio = AspectRatio.FourThree;
+  RefreshRate: number = 60;
 
   Decode(bytes: Uint8Array): StandardTiming {
     this.Enabled = false;
@@ -420,7 +453,7 @@ export class StandardTiming {
     } else {
       this.Enabled = true;
     }
-    switch (bytes[1] >> 6) {
+    switch ((bytes[1] ?? 0) >> 6) {
       case 0:
         this.AspectRatio = AspectRatio.SixteenTen;
         break;
@@ -436,8 +469,8 @@ export class StandardTiming {
       default:
         break;
     }
-    this.HorizontalActive = (bytes[0] + 31) * 8;
-    this.RefreshRate = (bytes[1] & 0x3f) + 60;
+    this.HorizontalActive = ((bytes[0] ?? 0) + 31) * 8;
+    this.RefreshRate = ((bytes[1] ?? 0) & 0x3f) + 60;
     return this;
   }
   Encode(): Uint8Array {
@@ -480,17 +513,17 @@ export class EDID {
   WeekOfManufacture: number = 0;
   YearOfManufacture: number = 0;
   // Basic Display Parameters and Features
-  VideoInputDefinition: VideoSignalInterface;
+  VideoInputDefinition: VideoSignalInterface = new DigitalVideoInput(0);
   HorizontalSizeCM: number = 0;
   VerticalSizeCM: number = 0;
   Gamma: number = 0;
-  FeatureSupport: FeatureSupport;
+  FeatureSupport: FeatureSupport = new FeatureSupport(0, SignalInterface.Digital);
   //
-  Chromaticity: Chromaticity;
-  EstablishedTimings: EstablishedTimings;
+  Chromaticity: Chromaticity = new Chromaticity(new Uint8Array(10));
+  EstablishedTimings: EstablishedTimings = new EstablishedTimings(new Uint8Array(3));
   StandardTimings: Array<StandardTiming> = [];
   DisplayDescriptors = Array<DisplayDescriptorInterface>();
-  Errors = [];
+  Errors: string[] = [];
   DummyIdentifiers: number = 0;
 
   Decode(bytes: Uint8Array) {
@@ -499,42 +532,42 @@ export class EDID {
     this.ManufacturerID.Decode(this.raw.slice(8, 10));
 
     // Manufacturer product code.
-    this.ManufacturerPC = (this.raw[11] << 8) | this.raw[10];
+    this.ManufacturerPC = ((this.raw[11] ?? 0) << 8) | (this.raw[10] ?? 0);
 
     // Serial number
-    this.SerialNumber = this.raw[12];
-    this.SerialNumber |= this.raw[13] << 8;
-    this.SerialNumber |= this.raw[14] << 16;
-    this.SerialNumber |= this.raw[15] << 24;
+    this.SerialNumber = this.raw[12] ?? 0;
+    this.SerialNumber |= (this.raw[13] ?? 0) << 8;
+    this.SerialNumber |= (this.raw[14] ?? 0) << 16;
+    this.SerialNumber |= (this.raw[15] ?? 0) << 24;
 
     // Week of manufacture
-    this.WeekOfManufacture = this.raw[16];
+    this.WeekOfManufacture = this.raw[16] ?? 0;
     // Year of manufacture
-    this.YearOfManufacture = this.raw[17] + 1990;
+    this.YearOfManufacture = (this.raw[17] ?? 0) + 1990;
     // Version
-    this.Version = this.raw[18];
+    this.Version = this.raw[18] ?? 0;
     // Revision
-    this.Revision = this.raw[19].toString(); // needs to be toString because of v-model issues
+    this.Revision = (this.raw[19] ?? 0).toString(); // needs to be toString because of v-model issues
 
     // Basic display parameters
-    if (this.raw[20] & 0x80) {
-      this.VideoInputDefinition = new DigitalVideoInput(this.raw[20]);
+    if ((this.raw[20] ?? 0) & 0x80) {
+      this.VideoInputDefinition = new DigitalVideoInput(this.raw[20] ?? 0);
     } else {
-      this.VideoInputDefinition = new AnalogVideoInput(this.raw[20]);
+      this.VideoInputDefinition = new AnalogVideoInput(this.raw[20] ?? 0);
     }
     // Horizontal screen size
     // Vertical screen size
     // EDID 1.4 H & V Screen Size and Aspect Ratio
-    this.HorizontalSizeCM = this.raw[21];
-    this.VerticalSizeCM = this.raw[22];
+    this.HorizontalSizeCM = this.raw[21] ?? 0;
+    this.VerticalSizeCM = this.raw[22] ?? 0;
     // Display gamma
-    if (this.raw[22] === 0xff) {
+    if ((this.raw[22] ?? 0) === 0xff) {
       console.log("gamma is defined by DI-EXT block.");
     }
-    this.Gamma = this.raw[23] / 100 + 1;
+    this.Gamma = (this.raw[23] ?? 0) / 100 + 1;
     // DPMS
     this.FeatureSupport = new FeatureSupport(
-      this.raw[24],
+      this.raw[24] ?? 0,
       this.VideoInputDefinition.SignalInterface
     );
 
@@ -563,14 +596,18 @@ export class EDID {
         descriptorBytes[2] === 0
       ) {
         let mDesc = DecodeDesciptor(descriptorBytes);
-        if (mDesc.Type === DescriptorType.Dummy) {
+        if (mDesc && mDesc.Type === DescriptorType.Dummy) {
           break;
         }
-        this.DisplayDescriptors.push(mDesc);
+        if (mDesc) {
+          this.DisplayDescriptors.push(mDesc);
+        }
       } else {
         let dtd = new DetailedTimingDescriptor();
-        dtd.Decode(descriptorBytes);
-        this.DisplayDescriptors.push(dtd);
+        let decodedDtd = dtd.Decode(descriptorBytes);
+        if (decodedDtd) {
+          this.DisplayDescriptors.push(decodedDtd as DisplayDescriptorInterface);
+        }
       }
     }
     if (this.DisplayDescriptors.length < 4) {
@@ -586,8 +623,8 @@ export class EDID {
     // Header
     // Manufacturer ID
     let mid_bytes = this.ManufacturerID.Encode();
-    this.raw[8] = mid_bytes[0];
-    this.raw[9] = mid_bytes[1];
+    this.raw[8] = mid_bytes[0] ?? 0;
+    this.raw[9] = mid_bytes[1] ?? 0;
     // ID Product Code
     this.raw[10] = this.ManufacturerPC & 0xff;
     this.raw[11] = (this.ManufacturerPC >> 8) & 0xff;
@@ -638,18 +675,18 @@ export class EDID {
     // Chromaticity
     let chromaticity = this.Chromaticity.Encode();
     for (let i = 0; i < 9; i++) {
-      this.raw[25 + i] = chromaticity[i];
+      this.raw[25 + i] = chromaticity[i] ?? 0;
     }
     // Established Timings
     let etBytes = this.EstablishedTimings.Encode();
-    this.raw[35] = etBytes[0];
-    this.raw[36] = etBytes[1];
-    this.raw[37] = etBytes[2];
+    this.raw[35] = etBytes[0] ?? 0;
+    this.raw[36] = etBytes[1] ?? 0;
+    this.raw[37] = etBytes[2] ?? 0;
     // Standard Timings
     for (let i = 0; i < 8; i++) {
-      let stdTiming = this.StandardTimings[i].Encode();
-      this.raw[38 + i * 2] = stdTiming[0];
-      this.raw[39 + i * 2] = stdTiming[1];
+      let stdTiming = this.StandardTimings[i]?.Encode();
+      this.raw[38 + i * 2] = stdTiming?.[0] ?? 0;
+      this.raw[39 + i * 2] = stdTiming?.[1] ?? 0;
     }
 
     // Display Descriptors
@@ -661,7 +698,7 @@ export class EDID {
       }
       let bytes = dd.Encode();
       for (let j = 0; j < 18; j++) {
-        this.raw[54 + i * 18 + j] = bytes[j];
+        this.raw[54 + i * 18 + j] = bytes[j] ?? 0;
       }
     }
     // Checksum
@@ -672,7 +709,7 @@ export class EDID {
   CalcChecksum() {
     let checksum = 0;
     for (let i = 0; i < 127; i++) {
-      checksum += this.raw[i];
+      checksum += this.raw[i] ?? 0;
     }
     this.raw[127] = 256 - (checksum % 256);
   }

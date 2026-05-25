@@ -12,20 +12,22 @@ const DescriptorCVT3ByteCodes = 0xf8;
 const DescriptorEstablishedTimingsIII = 0xf7;
 const DescriptorDummy = 0x10;
 
-export enum DescriptorType {
-  DetailedTimingDescriptor = "Detailed Timing Descriptor",
-  not_set = "not_set",
-  DisplayProductSerialNumber = "Display Product Serial Number",
-  AlphanumericDataString = "Alphanumeric Data String",
-  DisplayRangeLimits = "Display Range Limits",
-  DisplayProductName = "Display ProductName",
-  ColorPointData = "Color Point Data",
-  StandardTimingIdentification = "Standard Timing Identification",
-  DisplayColorManagement = "Display Color Management",
-  CVT3ByteCodes = "CVT 3 Byte Codes",
-  EstablishedTimingsIII = "Established Timings III",
-  Dummy = "Dummy",
-}
+export const DescriptorType = {
+  DetailedTimingDescriptor: "Detailed Timing Descriptor",
+  not_set: "not_set",
+  DisplayProductSerialNumber: "Display Product Serial Number",
+  AlphanumericDataString: "Alphanumeric Data String",
+  DisplayRangeLimits: "Display Range Limits",
+  DisplayProductName: "Display ProductName",
+  ColorPointData: "Color Point Data",
+  StandardTimingIdentification: "Standard Timing Identification",
+  DisplayColorManagement: "Display Color Management",
+  CVT3ByteCodes: "CVT 3 Byte Codes",
+  EstablishedTimingsIII: "Established Timings III",
+  Dummy: "Dummy",
+} as const;
+
+export type DescriptorType = typeof DescriptorType[keyof typeof DescriptorType];
 
 export function DescriptorTypeToValue(type: DescriptorType): number {
   switch (type) {
@@ -72,9 +74,9 @@ class ASCIIDescriptor implements DisplayDescriptorInterface {
   Decode(bytes: Uint8Array): DisplayDescriptorInterface {
     // If byte 0, 1 and 2 are 0 then this is DTD
     for (let d = 5; d < 19; d++) {
-      this.text += String.fromCharCode(bytes[d]);
+      this.text += String.fromCharCode(bytes[d] ?? 0);
     }
-    this.text = this.text.split("\n")[0];
+    this.text = this.text.split("\n")[0] ?? "";
     this.text = this.text.trim();
     return this;
   }
@@ -116,13 +118,15 @@ export class DisplayProductName extends ASCIIDescriptor {
   }
 }
 
-enum VideoTimingSupportFlags {
-  not_set = "",
-  DefaultGTF = "DefaultGTF",
-  RangeLimitsOnly = "RangeLimitsOnly",
-  SecondaryGTF = "SecondaryGTF",
-  CVTSupported = "CVTSupported",
-}
+const VideoTimingSupportFlags = {
+  not_set: "",
+  DefaultGTF: "DefaultGTF",
+  RangeLimitsOnly: "RangeLimitsOnly",
+  SecondaryGTF: "SecondaryGTF",
+  CVTSupported: "CVTSupported",
+} as const;
+
+type VideoTimingSupportFlags = typeof VideoTimingSupportFlags[keyof typeof VideoTimingSupportFlags];
 
 class CVTSupportDefinition {
   CVTStandardVersionNumber: number = 0;
@@ -139,28 +143,28 @@ class CVTSupportDefinition {
   PreferredVerticalRefreshRate: number = 0;
 
   Decode(bytes: Uint8Array): CVTSupportDefinition {
-    let pixClockPrecision = (bytes[12] & 0x03) * 0.25;
-    this.PrecisionPixelClock = bytes[9] * 10 - pixClockPrecision;
+    let pixClockPrecision = ((bytes[12] ?? 0) & 0x03) * 0.25;
+    this.PrecisionPixelClock = (bytes[9] ?? 0) * 10 - pixClockPrecision;
     // 8 × [Byte 13 + (256 × (Byte 12: bits 1, 0))]
-    let msb = (bytes[12] & 0x03) << 8;
-    this.MaximumActivePixels = bytes[13] + msb;
+    let msb = ((bytes[12] ?? 0) & 0x03) << 8;
+    this.MaximumActivePixels = (bytes[13] ?? 0) + msb;
     // Aspect Ratios
-    if (bytes[14] & 0x80) {
+    if ((bytes[14] ?? 0) & 0x80) {
       this.SupportedAspectRatios.push(AspectRatio.FourThree);
     }
-    if (bytes[14] & 0x40) {
+    if ((bytes[14] ?? 0) & 0x40) {
       this.SupportedAspectRatios.push(AspectRatio.SixteenNine);
     }
-    if (bytes[14] & 0x20) {
+    if ((bytes[14] ?? 0) & 0x20) {
       this.SupportedAspectRatios.push(AspectRatio.SixteenTen);
     }
-    if (bytes[14] & 0x10) {
+    if ((bytes[14] ?? 0) & 0x10) {
       this.SupportedAspectRatios.push(AspectRatio.FiveFour);
     }
-    if (bytes[14] & 0x08) {
+    if ((bytes[14] ?? 0) & 0x08) {
       this.SupportedAspectRatios.push(AspectRatio.FifteenNine);
     }
-    switch (bytes[15] & 0xe0) {
+    switch ((bytes[15] ?? 0) & 0xe0) {
       case 0x00:
         this.PreferredAspectRatio = AspectRatio.FourThree;
         break;
@@ -177,13 +181,13 @@ class CVTSupportDefinition {
         this.PreferredAspectRatio = AspectRatio.FifteenNine;
         break;
     }
-    this.CVTReducedBlanking = bytes[15] & 0x10 ? true : false;
-    this.CVTStandardBlanking = bytes[15] & 0x08 ? true : false;
-    this.HorizontalShrink = bytes[16] & 0x80 ? true : false;
-    this.HirozontalStretch = bytes[16] & 0x40 ? true : false;
-    this.VerticalShrink = bytes[16] & 0x20 ? true : false;
-    this.VerticalStretch = bytes[16] & 0x10 ? true : false;
-    this.PreferredVerticalRefreshRate = bytes[17];
+    this.CVTReducedBlanking = (bytes[15] ?? 0) & 0x10 ? true : false;
+    this.CVTStandardBlanking = (bytes[15] ?? 0) & 0x08 ? true : false;
+    this.HorizontalShrink = (bytes[16] ?? 0) & 0x80 ? true : false;
+    this.HirozontalStretch = (bytes[16] ?? 0) & 0x40 ? true : false;
+    this.VerticalShrink = (bytes[16] ?? 0) & 0x20 ? true : false;
+    this.VerticalStretch = (bytes[16] ?? 0) & 0x10 ? true : false;
+    this.PreferredVerticalRefreshRate = bytes[17] ?? 0;
     return this;
   }
   Encode(): Uint8Array {
@@ -207,39 +211,39 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
     this.Type = DescriptorType.DisplayRangeLimits;
   }
   Decode(bytes: Uint8Array): DisplayDescriptorInterface {
-    let MinVerticalRateOffset = bytes[4] & 0x01 ? true : false;
-    let MaxVerticalRateOffset = bytes[4] & 0x02 ? true : false;
-    let MinHorizontalRateOffset = bytes[4] & 0x04 ? true : false;
-    let MaxHorizontalRateOffset = bytes[4] & 0x08 ? true : false;
+    let MinVerticalRateOffset = (bytes[4] ?? 0) & 0x01 ? true : false;
+    let MaxVerticalRateOffset = (bytes[4] ?? 0) & 0x02 ? true : false;
+    let MinHorizontalRateOffset = (bytes[4] ?? 0) & 0x04 ? true : false;
+    let MaxHorizontalRateOffset = (bytes[4] ?? 0) & 0x08 ? true : false;
     // Vertical Minimum
     if (MinVerticalRateOffset && MaxVerticalRateOffset) {
-      this.MinimumVerticalRate = bytes[5] + 256;
+      this.MinimumVerticalRate = (bytes[5] ?? 0) + 256;
     } else {
-      this.MinimumVerticalRate = bytes[5] + 1;
+      this.MinimumVerticalRate = (bytes[5] ?? 0) + 1;
     }
     // Vertical Maximum
     if (MaxVerticalRateOffset) {
-      this.MaximumVerticalRate = bytes[6] + 256;
+      this.MaximumVerticalRate = (bytes[6] ?? 0) + 256;
     } else {
-      this.MaximumVerticalRate = bytes[6] + 1;
+      this.MaximumVerticalRate = (bytes[6] ?? 0) + 1;
     }
     // Horizontal Minimum
     if (MinHorizontalRateOffset && MaxHorizontalRateOffset) {
-      this.MinimumHorizontalRate = bytes[7] + 256;
+      this.MinimumHorizontalRate = (bytes[7] ?? 0) + 256;
     } else {
-      this.MinimumHorizontalRate = bytes[7] + 1;
+      this.MinimumHorizontalRate = (bytes[7] ?? 0) + 1;
     }
     // Horizontal Maximum
     if (MaxHorizontalRateOffset) {
-      this.MaximumHorizontalRate = bytes[8] + 256;
+      this.MaximumHorizontalRate = (bytes[8] ?? 0) + 256;
     } else {
-      this.MaximumHorizontalRate = bytes[8] + 1;
+      this.MaximumHorizontalRate = (bytes[8] ?? 0) + 1;
     }
     // Maximum Pixel Clock
-    this.MaximumPixelClockMHz = bytes[9] * 10;
+    this.MaximumPixelClockMHz = (bytes[9] ?? 0) * 10;
 
     // Video Timing Support Flags: Bytes 10 → 17 indicate support for additional video timings.
-    switch (bytes[10] & 0x7) {
+    switch ((bytes[10] ?? 0) & 0x7) {
       case 0x00:
         this.VideoTimingSupport = VideoTimingSupportFlags.DefaultGTF;
         break;
@@ -277,21 +281,21 @@ class DisplayRangeLimits implements DisplayDescriptorInterface {
     }
     // Vertical Maximum
     if (this.MaximumVerticalRate > 255) {
-      this.raw[4] = this.raw[4] | 0x02;
+      this.raw[4] = (this.raw[4] ?? 0) | 0x02;
       this.raw[6] = this.MaximumVerticalRate - 256;
     } else {
       this.raw[6] = this.MaximumVerticalRate - 1;
     }
     // Horizontal Minimum
     if (this.MinimumHorizontalRate > 255) {
-      this.raw[4] = this.raw[4] | 0x04;
+      this.raw[4] = (this.raw[4] ?? 0) | 0x04;
       this.raw[7] = this.MinimumHorizontalRate - 256;
     } else {
       this.raw[7] = this.MinimumHorizontalRate - 1;
     }
     // Horizontal Maximum
     if (this.MaximumHorizontalRate > 255) {
-      this.raw[4] = this.raw[4] | 0x08;
+      this.raw[4] = (this.raw[4] ?? 0) | 0x08;
       this.raw[8] = this.MaximumHorizontalRate - 256;
     } else {
       this.raw[8] = this.MaximumHorizontalRate - 1;
@@ -340,10 +344,10 @@ class ColorPoint {
   WhiteY: number = 0;
   WhiteGamma: number = 0;
   Decode(bytes: Uint8Array): ColorPoint {
-    this.WhitePointIndex = bytes[0];
-    this.WhiteX = (bytes[2] + (bytes[1] >> 4)) & 0x3;
-    this.WhiteY = (bytes[3] + (bytes[1] >> 2)) & 0x3;
-    this.WhiteGamma = bytes[4] / 100 + 1
+    this.WhitePointIndex = bytes[0] ?? 0;
+    this.WhiteX = ((bytes[2] ?? 0) + ((bytes[1] ?? 0) >> 4)) & 0x3;
+    this.WhiteY = ((bytes[3] ?? 0) + ((bytes[1] ?? 0) >> 2)) & 0x3;
+    this.WhiteGamma = (bytes[4] ?? 0) / 100 + 1;
     return this;
   }
   Encode(): Uint8Array {
@@ -411,7 +415,10 @@ export class StandardTimingIdentification
   Encode(): Uint8Array {
     this.raw[3] = DescriptorTypeToValue(this.Type);
     for (let index = 0; index < this.timings.length; index++) {
-      this.raw.set(this.timings[index].Encode(), index * 2 + 5);
+      const timing = this.timings[index];
+      if (timing) {
+        this.raw.set(timing.Encode(), index * 2 + 5);
+      }
     }
     return this.raw;
   }
@@ -433,31 +440,31 @@ export class DisplayColorManagement implements DisplayDescriptorInterface {
   }
   Decode(bytes: Uint8Array): DisplayColorManagement {
     this.raw = bytes;
-    this.Version = bytes[5];
+    this.Version = bytes[5] ?? 0;
     // Red a3 Least Significant Byte (LSB)
-    this.Red_a3 = bytes[6];
+    this.Red_a3 = bytes[6] ?? 0;
     // Red a3 Most Significant Byte (MSB)
-    this.Red_a3 = this.Red_a3 + (bytes[7] << 8);
+    this.Red_a3 = this.Red_a3 + ((bytes[7] ?? 0) << 8);
     // Red a2 Least Significant Byte (LSB)
-    this.Red_a2 = bytes[8];
+    this.Red_a2 = bytes[8] ?? 0;
     // Red a2 Most Significant Byte (MSB)
-    this.Red_a2 = this.Red_a2 + (bytes[9] << 8);
+    this.Red_a2 = this.Red_a2 + ((bytes[9] ?? 0) << 8);
     // Green a3 Least Significant Byte (LSB)
-    this.Green_a3 = bytes[10];
+    this.Green_a3 = bytes[10] ?? 0;
     // Green a3 Most Significant Byte (MSB)
-    this.Green_a3 = this.Green_a3 + (bytes[11] << 8);
+    this.Green_a3 = this.Green_a3 + ((bytes[11] ?? 0) << 8);
     // Green a2 Least Significant Byte (LSB)
-    this.Green_a2 = bytes[12];
+    this.Green_a2 = bytes[12] ?? 0;
     // Green a2 Most Significant Byte (MSB)
-    this.Green_a2 = this.Green_a2 + (bytes[13] << 8);
+    this.Green_a2 = this.Green_a2 + ((bytes[13] ?? 0) << 8);
     // Blue a3 Least Significant Byte (LSB)
-    this.Blue_a3 = bytes[14];
+    this.Blue_a3 = bytes[14] ?? 0;
     // Blue a3 Most Significant Byte (MSB)
-    this.Blue_a3 = this.Blue_a3 + (bytes[15] << 8);
+    this.Blue_a3 = this.Blue_a3 + ((bytes[15] ?? 0) << 8);
     // Blue a2 Least Significant Byte (LSB)
-    this.Blue_a2 = bytes[16];
+    this.Blue_a2 = bytes[16] ?? 0;
     // Blue a2 Most Significant Byte (MSB)
-    this.Blue_a2 = this.Blue_a2 + (bytes[17] << 8);
+    this.Blue_a2 = this.Blue_a2 + ((bytes[17] ?? 0) << 8);
     return this;
   }
   Encode(): Uint8Array {
@@ -498,7 +505,7 @@ export class CVT3ByteCodes implements DisplayDescriptorInterface {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.CVT3ByteCodes;
   }
-  Decode(bytes: Uint8Array): CVT3ByteCodes {
+  Decode(_bytes: Uint8Array): CVT3ByteCodes {
     return this;
   }
   Encode(): Uint8Array {
@@ -513,7 +520,7 @@ export class EstablishedTimingsIII implements DisplayDescriptorInterface {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.EstablishedTimingsIII;
   }
-  Decode(bytes: Uint8Array): EstablishedTimingsIII {
+  Decode(_bytes: Uint8Array): EstablishedTimingsIII {
     return this;
   }
   Encode(): Uint8Array {
@@ -528,7 +535,7 @@ export class DummyDesciptor implements DisplayDescriptorInterface {
     this.raw = new Uint8Array(18);
     this.Type = DescriptorType.Dummy;
   }
-  Decode(bytes: Uint8Array): DisplayDescriptorInterface {
+  Decode(_bytes: Uint8Array): DisplayDescriptorInterface {
     return this;
   }
   Encode(): Uint8Array {
@@ -573,7 +580,7 @@ export function CreateDesciptor(
 ): DisplayDescriptorInterface {
   switch (type) {
     case DescriptorType.DetailedTimingDescriptor:
-      return new DetailedTimingDescriptor();
+      return new DetailedTimingDescriptor() as unknown as DisplayDescriptorInterface;
     case DescriptorType.DisplayProductSerialNumber:
       return new DisplayProductSerialNumber();
     case DescriptorType.AlphanumericDataString:

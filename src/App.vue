@@ -1,5 +1,13 @@
 <script setup lang="ts">
 import EDIDView from "@/components/EDIDView.vue";
+import { Separator } from "@/components/ui/separator"
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import AppSidebar from "@/components/AppSidebar.vue";
+import SidebarRight from "@/components/SidebarRight.vue";
 import CEAView from "./components/CEAView.vue";
 import DisplayID from "./components/DisplayIDView.vue";
 import NavBar from "./components/NavBar.vue";
@@ -32,7 +40,25 @@ edidstore.mEEDID.ParseEEDID(byts);
 </script>
 
 <template>
-  <NavBar></NavBar>
+  <SidebarProvider>
+    <AppSidebar />
+    <SidebarInset>
+      <header class="sticky top-0 flex h-14 shrink-0 items-center gap-2 bg-background">
+        <div class="flex flex-1 items-center gap-2 px-3">
+          <SidebarTrigger />
+          <Separator orientation="vertical" class="mr-2 h-4" />
+        </div>
+      </header>
+      <div class="flex flex-1 flex-col gap-4 p-4">
+        <EDIDView />
+        <div class="mx-auto h-24 w-full max-w-3xl rounded-xl bg-muted/50" />
+        <div class="mx-auto h-[100vh] w-full max-w-3xl rounded-xl bg-muted/50" />
+      </div>
+    </SidebarInset>
+    <SidebarRight />
+  </SidebarProvider>
+  <!-- <SidebarRight /> -->
+  <!-- <NavBar></NavBar>
 
   <Tabs default-value="edid">
     <TabsList class="grid w-full grid-cols-3">
@@ -49,7 +75,7 @@ edidstore.mEEDID.ParseEEDID(byts);
     <TabsContent value="displayid">
       <DisplayID />
     </TabsContent>
-  </Tabs>
+  </Tabs> -->
 </template>
 
 <style scoped></style>

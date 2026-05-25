@@ -1,14 +1,16 @@
 import type { CEADataBlock, DataBlockHeader } from "./cea.ts";
 
-export enum VSDBTag {
-  Uninitialized = 0,
-  IEEE_HDMI1_4 = 0x00 | (0x0c << 8) | (0x03 << 16),
-  IEEE_HDMI2_0 = 0xc4 | (0x5d << 8) | (0xd8 << 16),
-  IEEE_HDMIDolbyVision = 0x00 | (0xd0 << 8) | (0x46 << 16),
-  IEEE_HDMIHDR10 = 0x90 | (0x84 << 8) | (0x8b << 16),
-  IEEE_SpecializedMonitor = 0x5c | (0x12 << 8) | (0xca << 16),
-  IEEE_NVIDIA = 0x00 | (0x04 << 8) | (0x4b << 16),
-}
+export const VSDBTag = {
+  Uninitialized: 0,
+  IEEE_HDMI1_4: 0x00 | (0x0c << 8) | (0x03 << 16),
+  IEEE_HDMI2_0: 0xc4 | (0x5d << 8) | (0xd8 << 16),
+  IEEE_HDMIDolbyVision: 0x00 | (0xd0 << 8) | (0x46 << 16),
+  IEEE_HDMIHDR10: 0x90 | (0x84 << 8) | (0x8b << 16),
+  IEEE_SpecializedMonitor: 0x5c | (0x12 << 8) | (0xca << 16),
+  IEEE_NVIDIA: 0x00 | (0x04 << 8) | (0x4b << 16),
+} as const;
+
+export type VSDBTag = typeof VSDBTag[keyof typeof VSDBTag];
 
 export class HDMI_1_4 implements CEADataBlock {
   Header: DataBlockHeader;
@@ -29,19 +31,25 @@ export class HDMI_1_4 implements CEADataBlock {
     this.Header.Name = "HDMI 1.4";
   }
   Decode(dbBytes: Uint8Array): HDMI_1_4 {
-    this.Address.A = dbBytes[4] >> 4;
-    this.Address.B = dbBytes[4] & 0xf;
-    this.Address.C = dbBytes[5] >> 4;
-    this.Address.D = dbBytes[5] & 0xf;
     if (dbBytes.length < 6) {
       return this;
     }
-    this.BitDepth16 = dbBytes[6] & 0x40 ? true : false;
-    this.BitDepth12 = dbBytes[6] & 0x20 ? true : false;
-    this.BitDepth10 = dbBytes[6] & 0x10 ? true : false;
-    this.DeepColour444 = dbBytes[6] & 0x08 ? true : false;
-    this.DVIDualLinkOperation = dbBytes[6] & 0x01 ? true : false;
-    this.Max_TMDS_Clock = dbBytes[7] * 5; //MHz
+    this.Address.A = (dbBytes[4] ?? 0) >> 4;
+    this.Address.B = (dbBytes[4] ?? 0) & 0xf;
+    this.Address.C = (dbBytes[5] ?? 0) >> 4;
+    this.Address.D = (dbBytes[5] ?? 0) & 0xf;
+    if (dbBytes.length < 7) {
+      return this;
+    }
+    this.BitDepth16 = (dbBytes[6] ?? 0) & 0x40 ? true : false;
+    this.BitDepth12 = (dbBytes[6] ?? 0) & 0x20 ? true : false;
+    this.BitDepth10 = (dbBytes[6] ?? 0) & 0x10 ? true : false;
+    this.DeepColour444 = (dbBytes[6] ?? 0) & 0x08 ? true : false;
+    this.DVIDualLinkOperation = (dbBytes[6] ?? 0) & 0x01 ? true : false;
+    if (dbBytes.length < 8) {
+      return this;
+    }
+    this.Max_TMDS_Clock = (dbBytes[7] ?? 0) * 5; //MHz
     return this;
   }
   Encode(): Uint8Array {
@@ -49,15 +57,17 @@ export class HDMI_1_4 implements CEADataBlock {
   }
 }
 
-enum HDMI2_0MaxFixedRateLink {
-  FRL_NotSupported = 0,
-  FRL_3G_3Lanes = 1,
-  FRL_6G_3Lanes = 2,
-  FRL_6G_4Lanes = 3,
-  FRL_8G_4Lanes = 4,
-  FRL_10G_4Lanes = 5,
-  FRL_12G_4Lanes = 6,
-}
+const HDMI2_0MaxFixedRateLink = {
+  FRL_NotSupported: 0,
+  FRL_3G_3Lanes: 1,
+  FRL_6G_3Lanes: 2,
+  FRL_6G_4Lanes: 3,
+  FRL_8G_4Lanes: 4,
+  FRL_10G_4Lanes: 5,
+  FRL_12G_4Lanes: 6,
+} as const;
+
+type HDMI2_0MaxFixedRateLink = typeof HDMI2_0MaxFixedRateLink[keyof typeof HDMI2_0MaxFixedRateLink];
 
 export class HDMI_2_0 implements CEADataBlock {
   Header: DataBlockHeader;
@@ -80,23 +90,29 @@ export class HDMI_2_0 implements CEADataBlock {
     this.Header.Name = "HDMI 2.0";
   }
   Decode(dbBytes: Uint8Array): HDMI_2_0 {
-    this.Max_TMDS_Frequency = dbBytes[5] * 5;
-    this.SCDC_Present = dbBytes[6] & 0x80 ? true : false;
-    this.RR_Capable = dbBytes[6] & 0x40 ? true : false;
-    this.CCBPCI = dbBytes[6] & 0x10 ? true : false;
-    this.LTE_340Mcsc_scramble = dbBytes[6] & 0x08 ? true : false;
-    this.Independent_View = dbBytes[6] & 0x04 ? true : false;
-    this.Dual_View = dbBytes[6] & 0x02 ? true : false;
-    this.OSD_3D_Disparity = dbBytes[6] & 0x02 ? true : false;
-
-    this.DC_Y420_48bit = dbBytes[7] & 0x04 ? true : false;
-    this.DC_Y420_36bit = dbBytes[7] & 0x02 ? true : false;
-    this.DC_Y420_30bit = dbBytes[7] & 0x01 ? true : false;
+    if (dbBytes.length < 6) {
+      return this;
+    }
+    this.Max_TMDS_Frequency = (dbBytes[5] ?? 0) * 5;
+    if (dbBytes.length < 7) {
+      return this;
+    }
+    this.SCDC_Present = (dbBytes[6] ?? 0) & 0x80 ? true : false;
+    this.RR_Capable = (dbBytes[6] ?? 0) & 0x40 ? true : false;
+    this.CCBPCI = (dbBytes[6] ?? 0) & 0x10 ? true : false;
+    this.LTE_340Mcsc_scramble = (dbBytes[6] ?? 0) & 0x08 ? true : false;
+    this.Independent_View = (dbBytes[6] ?? 0) & 0x04 ? true : false;
+    this.Dual_View = (dbBytes[6] ?? 0) & 0x02 ? true : false;
+    this.OSD_3D_Disparity = (dbBytes[6] ?? 0) & 0x02 ? true : false;
 
     if (dbBytes.length < 8) {
       return this;
     }
-    this.MaxFixedRateLink = dbBytes[7] >> 4;
+    this.DC_Y420_48bit = (dbBytes[7] ?? 0) & 0x04 ? true : false;
+    this.DC_Y420_36bit = (dbBytes[7] ?? 0) & 0x02 ? true : false;
+    this.DC_Y420_30bit = (dbBytes[7] ?? 0) & 0x01 ? true : false;
+
+    this.MaxFixedRateLink = ((dbBytes[7] ?? 0) >> 4) as HDMI2_0MaxFixedRateLink;
     return this;
   }
   Encode(): Uint8Array {
@@ -104,21 +120,23 @@ export class HDMI_2_0 implements CEADataBlock {
   }
 }
 
-enum DisplayPrimaryUseCase {
-  TestEquipment = 0x1,
-  GenericDisplay = 0x2,
-  Television = 0x3,
-  ProductivityDisplay = 0x4,
-  GamingDisplay = 0x5,
-  PresentationDisplay = 0x6,
-  VRHeadset = 0x7,
-  ARHeadset = 0x8,
-  ViedeoWall = 0x9,
-  MedicalDisplay = 0x11,
-  DedicatedGamingDisplay = 0x12,
-  DedicatedVideoMonitorDisplay = 0x13,
-  AccessoryDisplay = 0x14,
-}
+const DisplayPrimaryUseCase = {
+  TestEquipment: 0x1,
+  GenericDisplay: 0x2,
+  Television: 0x3,
+  ProductivityDisplay: 0x4,
+  GamingDisplay: 0x5,
+  PresentationDisplay: 0x6,
+  VRHeadset: 0x7,
+  ARHeadset: 0x8,
+  ViedeoWall: 0x9,
+  MedicalDisplay: 0x11,
+  DedicatedGamingDisplay: 0x12,
+  DedicatedVideoMonitorDisplay: 0x13,
+  AccessoryDisplay: 0x14,
+} as const;
+
+type DisplayPrimaryUseCase = typeof DisplayPrimaryUseCase[keyof typeof DisplayPrimaryUseCase];
 
 export class HMDSpecialisedMonitor implements CEADataBlock {
   Header: DataBlockHeader;
@@ -132,11 +150,16 @@ export class HMDSpecialisedMonitor implements CEADataBlock {
     this.Header.Name = "Specialised Monitor";
   }
   Decode(dbBytes: Uint8Array): HMDSpecialisedMonitor {
-    this.Version = dbBytes[4];
-    this.DesktopUsage = dbBytes[5] & 0x40 ? true : false;
-    this.ThirdPartyUsage = dbBytes[5] & 0x20 ? true : false;
-    this.PrimaryUseCase = dbBytes[5] & 0x1f;
-    this.ContainerID = dbBytes.slice(6, 22);
+    if (dbBytes.length < 6) {
+      return this;
+    }
+    this.Version = dbBytes[4] ?? 0;
+    this.DesktopUsage = (dbBytes[5] ?? 0) & 0x40 ? true : false;
+    this.ThirdPartyUsage = (dbBytes[5] ?? 0) & 0x20 ? true : false;
+    this.PrimaryUseCase = ((dbBytes[5] ?? 0) & 0x1f) as DisplayPrimaryUseCase;
+    if (dbBytes.length >= 22) {
+      this.ContainerID = dbBytes.slice(6, 22);
+    }
     return this;
   }
   Encode(): Uint8Array {
