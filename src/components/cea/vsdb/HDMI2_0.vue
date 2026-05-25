@@ -4,7 +4,7 @@ const edidstore = useEdidStore();
 const prop = defineProps<{
   blockNum: any;
 }>();
-import { HDMI_2_0 } from "../../../edidjs/vsdb";
+import { HDMI_2_0 } from "../../../edidts/vsdb";
 const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as HDMI_2_0;
 import { Switch } from "@/components/ui/switch";
 import {

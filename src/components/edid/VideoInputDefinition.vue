@@ -2,7 +2,7 @@
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 import { ref } from "vue";
-import { DigitalVideoInput, DigitalColourEncoding } from "../../edidjs/edid";
+import { DigitalVideoInput, DigitalColourEncoding } from "../../edidts/edid";
 import {
   Select,
   SelectContent,

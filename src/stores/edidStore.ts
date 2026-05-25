@@ -1,12 +1,12 @@
 import { defineStore } from "pinia";
-import { EEDID } from "../edidjs/eedid.ts";
-import { CEA } from "../edidjs/cea.ts";
-import { DisplayID } from "../edidjs/did.ts";
+import { EEDID } from "../edidts/eedid.ts";
+import { CEA } from "../edidts/cea.ts";
+import { DisplayID } from "../edidts/did.ts";
 import {
   DescriptorType,
   CreateDesciptor,
   DisplayProductName,
-} from "../edidjs/edid_descriptors.ts";
+} from "../edidts/edid_descriptors.ts";
 import { useUiStore } from "./uiStore.ts";
 export const useEdidStore = defineStore("edids", {
   state: () => {

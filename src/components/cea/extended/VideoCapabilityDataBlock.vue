@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { VideoCapabilityDataBlock } from "../../../edidjs/cea_extended";
+import { VideoCapabilityDataBlock } from "../../../edidts/cea_extended";
 const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as VideoCapabilityDataBlock;
 </script>
 

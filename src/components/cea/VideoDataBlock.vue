@@ -4,7 +4,7 @@ const edidstore = useEdidStore();
 const prop = defineProps<{
   blockNum: any;
 }>();
-import { VideoDataBlock } from "../../edidjs/cea";
+import { VideoDataBlock } from "../../edidts/cea";
 const block = edidstore.mEEDID.CEA.DataBlocks[prop.blockNum] as VideoDataBlock;
 </script>
 

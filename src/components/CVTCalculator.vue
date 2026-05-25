@@ -3,7 +3,7 @@ import Switch from "./ui/switch/Switch.vue";
 import {
   DetailedTimingDescriptor,
   CVTMode,
-} from "../edidjs/DetailedTimingDescriptor";
+} from "../edidts/DetailedTimingDescriptor";
 import {
   Select,
   SelectContent,

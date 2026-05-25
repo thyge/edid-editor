@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a client-side Vue 3 application for viewing and editing EDID (Extended Display Identification Data), CEA-861 extension blocks, and DisplayID data. All EDID decoding and encoding logic lives in `src/edidjs/` and is framework-agnostic; the Vue layer in `src/components/` provides the UI.
+This is a client-side Vue 3 application for viewing and editing EDID (Extended Display Identification Data), CEA-861 extension blocks, and DisplayID data. All EDID decoding and encoding logic lives in `src/edidts/` and is framework-agnostic; the Vue layer in `src/components/` provides the UI.
 
 ## Development Commands
 
@@ -16,7 +16,7 @@ There is no test runner or linter configured in this project.
 
 ## Architecture
 
-### EDID Data Model (`src/edidjs/`)
+### EDID Data Model (`src/edidts/`)
 
 The core data model is byte-oriented: each class parses a `Uint8Array` via `Decode(bytes)` and serializes back via `Encode()`.
 
