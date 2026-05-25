@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { formatByte } from "../edidts/utils";
 
 const props = defineProps<{
   data: Uint8Array;
 }>();
-
-function toHex(byte: number): string {
-  return byte.toString(16).padStart(2, "0").toUpperCase();
-}
 
 const rowCount = computed(() => Math.ceil(props.data.length / 8));
 
@@ -33,7 +30,7 @@ function rowOffset(index: number): string {
           :key="col"
           class="text-center"
         >
-          {{ (row - 1) * 8 + col - 1 < props.data.length ? toHex(props.data[(row - 1) * 8 + col - 1]) : "" }}
+          {{ (row - 1) * 8 + col - 1 < props.data.length ? formatByte(props.data[(row - 1) * 8 + col - 1]) : "" }}
         </div>
       </div>
     </div>

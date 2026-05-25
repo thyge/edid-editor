@@ -2,7 +2,7 @@
 import { useEdidStore } from "@/stores/edidStore";
 const edidstore = useEdidStore();
 import DetailedTimingDescriptor from "../DetailedTimingDesciptor.vue";
-import { DescriptorType } from "../../edidts/edid_descriptors";
+import { DescriptorType, descriptorTypeOptions } from "../../edidts/edid_descriptors";
 import ASCIIDescriptor from "./descriptors/ASCIIDescriptor.vue";
 import DisplayRangeLimits from "./descriptors/DisplayRangeLimits.vue";
 import ColorPointData from "./descriptors/ColorPointData.vue";
@@ -122,35 +122,12 @@ import DisplayColorManagement from "./descriptors/ColorManagementData.vue";
                 <SelectValue> </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Detailed Timing Descriptor">
-                  Detailed Timing Descriptor
-                </SelectItem>
-                <SelectItem value="Display Product Serial Number">
-                  Display Product Serial Number
-                </SelectItem>
-                <SelectItem value="Alphanumeric Data String">
-                  Alphanumeric Data String
-                </SelectItem>
-                <SelectItem value="Display Range Limits">
-                  Display Range Limits
-                </SelectItem>
-                <SelectItem value="Display Product Name">
-                  Display Product Name
-                </SelectItem>
-                <SelectItem value="Color Point Data">
-                  Color Point Data
-                </SelectItem>
-                <SelectItem value="Standard Timing Identification">
-                  Standard Timing Identification
-                </SelectItem>
-                <SelectItem value="Display Color Management">
-                  Display Color Management
-                </SelectItem>
-                <SelectItem value="CVT 3 Byte Codes">
-                  CVT 3 Byte Codes
-                </SelectItem>
-                <SelectItem value="Established Timings III">
-                  Established Timings III
+                <SelectItem
+                  v-for="opt in descriptorTypeOptions"
+                  :key="opt.value"
+                  :value="opt.value"
+                >
+                  {{ opt.label }}
                 </SelectItem>
               </SelectContent>
             </Select>

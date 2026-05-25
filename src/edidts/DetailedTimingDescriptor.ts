@@ -406,4 +406,11 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     this.VerticalRefreshRate = dtd.VerticalRefreshRate;
     this.HorizontalRefreshRate = dtd.HorizontalRefreshRate;
   }
+
+  toDisplayString(): string {
+    const interlace = this.Interlaced ? "i" : "p";
+    const refresh = Math.round(this.VerticalRefreshRate);
+    const clock = (this.PixelClockKHz / 1000000).toFixed(2);
+    return `${this.HorizontalActive}x${this.VerticalActive}@${refresh}${interlace} - ${clock} MHz`;
+  }
 }
