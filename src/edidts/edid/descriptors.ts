@@ -1,5 +1,6 @@
 import { DetailedTimingDescriptor } from "../common/DetailedTimingDescriptor";
 import { AspectRatio, StandardTiming } from "./edid";
+import { readUint16LE } from "../common/utils.ts";
 
 const DescriptorDisplayProductSerialNumber = 0xff;
 const DescriptorAlphanumericDataString = 0xfe;
@@ -579,7 +580,7 @@ export class CVT3ByteCodeDescriptor {
   Supports60HzReducedBlanking: boolean = false;
 
   Decode(bytes: Uint8Array): CVT3ByteCodeDescriptor {
-    const value = ((bytes[1] ?? 0) << 8) | (bytes[0] ?? 0);
+    const value = readUint16LE(bytes, 0);
     this.AddressableLines = (value + 1) * 2;
     switch (((bytes[1] ?? 0) >> 2) & 0x03) {
       case 0:

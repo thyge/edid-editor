@@ -1,11 +1,6 @@
 // Auto-generated EDID fixtures from goedid parser samples
 
-export function hexToUint8Array(hex: string): Uint8Array {
-  const clean = hex.replaceAll(",", "").replaceAll(" ", "");
-  return Uint8Array.from(
-    (clean.match(/.{1,2}/g) ?? []).map((byte) => parseInt(byte, 16))
-  );
-}
+import { hexToUint8Array } from "../common/utils";
 
 // Appendix A Example 1 — LCD Desktop IT Display (256 bytes, base EDID + CEA extension)
 export const APPENDIX_A_EXAMPLE_1_HEX =

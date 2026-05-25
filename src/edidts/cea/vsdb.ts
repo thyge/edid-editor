@@ -28,6 +28,7 @@ export class HDMI_1_4 implements CEADataBlock {
   DeepColour444: boolean = false;
   DVIDualLinkOperation: boolean = false;
   Max_TMDS_Clock: number = 0;
+  rawPayload: Uint8Array = new Uint8Array();
   constructor(header: DataBlockHeader) {
     this.Header = header;
     this.Header.Name = "HDMI 1.4";
@@ -52,10 +53,34 @@ export class HDMI_1_4 implements CEADataBlock {
       return this;
     }
     this.Max_TMDS_Clock = (dbBytes[7] ?? 0) * 5; //MHz
+    // Preserve any unparsed optional bytes (latency, 3D, 4K, etc.)
+    if (dbBytes.length > 8) {
+      this.rawPayload = dbBytes.slice(8);
+    }
     return this;
   }
   Encode(): Uint8Array {
-    throw new Error("Method not implemented.");
+    let payloadAfterOUI = 4 + this.rawPayload.length; // 4 known bytes + optional
+    this.Header.Size = 3 + payloadAfterOUI; // 3 OUI bytes + payload
+    let rawBlock = new Uint8Array(this.Header.Size + 1);
+    rawBlock[0] = (this.Header.Type << 5) | (this.Header.Size & 0x1f);
+    // OUI bytes derived from Header.VSDB (matches fixture byte order)
+    rawBlock[1] = (this.Header.VSDB >> 16) & 0xff;
+    rawBlock[2] = (this.Header.VSDB >> 8) & 0xff;
+    rawBlock[3] = this.Header.VSDB & 0xff;
+    rawBlock[4] = ((this.Address.A & 0x0f) << 4) | (this.Address.B & 0x0f);
+    rawBlock[5] = ((this.Address.C & 0x0f) << 4) | (this.Address.D & 0x0f);
+    rawBlock[6] = 0;
+    if (this.BitDepth16) rawBlock[6] |= 0x40;
+    if (this.BitDepth12) rawBlock[6] |= 0x20;
+    if (this.BitDepth10) rawBlock[6] |= 0x10;
+    if (this.DeepColour444) rawBlock[6] |= 0x08;
+    if (this.DVIDualLinkOperation) rawBlock[6] |= 0x01;
+    rawBlock[7] = Math.floor(this.Max_TMDS_Clock / 5);
+    if (this.rawPayload.length > 0) {
+      rawBlock.set(this.rawPayload, 8);
+    }
+    return rawBlock;
   }
 }
 
@@ -107,7 +132,7 @@ export class HDMI_2_0 implements CEADataBlock {
     this.LTE_340Mcsc_scramble = (dbBytes[6] ?? 0) & 0x08 ? true : false;
     this.Independent_View = (dbBytes[6] ?? 0) & 0x04 ? true : false;
     this.Dual_View = (dbBytes[6] ?? 0) & 0x02 ? true : false;
-    this.OSD_3D_Disparity = (dbBytes[6] ?? 0) & 0x02 ? true : false;
+    this.OSD_3D_Disparity = (dbBytes[6] ?? 0) & 0x01 ? true : false;
 
     if (dbBytes.length < 8) {
       return this;
@@ -120,7 +145,29 @@ export class HDMI_2_0 implements CEADataBlock {
     return this;
   }
   Encode(): Uint8Array {
-    throw new Error("Method not implemented.");
+    this.Header.Size = 7;
+    let rawBlock = new Uint8Array(this.Header.Size + 1);
+    rawBlock[0] = (this.Header.Type << 5) | (this.Header.Size & 0x1f);
+    // OUI bytes derived from Header.VSDB to match fixture byte order
+    rawBlock[1] = (this.Header.VSDB >> 16) & 0xff;
+    rawBlock[2] = (this.Header.VSDB >> 8) & 0xff;
+    rawBlock[3] = this.Header.VSDB & 0xff;
+    rawBlock[4] = 0x01; // Version
+    rawBlock[5] = Math.floor(this.Max_TMDS_Frequency / 5);
+    rawBlock[6] = 0;
+    if (this.SCDC_Present) rawBlock[6] |= 0x80;
+    if (this.RR_Capable) rawBlock[6] |= 0x40;
+    if (this.CCBPCI) rawBlock[6] |= 0x10;
+    if (this.LTE_340Mcsc_scramble) rawBlock[6] |= 0x08;
+    if (this.Independent_View) rawBlock[6] |= 0x04;
+    if (this.Dual_View) rawBlock[6] |= 0x02;
+    if (this.OSD_3D_Disparity) rawBlock[6] |= 0x01;
+    rawBlock[7] = 0;
+    rawBlock[7] |= (this.MaxFixedRateLink << 4) & 0xf0;
+    if (this.DC_Y420_48bit) rawBlock[7] |= 0x04;
+    if (this.DC_Y420_36bit) rawBlock[7] |= 0x02;
+    if (this.DC_Y420_30bit) rawBlock[7] |= 0x01;
+    return rawBlock;
   }
 }
 
@@ -171,6 +218,22 @@ export class HMDSpecialisedMonitor implements CEADataBlock {
     return this;
   }
   Encode(): Uint8Array {
-    throw new Error("Method not implemented.");
+    let hasContainerID = this.ContainerID.length >= 16;
+    this.Header.Size = hasContainerID ? 21 : 5;
+    let rawBlock = new Uint8Array(this.Header.Size + 1);
+    rawBlock[0] = (this.Header.Type << 5) | (this.Header.Size & 0x1f);
+    // OUI bytes derived from Header.VSDB to match fixture byte order
+    rawBlock[1] = (this.Header.VSDB >> 16) & 0xff;
+    rawBlock[2] = (this.Header.VSDB >> 8) & 0xff;
+    rawBlock[3] = this.Header.VSDB & 0xff;
+    rawBlock[4] = this.Version;
+    rawBlock[5] = 0;
+    if (this.DesktopUsage) rawBlock[5] |= 0x40;
+    if (this.ThirdPartyUsage) rawBlock[5] |= 0x20;
+    rawBlock[5] |= (this.PrimaryUseCase & 0x1f);
+    if (hasContainerID) {
+      rawBlock.set(this.ContainerID.slice(0, 16), 6);
+    }
+    return rawBlock;
   }
 }

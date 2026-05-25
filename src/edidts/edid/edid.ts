@@ -1,5 +1,6 @@
 import pnpLookup from "../common/pnp.ts";
 import { DetailedTimingDescriptor } from "../common/DetailedTimingDescriptor.ts";
+import { calcEDIDChecksum, readUint16LE, readUint32LE } from "../common/utils.ts";
 import {
   DecodeDesciptor,
   DescriptorType,
@@ -586,13 +587,10 @@ export class EDID {
     this.ManufacturerID.Decode(this.raw.slice(8, 10));
 
     // Manufacturer product code.
-    this.ManufacturerPC = ((this.raw[11] ?? 0) << 8) | (this.raw[10] ?? 0);
+    this.ManufacturerPC = readUint16LE(this.raw, 10);
 
     // Serial number
-    this.SerialNumber = this.raw[12] ?? 0;
-    this.SerialNumber |= (this.raw[13] ?? 0) << 8;
-    this.SerialNumber |= (this.raw[14] ?? 0) << 16;
-    this.SerialNumber |= (this.raw[15] ?? 0) << 24;
+    this.SerialNumber = readUint32LE(this.raw, 12);
 
     // Week of manufacture
     this.WeekOfManufacture = this.raw[16] ?? 0;
@@ -761,10 +759,6 @@ export class EDID {
   }
 
   CalcChecksum() {
-    let checksum = 0;
-    for (let i = 0; i < 127; i++) {
-      checksum += this.raw[i] ?? 0;
-    }
-    this.raw[127] = 256 - (checksum % 256);
+    this.raw[127] = calcEDIDChecksum(this.raw);
   }
 }
