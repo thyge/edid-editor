@@ -4,6 +4,7 @@ import EDIDView from "@/components/EDIDView.vue";
 import CEAView from "@/components/CEAView.vue";
 import DisplayIDView from "@/components/DisplayIDView.vue";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import {
   SidebarInset,
   SidebarProvider,
@@ -13,6 +14,7 @@ import AppSidebar from "@/components/AppSidebar.vue";
 import SidebarRight from "@/components/SidebarRight.vue";
 import ModeToggle from "@/components/ModeToggle.vue";
 import { useEdidStore } from "@/stores/edidStore";
+import { PanelRight } from "@lucide/vue";
 
 const edidstore = useEdidStore();
 const uiStore = useUiStore();
@@ -51,6 +53,16 @@ edidstore.mEEDID.ParseEEDID(byts);
           <SidebarTrigger />
           <Separator orientation="vertical" class="mr-2 h-4" />
           <div class="ml-auto flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7"
+              :class="{ 'bg-accent': uiStore.showHexView }"
+              @click="uiStore.showHexView = !uiStore.showHexView"
+            >
+              <PanelRight />
+              <span class="sr-only">Toggle Hex View</span>
+            </Button>
             <ModeToggle />
           </div>
         </div>
@@ -61,7 +73,7 @@ edidstore.mEEDID.ParseEEDID(byts);
         <DisplayIDView v-else-if="uiStore.activeBlock === 'displayid'" />
       </div>
     </SidebarInset>
-    <SidebarRight v-if="uiStore.showHexView" />
+    <SidebarRight />
   </SidebarProvider>
 </template>
 

@@ -1,25 +1,29 @@
 <script setup lang="ts">
 import { useEdidStore } from "@/stores/edidStore";
+import { useUiStore } from "@/stores/uiStore";
 import HexViewer from "@/components/HexViewer.vue";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-} from "@/components/ui/sidebar";
 
 const edidStore = useEdidStore();
+const uiStore = useUiStore();
 </script>
 
 <template>
-  <Sidebar
-    class="sticky hidden lg:flex top-0 h-svh border-l"
-    collapsible="none"
+  <!-- Layout gap that pushes main content when panel is open -->
+  <div
+    class="hidden lg:block bg-transparent transition-all duration-200 ease-linear"
+    :class="uiStore.showHexView ? 'w-[16rem]' : 'w-0'"
+  />
+
+  <!-- Fixed right panel -->
+  <div
+    class="fixed inset-y-0 right-0 z-10 hidden lg:flex h-svh w-[16rem] flex-col border-l bg-sidebar text-sidebar-foreground transition-all duration-200 ease-linear"
+    :class="uiStore.showHexView ? 'translate-x-0' : 'translate-x-full'"
   >
-    <SidebarHeader class="h-16 border-b border-sidebar-border flex items-center px-4">
+    <div class="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
       <span class="text-sm font-medium">Hex View</span>
-    </SidebarHeader>
-    <SidebarContent class="p-2 overflow-auto">
+    </div>
+    <div class="flex-1 overflow-auto p-2">
       <HexViewer :data="edidStore.mEEDID.raw" />
-    </SidebarContent>
-  </Sidebar>
+    </div>
+  </div>
 </template>
