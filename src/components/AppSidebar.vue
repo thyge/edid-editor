@@ -4,7 +4,6 @@ import { useUiStore } from "@/stores/uiStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Sidebar,
   SidebarContent,
@@ -215,11 +214,7 @@ const selectedBlockType = ref<'cea' | 'displayid'>("cea");
     </SidebarContent>
 
     <SidebarFooter class="border-t p-4">
-      <div class="flex items-center justify-between">
-        <span class="text-xs text-muted-foreground">Hex View</span>
-        <Switch v-model:checked="uiStore.showHexView" />
-      </div>
-      <div class="mt-3 flex gap-2">
+      <div class="flex gap-2">
         <Button size="sm" variant="outline" class="flex-1" @click="downloadBinFile">
           <Download class="size-4 mr-1" />
           <span>.bin</span>
