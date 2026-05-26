@@ -140,7 +140,7 @@ export class EDID {
     this.HorizontalSizeCM = this.raw[21] ?? 0;
     this.VerticalSizeCM = this.raw[22] ?? 0;
     // Display gamma
-    if ((this.raw[22] ?? 0) === 0xff) {
+    if ((this.raw[23] ?? 0) === 0xff) {
       console.log("gamma is defined by DI-EXT block.");
     }
     this.Gamma = (this.raw[23] ?? 0) / 100 + 1;
