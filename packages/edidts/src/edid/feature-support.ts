@@ -90,7 +90,7 @@ export class FeatureSupport {
     }
     this.sRGB = mbyte & 0x4 ? true : false;
     this.PreferredTiming = mbyte & 0x2 ? true : false;
-    if (this.Version === EdidVersion.V13) {
+    if (this.Version === EdidVersion.V13 || this.Version === EdidVersion.Pre13) {
       this.GTFSupport = mbyte & 0x1 ? true : false;
     } else {
       this.ContiniousFrequency = mbyte & 0x1 ? true : false;
@@ -104,7 +104,7 @@ export class FeatureSupport {
     mbyte |= this.ColourEncoding.Encode();
     mbyte |= this.sRGB ? 0x4 : 0;
     mbyte |= this.PreferredTiming ? 0x2 : 0;
-    if (this.Version === EdidVersion.V13) {
+    if (this.Version === EdidVersion.V13 || this.Version === EdidVersion.Pre13) {
       mbyte |= this.GTFSupport ? 0x1 : 0;
     } else {
       mbyte |= this.ContiniousFrequency ? 0x1 : 0;

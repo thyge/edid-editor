@@ -24,7 +24,7 @@ export function readUint32LE(data: Uint8Array, offset: number): number {
     (data[offset + 1] << 8) |
     (data[offset + 2] << 16) |
     (data[offset + 3] << 24)
-  );
+  ) >>> 0;
 }
 
 export function calcEDIDChecksum(raw: Uint8Array, offset: number = 0): number {

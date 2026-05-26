@@ -75,7 +75,7 @@ class BipolarAnalogCompositeSync implements SyncDefinition {
     if (this.SyncOn === "Green Only") {
       encoded |= 2;
     }
-    return 0;
+    return encoded;
   }
 }
 
@@ -205,13 +205,13 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
 
     if (edidBytes[17] & 0x1) {
       switch (edidBytes[17] & 0x60) {
-        case 1:
+        case 0x20:
           this.StereoMode = StereoMode.TwoWayInterleavedRight;
           break;
-        case 2:
+        case 0x40:
           this.StereoMode = StereoMode.TwoWayInterleavedLeft;
           break;
-        case 3:
+        case 0x60:
           this.StereoMode = StereoMode.SideBySideInterleaved;
           break;
         default:
@@ -220,13 +220,13 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
       }
     } else {
       switch (edidBytes[17] & 0x60) {
-        case 1:
+        case 0x20:
           this.StereoMode = StereoMode.FieldSequentialRight;
           break;
-        case 2:
+        case 0x40:
           this.StereoMode = StereoMode.FieldSequentialLeft;
           break;
-        case 3:
+        case 0x60:
           this.StereoMode = StereoMode.FourWayInterleaved;
           break;
         default:
@@ -295,8 +295,9 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     // Reset the raw array
     this.raw = new Uint8Array(18);
     // Input the data
-    this.raw[0] = (this.PixelClockKHz / 10000) & 0xff;
-    this.raw[1] = (this.PixelClockKHz / 10000) >> 8;
+    const pixelClockStored = Math.round(this.PixelClockKHz / 10000);
+    this.raw[0] = pixelClockStored & 0xff;
+    this.raw[1] = (pixelClockStored >> 8) & 0xff;
 
     this.raw[2] = this.HorizontalActive & 0xff;
     this.raw[3] = this.HorizontalBlanking & 0xff;
@@ -421,6 +422,7 @@ export class DetailedTimingDescriptor implements DisplayDescriptorInterface {
     this.CVTMode = dtd.CVTMode;
     this.VerticalRefreshRate = dtd.VerticalRefreshRate;
     this.HorizontalRefreshRate = dtd.HorizontalRefreshRate;
+    return this;
   }
 
   toDisplayString(): string {

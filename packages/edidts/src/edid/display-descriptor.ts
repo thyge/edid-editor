@@ -412,8 +412,10 @@ export class DisplayRangeLimits implements DisplayDescriptorInterface {
       this.VideoTimingSupport === VideoTimingSupportFlags.CVTSupported
     ) {
       let cvtBytes = this.CVTSupportDefinition.Encode();
-      for (let i = 0; i < cvtBytes.length; i++) {
-        this.raw[11 + i] = cvtBytes[i] ?? 0;
+      // Byte 9 is shared (pixel clock); bytes 10-11 are reserved.
+      // Copy CVT parameters from bytes 12-17.
+      for (let i = 12; i < cvtBytes.length; i++) {
+        this.raw[i] = cvtBytes[i] ?? 0;
       }
     }
     return this.raw;
@@ -612,9 +614,9 @@ export class CVT3ByteCodeDescriptor {
   }
 
   Decode(bytes: Uint8Array): CVT3ByteCodeDescriptor {
-    const value = readUint16LE(bytes, 0);
+    const value = (bytes[0] & 0xff) | ((bytes[1] & 0x0f) << 8);
     this.AddressableLines = (value + 1) * 2;
-    switch (((bytes[1] ?? 0) >> 2) & 0x03) {
+    switch (((bytes[1] ?? 0) >> 4) & 0x03) {
       case 0:
         this.AspectRatio = AspectRatio.FourThree;
         break;
@@ -657,16 +659,16 @@ export class CVT3ByteCodeDescriptor {
     bytes[1] = (value >> 8) & 0x0f;
     switch (this.AspectRatio) {
       case AspectRatio.FourThree:
-        bytes[1] |= 0 << 2;
+        bytes[1] |= 0 << 4;
         break;
       case AspectRatio.SixteenNine:
-        bytes[1] |= 1 << 2;
+        bytes[1] |= 1 << 4;
         break;
       case AspectRatio.SixteenTen:
-        bytes[1] |= 2 << 2;
+        bytes[1] |= 2 << 4;
         break;
       case AspectRatio.FifteenNine:
-        bytes[1] |= 3 << 2;
+        bytes[1] |= 3 << 4;
         break;
     }
     switch (this.PreferredRefreshRate) {
