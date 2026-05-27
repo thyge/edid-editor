@@ -28,4 +28,4 @@ pnpm-debug.log*
 TODO.MD
 *.pdf
 src/edidts/__tests__/fixtures_proprietary.ts
-packages/*/src/__tests__/fixtures_proprietary.ts
+packages/*/tests/fixtures_proprietary.ts

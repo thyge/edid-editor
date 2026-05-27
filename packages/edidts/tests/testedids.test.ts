@@ -1,62 +1,32 @@
 import { describe, it, expect } from 'vitest'
 import { EDID } from '../src/edid'
 import { EstablishedTiming } from '../src/edid/established-timing'
-import { readFileSync, readdirSync } from 'fs'
-import { join } from 'path'
+import { loadEdidFixtures } from './fixture-loader'
 
-const TESTEDIDS_DIR = join(__dirname, '../../../testedids')
-
-function parseHexFile(content: string): Uint8Array {
-  const hexString = content
-    .replace(/[^0-9A-Fa-f]/g, '')
-  const bytes: number[] = []
-  for (let i = 0; i < hexString.length; i += 2) {
-    bytes.push(parseInt(hexString.slice(i, i + 2), 16))
-  }
-  return new Uint8Array(bytes)
-}
-
-function loadEDID(filename: string): Uint8Array {
-  const filepath = join(TESTEDIDS_DIR, filename)
-  const content = readFileSync(filepath)
-  
-  if (filename.endsWith('.txt')) {
-    return parseHexFile(content.toString('utf8'))
-  }
-  return new Uint8Array(content)
-}
-
-const edidFiles = readdirSync(TESTEDIDS_DIR).filter(
-  f => f.endsWith('.txt') || f.endsWith('.bin') || f.endsWith('.edid')
-)
+const edidFixtures = await loadEdidFixtures()
 
 describe('Test EDID compatibility', () => {
-  it.each(edidFiles)('should parse %s without throwing', (filename) => {
-    const data = loadEDID(filename)
-    
+  it.each(edidFixtures)('should parse $source/$name without throwing', ({ data }) => {
     expect(() => {
       const edid = new EDID(data)
       expect(edid).toBeDefined()
     }).not.toThrow()
   })
 
-  it.each(edidFiles)('should have valid header signature for %s', (filename) => {
-    const data = loadEDID(filename)
+  it.each(edidFixtures)('should have valid header signature for $source/$name', ({ data }) => {
     const edid = new EDID(data)
     
     expect(edid.header).toBeDefined()
     expect(edid.header.manufacturerId).toMatch(/^[A-Z]{3}$/)
   })
 
-  it.each(edidFiles)('should have valid checksum for %s', (filename) => {
-    const data = loadEDID(filename)
+  it.each(edidFixtures)('should have valid checksum for $source/$name', ({ data }) => {
     const edid = new EDID(data)
     
     expect(edid.isValid).toBe(true)
   })
 
-  it.each(edidFiles)('should round-trip encode/decode %s', (filename) => {
-    const data = loadEDID(filename)
+  it.each(edidFixtures)('should round-trip encode/decode $source/$name', ({ data }) => {
     const original = new EDID(data)
     
     const encoded = original.encode()
@@ -67,8 +37,7 @@ describe('Test EDID compatibility', () => {
     expect(decoded.isValid).toBe(true)
   })
 
-  it.each(edidFiles)('should encode modifications correctly for %s', (filename) => {
-    const data = loadEDID(filename)
+  it.each(edidFixtures)('should encode modifications correctly for $source/$name', ({ data }) => {
     const edid = new EDID(data)
     
     const originalManufacturer = edid.header.manufacturerId
@@ -92,8 +61,7 @@ describe('Test EDID compatibility', () => {
     expect(restored.isValid).toBe(true)
   })
 
-  it.each(edidFiles)('should encode established timing changes for %s', (filename) => {
-    const data = loadEDID(filename)
+  it.each(edidFixtures)('should encode established timing changes for $source/$name', ({ data }) => {
     const edid = new EDID(data)
 
     const originalTimings = edid.establishedTimings
@@ -127,8 +95,7 @@ describe('Test EDID compatibility', () => {
     }
   })
 
-  it.each(edidFiles)('should extract timing information from %s', (filename) => {
-    const data = loadEDID(filename)
+  it.each(edidFixtures)('should extract timing information from $source/$name', ({ data }) => {
     const edid = new EDID(data)
     
     expect(edid.establishedTimings).toBeInstanceOf(Array)
@@ -138,8 +105,7 @@ describe('Test EDID compatibility', () => {
 })
 
 describe('Test EDID content extraction', () => {
-  it.each(edidFiles)('should extract display info from %s', (filename) => {
-    const data = loadEDID(filename)
+  it.each(edidFixtures)('should extract display info from $source/$name', ({ data }) => {
     const edid = new EDID(data)
     
     expect(edid.header.edidVersion).toBeGreaterThanOrEqual(1)

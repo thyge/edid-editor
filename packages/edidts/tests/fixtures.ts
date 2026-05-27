@@ -1,6 +1,6 @@
 // Auto-generated EDID fixtures from goedid parser samples
 
-import { hexToUint8Array } from "../common/utils";
+import { hexToUint8Array } from "./fixture-utils";
 
 // Appendix A Example 1 — LCD Desktop IT Display (256 bytes, base EDID + CEA extension)
 export const APPENDIX_A_EXAMPLE_1_HEX =

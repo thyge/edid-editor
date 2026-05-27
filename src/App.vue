@@ -27,7 +27,7 @@ import { useEDID } from '@/composables/useEDID'
 const edidStore = useEDID()
 const edidRef = edidStore.edid as Ref<EDIDViewModel | null>
 const edidRaw = edidStore.edid as Ref<EDID | null>
-const { edidData, error, isLoaded, loadFromHex, loadFromFile, loadFromBytes, createBlankEdid } = edidStore
+const { edidData, error, isLoaded, loadFromHex, loadFromFile, createBlankEdid } = edidStore
 
 const activeSection = ref('overview')
 
@@ -283,10 +283,6 @@ function updateCEA(field: string, value: unknown) {
 <template>
   <div class="h-screen flex flex-col bg-background text-foreground">
     <TopNav
-      :has-edid="isLoaded"
-      :edid-name="edidRef?.productName ?? null"
-      :edid-data="edidData"
-      @load-slot="loadFromBytes"
       @import-file="loadFromFile"
       @load-hex="loadFromHex"
       @new-edid="createBlankEdid"
