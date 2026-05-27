@@ -1,25 +1,26 @@
-import path from 'node:path'
 import { defineConfig } from 'vite'
+import { resolve } from 'path'
 import dts from 'vite-plugin-dts'
 
 export default defineConfig({
+  plugins: [
+    dts({
+      include: ['src/**/*'],
+      exclude: ['src/**/*.test.ts']
+    })
+  ],
   build: {
     lib: {
-      entry: path.resolve(__dirname, 'src/index.ts'),
+      entry: resolve(__dirname, 'src/index.ts'),
       name: 'edidts',
-      fileName: (format) => `index.${format === 'es' ? 'js' : 'umd.cjs'}`,
       formats: ['es', 'umd'],
+      fileName: (format) => `index.${format === 'es' ? 'js' : 'umd.cjs'}`
     },
     rollupOptions: {
       external: [],
       output: {
-        globals: {},
-      },
-    },
-    sourcemap: true,
-  },
-  plugins: [dts({
-    insertTypesEntry: true,
-    rollupTypes: false,
-  })],
+        globals: {}
+      }
+    }
+  }
 })

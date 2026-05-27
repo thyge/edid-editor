@@ -1,880 +1,598 @@
-import { DetailedTimingDescriptor } from "../common/DetailedTimingDescriptor";
-import { AspectRatio, StandardTiming } from "./standard-timing.ts";
-import { readUint16LE } from "../common/utils.ts";
+/**
+ * Display Descriptors
+ * 
+ * Handles all 18-byte display descriptor types per VESA E-EDID A2.
+ * Display descriptors start with 00 00 00 and use byte 3 as a tag.
+ */
 
-const DescriptorDisplayProductSerialNumber = 0xff;
-const DescriptorAlphanumericDataString = 0xfe;
-const DescriptorDisplayRangeLimits = 0xfd;
-const DescriptorDisplayProductName = 0xfc;
-const DescriptorColorPointData = 0xfb;
-const DescriptorStandardTimingIdentification = 0xfa;
-const DescriptorDisplayColorManagement = 0xf9;
-const DescriptorCVT3ByteCodes = 0xf8;
-const DescriptorEstablishedTimingsIII = 0xf7;
-const DescriptorDummy = 0x10;
+export type DisplayDescriptorTag = 
+  | 0xFF  // Display Product Serial Number
+  | 0xFE  // Alphanumeric Data String
+  | 0xFD  // Display Range Limits
+  | 0xFC  // Display Product Name
+  | 0xFB  // Additional Color Point Data
+  | 0xFA  // Standard Timing Identifiers
+  | 0xF9  // Display Color Management (DCM) Data
+  | 0xF8  // CVT 3-Byte Timing Codes
+  | 0xF7  // Established Timings III
+  | 0x10  // Dummy Descriptor
+  | number; // 0x00-0x0F Manufacturer Specified
 
-export const DescriptorType = {
-  DetailedTimingDescriptor: "Detailed Timing Descriptor",
-  not_set: "not_set",
-  DisplayProductSerialNumber: "Display Product Serial Number",
-  AlphanumericDataString: "Alphanumeric Data String",
-  DisplayRangeLimits: "Display Range Limits",
-  DisplayProductName: "Display ProductName",
-  ColorPointData: "Color Point Data",
-  StandardTimingIdentification: "Standard Timing Identification",
-  DisplayColorManagement: "Display Color Management",
-  CVT3ByteCodes: "CVT 3 Byte Codes",
-  EstablishedTimingsIII: "Established Timings III",
-  Dummy: "Dummy",
-} as const;
-
-export type DescriptorType = typeof DescriptorType[keyof typeof DescriptorType];
-
-export function DescriptorTypeToValue(type: DescriptorType): number {
-  switch (type) {
-    case DescriptorType.DisplayProductSerialNumber:
-      return DescriptorDisplayProductSerialNumber;
-    case DescriptorType.AlphanumericDataString:
-      return DescriptorAlphanumericDataString;
-    case DescriptorType.DisplayRangeLimits:
-      return DescriptorDisplayRangeLimits;
-    case DescriptorType.DisplayProductName:
-      return DescriptorDisplayProductName;
-    case DescriptorType.ColorPointData:
-      return DescriptorColorPointData;
-    case DescriptorType.StandardTimingIdentification:
-      return DescriptorStandardTimingIdentification;
-    case DescriptorType.DisplayColorManagement:
-      return DescriptorDisplayColorManagement;
-    case DescriptorType.CVT3ByteCodes:
-      return DescriptorCVT3ByteCodes;
-    case DescriptorType.EstablishedTimingsIII:
-      return DescriptorEstablishedTimingsIII;
-    case DescriptorType.Dummy:
-      return DescriptorDummy;
-    default:
-      return -1;
-  }
+export interface BaseDisplayDescriptor {
+  tag: DisplayDescriptorTag;
 }
 
-export interface DisplayDescriptorInterface {
-  kind: string;
-  raw: Uint8Array;
-  Type: DescriptorType;
-  Decode(bytes: Uint8Array): DisplayDescriptorInterface | null;
-  Encode(): Uint8Array;
+export interface ProductSerialDescriptor extends BaseDisplayDescriptor {
+  tag: 0xFF;
+  serialNumber: string;
 }
 
-class ASCIIDescriptor implements DisplayDescriptorInterface {
-  kind: string = '';
-  raw: Uint8Array;
-  Type: DescriptorType;
-  text: string = "";
-  constructor() {
-    this.raw = new Uint8Array(18);
-    this.Type = DescriptorType.not_set;
+export interface AlphanumericDataDescriptor extends BaseDisplayDescriptor {
+  tag: 0xFE;
+  data: string;
+}
+
+export interface DisplayRangeLimitsDescriptor extends BaseDisplayDescriptor {
+  tag: 0xFD;
+  minVerticalRate: number;      // Hz
+  maxVerticalRate: number;      // Hz
+  minHorizontalRate: number;    // kHz
+  maxHorizontalRate: number;    // kHz
+  maxPixelClock: number;        // MHz (in 10 MHz increments)
+  timingSupport: 'default-gtf' | 'range-limits-only' | 'secondary-gtf' | 'cvt';
+  // Secondary GTF parameters (if timingSupport === 'secondary-gtf')
+  secondaryGTF?: {
+    startFrequency: number;
+    c: number;
+    m: number;
+    k: number;
+    j: number;
+  };
+  // CVT parameters (if timingSupport === 'cvt')
+  cvt?: {
+    version: number;
+    maxActivePixelsPerLine: number;
+    aspectRatios: {
+      ar4_3: boolean;
+      ar16_9: boolean;
+      ar16_10: boolean;
+      ar5_4: boolean;
+      ar15_9: boolean;
+    };
+    preferredAspectRatio: '4:3' | '16:9' | '16:10' | '5:4' | '15:9';
+    reducedBlankingPreferred: boolean;
+    standardBlankingSupported: boolean;
+    horizontalShrinkSupported: boolean;
+    horizontalStretchSupported: boolean;
+    verticalShrinkSupported: boolean;
+    verticalStretchSupported: boolean;
+    preferredVerticalRefresh: number;
+  };
+}
+
+export interface ProductNameDescriptor extends BaseDisplayDescriptor {
+  tag: 0xFC;
+  productName: string;
+}
+
+export interface ColorPointDescriptor extends BaseDisplayDescriptor {
+  tag: 0xFB;
+  colorPoints: Array<{
+    index: number;
+    whiteX: number;
+    whiteY: number;
+    gamma: number;
+  }>;
+}
+
+export interface StandardTimingIdDescriptor extends BaseDisplayDescriptor {
+  tag: 0xFA;
+  timings: Array<{
+    width: number;
+    height: number;
+    refreshRate: number;
+  }>;
+}
+
+export interface DCMDescriptor extends BaseDisplayDescriptor {
+  tag: 0xF9;
+  version: number;
+  redA3: number;
+  redA2: number;
+  greenA3: number;
+  greenA2: number;
+  blueA3: number;
+  blueA2: number;
+}
+
+export interface CVTTimingDescriptor extends BaseDisplayDescriptor {
+  tag: 0xF8;
+  timings: Array<{
+    addressableLines: number;
+    aspectRatio: '4:3' | '16:9' | '16:10' | '5:4' | '15:9';
+    preferredRefreshRate: number;
+    refreshRates: {
+      r50Hz: boolean;
+      r60Hz: boolean;
+      r75Hz: boolean;
+      r85Hz: boolean;
+      r60HzRB: boolean;
+    };
+  }>;
+}
+
+export interface EstablishedTimingsIIIDescriptor extends BaseDisplayDescriptor {
+  tag: 0xF7;
+  timings: number[]; // Bitmask of supported timings
+}
+
+export interface DummyDescriptor extends BaseDisplayDescriptor {
+  tag: 0x10;
+}
+
+export interface ManufacturerDescriptor extends BaseDisplayDescriptor {
+  tag: number; // 0x00-0x0F
+  data: Uint8Array;
+}
+
+export type DisplayDescriptor = 
+  | ProductSerialDescriptor
+  | AlphanumericDataDescriptor
+  | DisplayRangeLimitsDescriptor
+  | ProductNameDescriptor
+  | ColorPointDescriptor
+  | StandardTimingIdDescriptor
+  | DCMDescriptor
+  | CVTTimingDescriptor
+  | EstablishedTimingsIIIDescriptor
+  | DummyDescriptor
+  | ManufacturerDescriptor;
+
+export class DisplayDescriptorParser {
+  /**
+   * Check if an 18-byte block is a display descriptor (not a timing)
+   */
+  static isDisplayDescriptor(data: Uint8Array): boolean {
+    return data[0] === 0x00 && data[1] === 0x00 && data[2] === 0x00;
   }
-  Decode(bytes: Uint8Array): DisplayDescriptorInterface {
-    // If byte 0, 1 and 2 are 0 then this is DTD
-    for (let d = 5; d < 19; d++) {
-      this.text += String.fromCharCode(bytes[d] ?? 0);
+
+  /**
+   * Decode a display descriptor from 18 bytes
+   */
+  static decode(data: Uint8Array): DisplayDescriptor | null {
+    if (data.length < 18) return null;
+    if (!this.isDisplayDescriptor(data)) return null;
+
+    const tag = data[3] as DisplayDescriptorTag;
+
+    switch (tag) {
+      case 0xFF:
+        return this.decodeProductSerial(data);
+      case 0xFE:
+        return this.decodeAlphanumericData(data);
+      case 0xFD:
+        return this.decodeRangeLimits(data);
+      case 0xFC:
+        return this.decodeProductName(data);
+      case 0xFB:
+        return this.decodeColorPoint(data);
+      case 0xFA:
+        return this.decodeStandardTimingId(data);
+      case 0xF9:
+        return this.decodeDCM(data);
+      case 0xF8:
+        return this.decodeCVTTiming(data);
+      case 0xF7:
+        return this.decodeEstablishedTimingsIII(data);
+      case 0x10:
+        return { tag: 0x10 } as DummyDescriptor;
+      default:
+        if (tag >= 0x00 && tag <= 0x0F) {
+          return {
+            tag,
+            data: data.slice(5, 18),
+          } as ManufacturerDescriptor;
+        }
+        return null;
     }
-    this.text = this.text.split("\n")[0] ?? "";
-    this.text = this.text.trim();
-    return this;
   }
-  Encode(): Uint8Array {
-    this.raw[3] = DescriptorTypeToValue(this.Type);
-    for (let d = 5; d < 19; d++) {
-      this.raw[d] = 0;
-    }
-    for (let d = 0; d < this.text.length; d++) {
-      if (d > 14) {
+
+  /**
+   * Encode a display descriptor to 18 bytes
+   */
+  static encode(descriptor: DisplayDescriptor): Uint8Array {
+    const bytes = new Uint8Array(18);
+    bytes[0] = 0x00;
+    bytes[1] = 0x00;
+    bytes[2] = 0x00;
+    bytes[3] = descriptor.tag;
+    bytes[4] = 0x00; // Reserved
+
+    switch (descriptor.tag) {
+      case 0xFF:
+        this.encodeString(bytes, (descriptor as ProductSerialDescriptor).serialNumber);
         break;
+      case 0xFE:
+        this.encodeString(bytes, (descriptor as AlphanumericDataDescriptor).data);
+        break;
+      case 0xFC:
+        this.encodeString(bytes, (descriptor as ProductNameDescriptor).productName);
+        break;
+      case 0xFD:
+        this.encodeRangeLimits(bytes, descriptor as DisplayRangeLimitsDescriptor);
+        break;
+      case 0xFB:
+        this.encodeColorPoint(bytes, descriptor as ColorPointDescriptor);
+        break;
+      case 0xFA:
+        this.encodeStandardTimingId(bytes, descriptor as StandardTimingIdDescriptor);
+        break;
+      case 0x10:
+        // Dummy - fill with zeros
+        break;
+      default:
+        if (descriptor.tag >= 0x00 && descriptor.tag <= 0x0F) {
+          const mfg = descriptor as ManufacturerDescriptor;
+          bytes.set(mfg.data.slice(0, 13), 5);
+        }
+    }
+
+    return bytes;
+  }
+
+  private static decodeString(data: Uint8Array, start: number, length: number): string {
+    let str = '';
+    for (let i = start; i < start + length && i < data.length; i++) {
+      if (data[i] === 0x0A) break; // Newline terminates
+      if (data[i] >= 0x20 && data[i] < 0x7F) {
+        str += String.fromCharCode(data[i]);
       }
-      this.raw[d + 5] = this.text.charCodeAt(d);
     }
-    this.raw[this.text.length + 5] = "\n".charCodeAt(0);
-    for (let d = this.text.length + 6; d < 19; d++) {
-      this.raw[d] = 0x20;
-    }
-    return this.raw;
-  }
-}
-
-export class DisplayProductSerialNumber extends ASCIIDescriptor {
-  kind = 'displayProductSerialNumber' as const;
-  constructor() {
-    super();
-    this.Type = DescriptorType.DisplayProductSerialNumber;
-  }
-  static decode(bytes: Uint8Array): DisplayProductSerialNumber {
-    return new DisplayProductSerialNumber().Decode(bytes) as DisplayProductSerialNumber;
-  }
-}
-export class AlphanumericDataString extends ASCIIDescriptor {
-  kind = 'alphanumericDataString' as const;
-  constructor() {
-    super();
-    this.Type = DescriptorType.AlphanumericDataString;
-  }
-  static decode(bytes: Uint8Array): AlphanumericDataString {
-    return new AlphanumericDataString().Decode(bytes) as AlphanumericDataString;
-  }
-}
-export class DisplayProductName extends ASCIIDescriptor {
-  kind = 'displayProductName' as const;
-  constructor() {
-    super();
-    this.Type = DescriptorType.DisplayProductName;
-  }
-  static decode(bytes: Uint8Array): DisplayProductName {
-    return new DisplayProductName().Decode(bytes) as DisplayProductName;
-  }
-}
-
-const VideoTimingSupportFlags = {
-  not_set: "",
-  DefaultGTF: "DefaultGTF",
-  RangeLimitsOnly: "RangeLimitsOnly",
-  SecondaryGTF: "SecondaryGTF",
-  CVTSupported: "CVTSupported",
-} as const;
-
-type VideoTimingSupportFlags = typeof VideoTimingSupportFlags[keyof typeof VideoTimingSupportFlags];
-
-class CVTSupportDefinition {
-  CVTStandardVersionNumber: number = 0;
-  PrecisionPixelClock: number = 0;
-  MaximumActivePixels: number = 0;
-  SupportedAspectRatios: Array<AspectRatio> = [];
-  PreferredAspectRatio: AspectRatio = AspectRatio.SixteenNine;
-  CVTStandardBlanking: boolean = false;
-  CVTReducedBlanking: boolean = false;
-  HorizontalShrink: boolean = false;
-  HirozontalStretch: boolean = false;
-  VerticalShrink: boolean = false;
-  VerticalStretch: boolean = false;
-  PreferredVerticalRefreshRate: number = 0;
-
-  static decode(bytes: Uint8Array): CVTSupportDefinition {
-    return new CVTSupportDefinition().Decode(bytes) as CVTSupportDefinition;
+    return str.trim();
   }
 
-  Decode(bytes: Uint8Array): CVTSupportDefinition {
-    let pixClockPrecision = ((bytes[12] ?? 0) & 0x03) * 0.25;
-    this.PrecisionPixelClock = (bytes[9] ?? 0) * 10 - pixClockPrecision;
-    // 8 × [Byte 13 + (256 × (Byte 12: bits 1, 0))]
-    let msb = ((bytes[12] ?? 0) & 0x03) << 8;
-    this.MaximumActivePixels = (bytes[13] ?? 0) + msb;
-    // Aspect Ratios
-    if ((bytes[14] ?? 0) & 0x80) {
-      this.SupportedAspectRatios.push(AspectRatio.FourThree);
+  private static encodeString(bytes: Uint8Array, str: string): void {
+    const maxLen = 13;
+    for (let i = 0; i < maxLen; i++) {
+      if (i < str.length) {
+        bytes[5 + i] = str.charCodeAt(i);
+      } else if (i === str.length) {
+        bytes[5 + i] = 0x0A; // Newline terminator
+      } else {
+        bytes[5 + i] = 0x20; // Padding with spaces
+      }
     }
-    if ((bytes[14] ?? 0) & 0x40) {
-      this.SupportedAspectRatios.push(AspectRatio.SixteenNine);
-    }
-    if ((bytes[14] ?? 0) & 0x20) {
-      this.SupportedAspectRatios.push(AspectRatio.SixteenTen);
-    }
-    if ((bytes[14] ?? 0) & 0x10) {
-      this.SupportedAspectRatios.push(AspectRatio.FiveFour);
-    }
-    if ((bytes[14] ?? 0) & 0x08) {
-      this.SupportedAspectRatios.push(AspectRatio.FifteenNine);
-    }
-    switch ((bytes[15] ?? 0) & 0xe0) {
-      case 0x00:
-        this.PreferredAspectRatio = AspectRatio.FourThree;
-        break;
-      case 0x20:
-        this.PreferredAspectRatio = AspectRatio.SixteenNine;
-        break;
-      case 0x40:
-        this.PreferredAspectRatio = AspectRatio.SixteenTen;
-        break;
-      case 0x60:
-        this.PreferredAspectRatio = AspectRatio.FiveFour;
-        break;
-      case 0x80:
-        this.PreferredAspectRatio = AspectRatio.FifteenNine;
-        break;
-    }
-    this.CVTReducedBlanking = (bytes[15] ?? 0) & 0x10 ? true : false;
-    this.CVTStandardBlanking = (bytes[15] ?? 0) & 0x08 ? true : false;
-    this.HorizontalShrink = (bytes[16] ?? 0) & 0x80 ? true : false;
-    this.HirozontalStretch = (bytes[16] ?? 0) & 0x40 ? true : false;
-    this.VerticalShrink = (bytes[16] ?? 0) & 0x20 ? true : false;
-    this.VerticalStretch = (bytes[16] ?? 0) & 0x10 ? true : false;
-    this.PreferredVerticalRefreshRate = bytes[17] ?? 0;
-    return this;
   }
-  Encode(): Uint8Array {
-    let bytes = new Uint8Array(18);
-    // Byte 9 = Maximum Pixel Clock (in 10 MHz steps)
-    // Byte 12 bits 1:0 = precision offset (0–3 × 0.25)
-    // PrecisionPixelClock = byte9 × 10 − (lowBits × 0.25)
-    // lowBits also serve as MSB of MaximumActivePixels
-    let lowBits = (this.MaximumActivePixels >> 8) & 0x03;
-    let byte9 = Math.round((this.PrecisionPixelClock + lowBits * 0.25) / 10);
-    if (Math.abs(byte9 * 10 - lowBits * 0.25 - this.PrecisionPixelClock) > 0.125) {
-      for (let test = 0; test <= 3; test++) {
-        let testByte9 = Math.round((this.PrecisionPixelClock + test * 0.25) / 10);
-        if (Math.abs(testByte9 * 10 - test * 0.25 - this.PrecisionPixelClock) <= 0.125) {
-          lowBits = test;
-          byte9 = testByte9;
-          break;
+
+  private static decodeProductSerial(data: Uint8Array): ProductSerialDescriptor {
+    return {
+      tag: 0xFF,
+      serialNumber: this.decodeString(data, 5, 13),
+    };
+  }
+
+  private static decodeAlphanumericData(data: Uint8Array): AlphanumericDataDescriptor {
+    return {
+      tag: 0xFE,
+      data: this.decodeString(data, 5, 13),
+    };
+  }
+
+  private static decodeProductName(data: Uint8Array): ProductNameDescriptor {
+    return {
+      tag: 0xFC,
+      productName: this.decodeString(data, 5, 13),
+    };
+  }
+
+  private static decodeRangeLimits(data: Uint8Array): DisplayRangeLimitsDescriptor {
+    const timingSupportByte = data[10];
+    let timingSupport: DisplayRangeLimitsDescriptor['timingSupport'] = 'default-gtf';
+    
+    switch (timingSupportByte) {
+      case 0x00: timingSupport = 'default-gtf'; break;
+      case 0x01: timingSupport = 'range-limits-only'; break;
+      case 0x02: timingSupport = 'secondary-gtf'; break;
+      case 0x04: timingSupport = 'cvt'; break;
+    }
+
+    const descriptor: DisplayRangeLimitsDescriptor = {
+      tag: 0xFD,
+      minVerticalRate: data[5],
+      maxVerticalRate: data[6],
+      minHorizontalRate: data[7],
+      maxHorizontalRate: data[8],
+      maxPixelClock: data[9] * 10,
+      timingSupport,
+    };
+
+    if (timingSupport === 'secondary-gtf' && data[11] === 0x00) {
+      descriptor.secondaryGTF = {
+        startFrequency: data[12] * 2,
+        c: data[13] / 2,
+        m: (data[15] << 8) | data[14],
+        k: data[16],
+        j: data[17] / 2,
+      };
+    }
+
+    if (timingSupport === 'cvt') {
+      const cvtVersion = ((data[11] >> 4) & 0x0F) * 10 + (data[11] & 0x0F);
+      const maxPixelsHigh = ((data[12] & 0x03) << 8) | data[13];
+      const arByte = data[14];
+      const prefAR = (arByte >> 5) & 0x03;
+      const prefARMap: Record<number, '4:3' | '16:9' | '16:10' | '5:4' | '15:9'> = {
+        0: '4:3', 1: '16:9', 2: '16:10', 3: '5:4',
+      };
+
+      descriptor.cvt = {
+        version: cvtVersion,
+        maxActivePixelsPerLine: maxPixelsHigh * 8,
+        aspectRatios: {
+          ar4_3: (arByte & 0x80) !== 0,
+          ar16_9: (arByte & 0x40) !== 0,
+          ar16_10: (arByte & 0x20) !== 0,
+          ar5_4: (arByte & 0x10) !== 0,
+          ar15_9: (arByte & 0x08) !== 0,
+        },
+        preferredAspectRatio: prefARMap[prefAR] ?? '4:3',
+        reducedBlankingPreferred: (data[15] & 0x10) !== 0,
+        standardBlankingSupported: (data[15] & 0x08) !== 0,
+        horizontalShrinkSupported: (data[16] & 0x80) !== 0,
+        horizontalStretchSupported: (data[16] & 0x40) !== 0,
+        verticalShrinkSupported: (data[16] & 0x20) !== 0,
+        verticalStretchSupported: (data[16] & 0x10) !== 0,
+        preferredVerticalRefresh: data[17],
+      };
+    }
+
+    return descriptor;
+  }
+
+  private static encodeRangeLimits(bytes: Uint8Array, desc: DisplayRangeLimitsDescriptor): void {
+    bytes[5] = desc.minVerticalRate;
+    bytes[6] = desc.maxVerticalRate;
+    bytes[7] = desc.minHorizontalRate;
+    bytes[8] = desc.maxHorizontalRate;
+    bytes[9] = Math.round(desc.maxPixelClock / 10);
+
+    switch (desc.timingSupport) {
+      case 'default-gtf': bytes[10] = 0x00; break;
+      case 'range-limits-only': bytes[10] = 0x01; break;
+      case 'secondary-gtf': bytes[10] = 0x02; break;
+      case 'cvt': bytes[10] = 0x04; break;
+    }
+
+    // Fill remaining with padding for default GTF
+    if (desc.timingSupport === 'default-gtf' || desc.timingSupport === 'range-limits-only') {
+      bytes[11] = 0x0A;
+      for (let i = 12; i < 18; i++) bytes[i] = 0x20;
+    }
+  }
+
+  private static decodeColorPoint(data: Uint8Array): ColorPointDescriptor {
+    const colorPoints: ColorPointDescriptor['colorPoints'] = [];
+    
+    // Two color points can be stored
+    for (let i = 0; i < 2; i++) {
+      const offset = 5 + i * 5;
+      const index = data[offset];
+      if (index === 0) continue; // Unused
+      
+      const whiteXLow = (data[offset + 1] >> 2) & 0x03;
+      const whiteYLow = data[offset + 1] & 0x03;
+      const whiteXHigh = data[offset + 2];
+      const whiteYHigh = data[offset + 3];
+      const gamma = data[offset + 4];
+
+      colorPoints.push({
+        index,
+        whiteX: ((whiteXHigh << 2) | whiteXLow) / 1024,
+        whiteY: ((whiteYHigh << 2) | whiteYLow) / 1024,
+        gamma: gamma === 0xFF ? 0 : (gamma + 100) / 100,
+      });
+    }
+
+    return { tag: 0xFB, colorPoints };
+  }
+
+  private static encodeColorPoint(bytes: Uint8Array, descriptor: ColorPointDescriptor): void {
+    const points = [...descriptor.colorPoints]
+      .slice(0, 2)
+      .sort((a, b) => a.index - b.index);
+
+    for (let i = 0; i < 2; i++) {
+      const offset = 5 + i * 5;
+      const point = points[i];
+      if (!point) {
+        bytes[offset] = 0x00;
+        bytes[offset + 1] = 0x00;
+        bytes[offset + 2] = 0x00;
+        bytes[offset + 3] = 0x00;
+        bytes[offset + 4] = 0x00;
+        continue;
+      }
+
+      const index = Math.max(1, Math.min(2, Math.round(point.index)));
+      bytes[offset] = index & 0xFF;
+
+      const whiteX = this.encodeChromaticity(point.whiteX);
+      const whiteY = this.encodeChromaticity(point.whiteY);
+
+      bytes[offset + 1] = ((whiteX & 0x03) << 2) | (whiteY & 0x03);
+      bytes[offset + 2] = (whiteX >> 2) & 0xFF;
+      bytes[offset + 3] = (whiteY >> 2) & 0xFF;
+      bytes[offset + 4] = this.encodeGamma(point.gamma);
+    }
+  }
+
+  private static encodeChromaticity(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    const clamped = Math.min(0.9999, Math.max(0, value));
+    return Math.round(clamped * 1024) & 0x3FF;
+  }
+
+  private static encodeGamma(value: number): number {
+    if (!Number.isFinite(value) || value <= 0) return 0xFF;
+    const clamped = Math.min(3.54, Math.max(1, value));
+    const encoded = Math.round(clamped * 100 - 100);
+    return Math.max(0, Math.min(0xFE, encoded));
+  }
+
+  private static decodeStandardTimingId(data: Uint8Array): StandardTimingIdDescriptor {
+    const timings: StandardTimingIdDescriptor['timings'] = [];
+
+    for (let i = 0; i < 6; i++) {
+      const offset = 5 + i * 2;
+      const byte1 = data[offset];
+      const byte2 = data[offset + 1];
+
+      if (byte1 === 0x01 && byte2 === 0x01) continue; // Unused
+
+      const width = (byte1 + 31) * 8;
+      const aspectRatio = (byte2 >> 6) & 0x03;
+      const refreshRate = (byte2 & 0x3F) + 60;
+
+      let height: number;
+      switch (aspectRatio) {
+        case 0: height = Math.round((width * 10) / 16); break; // 16:10
+        case 1: height = Math.round((width * 3) / 4); break;   // 4:3
+        case 2: height = Math.round((width * 4) / 5); break;   // 5:4
+        case 3: height = Math.round((width * 9) / 16); break;  // 16:9
+        default: height = width;
+      }
+
+      timings.push({ width, height, refreshRate });
+    }
+
+    return { tag: 0xFA, timings };
+  }
+
+  private static encodeStandardTimingId(bytes: Uint8Array, descriptor: StandardTimingIdDescriptor): void {
+    for (let i = 0; i < 6; i++) {
+      const offset = 5 + i * 2;
+      const timing = descriptor.timings?.[i];
+
+      if (!timing || timing.width <= 0 || timing.refreshRate <= 0) {
+        bytes[offset] = 0x01;
+        bytes[offset + 1] = 0x01;
+        continue;
+      }
+
+      const roundedWidth = Math.round(timing.width / 8) * 8;
+      const clampedWidth = Math.min(2288, Math.max(256, roundedWidth));
+      const widthByte = Math.max(1, Math.min(255, Math.round(clampedWidth / 8) - 31));
+      const aspectCode = this.aspectCodeFromTimings(clampedWidth, timing.height);
+      const refresh = Math.min(123, Math.max(60, Math.round(timing.refreshRate))) - 60;
+
+      bytes[offset] = widthByte & 0xFF;
+      bytes[offset + 1] = ((aspectCode & 0x03) << 6) | (refresh & 0x3F);
+    }
+  }
+
+  private static aspectCodeFromTimings(width: number, height?: number): number {
+    if (!height || height <= 0) return 3; // Default to 16:9 when height unknown
+
+    const targetRatio = width / height;
+    const ratios = [
+      { code: 0, ratio: 16 / 10 },
+      { code: 1, ratio: 4 / 3 },
+      { code: 2, ratio: 5 / 4 },
+      { code: 3, ratio: 16 / 9 },
+    ];
+
+    let best = 3;
+    let bestDiff = Number.POSITIVE_INFINITY;
+
+    for (const candidate of ratios) {
+      const diff = Math.abs(targetRatio - candidate.ratio);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = candidate.code;
+      }
+    }
+
+    return best;
+  }
+
+  private static decodeDCM(data: Uint8Array): DCMDescriptor {
+    return {
+      tag: 0xF9,
+      version: data[5],
+      redA3: (data[6] << 4) | ((data[7] >> 4) & 0x0F),
+      redA2: ((data[7] & 0x0F) << 8) | data[8],
+      greenA3: (data[9] << 4) | ((data[10] >> 4) & 0x0F),
+      greenA2: ((data[10] & 0x0F) << 8) | data[11],
+      blueA3: (data[12] << 4) | ((data[13] >> 4) & 0x0F),
+      blueA2: ((data[13] & 0x0F) << 8) | data[14],
+    };
+  }
+
+  private static decodeCVTTiming(data: Uint8Array): CVTTimingDescriptor {
+    const timings: CVTTimingDescriptor['timings'] = [];
+
+    for (let i = 0; i < 4; i++) {
+      const offset = 6 + i * 3;
+      const lines = ((data[offset + 1] & 0xF0) << 4) | data[offset];
+      if (lines === 0) continue;
+
+      const arCode = (data[offset + 1] >> 2) & 0x03;
+      const arMap: Record<number, '4:3' | '16:9' | '16:10' | '5:4' | '15:9'> = {
+        0: '4:3', 1: '16:9', 2: '16:10', 3: '5:4',
+      };
+
+      const prefRR = (data[offset + 2] >> 5) & 0x03;
+      const rrMap: Record<number, number> = { 0: 50, 1: 60, 2: 75, 3: 85 };
+
+      timings.push({
+        addressableLines: lines * 2,
+        aspectRatio: arMap[arCode] ?? '4:3',
+        preferredRefreshRate: rrMap[prefRR] ?? 60,
+        refreshRates: {
+          r50Hz: (data[offset + 2] & 0x10) !== 0,
+          r60Hz: (data[offset + 2] & 0x08) !== 0,
+          r75Hz: (data[offset + 2] & 0x04) !== 0,
+          r85Hz: (data[offset + 2] & 0x02) !== 0,
+          r60HzRB: (data[offset + 2] & 0x01) !== 0,
+        },
+      });
+    }
+
+    return { tag: 0xF8, timings };
+  }
+
+  private static decodeEstablishedTimingsIII(data: Uint8Array): EstablishedTimingsIIIDescriptor {
+    const timings: number[] = [];
+    for (let i = 6; i < 18; i++) {
+      for (let bit = 7; bit >= 0; bit--) {
+        if (data[i] & (1 << bit)) {
+          timings.push((i - 6) * 8 + (7 - bit));
         }
       }
     }
-    bytes[9] = byte9;
-    bytes[12] = lowBits;
-    bytes[13] = this.MaximumActivePixels & 0xff;
-
-    // Byte 14 – Supported Aspect Ratios
-    if (this.SupportedAspectRatios.includes(AspectRatio.FourThree)) bytes[14] |= 0x80;
-    if (this.SupportedAspectRatios.includes(AspectRatio.SixteenNine)) bytes[14] |= 0x40;
-    if (this.SupportedAspectRatios.includes(AspectRatio.SixteenTen)) bytes[14] |= 0x20;
-    if (this.SupportedAspectRatios.includes(AspectRatio.FiveFour)) bytes[14] |= 0x10;
-    if (this.SupportedAspectRatios.includes(AspectRatio.FifteenNine)) bytes[14] |= 0x08;
-
-    // Byte 15 – Preferred Aspect Ratio + blanking
-    switch (this.PreferredAspectRatio) {
-      case AspectRatio.FourThree:
-        bytes[15] |= 0x00;
-        break;
-      case AspectRatio.SixteenNine:
-        bytes[15] |= 0x20;
-        break;
-      case AspectRatio.SixteenTen:
-        bytes[15] |= 0x40;
-        break;
-      case AspectRatio.FiveFour:
-        bytes[15] |= 0x60;
-        break;
-      case AspectRatio.FifteenNine:
-        bytes[15] |= 0x80;
-        break;
-    }
-    if (this.CVTReducedBlanking) bytes[15] |= 0x10;
-    if (this.CVTStandardBlanking) bytes[15] |= 0x08;
-
-    // Byte 16 – stretch/shrink
-    if (this.HorizontalShrink) bytes[16] |= 0x80;
-    if (this.HirozontalStretch) bytes[16] |= 0x40;
-    if (this.VerticalShrink) bytes[16] |= 0x20;
-    if (this.VerticalStretch) bytes[16] |= 0x10;
-
-    // Byte 17 – Preferred Vertical Refresh Rate
-    bytes[17] = this.PreferredVerticalRefreshRate;
-
-    return bytes;
+    return { tag: 0xF7, timings };
   }
 }
 
-export class DisplayRangeLimits implements DisplayDescriptorInterface {
-  kind = 'displayRangeLimits' as const;
-  raw: Uint8Array;
-  Type: DescriptorType;
-  MinimumVerticalRate: number = 0;
-  MaximumVerticalRate: number = 0;
-  MinimumHorizontalRate: number = 0;
-  MaximumHorizontalRate: number = 0;
-  MaximumPixelClockMHz: number = 0;
-  VideoTimingSupport: VideoTimingSupportFlags = VideoTimingSupportFlags.DefaultGTF;
-  CVTSupportDefinition: CVTSupportDefinition = new CVTSupportDefinition();
-  constructor() {
-    this.raw = new Uint8Array(18);
-    this.Type = DescriptorType.DisplayRangeLimits;
-  }
-  static decode(bytes: Uint8Array): DisplayRangeLimits {
-    return new DisplayRangeLimits().Decode(bytes) as DisplayRangeLimits;
-  }
-  Decode(bytes: Uint8Array): DisplayDescriptorInterface {
-    let MinVerticalRateOffset = (bytes[4] ?? 0) & 0x01 ? true : false;
-    let MaxVerticalRateOffset = (bytes[4] ?? 0) & 0x02 ? true : false;
-    let MinHorizontalRateOffset = (bytes[4] ?? 0) & 0x04 ? true : false;
-    let MaxHorizontalRateOffset = (bytes[4] ?? 0) & 0x08 ? true : false;
-    // Vertical Minimum
-    if (MinVerticalRateOffset) {
-      this.MinimumVerticalRate = (bytes[5] ?? 0) + 256;
-    } else {
-      this.MinimumVerticalRate = (bytes[5] ?? 0) + 1;
-    }
-    // Vertical Maximum
-    if (MaxVerticalRateOffset) {
-      this.MaximumVerticalRate = (bytes[6] ?? 0) + 256;
-    } else {
-      this.MaximumVerticalRate = (bytes[6] ?? 0) + 1;
-    }
-    // Horizontal Minimum
-    if (MinHorizontalRateOffset) {
-      this.MinimumHorizontalRate = (bytes[7] ?? 0) + 256;
-    } else {
-      this.MinimumHorizontalRate = (bytes[7] ?? 0) + 1;
-    }
-    // Horizontal Maximum
-    if (MaxHorizontalRateOffset) {
-      this.MaximumHorizontalRate = (bytes[8] ?? 0) + 256;
-    } else {
-      this.MaximumHorizontalRate = (bytes[8] ?? 0) + 1;
-    }
-    // Maximum Pixel Clock
-    this.MaximumPixelClockMHz = (bytes[9] ?? 0) * 10;
-
-    // Video Timing Support Flags: Bytes 10 → 17 indicate support for additional video timings.
-    switch ((bytes[10] ?? 0) & 0x7) {
-      case 0x00:
-        this.VideoTimingSupport = VideoTimingSupportFlags.DefaultGTF;
-        break;
-      case 0x01:
-        this.VideoTimingSupport = VideoTimingSupportFlags.RangeLimitsOnly;
-        break;
-      case 0x02:
-        this.VideoTimingSupport = VideoTimingSupportFlags.SecondaryGTF;
-        break;
-      case 0x04:
-        this.VideoTimingSupport = VideoTimingSupportFlags.CVTSupported;
-        break;
-    }
-
-    // DefaultGTF and RangeLimitsOnly
-    // 11 = 0x0A
-    // 12-17 = 0x20
-    // SecondaryGTF Depricated in EDID 1.4
-    if (this.VideoTimingSupport != VideoTimingSupportFlags.CVTSupported) {
-      return this;
-    }
-
-    // CVTSupported
-    this.CVTSupportDefinition = CVTSupportDefinition.decode(bytes);
-    return this;
-  }
-  Encode(): Uint8Array {
-    this.raw[3] = DescriptorTypeToValue(this.Type);
-    // Vertical Minimum
-    if (this.MinimumVerticalRate > 255) {
-      this.raw[4] = 0x01;
-      this.raw[5] = this.MinimumVerticalRate - 256;
-    } else {
-      this.raw[5] = this.MinimumVerticalRate - 1;
-    }
-    // Vertical Maximum
-    if (this.MaximumVerticalRate > 255) {
-      this.raw[4] = (this.raw[4] ?? 0) | 0x02;
-      this.raw[6] = this.MaximumVerticalRate - 256;
-    } else {
-      this.raw[6] = this.MaximumVerticalRate - 1;
-    }
-    // Horizontal Minimum
-    if (this.MinimumHorizontalRate > 255) {
-      this.raw[4] = (this.raw[4] ?? 0) | 0x04;
-      this.raw[7] = this.MinimumHorizontalRate - 256;
-    } else {
-      this.raw[7] = this.MinimumHorizontalRate - 1;
-    }
-    // Horizontal Maximum
-    if (this.MaximumHorizontalRate > 255) {
-      this.raw[4] = (this.raw[4] ?? 0) | 0x08;
-      this.raw[8] = this.MaximumHorizontalRate - 256;
-    } else {
-      this.raw[8] = this.MaximumHorizontalRate - 1;
-    }
-    // Maximum Pixel Clock
-    this.raw[9] = Math.round(this.MaximumPixelClockMHz / 10);
-
-    switch (this.VideoTimingSupport) {
-      case VideoTimingSupportFlags.DefaultGTF:
-        this.raw[10] = 0x00;
-        break;
-      case VideoTimingSupportFlags.RangeLimitsOnly:
-        this.raw[10] = 0x01;
-        break;
-      case VideoTimingSupportFlags.SecondaryGTF:
-        this.raw[10] = 0x02;
-        break;
-      case VideoTimingSupportFlags.CVTSupported:
-        this.raw[10] = 0x04;
-        break;
-    }
-    if (
-      this.VideoTimingSupport === VideoTimingSupportFlags.DefaultGTF ||
-      this.VideoTimingSupport === VideoTimingSupportFlags.RangeLimitsOnly
-    ) {
-      this.raw[11] = 0x0a;
-      this.raw[12] = 0x20;
-      this.raw[13] = 0x20;
-      this.raw[14] = 0x20;
-      this.raw[15] = 0x20;
-      this.raw[16] = 0x20;
-      this.raw[17] = 0x20;
-    } else if (
-      this.VideoTimingSupport === VideoTimingSupportFlags.CVTSupported
-    ) {
-      let cvtBytes = this.CVTSupportDefinition.Encode();
-      // Byte 9 is shared (pixel clock); bytes 10-11 are reserved.
-      // Copy CVT parameters from bytes 12-17.
-      for (let i = 12; i < cvtBytes.length; i++) {
-        this.raw[i] = cvtBytes[i] ?? 0;
-      }
-    }
-    return this.raw;
-  }
+/**
+ * Helper to get product name from descriptors
+ */
+export function getProductName(descriptors: DisplayDescriptor[]): string | null {
+  const desc = descriptors.find(d => d.tag === 0xFC) as ProductNameDescriptor | undefined;
+  return desc?.productName ?? null;
 }
 
-class ColorPoint {
-  WhitePointIndex: number = 0;
-  WhiteX: number = 0;
-  WhiteY: number = 0;
-  WhiteGamma: number = 0;
-  static decode(bytes: Uint8Array): ColorPoint {
-    return new ColorPoint().Decode(bytes) as ColorPoint;
-  }
-  Decode(bytes: Uint8Array): ColorPoint {
-    this.WhitePointIndex = bytes[0] ?? 0;
-    this.WhiteX = (((bytes[2] ?? 0) << 2) | (((bytes[1] ?? 0) >> 4) & 0x3)) / 1024;
-    this.WhiteY = (((bytes[3] ?? 0) << 2) | (((bytes[1] ?? 0) >> 2) & 0x3)) / 1024;
-    this.WhiteGamma = (bytes[4] ?? 0) / 100 + 1;
-    return this;
-  }
-  Encode(): Uint8Array {
-    let colorBytes = new Uint8Array(5);
-    let wx = Math.round(this.WhiteX * 1024);
-    let wy = Math.round(this.WhiteY * 1024);
-    colorBytes[0] = this.WhitePointIndex;
-    colorBytes[1] = ((wx & 0x3) << 4) | ((wy & 0x3) << 2);
-    colorBytes[2] = (wx >> 2) & 0xff;
-    colorBytes[3] = (wy >> 2) & 0xff;
-    colorBytes[4] = (this.WhiteGamma * 100) - 100;
-    return colorBytes;
-  }
+/**
+ * Helper to get serial number from descriptors
+ */
+export function getProductSerial(descriptors: DisplayDescriptor[]): string | null {
+  const desc = descriptors.find(d => d.tag === 0xFF) as ProductSerialDescriptor | undefined;
+  return desc?.serialNumber ?? null;
 }
 
-export class ColorPointData implements DisplayDescriptorInterface {
-  kind = 'colorPointData' as const;
-  raw: Uint8Array;
-  Type: DescriptorType;
-  WhitePoints: Array<ColorPoint> = [];
-  LineFeed: number = 0
-  constructor() {
-    this.raw = new Uint8Array(18);
-    this.Type = DescriptorType.ColorPointData;
-  }
-  static decode(bytes: Uint8Array): ColorPointData {
-    return new ColorPointData().Decode(bytes) as ColorPointData;
-  }
-  Decode(bytes: Uint8Array): DisplayDescriptorInterface {
-    for (let index = 5; index < 15; index+=5) {
-      let cpBytes = bytes.slice(index, index+5)
-      this.WhitePoints.push(ColorPoint.decode(cpBytes))
-    }
-    return this;
-  }
-  Encode(): Uint8Array {
-    this.raw[3] = DescriptorTypeToValue(this.Type);
-    let offset = 5
-    this.WhitePoints.forEach(wp => {
-      this.raw.set(wp.Encode(), offset)
-      offset+=5
-    });
-    this.raw[15] = 0x0A;
-    this.raw[16] = 0x20;
-    this.raw[17] = 0x20;
-    return this.raw;
-  }
-}
-
-
-
-export class StandardTimingIdentification
-  implements DisplayDescriptorInterface
-{
-  kind = 'standardTimingIdentification' as const;
-  raw: Uint8Array;
-  Type: DescriptorType;
-  timings: Array<StandardTiming> = [];
-  constructor() {
-    this.raw = new Uint8Array(18);
-    this.Type = DescriptorType.StandardTimingIdentification;
-  }
-  static decode(bytes: Uint8Array): StandardTimingIdentification {
-    return new StandardTimingIdentification().Decode(bytes) as StandardTimingIdentification;
-  }
-  Decode(bytes: Uint8Array): StandardTimingIdentification {
-    this.raw = bytes;
-    for (let index = 5; index < 17; index += 2) {
-      let timing = new StandardTiming();
-      timing.Decode(bytes.slice(index, index + 2));
-      this.timings.push(timing);
-    }
-    return this;
-  }
-  Encode(): Uint8Array {
-    this.raw[3] = DescriptorTypeToValue(this.Type);
-    for (let index = 0; index < this.timings.length; index++) {
-      const timing = this.timings[index];
-      if (timing) {
-        this.raw.set(timing.Encode(), index * 2 + 5);
-      }
-    }
-    return this.raw;
-  }
-}
-
-export class DisplayColorManagement implements DisplayDescriptorInterface {
-  kind = 'displayColorManagement' as const;
-  raw: Uint8Array;
-  Type: DescriptorType;
-  Version: number = 3;
-  Red_a3: number = 0;
-  Red_a2: number = 0;
-  Green_a3: number = 0;
-  Green_a2: number = 0;
-  Blue_a3: number = 0;
-  Blue_a2: number = 0;
-  constructor() {
-    this.raw = new Uint8Array(18);
-    this.Type = DescriptorType.DisplayColorManagement;
-  }
-  static decode(bytes: Uint8Array): DisplayColorManagement {
-    return new DisplayColorManagement().Decode(bytes) as DisplayColorManagement;
-  }
-  Decode(bytes: Uint8Array): DisplayColorManagement {
-    this.raw = bytes;
-    this.Version = bytes[5] ?? 0;
-    // Red a3 Least Significant Byte (LSB)
-    this.Red_a3 = bytes[6] ?? 0;
-    // Red a3 Most Significant Byte (MSB)
-    this.Red_a3 = this.Red_a3 + ((bytes[7] ?? 0) << 8);
-    // Red a2 Least Significant Byte (LSB)
-    this.Red_a2 = bytes[8] ?? 0;
-    // Red a2 Most Significant Byte (MSB)
-    this.Red_a2 = this.Red_a2 + ((bytes[9] ?? 0) << 8);
-    // Green a3 Least Significant Byte (LSB)
-    this.Green_a3 = bytes[10] ?? 0;
-    // Green a3 Most Significant Byte (MSB)
-    this.Green_a3 = this.Green_a3 + ((bytes[11] ?? 0) << 8);
-    // Green a2 Least Significant Byte (LSB)
-    this.Green_a2 = bytes[12] ?? 0;
-    // Green a2 Most Significant Byte (MSB)
-    this.Green_a2 = this.Green_a2 + ((bytes[13] ?? 0) << 8);
-    // Blue a3 Least Significant Byte (LSB)
-    this.Blue_a3 = bytes[14] ?? 0;
-    // Blue a3 Most Significant Byte (MSB)
-    this.Blue_a3 = this.Blue_a3 + ((bytes[15] ?? 0) << 8);
-    // Blue a2 Least Significant Byte (LSB)
-    this.Blue_a2 = bytes[16] ?? 0;
-    // Blue a2 Most Significant Byte (MSB)
-    this.Blue_a2 = this.Blue_a2 + ((bytes[17] ?? 0) << 8);
-    return this;
-  }
-  Encode(): Uint8Array {
-    this.raw[3] = DescriptorTypeToValue(this.Type);
-    this.raw[5] = this.Version;
-    // Red a3 Least Significant Byte (LSB)
-    this.raw[6] = this.Red_a3 & 0xff;
-    // Red a3 Most Significant Byte (MSB)
-    this.raw[7] = this.Red_a3 >> 8;
-    // Red a2 Least Significant Byte (LSB)
-    this.raw[8] = this.Red_a2 & 0xff;
-    // Red a2 Most Significant Byte (MSB)
-    this.raw[9] = this.Red_a2 >> 8;
-    // Green a3 Least Significant Byte (LSB)
-    this.raw[10] = this.Green_a3 & 0xff;
-    // Green a3 Most Significant Byte (MSB)
-    this.raw[11] = this.Green_a3 >> 8;
-    // Green a2 Least Significant Byte (LSB)
-    this.raw[12] = this.Green_a2 & 0xff;
-    // Green a2 Most Significant Byte (MSB)
-    this.raw[13] = this.Green_a2 >> 8;
-    // Blue a3 Least Significant Byte (LSB)
-    this.raw[14] = this.Blue_a3 & 0xff;
-    // Blue a3 Most Significant Byte (MSB)
-    this.raw[15] = this.Blue_a3 >> 8;
-    // Blue a2 Least Significant Byte (LSB)
-    this.raw[16] = this.Blue_a2 & 0xff;
-    // Blue a2 Most Significant Byte (MSB)
-    this.raw[17] = this.Blue_a2 >> 8;
-    return this.raw;
-  }
-}
-
-export class CVT3ByteCodeDescriptor {
-  AddressableLines: number = 0;
-  AspectRatio: AspectRatio = AspectRatio.FourThree;
-  PreferredRefreshRate: number = 60;
-  Supports50Hz: boolean = false;
-  Supports60Hz: boolean = false;
-  Supports75Hz: boolean = false;
-  Supports85Hz: boolean = false;
-  Supports60HzReducedBlanking: boolean = false;
-
-  static decode(bytes: Uint8Array): CVT3ByteCodeDescriptor {
-    return new CVT3ByteCodeDescriptor().Decode(bytes) as CVT3ByteCodeDescriptor;
-  }
-
-  Decode(bytes: Uint8Array): CVT3ByteCodeDescriptor {
-    const value = (bytes[0] & 0xff) | ((bytes[1] & 0x0f) << 8);
-    this.AddressableLines = (value + 1) * 2;
-    switch (((bytes[1] ?? 0) >> 4) & 0x03) {
-      case 0:
-        this.AspectRatio = AspectRatio.FourThree;
-        break;
-      case 1:
-        this.AspectRatio = AspectRatio.SixteenNine;
-        break;
-      case 2:
-        this.AspectRatio = AspectRatio.SixteenTen;
-        break;
-      case 3:
-        this.AspectRatio = AspectRatio.FifteenNine;
-        break;
-    }
-    switch ((bytes[2] ?? 0) >> 6) {
-      case 0:
-        this.PreferredRefreshRate = 50;
-        break;
-      case 1:
-        this.PreferredRefreshRate = 60;
-        break;
-      case 2:
-        this.PreferredRefreshRate = 75;
-        break;
-      case 3:
-        this.PreferredRefreshRate = 85;
-        break;
-    }
-    this.Supports50Hz = (bytes[2] ?? 0) & 0x08 ? true : false;
-    this.Supports60Hz = (bytes[2] ?? 0) & 0x04 ? true : false;
-    this.Supports75Hz = (bytes[2] ?? 0) & 0x02 ? true : false;
-    this.Supports85Hz = (bytes[2] ?? 0) & 0x01 ? true : false;
-    this.Supports60HzReducedBlanking = (bytes[2] ?? 0) & 0x10 ? true : false;
-    return this;
-  }
-
-  Encode(): Uint8Array {
-    const bytes = new Uint8Array(3);
-    const value = this.AddressableLines / 2 - 1;
-    bytes[0] = value & 0xff;
-    bytes[1] = (value >> 8) & 0x0f;
-    switch (this.AspectRatio) {
-      case AspectRatio.FourThree:
-        bytes[1] |= 0 << 4;
-        break;
-      case AspectRatio.SixteenNine:
-        bytes[1] |= 1 << 4;
-        break;
-      case AspectRatio.SixteenTen:
-        bytes[1] |= 2 << 4;
-        break;
-      case AspectRatio.FifteenNine:
-        bytes[1] |= 3 << 4;
-        break;
-    }
-    switch (this.PreferredRefreshRate) {
-      case 50:
-        bytes[2] |= 0 << 6;
-        break;
-      case 60:
-        bytes[2] |= 1 << 6;
-        break;
-      case 75:
-        bytes[2] |= 2 << 6;
-        break;
-      case 85:
-        bytes[2] |= 3 << 6;
-        break;
-    }
-    if (this.Supports50Hz) bytes[2] |= 0x08;
-    if (this.Supports60Hz) bytes[2] |= 0x04;
-    if (this.Supports75Hz) bytes[2] |= 0x02;
-    if (this.Supports85Hz) bytes[2] |= 0x01;
-    if (this.Supports60HzReducedBlanking) bytes[2] |= 0x10;
-    return bytes;
-  }
-}
-
-export class CVT3ByteCodes implements DisplayDescriptorInterface {
-  kind = 'cvt3ByteCodes' as const;
-  raw: Uint8Array;
-  Type: DescriptorType;
-  Version: number = 1;
-  Descriptors: CVT3ByteCodeDescriptor[] = [];
-
-  constructor() {
-    this.raw = new Uint8Array(18);
-    this.Type = DescriptorType.CVT3ByteCodes;
-  }
-
-  static decode(bytes: Uint8Array): CVT3ByteCodes {
-    return new CVT3ByteCodes().Decode(bytes) as CVT3ByteCodes;
-  }
-
-  Decode(bytes: Uint8Array): CVT3ByteCodes {
-    this.raw = bytes;
-    this.Version = bytes[5] ?? 1;
-    this.Descriptors = [];
-    for (let i = 0; i < 4; i++) {
-      const offset = 6 + i * 3;
-      if (bytes[offset] === 0 && bytes[offset + 1] === 0 && bytes[offset + 2] === 0) {
-        continue;
-      }
-      const desc = CVT3ByteCodeDescriptor.decode(bytes.slice(offset, offset + 3));
-      this.Descriptors.push(desc);
-    }
-    return this;
-  }
-
-  Encode(): Uint8Array {
-    this.raw[3] = DescriptorTypeToValue(this.Type);
-    this.raw[5] = this.Version;
-    for (let i = 0; i < 4; i++) {
-      const offset = 6 + i * 3;
-      const desc = this.Descriptors[i];
-      if (desc) {
-        this.raw.set(desc.Encode(), offset);
-      } else {
-        this.raw[offset] = 0;
-        this.raw[offset + 1] = 0;
-        this.raw[offset + 2] = 0;
-      }
-    }
-    return this.raw;
-  }
-}
-
-export class EstablishedTimingsIII implements DisplayDescriptorInterface {
-  kind = 'establishedTimingsIII' as const;
-  raw: Uint8Array;
-  Type: DescriptorType;
-  Timings: Uint8Array = new Uint8Array(12);
-
-  constructor() {
-    this.raw = new Uint8Array(18);
-    this.Type = DescriptorType.EstablishedTimingsIII;
-  }
-
-  static decode(bytes: Uint8Array): EstablishedTimingsIII {
-    return new EstablishedTimingsIII().Decode(bytes) as EstablishedTimingsIII;
-  }
-
-  Decode(bytes: Uint8Array): EstablishedTimingsIII {
-    this.raw = bytes;
-    this.Timings = bytes.slice(5, 17);
-    return this;
-  }
-
-  Encode(): Uint8Array {
-    this.raw[3] = DescriptorTypeToValue(this.Type);
-    this.raw.set(this.Timings, 5);
-    return this.raw;
-  }
-}
-
-export class DummyDesciptor implements DisplayDescriptorInterface {
-  kind = 'dummy' as const;
-  raw: Uint8Array;
-  Type: DescriptorType;
-  constructor() {
-    this.raw = new Uint8Array(18);
-    this.Type = DescriptorType.Dummy;
-  }
-  static decode(bytes: Uint8Array): DummyDesciptor {
-    return new DummyDesciptor().Decode(bytes) as DummyDesciptor;
-  }
-  Decode(_bytes: Uint8Array): DisplayDescriptorInterface {
-    return this;
-  }
-  Encode(): Uint8Array {
-    this.raw[3] = DescriptorTypeToValue(this.Type);
-    return this.raw;
-  }
-}
-
-export type DisplayDescriptorUnion =
-  | DetailedTimingDescriptor
-  | DisplayProductSerialNumber
-  | AlphanumericDataString
-  | DisplayProductName
-  | DisplayRangeLimits
-  | ColorPointData
-  | StandardTimingIdentification
-  | DisplayColorManagement
-  | CVT3ByteCodes
-  | EstablishedTimingsIII
-  | DummyDesciptor;
-
-export function DecodeDesciptor(
-  bytes: Uint8Array
-): DisplayDescriptorUnion | null {
-  // console.log(bytes);
-  // Check if 18 bytes is display desciprtor
-  switch (bytes[3]) {
-    case DescriptorDisplayProductSerialNumber:
-      return DisplayProductSerialNumber.decode(bytes);
-    case DescriptorAlphanumericDataString:
-      return AlphanumericDataString.decode(bytes);
-    case DescriptorDisplayRangeLimits:
-      return DisplayRangeLimits.decode(bytes);
-    case DescriptorDisplayProductName:
-      return DisplayProductName.decode(bytes);
-    case DescriptorColorPointData:
-      return ColorPointData.decode(bytes);
-    case DescriptorStandardTimingIdentification:
-      return StandardTimingIdentification.decode(bytes);
-    case DescriptorDisplayColorManagement:
-      return DisplayColorManagement.decode(bytes);
-    case DescriptorCVT3ByteCodes:
-      return CVT3ByteCodes.decode(bytes);
-    case DescriptorEstablishedTimingsIII:
-      return EstablishedTimingsIII.decode(bytes);
-    case DescriptorDummy:
-      return DummyDesciptor.decode(bytes);
-    default:
-      return null;
-  }
-}
-
-export const descriptorTypeOptions = [
-  { value: DescriptorType.DetailedTimingDescriptor, label: "Detailed Timing Descriptor" },
-  { value: DescriptorType.DisplayProductSerialNumber, label: "Display Product Serial Number" },
-  { value: DescriptorType.AlphanumericDataString, label: "Alphanumeric Data String" },
-  { value: DescriptorType.DisplayRangeLimits, label: "Display Range Limits" },
-  { value: DescriptorType.DisplayProductName, label: "Display Product Name" },
-  { value: DescriptorType.ColorPointData, label: "Color Point Data" },
-  { value: DescriptorType.StandardTimingIdentification, label: "Standard Timing Identification" },
-  { value: DescriptorType.DisplayColorManagement, label: "Display Color Management" },
-  { value: DescriptorType.CVT3ByteCodes, label: "CVT 3 Byte Codes" },
-  { value: DescriptorType.EstablishedTimingsIII, label: "Established Timings III" },
-] as const;
-
-export function CreateDesciptor(
-  type: DescriptorType
-): DisplayDescriptorUnion {
-  switch (type) {
-    case DescriptorType.DetailedTimingDescriptor:
-      return new DetailedTimingDescriptor();
-    case DescriptorType.DisplayProductSerialNumber:
-      return new DisplayProductSerialNumber();
-    case DescriptorType.AlphanumericDataString:
-      return new AlphanumericDataString();
-    case DescriptorType.DisplayRangeLimits:
-      return new DisplayRangeLimits();
-    case DescriptorType.DisplayProductName:
-      return new DisplayProductName();
-    case DescriptorType.ColorPointData:
-      return new ColorPointData();
-    case DescriptorType.StandardTimingIdentification:
-      return new StandardTimingIdentification();
-    case DescriptorType.DisplayColorManagement:
-      return new DisplayColorManagement();
-    case DescriptorType.CVT3ByteCodes:
-      return new CVT3ByteCodes();
-    case DescriptorType.EstablishedTimingsIII:
-      return new EstablishedTimingsIII();
-    case DescriptorType.Dummy:
-      return new DummyDesciptor();
-    default:
-      return new DummyDesciptor();
-  }
+/**
+ * Helper to get range limits from descriptors
+ */
+export function getRangeLimits(descriptors: DisplayDescriptor[]): DisplayRangeLimitsDescriptor | null {
+  return descriptors.find(d => d.tag === 0xFD) as DisplayRangeLimitsDescriptor ?? null;
 }

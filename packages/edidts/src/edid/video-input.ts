@@ -1,185 +1,162 @@
-export interface VideoSignalInterface {
-  SignalInterface: SignalInterface;
-  Encode(): number;
+/**
+ * Video Input Definition
+ * 
+ * Handles encoding and decoding of EDID video input parameters.
+ * Supports both analog and digital video inputs per VESA E-EDID A2.
+ */
+
+export type AnalogSignalLevel = '0.7/0.3V' | '0.714/0.286V' | '1.0/0.4V' | '0.7/0.0V';
+export type DigitalBitDepth = 'undefined' | 6 | 8 | 10 | 12 | 14 | 16;
+export type DigitalInterface = 'undefined' | 'DVI' | 'HDMI-a' | 'HDMI-b' | 'MDDI' | 'DisplayPort';
+
+export interface AnalogVideoInput {
+  type: 'analog';
+  signalLevel: AnalogSignalLevel;
+  videoSetup: boolean;
+  separateSyncSupported: boolean;
+  compositeSyncSupported: boolean;
+  syncOnGreenSupported: boolean;
+  vsyncSerrationSupported: boolean;
 }
 
-export const SignalInterface = {
-  NotDefined: "NotDefined",
-  Digital: "Digital",
-  Analog: "Analog",
-} as const;
-
-export type SignalInterface = typeof SignalInterface[keyof typeof SignalInterface];
-
-const VideoInterface = {
-  Undefined: "undefined",
-  DVI: "DVI",
-  HDMIa: "HDMIa",
-  HDMIb: "HDMIb",
-  MDDI: "MDDI",
-  DisplayPort: "DisplayPort",
-} as const;
-
-type VideoInterface = typeof VideoInterface[keyof typeof VideoInterface];
-
-const BitDepth = {
-  Undefined: "undefined",
-  Six: "6",
-  Eight: "8",
-  Ten: "10",
-  Twelve: "12",
-  Sixteen: "16",
-} as const;
-
-type BitDepth = typeof BitDepth[keyof typeof BitDepth];
-
-export class DigitalVideoInput implements VideoSignalInterface {
-  SignalInterface: SignalInterface;
-
-  BitDepth: BitDepth;
-  Interface: VideoInterface;
-  static decode(mbyte: number): DigitalVideoInput {
-    return new DigitalVideoInput(mbyte);
-  }
-  constructor(mbyte: number) {
-    this.SignalInterface = SignalInterface.Digital;
-    switch ((mbyte & 0x70) >> 4) {
-      case 0:
-        this.BitDepth = BitDepth.Undefined;
-        break;
-      case 1:
-        this.BitDepth = BitDepth.Six;
-        break;
-      case 2:
-        this.BitDepth = BitDepth.Eight;
-        break;
-      case 3:
-        this.BitDepth = BitDepth.Ten;
-        break;
-      case 4:
-        this.BitDepth = BitDepth.Twelve;
-        break;
-      case 6:
-        this.BitDepth = BitDepth.Sixteen;
-        break;
-      default:
-        this.BitDepth = BitDepth.Undefined;
-        break;
-    }
-    switch (mbyte & 0x7) {
-      case 1:
-        this.Interface = VideoInterface.DVI;
-        break;
-      case 2:
-        this.Interface = VideoInterface.HDMIa;
-        break;
-      case 3:
-        this.Interface = VideoInterface.HDMIb;
-        break;
-      case 4:
-        this.Interface = VideoInterface.MDDI;
-        break;
-      case 5:
-        this.Interface = VideoInterface.DisplayPort;
-        break;
-      default:
-        this.Interface = VideoInterface.Undefined;
-        break;
-    }
-  }
-  Encode(): number {
-    let mbyte = 0x80;
-    switch (this.BitDepth) {
-      case BitDepth.Six:
-        mbyte |= 16;
-        break;
-      case BitDepth.Eight:
-        mbyte |= 32;
-        break;
-      case BitDepth.Ten:
-        mbyte |= 48;
-        break;
-      case BitDepth.Twelve:
-        mbyte |= 64;
-        break;
-      case BitDepth.Sixteen:
-        mbyte |= 96;
-        break;
-      default:
-        break;
-    }
-    switch (this.Interface) {
-      case VideoInterface.DVI:
-        mbyte |= 1;
-        break;
-      case VideoInterface.HDMIa:
-        mbyte |= 2;
-        break;
-      case VideoInterface.HDMIb:
-        mbyte |= 3;
-        break;
-      case VideoInterface.MDDI:
-        mbyte |= 4;
-        break;
-      case VideoInterface.DisplayPort:
-        mbyte |= 5;
-        break;
-      default:
-        break;
-    }
-    return mbyte;
-  }
+export interface DigitalVideoInput {
+  type: 'digital';
+  bitDepth: DigitalBitDepth;
+  videoInterface: DigitalInterface;
 }
 
-const SignalLevelStandard = {
-  NotDefined: -1,
-  V700_300_1000: 0,
-  V714_286_1000: 0x20,
-  V1000_400_1400: 0x40,
-  V700_000_700: 0x60,
-} as const;
+export type VideoInput = AnalogVideoInput | DigitalVideoInput;
 
-type SignalLevelStandard = typeof SignalLevelStandard[keyof typeof SignalLevelStandard];
+const SIGNAL_LEVEL_MAP: Record<number, AnalogSignalLevel> = {
+  0: '0.7/0.3V',
+  1: '0.714/0.286V',
+  2: '1.0/0.4V',
+  3: '0.7/0.0V',
+};
 
-const VideoSetup = {
-  BlankLevel: "Blank Level = Black Level",
-  BlankToBlack: "Blank-to-Black setup or pedestal",
-} as const;
+const BIT_DEPTH_MAP: Record<number, DigitalBitDepth> = {
+  0: 'undefined',
+  1: 6,
+  2: 8,
+  3: 10,
+  4: 12,
+  5: 14,
+  6: 16,
+};
 
-type VideoSetup = typeof VideoSetup[keyof typeof VideoSetup];
+const INTERFACE_MAP: Record<number, DigitalInterface> = {
+  0: 'undefined',
+  1: 'DVI',
+  2: 'HDMI-a',
+  3: 'HDMI-b',
+  4: 'MDDI',
+  5: 'DisplayPort',
+};
 
-export class AnalogVideoInput implements VideoSignalInterface {
-  SignalInterface: SignalInterface;
-  SignalLevelStandard: SignalLevelStandard;
-  VideoSetup: VideoSetup;
-  SeparateSyncHVSignals: boolean;
-  CompositeSyncSignalonHorizontal: boolean;
-  CompositeSyncSignalonGreenVideo: boolean;
-  SerrationsOnVSync: boolean;
+/** All valid analog signal levels */
+export const ANALOG_SIGNAL_LEVELS: readonly AnalogSignalLevel[] = Object.values(SIGNAL_LEVEL_MAP);
 
-  static decode(mbyte: number): AnalogVideoInput {
-    return new AnalogVideoInput(mbyte);
+/** All valid digital bit depths */
+export const DIGITAL_BIT_DEPTHS: readonly DigitalBitDepth[] = Object.values(BIT_DEPTH_MAP);
+
+/** All valid digital interfaces */
+export const DIGITAL_INTERFACES: readonly DigitalInterface[] = Object.values(INTERFACE_MAP);
+
+export class VideoInputDefinition {
+  public input: VideoInput;
+
+  constructor(input?: VideoInput) {
+    this.input = input ?? { type: 'digital', bitDepth: 8, videoInterface: 'DisplayPort' };
   }
 
-  constructor(mbyte: number) {
-    this.SignalInterface = SignalInterface.Analog;
-    this.SignalLevelStandard = (mbyte & 0x60) as SignalLevelStandard;
-    this.VideoSetup =
-      mbyte & 0x10 ? VideoSetup.BlankToBlack : VideoSetup.BlankLevel;
-    this.SeparateSyncHVSignals = mbyte & 0x8 ? false : true;
-    this.CompositeSyncSignalonHorizontal = mbyte & 0x4 ? false : true;
-    this.CompositeSyncSignalonGreenVideo = mbyte & 0x2 ? false : true;
-    this.SerrationsOnVSync = mbyte & 0x1 ? true : false;
+  /**
+   * Decode video input definition from byte 14h
+   */
+  static decode(byte: number): VideoInputDefinition {
+    const isDigital = (byte & 0x80) !== 0;
+
+    if (isDigital) {
+      const bitDepthCode = (byte >> 4) & 0x07;
+      const interfaceCode = byte & 0x0F;
+
+      return new VideoInputDefinition({
+        type: 'digital',
+        bitDepth: BIT_DEPTH_MAP[bitDepthCode] ?? 'undefined',
+        videoInterface: INTERFACE_MAP[interfaceCode] ?? 'undefined',
+      });
+    } else {
+      const signalLevelCode = (byte >> 5) & 0x03;
+
+      return new VideoInputDefinition({
+        type: 'analog',
+        signalLevel: SIGNAL_LEVEL_MAP[signalLevelCode] ?? '0.7/0.3V',
+        videoSetup: (byte & 0x10) !== 0,
+        separateSyncSupported: (byte & 0x08) !== 0,
+        compositeSyncSupported: (byte & 0x04) !== 0,
+        syncOnGreenSupported: (byte & 0x02) !== 0,
+        vsyncSerrationSupported: (byte & 0x01) !== 0,
+      });
+    }
   }
 
-  Encode(): number {
-    let mbyte = 0;
-    mbyte |= this.SignalLevelStandard;
-    mbyte |= this.VideoSetup === VideoSetup.BlankToBlack ? 0x10 : 0;
-    mbyte |= this.SeparateSyncHVSignals ? 0 : 0x8;
-    mbyte |= this.CompositeSyncSignalonHorizontal ? 0 : 0x4;
-    mbyte |= this.CompositeSyncSignalonGreenVideo ? 0 : 0x2;
-    mbyte |= this.SerrationsOnVSync ? 0x1 : 0;
-    return mbyte;
+  /**
+   * Encode video input definition to byte
+   */
+  encode(): number {
+    if (this.input.type === 'digital') {
+      let byte = 0x80; // Digital flag
+
+      // Encode bit depth
+      const digital = this.input as DigitalVideoInput;
+      const bitDepthCode = Object.entries(BIT_DEPTH_MAP)
+        .find(([, v]) => v === digital.bitDepth)?.[0];
+      if (bitDepthCode) {
+        byte |= (parseInt(bitDepthCode) & 0x07) << 4;
+      }
+
+      // Encode interface
+      const interfaceCode = Object.entries(INTERFACE_MAP)
+        .find(([, v]) => v === (this.input as DigitalVideoInput).videoInterface)?.[0];
+      if (interfaceCode) {
+        byte |= parseInt(interfaceCode) & 0x0F;
+      }
+
+      return byte;
+    } else {
+      let byte = 0x00; // Analog flag
+
+      // Encode signal level
+      const signalLevelCode = Object.entries(SIGNAL_LEVEL_MAP)
+        .find(([, v]) => v === (this.input as AnalogVideoInput).signalLevel)?.[0];
+      if (signalLevelCode) {
+        byte |= (parseInt(signalLevelCode) & 0x03) << 5;
+      }
+
+      const analog = this.input as AnalogVideoInput;
+      if (analog.videoSetup) byte |= 0x10;
+      if (analog.separateSyncSupported) byte |= 0x08;
+      if (analog.compositeSyncSupported) byte |= 0x04;
+      if (analog.syncOnGreenSupported) byte |= 0x02;
+      if (analog.vsyncSerrationSupported) byte |= 0x01;
+
+      return byte;
+    }
+  }
+
+  get isDigital(): boolean {
+    return this.input.type === 'digital';
+  }
+
+  get isAnalog(): boolean {
+    return this.input.type === 'analog';
+  }
+
+  toString(): string {
+    if (this.input.type === 'digital') {
+      const depth = this.input.bitDepth === 'undefined' ? 'undefined' : `${this.input.bitDepth}-bit`;
+      return `Digital ${depth} ${this.input.videoInterface}`;
+    } else {
+      return `Analog ${this.input.signalLevel}`;
+    }
   }
 }

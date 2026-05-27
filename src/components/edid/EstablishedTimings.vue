@@ -1,134 +1,81 @@
 <script setup lang="ts">
-import { useEdidStore } from "@/stores/edidStore";
-const edidstore = useEdidStore();
-import { Switch } from "@/components/ui/switch";
+import { computed } from 'vue'
+import { EstablishedTiming } from 'edidts'
+import type { EDIDViewModel } from '@/types/edid'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
+
+const props = defineProps<{ edid: EDIDViewModel }>()
+const emit = defineEmits<{ update: [field: string, value: unknown] }>()
+
+const allTimings = EstablishedTiming.TIMING_MAP.filter((t) => !t.name.includes('Reserved'))
+const establishedTimingsI = allTimings.filter((t) => t.id <= 7)
+const establishedTimingsII = allTimings.filter((t) => t.id >= 8 && t.id <= 15)
+const manufacturerTimings = allTimings.filter((t) => t.id >= 16)
+
+const activeIds = computed(() => new Set(props.edid.establishedTimings.map((t) => t.id)))
+
+type TimingEntry = (typeof EstablishedTiming.TIMING_MAP)[number]
+
+function toggleEstablished(entry: TimingEntry, checked: boolean) {
+  const current = props.edid.establishedTimings
+  let updated: EstablishedTiming[]
+  if (checked) {
+    updated = [...current, new EstablishedTiming(entry)]
+  } else {
+    updated = current.filter((t) => t.id !== entry.id)
+  }
+  emit('update', 'establishedTimings', updated)
+}
 </script>
 
 <template>
-  <div class="grid grid-cols-3 gap-2 m-4">
-    <div>Established Timings</div>
-  </div>
-  <div class="grid grid-cols-6 gap-2 m-4 p-4 border rounded">
-    <div>720 x 400 @ 70Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET720_400_70"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>800 x 600 @ 56Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET800_600_56"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>1024 x 768 @ 60Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET1024_768_60"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>720 x 400 @ 88Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET720_400_88"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>800 x 600 @ 60Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET800_600_60"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>1024 x 768 @ 70Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET1024_768_70"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>640 x 480 @ 60Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET640_480_60"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>800 x 600 @ 72Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET800_600_72"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>1024 x 768 @ 75Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET1024_768_75"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>640 x 480 @ 67Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET640_480_67"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>800 x 600 @ 75Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET800_600_75"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>1280 x 1024 @ 75Hz</div>
-    <div>
-      <Switch
-        v-model:checked="
-          edidstore.mEEDID.EDID.EstablishedTimings.ET1280_1024_75
-        "
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>640 x 480 @ 72Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET640_480_72"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>832 x 624 @ 75Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET832_624_75"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>1152 x 870 @ 75Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET1152_870_75"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>640 x 480 @ 75Hz</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET640_480_75"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-    <div>1024 x 768 @ 87Hz Interlaced</div>
-    <div>
-      <Switch
-        v-model:checked="edidstore.mEEDID.EDID.EstablishedTimings.ET1024_768_87"
-        @update:checked="edidstore.updateEdid()"
-      />
-    </div>
-  </div>
+  <Card>
+    <CardHeader>
+      <CardTitle>Established Timings</CardTitle>
+    </CardHeader>
+    <CardContent class="space-y-6 text-sm">
+      <section>
+        <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Established Timings I</h4>
+        <div class="grid grid-cols-4 gap-x-4 gap-y-0">
+          <label
+            v-for="entry in establishedTimingsI"
+            :key="entry.id"
+            class="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-muted/50 transition-colors cursor-pointer"
+          >
+            <span class="text-xs">{{ entry.width }}×{{ entry.height }} @ {{ entry.refreshRate }}Hz</span>
+            <Switch :model-value="activeIds.has(entry.id)" @update:model-value="(v: boolean) => toggleEstablished(entry, v)" />
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Established Timings II</h4>
+        <div class="grid grid-cols-4 gap-x-4 gap-y-0">
+          <label
+            v-for="entry in establishedTimingsII"
+            :key="entry.id"
+            class="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-muted/50 transition-colors cursor-pointer"
+          >
+            <span class="text-xs">{{ entry.width }}×{{ entry.height }} @ {{ entry.refreshRate }}Hz</span>
+            <Switch :model-value="activeIds.has(entry.id)" @update:model-value="(v: boolean) => toggleEstablished(entry, v)" />
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Manufacturer's Timings</h4>
+        <div class="grid grid-cols-4 gap-x-4 gap-y-0">
+          <label
+            v-for="entry in manufacturerTimings"
+            :key="entry.id"
+            class="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-muted/50 transition-colors cursor-pointer"
+          >
+            <span class="text-xs">{{ entry.width }}×{{ entry.height }} @ {{ entry.refreshRate }}Hz</span>
+            <Switch :model-value="activeIds.has(entry.id)" @update:model-value="(v: boolean) => toggleEstablished(entry, v)" />
+          </label>
+        </div>
+      </section>
+    </CardContent>
+  </Card>
 </template>

@@ -1,83 +1,138 @@
-import { EdidVersion } from "./feature-support.ts";
-
-export const AspectRatio = {
-  OneOne: "1:1",
-  FourThree: "4:3",
-  FiveFour: "5:4",
-  FifteenNine: "15:9", // CVT Support Definition
-  SixteenNine: "16:9",
-  SixteenTen: "16:10",
-} as const;
-
-export type AspectRatio = typeof AspectRatio[keyof typeof AspectRatio];
-
+/**
+ * Standard timing information for EDID
+ * Represents a standard timing mode with width, height, and refresh rate
+ */
 export class StandardTiming {
-  id: number = 0;
-  Enabled: boolean = false;
-  HorizontalActive: number = 0;
-  AspectRatio: AspectRatio = AspectRatio.FourThree;
-  RefreshRate: number = 60;
+  public readonly width: number;
+  public readonly height: number;
+  public readonly refreshRate: number;
 
-  static decode(bytes: Uint8Array, version?: EdidVersion): StandardTiming {
-    return new StandardTiming().Decode(bytes, version);
+  constructor(options: {
+    width?: number;
+    height?: number;
+    refreshRate?: number;
+  } = {}) {
+    this.width = options.width ?? 0;
+    this.height = options.height ?? 0;
+    this.refreshRate = options.refreshRate ?? 0;
   }
 
-  Decode(bytes: Uint8Array, version?: EdidVersion): StandardTiming {
-    this.Enabled = false;
-    if (bytes[0] === 0x1 && bytes[1] === 0x1) {
-      this.Enabled = false;
-    } else {
-      this.Enabled = true;
-    }
-    switch ((bytes[1] ?? 0) >> 6) {
-      case 0:
-        this.AspectRatio =
-          version === EdidVersion.Pre13
-            ? AspectRatio.OneOne
-            : AspectRatio.SixteenTen;
-        break;
-      case 1:
-        this.AspectRatio = AspectRatio.FourThree;
-        break;
-      case 2:
-        this.AspectRatio = AspectRatio.FiveFour;
-        break;
-      case 3:
-        this.AspectRatio = AspectRatio.SixteenNine;
-        break;
-      default:
-        break;
-    }
-    this.HorizontalActive = ((bytes[0] ?? 0) + 31) * 8;
-    this.RefreshRate = ((bytes[1] ?? 0) & 0x3f) + 60;
-    return this;
+  /**
+   * Get the display mode string
+   */
+  get displayMode(): string {
+    return `${this.width}×${this.height}@${this.refreshRate}Hz`;
   }
-  Encode(): Uint8Array {
-    let bytes = new Uint8Array(2);
-    if (this.Enabled) {
-      bytes[0] = this.HorizontalActive / 8 - 31;
-      bytes[1] = (this.RefreshRate - 60) & 0x3f;
-      switch (this.AspectRatio) {
-        case AspectRatio.SixteenTen:
-        case AspectRatio.OneOne:
-          bytes[1] |= 0 << 6;
-          break;
-        case AspectRatio.FourThree:
-          bytes[1] |= 1 << 6;
-          break;
-        case AspectRatio.FiveFour:
-          bytes[1] |= 2 << 6;
-          break;
-        case AspectRatio.SixteenNine:
-          bytes[1] |= 3 << 6;
-          break;
-        default:
-          break;
+
+  /**
+   * Get the aspect ratio as a string
+   */
+  get aspectRatio(): string {
+    if (this.width === 0 || this.height === 0) return "Unknown";
+    
+    const ratio = this.width / this.height;
+    if (Math.abs(ratio - 16/10) < 0.05) return "16:10";
+    if (Math.abs(ratio - 4/3) < 0.05) return "4:3";
+    if (Math.abs(ratio - 5/4) < 0.05) return "5:4";
+    if (Math.abs(ratio - 16/9) < 0.05) return "16:9";
+    return `${this.width}:${this.height}`;
+  }
+
+  /**
+   * Check if this timing is valid (not a placeholder)
+   */
+  get isValid(): boolean {
+    return this.width > 0 && this.height > 0 && this.refreshRate > 0;
+  }
+
+  /**
+   * Decode standard timings from EDID data
+   * @param data The EDID data bytes
+   * @returns Array of StandardTiming instances
+   */
+  static decode(data: Uint8Array): StandardTiming[] {
+    const timings: StandardTiming[] = [];
+
+    // Standard timings at offset 38-53 (8 × 2 bytes)
+    for (let i = 0; i < 8; i++) {
+      const offset = 38 + i * 2;
+      const timing1 = data[offset];
+      const timing2 = data[offset + 1];
+
+      // Skip unused entries (0x01, 0x01)
+      if (timing1 === 0x01 && timing2 === 0x01) {
+        continue;
       }
-    } else {
-      bytes[0] = 1;
-      bytes[1] = 1;
+
+      const width = (timing1 + 31) * 8;
+      const aspectRatio = (timing2 >> 6) & 0x03;
+      const refreshRate = (timing2 & 0x3f) + 60;
+
+      let height: number;
+      switch (aspectRatio) {
+        case 0:
+          height = Math.round((width * 10) / 16);
+          break; // 16:10
+        case 1:
+          height = Math.round((width * 3) / 4);
+          break; // 4:3
+        case 2:
+          height = Math.round((width * 4) / 5);
+          break; // 5:4
+        case 3:
+          height = Math.round((width * 9) / 16);
+          break; // 16:9
+        default:
+          height = width;
+      }
+
+      timings.push(new StandardTiming({ width, height, refreshRate }));
     }
+
+    return timings;
+  }
+
+  /**
+   * Encode standard timings to EDID bytes
+   * @param timings Array of StandardTiming instances
+   * @returns 16 bytes for standard timing section
+   */
+  static encode(timings: StandardTiming[]): Uint8Array {
+    const bytes = new Uint8Array(16); // 8 × 2 bytes
+
+    for (let i = 0; i < 8; i++) {
+      const offset = i * 2;
+      
+      if (i < timings.length && timings[i].isValid) {
+        const timing = timings[i];
+        const timing1 = Math.round(timing.width / 8) - 31;
+
+        // Determine aspect ratio using integer math and lookup table
+        let aspectRatio = 0;
+        const aspectRatios = [
+          { code: 0, w: 16, h: 10 }, // 16:10
+          { code: 1, w: 4, h: 3 }, // 4:3
+          { code: 2, w: 5, h: 4 }, // 5:4
+          { code: 3, w: 16, h: 9 }, // 16:9
+        ];
+        for (const ar of aspectRatios) {
+          if (Math.abs(timing.height * ar.w - timing.width * ar.h) < 2) {
+            aspectRatio = ar.code;
+            break;
+          }
+        }
+
+        const timing2 = (aspectRatio << 6) | ((timing.refreshRate - 60) & 0x3f);
+
+        bytes[offset] = Math.max(1, Math.min(255, timing1));
+        bytes[offset + 1] = timing2;
+      } else {
+        // Unused timing slot
+        bytes[offset] = 0x01;
+        bytes[offset + 1] = 0x01;
+      }
+    }
+
     return bytes;
   }
 }
