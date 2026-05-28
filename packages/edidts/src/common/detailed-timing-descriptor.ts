@@ -301,19 +301,11 @@ export class DetailedTimingDescriptor {
     return timing ? new DetailedTimingDescriptor(timing) : null;
   }
 
-  private static decodeFlags(byte: number): TimingFlags {
-    return decodeEdidCtaDetailedTimingFlags(byte);
-  }
-
   /**
    * Encode this detailed timing descriptor to 18 bytes
    */
   encode(): Uint8Array {
     return encodeEdidCtaDetailedTiming(this);
-  }
-
-  private encodeFlags(): number {
-    return encodeEdidCtaDetailedTimingFlags(this.flags);
   }
 
   /**

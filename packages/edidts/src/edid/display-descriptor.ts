@@ -227,6 +227,15 @@ export class DisplayDescriptorParser {
       case 0xFA:
         this.encodeStandardTimingId(bytes, descriptor as StandardTimingIdDescriptor);
         break;
+      case 0xF9:
+        this.encodeDCM(bytes, descriptor as DCMDescriptor);
+        break;
+      case 0xF8:
+        this.encodeCVTTiming(bytes, descriptor as CVTTimingDescriptor);
+        break;
+      case 0xF7:
+        this.encodeEstablishedTimingsIII(bytes, descriptor as EstablishedTimingsIIIDescriptor);
+        break;
       case 0x10:
         // Dummy - fill with zeros
         break;
@@ -320,10 +329,7 @@ export class DisplayDescriptorParser {
       const cvtVersion = ((data[11] >> 4) & 0x0F) * 10 + (data[11] & 0x0F);
       const maxPixelsHigh = ((data[12] & 0x03) << 8) | data[13];
       const arByte = data[14];
-      const prefAR = (arByte >> 5) & 0x03;
-      const prefARMap: Record<number, '4:3' | '16:9' | '16:10' | '5:4' | '15:9'> = {
-        0: '4:3', 1: '16:9', 2: '16:10', 3: '5:4',
-      };
+      const prefAR = (data[15] >> 5) & 0x07;
 
       descriptor.cvt = {
         version: cvtVersion,
@@ -335,9 +341,9 @@ export class DisplayDescriptorParser {
           ar5_4: (arByte & 0x10) !== 0,
           ar15_9: (arByte & 0x08) !== 0,
         },
-        preferredAspectRatio: prefARMap[prefAR] ?? '4:3',
-        reducedBlankingPreferred: (data[15] & 0x10) !== 0,
-        standardBlankingSupported: (data[15] & 0x08) !== 0,
+        preferredAspectRatio: this.rangeCvtAspectRatioFromCode(prefAR),
+        reducedBlankingPreferred: (data[15] & 0x08) !== 0,
+        standardBlankingSupported: (data[15] & 0x10) !== 0,
         horizontalShrinkSupported: (data[16] & 0x80) !== 0,
         horizontalStretchSupported: (data[16] & 0x40) !== 0,
         verticalShrinkSupported: (data[16] & 0x20) !== 0,
@@ -367,6 +373,39 @@ export class DisplayDescriptorParser {
     if (desc.timingSupport === 'default-gtf' || desc.timingSupport === 'range-limits-only') {
       bytes[11] = 0x0A;
       for (let i = 12; i < 18; i++) bytes[i] = 0x20;
+    }
+
+    if (desc.timingSupport === 'secondary-gtf') {
+      const gtf = desc.secondaryGTF;
+      bytes[11] = 0x00;
+      bytes[12] = gtf ? Math.round(gtf.startFrequency / 2) & 0xFF : 0x00;
+      bytes[13] = gtf ? Math.round(gtf.c * 2) & 0xFF : 0x00;
+      const m = gtf ? Math.max(0, Math.min(0xFFFF, Math.round(gtf.m))) : 0;
+      bytes[14] = m & 0xFF;
+      bytes[15] = (m >> 8) & 0xFF;
+      bytes[16] = gtf ? Math.round(gtf.k) & 0xFF : 0x00;
+      bytes[17] = gtf ? Math.round(gtf.j * 2) & 0xFF : 0x00;
+    }
+
+    if (desc.timingSupport === 'cvt') {
+      const cvt = desc.cvt;
+      if (!cvt) return;
+
+      const version = Math.max(0, Math.min(99, Math.round(cvt.version)));
+      const maxActivePixels = Math.max(0, Math.min(0x3FF, Math.round(cvt.maxActivePixelsPerLine / 8)));
+
+      bytes[11] = ((Math.floor(version / 10) & 0x0F) << 4) | (version % 10);
+      bytes[12] = (maxActivePixels >> 8) & 0x03;
+      bytes[13] = maxActivePixels & 0xFF;
+      bytes[14] = this.encodeRangeCvtAspectRatios(cvt.aspectRatios);
+      bytes[15] = (this.rangeCvtAspectRatioCode(cvt.preferredAspectRatio) << 5)
+        | (cvt.standardBlankingSupported ? 0x10 : 0)
+        | (cvt.reducedBlankingPreferred ? 0x08 : 0);
+      bytes[16] = (cvt.horizontalShrinkSupported ? 0x80 : 0)
+        | (cvt.horizontalStretchSupported ? 0x40 : 0)
+        | (cvt.verticalShrinkSupported ? 0x20 : 0)
+        | (cvt.verticalStretchSupported ? 0x10 : 0);
+      bytes[17] = Math.max(1, Math.min(0xFF, Math.round(cvt.preferredVerticalRefresh)));
     }
   }
 
@@ -519,13 +558,23 @@ export class DisplayDescriptorParser {
     return {
       tag: 0xF9,
       version: data[5],
-      redA3: (data[6] << 4) | ((data[7] >> 4) & 0x0F),
-      redA2: ((data[7] & 0x0F) << 8) | data[8],
-      greenA3: (data[9] << 4) | ((data[10] >> 4) & 0x0F),
-      greenA2: ((data[10] & 0x0F) << 8) | data[11],
-      blueA3: (data[12] << 4) | ((data[13] >> 4) & 0x0F),
-      blueA2: ((data[13] & 0x0F) << 8) | data[14],
+      redA3: data[6] | (data[7] << 8),
+      redA2: data[8] | (data[9] << 8),
+      greenA3: data[10] | (data[11] << 8),
+      greenA2: data[12] | (data[13] << 8),
+      blueA3: data[14] | (data[15] << 8),
+      blueA2: data[16] | (data[17] << 8),
     };
+  }
+
+  private static encodeDCM(bytes: Uint8Array, descriptor: DCMDescriptor): void {
+    bytes[5] = descriptor.version & 0xFF;
+    this.writeUint16LE(bytes, 6, descriptor.redA3);
+    this.writeUint16LE(bytes, 8, descriptor.redA2);
+    this.writeUint16LE(bytes, 10, descriptor.greenA3);
+    this.writeUint16LE(bytes, 12, descriptor.greenA2);
+    this.writeUint16LE(bytes, 14, descriptor.blueA3);
+    this.writeUint16LE(bytes, 16, descriptor.blueA2);
   }
 
   private static decodeCVTTiming(data: Uint8Array): CVTTimingDescriptor {
@@ -538,14 +587,14 @@ export class DisplayDescriptorParser {
 
       const arCode = (data[offset + 1] >> 2) & 0x03;
       const arMap: Record<number, '4:3' | '16:9' | '16:10' | '5:4' | '15:9'> = {
-        0: '4:3', 1: '16:9', 2: '16:10', 3: '5:4',
+        0: '4:3', 1: '16:9', 2: '16:10', 3: '15:9',
       };
 
       const prefRR = (data[offset + 2] >> 5) & 0x03;
       const rrMap: Record<number, number> = { 0: 50, 1: 60, 2: 75, 3: 85 };
 
       timings.push({
-        addressableLines: lines * 2,
+        addressableLines: (lines + 1) * 2,
         aspectRatio: arMap[arCode] ?? '4:3',
         preferredRefreshRate: rrMap[prefRR] ?? 60,
         refreshRates: {
@@ -561,6 +610,29 @@ export class DisplayDescriptorParser {
     return { tag: 0xF8, timings };
   }
 
+  private static encodeCVTTiming(bytes: Uint8Array, descriptor: CVTTimingDescriptor): void {
+    bytes[5] = 0x01;
+
+    for (let i = 0; i < 4; i++) {
+      const timing = descriptor.timings[i];
+      const offset = 6 + i * 3;
+
+      if (!timing) {
+        bytes[offset] = 0x00;
+        bytes[offset + 1] = 0x00;
+        bytes[offset + 2] = 0x00;
+        continue;
+      }
+
+      const lineCode = Math.max(1, Math.min(0xFFF, Math.round(timing.addressableLines / 2) - 1));
+      bytes[offset] = lineCode & 0xFF;
+      bytes[offset + 1] = ((lineCode >> 8) & 0x0F) << 4
+        | ((this.cvtTimingAspectRatioCode(timing.aspectRatio) & 0x03) << 2);
+      bytes[offset + 2] = (this.cvtRefreshRateCode(timing.preferredRefreshRate) << 5)
+        | this.encodeCvtRefreshRates(timing.refreshRates);
+    }
+  }
+
   private static decodeEstablishedTimingsIII(data: Uint8Array): EstablishedTimingsIIIDescriptor {
     const timings: number[] = [];
     for (let i = 6; i < 18; i++) {
@@ -571,6 +643,86 @@ export class DisplayDescriptorParser {
       }
     }
     return { tag: 0xF7, timings };
+  }
+
+  private static encodeEstablishedTimingsIII(bytes: Uint8Array, descriptor: EstablishedTimingsIIIDescriptor): void {
+    bytes[5] = 0x0A;
+
+    for (const timing of descriptor.timings) {
+      if (!Number.isInteger(timing) || timing < 0 || timing > 95) continue;
+      const byteOffset = 6 + Math.floor(timing / 8);
+      const bit = 7 - (timing % 8);
+      bytes[byteOffset] |= 1 << bit;
+    }
+  }
+
+  private static writeUint16LE(bytes: Uint8Array, offset: number, value: number): void {
+    const clamped = Math.max(0, Math.min(0xFFFF, Math.round(value)));
+    bytes[offset] = clamped & 0xFF;
+    bytes[offset + 1] = (clamped >> 8) & 0xFF;
+  }
+
+  private static rangeCvtAspectRatioCode(aspectRatio: NonNullable<DisplayRangeLimitsDescriptor['cvt']>['preferredAspectRatio']): number {
+    switch (aspectRatio) {
+      case '4:3': return 0;
+      case '16:9': return 1;
+      case '16:10': return 2;
+      case '5:4': return 3;
+      case '15:9': return 4;
+      default: return 0;
+    }
+  }
+
+  private static rangeCvtAspectRatioFromCode(code: number): '4:3' | '16:9' | '16:10' | '5:4' | '15:9' {
+    switch (code) {
+      case 1: return '16:9';
+      case 2: return '16:10';
+      case 3: return '5:4';
+      case 4: return '15:9';
+      default: return '4:3';
+    }
+  }
+
+  private static encodeRangeCvtAspectRatios(aspectRatios: NonNullable<DisplayRangeLimitsDescriptor['cvt']>['aspectRatios']): number {
+    return (aspectRatios.ar4_3 ? 0x80 : 0)
+      | (aspectRatios.ar16_9 ? 0x40 : 0)
+      | (aspectRatios.ar16_10 ? 0x20 : 0)
+      | (aspectRatios.ar5_4 ? 0x10 : 0)
+      | (aspectRatios.ar15_9 ? 0x08 : 0);
+  }
+
+  private static cvtTimingAspectRatioCode(aspectRatio: CVTTimingDescriptor['timings'][number]['aspectRatio']): number {
+    switch (aspectRatio) {
+      case '4:3': return 0;
+      case '16:9': return 1;
+      case '16:10': return 2;
+      case '15:9': return 3;
+      case '5:4': return 3;
+    }
+  }
+
+  private static cvtRefreshRateCode(refreshRate: number): number {
+    const refreshRates = [50, 60, 75, 85];
+    let best = 1;
+    let bestDiff = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < refreshRates.length; i++) {
+      const diff = Math.abs(refreshRate - refreshRates[i]);
+      if (diff < bestDiff) {
+        best = i;
+        bestDiff = diff;
+      }
+    }
+
+    return best;
+  }
+
+  private static encodeCvtRefreshRates(refreshRates: CVTTimingDescriptor['timings'][number]['refreshRates']): number {
+    return (refreshRates.r50Hz ? 0x10 : 0)
+      | (refreshRates.r60Hz ? 0x08 : 0)
+      | (refreshRates.r75Hz ? 0x04 : 0)
+      | (refreshRates.r85Hz ? 0x02 : 0)
+      | (refreshRates.r60HzRB ? 0x01 : 0);
   }
 }
 
