@@ -1,5 +1,6 @@
 import { DetailedTimingDescriptor } from "../common/detailed-timing-descriptor";
 import { generateCVTDetailedTiming } from "../common/cvt-timing-generator";
+import { checksum8, isChecksum8Valid } from "../common/checksum";
 import { ColorCharacteristics } from "./color-characteristics";
 import { EDIDHeader } from "./edid-header";
 import { EstablishedTiming } from "./established-timing";
@@ -313,7 +314,7 @@ export class EDID {
       // Extension count and checksum
       this.extensions = bytes[126];
       this.checksum = bytes[127];
-      this.isValid = this.validateChecksum(bytes.slice(0, 128));
+      this.isValid = isChecksum8Valid(bytes.slice(0, 128));
 
       // Decode extension blocks
       this._extensionBlocks = [];
@@ -379,14 +380,6 @@ export class EDID {
     }
   }
 
-  private validateChecksum(data: Uint8Array): boolean {
-    let sum = 0;
-    for (let i = 0; i < Math.min(128, data.length); i++) {
-      sum += data[i];
-    }
-    return (sum & 0xff) === 0;
-  }
-
   /**
    * Encode the current EDID data back to binary format
    */
@@ -433,11 +426,7 @@ export class EDID {
     edid[126] = this._extensionBlocks.length;
 
     // Calculate and write checksum for base block
-    let sum = 0;
-    for (let i = 0; i < 127; i++) {
-      sum += edid[i];
-    }
-    edid[127] = (256 - (sum % 256)) % 256;
+    edid[127] = checksum8(edid, 127);
     this.checksum = edid[127];
 
     // Encode extension blocks
@@ -447,7 +436,7 @@ export class EDID {
     }
 
     // Update validity
-    this.isValid = this.validateChecksum(edid.slice(0, 128));
+    this.isValid = isChecksum8Valid(edid.slice(0, 128));
     this.extensions = this._extensionBlocks.length;
 
     return edid;

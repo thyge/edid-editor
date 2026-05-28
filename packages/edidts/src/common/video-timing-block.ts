@@ -4,6 +4,7 @@ import {
   type DetailedTiming,
   type DetailedTimingInput,
 } from './detailed-timing-descriptor';
+import { checksum8 } from './checksum';
 
 export interface VideoTimingBlockBase {
   tag: 0x10;
@@ -147,7 +148,7 @@ export function encodeVideoTimingBlock(block: VideoTimingBlockInput): Uint8Array
   bytes[2] = detailedTimingCount & 0xff;
   bytes[3] = cvtTimingCount & 0xff;
   bytes[4] = standardTimingCount & 0xff;
-  bytes[127] = calculateChecksum(bytes);
+  bytes[127] = checksum8(bytes, 127);
 
   return bytes;
 }
@@ -243,13 +244,4 @@ function encodeCvtRefreshRates(timing: VideoTimingBlockCvtTiming): number {
   if (rates.r85Hz) byte |= 0x02;
   if (rates.r60HzRB) byte |= 0x01;
   return byte;
-}
-
-function calculateChecksum(bytes: Uint8Array): number {
-  let sum = 0;
-  for (let i = 0; i < 127; i += 1) {
-    sum += bytes[i];
-  }
-
-  return (256 - (sum % 256)) % 256;
 }

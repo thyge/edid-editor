@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { EDID } from '../src/edid'
+import { checksum8, isChecksum8Valid } from '../src/common'
 import type { ColorPointDescriptor, StandardTimingIdDescriptor } from '../src/edid/display-descriptor'
 
 function createTestEDID(manufacturerId = 'ABC'): Uint8Array {
@@ -60,12 +61,7 @@ function createTestEDID(manufacturerId = 'ABC'): Uint8Array {
   // Extensions
   edid[126] = 0x00
   
-  // Calculate checksum
-  let sum = 0
-  for (let i = 0; i < 127; i++) {
-    sum += edid[i]
-  }
-  edid[127] = (256 - (sum % 256)) % 256
+  edid[127] = checksum8(edid, 127)
   
   return edid
 }
@@ -192,12 +188,7 @@ describe('EDID as mutable object', () => {
     
     const encoded = edid.encode()
     
-    // Verify checksum is valid
-    let sum = 0
-    for (let i = 0; i < 128; i++) {
-      sum += encoded[i]
-    }
-    expect(sum & 0xFF).toBe(0)
+    expect(isChecksum8Valid(encoded.slice(0, 128))).toBe(true)
   })
 
   it('should encode year of manufacture correctly after modification', () => {
@@ -263,12 +254,7 @@ describe('EDID as mutable object', () => {
     // Checksum should be different since we changed a byte
     expect(encoded[127]).not.toBe(originalChecksum)
     
-    // Verify the new checksum is valid (sum of all 128 bytes = 0 mod 256)
-    let sum = 0
-    for (let i = 0; i < 128; i++) {
-      sum += encoded[i]
-    }
-    expect(sum & 0xFF).toBe(0)
+    expect(isChecksum8Valid(encoded.slice(0, 128))).toBe(true)
     
     // Decode and verify validity
     const decoded = new EDID(encoded)
@@ -289,12 +275,7 @@ describe('EDID as mutable object', () => {
     // Encode
     const encoded = edid.encode()
     
-    // Verify checksum is valid
-    let sum = 0
-    for (let i = 0; i < 128; i++) {
-      sum += encoded[i]
-    }
-    expect(sum & 0xFF).toBe(0)
+    expect(isChecksum8Valid(encoded.slice(0, 128))).toBe(true)
     
     // Verify the checksum byte itself
     expect(encoded[127]).toBeGreaterThanOrEqual(0)

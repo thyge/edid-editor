@@ -2,7 +2,7 @@ import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
   type DisplayIdProductIdentificationBlock,
-  type DisplayIdWarning,
+  DisplayIdDecodeError,
 } from './types';
 import {
   decodeProductIdentificationBlock,
@@ -13,7 +13,6 @@ import {
 export interface DecodeBlocksResult {
   blocks: DisplayIdDataBlock[];
   fillBytes: number;
-  warnings: DisplayIdWarning[];
 }
 
 export function decodeDisplayIdBlocks(
@@ -22,7 +21,6 @@ export function decodeDisplayIdBlocks(
   endOffset: number,
 ): DecodeBlocksResult {
   const blocks: DisplayIdDataBlock[] = [];
-  const warnings: DisplayIdWarning[] = [];
   let offset = startOffset;
   let fillBytes = 0;
 
@@ -31,21 +29,11 @@ export function decodeDisplayIdBlocks(
 
     if (tag === 0x00) {
       fillBytes = endOffset - offset;
-      warnings.push({
-        code: 'trailing_fill',
-        offset,
-        message: `DisplayID section contains ${fillBytes} trailing fill byte${fillBytes === 1 ? '' : 's'}`,
-      });
       break;
     }
 
     if (offset + 3 > endOffset) {
-      warnings.push({
-        code: 'block_length_overflow',
-        offset,
-        message: 'DisplayID data block header extends past the section payload',
-      });
-      break;
+      throw new DisplayIdDecodeError('DisplayID data block header extends past the section payload');
     }
 
     const revisionAndFlags = data[offset + 1];
@@ -53,20 +41,15 @@ export function decodeDisplayIdBlocks(
     const blockEnd = offset + 3 + payloadLength;
 
     if (blockEnd > endOffset) {
-      warnings.push({
-        code: 'block_length_overflow',
-        offset,
-        message: `DisplayID data block at offset ${offset} declares ${payloadLength} payload bytes past the section payload`,
-      });
-      break;
+      throw new DisplayIdDecodeError(
+        `DisplayID data block at offset ${offset} declares ${payloadLength} payload bytes past the section payload`,
+      );
     }
 
     if (tag < DisplayIdDataBlockTag.ProductIdentification) {
-      warnings.push({
-        code: 'reserved_legacy_tag',
-        offset,
-        message: `DisplayID v2.0 reserves legacy data block tag 0x${tag.toString(16).padStart(2, '0')}`,
-      });
+      throw new DisplayIdDecodeError(
+        `DisplayID v2.0 reserves legacy data block tag 0x${tag.toString(16).padStart(2, '0')}`,
+      );
     }
 
     const genericBlock: DisplayIdDataBlock = {
@@ -82,7 +65,7 @@ export function decodeDisplayIdBlocks(
     offset = blockEnd;
   }
 
-  return { blocks, fillBytes, warnings };
+  return { blocks, fillBytes };
 }
 
 export function encodeDisplayIdBlock(block: DisplayIdDataBlock): Uint8Array {
