@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  DetailedTimingDescriptor,
+  ExtensionBlockParser,
   decodeExtendedDataBlock,
   encodeExtendedDataBlock,
   getVICDefinition,
@@ -16,6 +18,121 @@ import {
   type HDRStaticMetadataDataBlock,
   type YCbCr420VideoDataBlock,
 } from '../src/edid/index';
+
+describe('CTA and VTB detailed timing descriptors', () => {
+  it('decodes CTA detailed timings with the common 18-byte DTD fields', () => {
+    const timing = new DetailedTimingDescriptor({
+      pixelClock: 148.5,
+      horizontalActive: 1920,
+      horizontalBlanking: 280,
+      verticalActive: 1080,
+      verticalBlanking: 45,
+      horizontalSyncOffset: 88,
+      horizontalSyncWidth: 44,
+      verticalSyncOffset: 4,
+      verticalSyncWidth: 5,
+      horizontalImageSize: 600,
+      verticalImageSize: 340,
+      horizontalBorder: 1,
+      verticalBorder: 2,
+      flags: {
+        interlaced: true,
+        syncType: 'digital-separate',
+        hSyncPolarity: 'positive',
+        vSyncPolarity: 'negative',
+      },
+    });
+    const extension = new Uint8Array(128);
+    extension[0] = 0x02;
+    extension[1] = 0x03;
+    extension[2] = 4;
+    extension.set(timing.encode(), 4);
+    extension[127] = ExtensionBlockParser.calculateChecksum(extension);
+
+    const decoded = ExtensionBlockParser.decode(extension);
+    expect(decoded?.tag).toBe(0x02);
+    const decodedTiming = (decoded as any).detailedTimings[0];
+
+    expect(decodedTiming.horizontalImageSize).toBe(600);
+    expect(decodedTiming.verticalImageSize).toBe(340);
+    expect(decodedTiming.horizontalBorder).toBe(1);
+    expect(decodedTiming.verticalBorder).toBe(2);
+    expect(decodedTiming.interlaced).toBe(true);
+    expect(decodedTiming.flags.syncType).toBe('digital-separate');
+  });
+
+  it('encodes CTA detailed timings through the common DTD codec', () => {
+    const timing = new DetailedTimingDescriptor({
+      pixelClock: 148.5,
+      horizontalActive: 1920,
+      horizontalBlanking: 280,
+      verticalActive: 1080,
+      verticalBlanking: 45,
+      horizontalSyncOffset: 88,
+      horizontalSyncWidth: 44,
+      verticalSyncOffset: 4,
+      verticalSyncWidth: 5,
+      horizontalImageSize: 600,
+      verticalImageSize: 340,
+      horizontalBorder: 1,
+      verticalBorder: 2,
+      flags: {
+        interlaced: true,
+        syncType: 'digital-separate',
+        hSyncPolarity: 'positive',
+        vSyncPolarity: 'negative',
+      },
+    });
+
+    const encoded = ExtensionBlockParser.encode({
+      tag: 0x02,
+      revision: 3,
+      checksum: 0,
+      data: new Uint8Array(),
+      dtdOffset: 4,
+      underscan: false,
+      basicAudio: false,
+      ycbcr444: false,
+      ycbcr422: false,
+      nativeFormats: 0,
+      dataBlocks: [],
+      detailedTimings: [timing as any],
+    });
+
+    expect(encoded.slice(4, 22)).toEqual(timing.encode());
+  });
+
+  it('decodes VTB detailed timings with the common 18-byte DTD fields', () => {
+    const timing = new DetailedTimingDescriptor({
+      pixelClock: 74.25,
+      horizontalActive: 1280,
+      horizontalBlanking: 370,
+      verticalActive: 720,
+      verticalBlanking: 30,
+      horizontalSyncOffset: 110,
+      horizontalSyncWidth: 40,
+      verticalSyncOffset: 5,
+      verticalSyncWidth: 5,
+      horizontalImageSize: 520,
+      verticalImageSize: 290,
+    });
+    const extension = new Uint8Array(128);
+    extension[0] = 0x10;
+    extension[1] = 0x01;
+    extension[2] = 1;
+    extension.set(timing.encode(), 5);
+    extension[127] = ExtensionBlockParser.calculateChecksum(extension);
+
+    const decoded = ExtensionBlockParser.decode(extension);
+    expect(decoded?.tag).toBe(0x10);
+    const decodedTiming = (decoded as any).detailedTimings[0];
+
+    expect(decodedTiming.horizontalSyncOffset).toBe(110);
+    expect(decodedTiming.horizontalSyncWidth).toBe(40);
+    expect(decodedTiming.horizontalImageSize).toBe(520);
+    expect(decodedTiming.verticalImageSize).toBe(290);
+  });
+});
 
 describe('CTA-861-G Extended Data Blocks', () => {
   describe('Video Capability Data Block (Extended Tag 0)', () => {

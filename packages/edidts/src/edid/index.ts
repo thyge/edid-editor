@@ -593,8 +593,16 @@ export class EDID {
 }
 
 // Re-export all related classes and types
-export { DetailedTimingDescriptor } from "../common/detailed-timing-descriptor";
-export type { StereoMode, SyncType, TimingFlags } from "../common/detailed-timing-descriptor";
+export {
+  DetailedTimingDescriptor,
+  decodeEdidCtaDetailedTiming,
+  decodeEdidCtaDetailedTimingFlags,
+  encodeEdidCtaDetailedTiming,
+  encodeEdidCtaDetailedTimingFlags,
+  normalizeDetailedTiming,
+  normalizeTimingFlags,
+} from "../common/detailed-timing-descriptor";
+export type { DetailedTiming, DetailedTimingInput, StereoMode, SyncType, TimingFlags } from "../common/detailed-timing-descriptor";
 export { ColorCharacteristics } from "./color-characteristics";
 export { EDIDHeader, EDID_VERSIONS, EDID_REVISIONS } from "./edid-header";
 export type { EDIDVersion } from "./edid-header";

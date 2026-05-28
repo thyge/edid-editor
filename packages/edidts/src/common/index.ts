@@ -1,6 +1,27 @@
 export { readUint16LE, readUint16BE, readUint32LE } from './bintools';
-export { DetailedTimingDescriptor } from './detailed-timing-descriptor';
-export type { StereoMode, SyncType, TimingFlags } from './detailed-timing-descriptor';
+export {
+  DetailedTimingDescriptor,
+  decodeEdidCtaDetailedTiming,
+  decodeEdidCtaDetailedTimingFlags,
+  encodeEdidCtaDetailedTiming,
+  encodeEdidCtaDetailedTimingFlags,
+  normalizeDetailedTiming,
+  normalizeTimingFlags,
+} from './detailed-timing-descriptor';
+export type { DetailedTiming, DetailedTimingInput, StereoMode, SyncType, TimingFlags } from './detailed-timing-descriptor';
+export {
+  decodeVideoTimingBlock,
+  encodeVideoTimingBlock,
+} from './video-timing-block';
+export type {
+  VideoTimingBlock,
+  VideoTimingBlockAspectRatio,
+  VideoTimingBlockBase,
+  VideoTimingBlockCvtTiming,
+  VideoTimingBlockDetailedTiming,
+  VideoTimingBlockInput,
+  VideoTimingBlockStandardTiming,
+} from './video-timing-block';
 export { 
   calculateCVTTiming, 
   generateCVTDetailedTiming, 
