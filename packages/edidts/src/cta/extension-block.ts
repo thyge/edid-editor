@@ -8,6 +8,22 @@
  */
 
 import { decodeExtendedDataBlock, encodeExtendedDataBlock, type CTAExtendedDataBlock } from './cta-extended-blocks';
+import {
+  DetailedTimingDescriptor,
+  decodeEdidCtaDetailedTiming,
+  encodeEdidCtaDetailedTiming,
+  type DetailedTiming,
+  type DetailedTimingInput,
+  type TimingFlags,
+} from '../common/detailed-timing-descriptor';
+import {
+  decodeVideoTimingBlock,
+  encodeVideoTimingBlock,
+  type VideoTimingBlock as VTBExtensionBlock,
+  type VideoTimingBlockDetailedTiming as VTBDetailedTiming,
+} from '../common/video-timing-block';
+
+export type { VTBExtensionBlock, VTBDetailedTiming };
 
 export type ExtensionTag = 
   | 0x02  // CEA-861 Extension
@@ -163,30 +179,11 @@ export interface CEADetailedTiming {
   verticalSyncOffset: number;
   verticalSyncWidth: number;
   interlaced: boolean;
-}
-
-/**
- * Video Timing Block Extension (Tag 0x10)
- */
-export interface VTBExtensionBlock extends BaseExtensionBlock {
-  tag: 0x10;
-  detailedTimings: Array<{
-    pixelClock: number;
-    horizontalActive: number;
-    horizontalBlanking: number;
-    verticalActive: number;
-    verticalBlanking: number;
-  }>;
-  cvtTimings: Array<{
-    lines: number;
-    aspectRatio: '4:3' | '16:9' | '16:10' | '5:4';
-    preferredRefreshRate: number;
-  }>;
-  standardTimings: Array<{
-    width: number;
-    height: number;
-    refreshRate: number;
-  }>;
+  horizontalImageSize?: number;
+  verticalImageSize?: number;
+  horizontalBorder?: number;
+  verticalBorder?: number;
+  flags?: Partial<TimingFlags>;
 }
 
 /**
@@ -269,6 +266,9 @@ export class ExtensionBlockParser {
       case 0x02:
         this.encodeCEA(bytes, block as CEAExtensionBlock);
         break;
+      case 0x10:
+        bytes.set(encodeVideoTimingBlock(block as VTBExtensionBlock).slice(2, 127), 2);
+        break;
       case 0xF0:
         this.encodeBlockMap(bytes, block as BlockMapExtension);
         break;
@@ -325,18 +325,9 @@ export class ExtensionBlockParser {
         const pixelClock = (data[offset + 1] << 8) | data[offset];
         if (pixelClock === 0) break; // No more timings
 
-        cea.detailedTimings.push({
-          pixelClock: pixelClock / 100,
-          horizontalActive: ((data[offset + 4] & 0xF0) << 4) | data[offset + 2],
-          horizontalBlanking: ((data[offset + 4] & 0x0F) << 8) | data[offset + 3],
-          verticalActive: ((data[offset + 7] & 0xF0) << 4) | data[offset + 5],
-          verticalBlanking: ((data[offset + 7] & 0x0F) << 8) | data[offset + 6],
-          horizontalSyncOffset: ((data[offset + 11] & 0xC0) << 2) | data[offset + 8],
-          horizontalSyncWidth: ((data[offset + 11] & 0x30) << 4) | data[offset + 9],
-          verticalSyncOffset: ((data[offset + 11] & 0x0C) << 2) | ((data[offset + 10] >> 4) & 0x0F),
-          verticalSyncWidth: ((data[offset + 11] & 0x03) << 4) | (data[offset + 10] & 0x0F),
-          interlaced: (data[offset + 17] & 0x80) !== 0,
-        });
+        const timing = decodeEdidCtaDetailedTiming(data.slice(offset, offset + 18));
+        if (!timing) break;
+        cea.detailedTimings.push(this.toCEADetailedTiming(timing));
 
         offset += 18;
       }
@@ -549,73 +540,7 @@ export class ExtensionBlockParser {
   }
 
   private static decodeVTB(data: Uint8Array, base: BaseExtensionBlock): VTBExtensionBlock {
-    const numDTDs = data[2];
-    const numCVTs = data[3];
-    const numSTs = data[4];
-
-    const vtb: VTBExtensionBlock = {
-      ...base,
-      tag: 0x10,
-      detailedTimings: [],
-      cvtTimings: [],
-      standardTimings: [],
-    };
-
-    let offset = 5;
-
-    // Parse detailed timings (each 18 bytes, but abbreviated format may differ)
-    for (let i = 0; i < numDTDs && offset + 18 <= 127; i++) {
-      const pixelClock = (data[offset + 1] << 8) | data[offset];
-      vtb.detailedTimings.push({
-        pixelClock: pixelClock / 100,
-        horizontalActive: ((data[offset + 4] & 0xF0) << 4) | data[offset + 2],
-        horizontalBlanking: ((data[offset + 4] & 0x0F) << 8) | data[offset + 3],
-        verticalActive: ((data[offset + 7] & 0xF0) << 4) | data[offset + 5],
-        verticalBlanking: ((data[offset + 7] & 0x0F) << 8) | data[offset + 6],
-      });
-      offset += 18;
-    }
-
-    // Parse CVT timings (each 3 bytes)
-    for (let i = 0; i < numCVTs && offset + 3 <= 127; i++) {
-      const lines = ((data[offset + 1] & 0xF0) << 4) | data[offset];
-      const arCode = (data[offset + 1] >> 2) & 0x03;
-      const arMap: Record<number, '4:3' | '16:9' | '16:10' | '5:4'> = {
-        0: '4:3', 1: '16:9', 2: '16:10', 3: '5:4',
-      };
-      vtb.cvtTimings.push({
-        lines: lines * 2,
-        aspectRatio: arMap[arCode] ?? '4:3',
-        preferredRefreshRate: [50, 60, 75, 85][(data[offset + 2] >> 5) & 0x03] ?? 60,
-      });
-      offset += 3;
-    }
-
-    // Parse standard timings (each 2 bytes)
-    for (let i = 0; i < numSTs && offset + 2 <= 127; i++) {
-      const byte1 = data[offset];
-      const byte2 = data[offset + 1];
-      if (byte1 !== 0x01 || byte2 !== 0x01) {
-        const width = (byte1 + 31) * 8;
-        const ar = (byte2 >> 6) & 0x03;
-        let height: number;
-        switch (ar) {
-          case 0: height = Math.round(width * 10 / 16); break;
-          case 1: height = Math.round(width * 3 / 4); break;
-          case 2: height = Math.round(width * 4 / 5); break;
-          case 3: height = Math.round(width * 9 / 16); break;
-          default: height = width;
-        }
-        vtb.standardTimings.push({
-          width,
-          height,
-          refreshRate: (byte2 & 0x3F) + 60,
-        });
-      }
-      offset += 2;
-    }
-
-    return vtb;
+    return decodeVideoTimingBlock(data, base);
   }
 
   private static decodeBlockMap(data: Uint8Array, base: BaseExtensionBlock): BlockMapExtension {
@@ -647,23 +572,7 @@ export class ExtensionBlockParser {
 
     for (const timing of cea.detailedTimings) {
       if (offset + 18 > 127) break;
-      const pc = Math.round(timing.pixelClock * 100);
-      bytes[offset] = pc & 0xFF;
-      bytes[offset + 1] = (pc >> 8) & 0xFF;
-      bytes[offset + 2] = timing.horizontalActive & 0xFF;
-      bytes[offset + 3] = timing.horizontalBlanking & 0xFF;
-      bytes[offset + 4] = ((timing.horizontalActive >> 4) & 0xF0) | ((timing.horizontalBlanking >> 8) & 0x0F);
-      bytes[offset + 5] = timing.verticalActive & 0xFF;
-      bytes[offset + 6] = timing.verticalBlanking & 0xFF;
-      bytes[offset + 7] = ((timing.verticalActive >> 4) & 0xF0) | ((timing.verticalBlanking >> 8) & 0x0F);
-      bytes[offset + 8] = timing.horizontalSyncOffset & 0xFF;
-      bytes[offset + 9] = timing.horizontalSyncWidth & 0xFF;
-      bytes[offset + 10] = ((timing.verticalSyncOffset & 0x0F) << 4) | (timing.verticalSyncWidth & 0x0F);
-      bytes[offset + 11] = ((timing.horizontalSyncOffset >> 2) & 0xC0) |
-                            ((timing.horizontalSyncWidth >> 4) & 0x30) |
-                            ((timing.verticalSyncOffset >> 2) & 0x0C) |
-                            ((timing.verticalSyncWidth >> 4) & 0x03);
-      if (timing.interlaced) bytes[offset + 17] |= 0x80;
+      bytes.set(encodeEdidCtaDetailedTiming(this.toDetailedTimingInput(timing)), offset);
       offset += 18;
     }
 
@@ -752,6 +661,39 @@ export class ExtensionBlockParser {
     for (let i = 0; i < blockMap.blockTags.length && i < 126; i++) {
       bytes[1 + i] = blockMap.blockTags[i];
     }
+  }
+
+  private static toCEADetailedTiming(timing: DetailedTiming): CEADetailedTiming {
+    return Object.assign(timing, { interlaced: timing.flags.interlaced });
+  }
+
+  private static toDetailedTimingInput(timing: DetailedTimingDescriptor | CEADetailedTiming): DetailedTimingInput {
+    if (timing instanceof DetailedTimingDescriptor) {
+      if ('interlaced' in timing) {
+        timing.flags.interlaced = Boolean(timing.interlaced);
+      }
+      return timing;
+    }
+
+    return {
+      pixelClock: timing.pixelClock,
+      horizontalActive: timing.horizontalActive,
+      horizontalBlanking: timing.horizontalBlanking,
+      verticalActive: timing.verticalActive,
+      verticalBlanking: timing.verticalBlanking,
+      horizontalSyncOffset: timing.horizontalSyncOffset,
+      horizontalSyncWidth: timing.horizontalSyncWidth,
+      verticalSyncOffset: timing.verticalSyncOffset,
+      verticalSyncWidth: timing.verticalSyncWidth,
+      horizontalImageSize: timing.horizontalImageSize,
+      verticalImageSize: timing.verticalImageSize,
+      horizontalBorder: timing.horizontalBorder,
+      verticalBorder: timing.verticalBorder,
+      flags: {
+        ...timing.flags,
+        interlaced: timing.flags?.interlaced ?? timing.interlaced,
+      },
+    };
   }
 }
 

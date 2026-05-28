@@ -70,6 +70,7 @@ export type {
   SpeakerAllocationBlock,
   VESADisplayTransferCharacteristicBlock,
   CEADetailedTiming,
+  VTBDetailedTiming,
   VTBExtensionBlock,
   BlockMapExtension,
 } from './extension-block';
