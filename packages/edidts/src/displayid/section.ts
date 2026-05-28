@@ -1,6 +1,6 @@
 import { decodeDisplayIdBlocks, encodeDisplayIdBlock } from './blocks';
-import { calculateDisplayIdChecksum, isDisplayIdChecksumValid } from './checksum';
-import { DisplayIdDecodeError, type DisplayIdSection, type DisplayIdWarning } from './types';
+import { checksum8, isChecksum8Valid } from '../common/checksum';
+import { DisplayIdDecodeError, type DisplayIdSection } from './types';
 
 const HEADER_LENGTH = 4;
 const CHECKSUM_LENGTH = 1;
@@ -25,27 +25,15 @@ export function decodeDisplayIdSection(data: Uint8Array): DisplayIdSection {
   }
 
   const sectionBytes = data.slice(0, totalLength);
-  const warnings: DisplayIdWarning[] = [];
-  const isChecksumValid = isDisplayIdChecksumValid(sectionBytes);
-
-  if (!isChecksumValid) {
-    warnings.push({
-      code: 'invalid_checksum',
-      offset: totalLength - 1,
-      message: 'DisplayID section checksum is invalid',
-    });
-  }
+  const isChecksumValid = isChecksum8Valid(sectionBytes);
 
   if (versionByte !== DISPLAY_ID_2_0_VERSION_BYTE) {
-    warnings.push({
-      code: 'unsupported_version',
-      offset: 0,
-      message: `DisplayID section version byte 0x${versionByte.toString(16).padStart(2, '0')} is not v2.0`,
-    });
+    throw new DisplayIdDecodeError(
+      `DisplayID section version byte 0x${versionByte.toString(16).padStart(2, '0')} is not v2.0`,
+    );
   }
 
   const decodedBlocks = decodeDisplayIdBlocks(sectionBytes, HEADER_LENGTH, totalLength - CHECKSUM_LENGTH);
-  warnings.push(...decodedBlocks.warnings);
 
   return {
     version: versionByte >> 4,
@@ -59,7 +47,6 @@ export function decodeDisplayIdSection(data: Uint8Array): DisplayIdSection {
     fillBytes: decodedBlocks.fillBytes,
     checksum: sectionBytes[totalLength - 1],
     isChecksumValid,
-    warnings,
   };
 }
 
@@ -82,6 +69,6 @@ export function encodeDisplayIdSection(section: DisplayIdSection): Uint8Array {
     offset += block.length;
   }
 
-  encoded[totalLength - 1] = calculateDisplayIdChecksum(encoded);
+  encoded[totalLength - 1] = checksum8(encoded);
   return encoded;
 }

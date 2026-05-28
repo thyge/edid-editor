@@ -13,19 +13,6 @@ export enum DisplayIdDataBlockTag {
   CtaDisplayId = 0x81,
 }
 
-export type DisplayIdWarningCode =
-  | 'invalid_checksum'
-  | 'unsupported_version'
-  | 'trailing_fill'
-  | 'block_length_overflow'
-  | 'reserved_legacy_tag';
-
-export interface DisplayIdWarning {
-  code: DisplayIdWarningCode;
-  offset: number;
-  message: string;
-}
-
 export interface DisplayIdDataBlock {
   tag: number;
   revision: number;
@@ -59,7 +46,6 @@ export interface DisplayIdSection {
   fillBytes: number;
   checksum: number;
   isChecksumValid: boolean;
-  warnings: DisplayIdWarning[];
 }
 
 export class DisplayIdDecodeError extends Error {

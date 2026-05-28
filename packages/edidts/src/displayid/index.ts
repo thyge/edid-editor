@@ -1,8 +1,4 @@
 export {
-  calculateDisplayIdChecksum,
-  isDisplayIdChecksumValid,
-} from './checksum';
-export {
   decodeDisplayIdBlocks,
   encodeDisplayIdBlock,
 } from './blocks';
@@ -22,6 +18,4 @@ export type {
   DisplayIdDataBlock,
   DisplayIdProductIdentificationBlock,
   DisplayIdSection,
-  DisplayIdWarning,
-  DisplayIdWarningCode,
 } from './types';

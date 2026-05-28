@@ -1,4 +1,5 @@
 export { readUint16LE, readUint16BE, readUint32LE } from './bintools';
+export { checksum8, isChecksum8Valid } from './checksum';
 export {
   DetailedTimingDescriptor,
   decodeEdidCtaDetailedTiming,

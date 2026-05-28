@@ -3,17 +3,13 @@ import {
   DisplayIdDataBlockTag,
   decodeDisplayIdSection,
   encodeDisplayIdSection,
-  isDisplayIdChecksumValid,
   type DisplayIdProductIdentificationBlock,
 } from '../src/displayid'
+import { checksum8, isChecksum8Valid } from '../src/common'
 
 function withChecksum(bytes: number[]): Uint8Array {
   const data = new Uint8Array(bytes)
-  let sum = 0
-  for (let i = 0; i < data.length - 1; i += 1) {
-    sum += data[i]
-  }
-  data[data.length - 1] = (256 - (sum % 256)) % 256
+  data[data.length - 1] = checksum8(data)
   return data
 }
 
@@ -49,7 +45,6 @@ describe('DisplayID v2.0 sections', () => {
       payloadLength: 3,
     })
     expect(Array.from(section.blocks[0].payload)).toEqual([0xaa, 0xbb, 0xcc])
-    expect(section.warnings).toEqual([])
   })
 
   it('preserves unknown blocks when encoding a section', () => {
@@ -71,7 +66,25 @@ describe('DisplayID v2.0 sections', () => {
     const encoded = encodeDisplayIdSection(section)
 
     expect(Array.from(encoded)).toEqual(Array.from(original))
-    expect(isDisplayIdChecksumValid(encoded)).toBe(true)
+    expect(isChecksum8Valid(encoded)).toBe(true)
+  })
+
+  it('decodes a DisplayID section with invalid checksum and marks it invalid', () => {
+    const sectionBytes = withChecksum([
+      0x20,
+      0x03,
+      0x02,
+      0x00,
+      0x7e,
+      0x00,
+      0x00,
+      0x00,
+    ])
+    sectionBytes[7] ^= 0xff
+
+    const section = decodeDisplayIdSection(sectionBytes)
+
+    expect(section.isChecksumValid).toBe(false)
   })
 
   it('ignores fixed-length trailing fill bytes before the checksum', () => {
@@ -96,10 +109,9 @@ describe('DisplayID v2.0 sections', () => {
 
     expect(section.blocks).toHaveLength(1)
     expect(section.fillBytes).toBe(4)
-    expect(section.warnings.map((warning) => warning.code)).toContain('trailing_fill')
   })
 
-  it('reports malformed block length without throwing away parsed section metadata', () => {
+  it('throws when a DisplayID data block length exceeds the section payload', () => {
     const sectionBytes = withChecksum([
       0x20,
       0x05,
@@ -113,13 +125,12 @@ describe('DisplayID v2.0 sections', () => {
       0x00,
     ])
 
-    const section = decodeDisplayIdSection(sectionBytes)
-
-    expect(section.blocks).toEqual([])
-    expect(section.warnings.map((warning) => warning.code)).toContain('block_length_overflow')
+    expect(() => decodeDisplayIdSection(sectionBytes)).toThrow(
+      'DisplayID data block at offset 4 declares 5 payload bytes past the section payload',
+    )
   })
 
-  it('warns for reserved DisplayID v1.x data block tags in v2 sections', () => {
+  it('throws for reserved DisplayID v1.x data block tags in v2 sections', () => {
     const sectionBytes = withChecksum([
       0x20,
       0x03,
@@ -131,10 +142,26 @@ describe('DisplayID v2.0 sections', () => {
       0x00,
     ])
 
-    const section = decodeDisplayIdSection(sectionBytes)
+    expect(() => decodeDisplayIdSection(sectionBytes)).toThrow(
+      'DisplayID v2.0 reserves legacy data block tag 0x01',
+    )
+  })
 
-    expect(section.blocks[0].tag).toBe(0x01)
-    expect(section.warnings.map((warning) => warning.code)).toContain('reserved_legacy_tag')
+  it('throws when the DisplayID section version is not v2.0', () => {
+    const sectionBytes = withChecksum([
+      0x10,
+      0x03,
+      0x02,
+      0x00,
+      0x7e,
+      0x00,
+      0x00,
+      0x00,
+    ])
+
+    expect(() => decodeDisplayIdSection(sectionBytes)).toThrow(
+      'DisplayID section version byte 0x10 is not v2.0',
+    )
   })
 
   it('throws when the declared section length exceeds the available bytes', () => {
@@ -229,6 +256,6 @@ describe('DisplayID v2.0 Product Identification data block', () => {
     expect(reparsedBlock.year).toBe(2026)
     expect(reparsedBlock.productName).toBe('VR')
     expect(reparsedBlock.payloadLength).toBe(14)
-    expect(isDisplayIdChecksumValid(encoded)).toBe(true)
+    expect(isChecksum8Valid(encoded)).toBe(true)
   })
 })

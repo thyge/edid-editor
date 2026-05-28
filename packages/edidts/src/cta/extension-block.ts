@@ -22,6 +22,7 @@ import {
   type VideoTimingBlock as VTBExtensionBlock,
   type VideoTimingBlockDetailedTiming as VTBDetailedTiming,
 } from '../common/video-timing-block';
+import { checksum8 } from '../common/checksum';
 
 export type { VTBExtensionBlock, VTBDetailedTiming };
 
@@ -203,29 +204,6 @@ export type ExtensionBlock =
 
 export class ExtensionBlockParser {
   /**
-   * Validate extension block checksum
-   */
-  static validateChecksum(data: Uint8Array): boolean {
-    if (data.length !== 128) return false;
-    let sum = 0;
-    for (let i = 0; i < 128; i++) {
-      sum += data[i];
-    }
-    return (sum & 0xFF) === 0;
-  }
-
-  /**
-   * Calculate checksum for extension block
-   */
-  static calculateChecksum(data: Uint8Array): number {
-    let sum = 0;
-    for (let i = 0; i < 127; i++) {
-      sum += data[i];
-    }
-    return (256 - (sum % 256)) % 256;
-  }
-
-  /**
    * Decode an extension block from 128 bytes
    */
   static decode(data: Uint8Array): ExtensionBlock | null {
@@ -276,7 +254,7 @@ export class ExtensionBlockParser {
         bytes.set(block.data.slice(0, 125), 2);
     }
 
-    bytes[127] = this.calculateChecksum(bytes);
+    bytes[127] = checksum8(bytes, 127);
     return bytes;
   }
 

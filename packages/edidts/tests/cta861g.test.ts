@@ -18,6 +18,7 @@ import {
   type HDRStaticMetadataDataBlock,
   type YCbCr420VideoDataBlock,
 } from '../src/edid/index';
+import { checksum8 } from '../src/common';
 
 describe('CTA and VTB detailed timing descriptors', () => {
   it('decodes CTA detailed timings with the common 18-byte DTD fields', () => {
@@ -47,7 +48,7 @@ describe('CTA and VTB detailed timing descriptors', () => {
     extension[1] = 0x03;
     extension[2] = 4;
     extension.set(timing.encode(), 4);
-    extension[127] = ExtensionBlockParser.calculateChecksum(extension);
+    extension[127] = checksum8(extension, 127);
 
     const decoded = ExtensionBlockParser.decode(extension);
     expect(decoded?.tag).toBe(0x02);
@@ -121,7 +122,7 @@ describe('CTA and VTB detailed timing descriptors', () => {
     extension[1] = 0x01;
     extension[2] = 1;
     extension.set(timing.encode(), 5);
-    extension[127] = ExtensionBlockParser.calculateChecksum(extension);
+    extension[127] = checksum8(extension, 127);
 
     const decoded = ExtensionBlockParser.decode(extension);
     expect(decoded?.tag).toBe(0x10);
