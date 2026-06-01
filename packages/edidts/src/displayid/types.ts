@@ -39,7 +39,7 @@ export interface DisplayIdDisplayParametersBlock extends DisplayIdDataBlock {
   horizontalImageSizeMm: number;
   verticalImageSizeMm: number;
   nativeColorBitDepth: number;
-  dynamicRange: boolean;
+  dynamicRange: number;
   audioSupport: boolean;
   separateAudioInputs: boolean;
   fixedPixelFormat: boolean;
@@ -186,7 +186,7 @@ export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDi
         horizontalImageSizeMm: 0,
         verticalImageSizeMm: 0,
         nativeColorBitDepth: 8,
-        dynamicRange: false,
+        dynamicRange: 0,
         audioSupport: false,
         separateAudioInputs: false,
         fixedPixelFormat: false,
