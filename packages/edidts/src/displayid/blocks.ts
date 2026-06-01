@@ -109,9 +109,18 @@ function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
     return encodeProductIdentificationBlock(block as DisplayIdProductIdentificationBlock);
   }
 
-  if (block.tag === DisplayIdDataBlockTag.DisplayParameters) {
+  if (isTypedDisplayParametersBlock(block)) {
     return encodeDisplayParametersBlock(block as DisplayIdDisplayParametersBlock);
   }
 
   return block.payload;
+}
+
+function isTypedDisplayParametersBlock(block: DisplayIdDataBlock): block is DisplayIdDisplayParametersBlock {
+  return (
+    block.tag === DisplayIdDataBlockTag.DisplayParameters &&
+    isDisplayParametersPayloadLengthValid(block.payloadLength) &&
+    typeof (block as Partial<DisplayIdDisplayParametersBlock>).horizontalImageSizeMm === 'number' &&
+    typeof (block as Partial<DisplayIdDisplayParametersBlock>).verticalImageSizeMm === 'number'
+  );
 }

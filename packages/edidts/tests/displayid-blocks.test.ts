@@ -67,4 +67,51 @@ describe('DisplayID Display Parameters block', () => {
     expect(reparsedBlock.fixedTiming).toBe(true);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
+
+  it('preserves trailing bytes when encoding longer Display Parameters payloads', () => {
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x0c, 0x04, 0x00,
+      0x21, 0x00, 0x09,
+      0x58, 0x02, 0x22, 0x01, 0x0a, 0x03, 0x1d, 0xaa, 0xbb,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdDisplayParametersBlock;
+
+    block.horizontalImageSizeMm = 344;
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsed = decodeDisplayIdSection(encoded);
+    const reparsedBlock = reparsed.blocks[0] as DisplayIdDisplayParametersBlock;
+
+    expect(reparsedBlock.horizontalImageSizeMm).toBe(344);
+    expect(reparsedBlock.payloadLength).toBe(9);
+    expect(Array.from(reparsedBlock.payload.slice(7))).toEqual([0xaa, 0xbb]);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('preserves malformed short Display Parameters payloads as generic blocks', () => {
+    const source = withChecksum([
+      0x20, 0x05, 0x04, 0x00,
+      0x21, 0x00, 0x02,
+      0xaa, 0xbb,
+      0x00,
+    ]);
+    const section = decodeDisplayIdSection(source);
+    const block = section.blocks[0];
+
+    expect(block.tag).toBe(DisplayIdDataBlockTag.DisplayParameters);
+    expect(block.payloadLength).toBe(2);
+    expect(Array.from(block.payload)).toEqual([0xaa, 0xbb]);
+    expect('horizontalImageSizeMm' in block).toBe(false);
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsed = decodeDisplayIdSection(encoded);
+    const reparsedBlock = reparsed.blocks[0];
+
+    expect(Array.from(encoded)).toEqual(Array.from(source));
+    expect(reparsedBlock.tag).toBe(DisplayIdDataBlockTag.DisplayParameters);
+    expect(reparsedBlock.payloadLength).toBe(2);
+    expect(Array.from(reparsedBlock.payload)).toEqual([0xaa, 0xbb]);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
 });

@@ -24,7 +24,9 @@ export function decodeDisplayParametersBlock(block: DisplayIdDataBlock): Display
 }
 
 export function encodeDisplayParametersBlock(block: DisplayIdDisplayParametersBlock): Uint8Array {
-  const payload = new Uint8Array(7);
+  const payload = block.payload.length >= 7
+    ? block.payload.slice()
+    : new Uint8Array(7);
   payload[0] = block.horizontalImageSizeMm & 0xff;
   payload[1] = (block.horizontalImageSizeMm >> 8) & 0xff;
   payload[2] = block.verticalImageSizeMm & 0xff;
