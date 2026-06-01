@@ -12,6 +12,20 @@ export {
   encodeProductIdentificationBlock,
 } from './product-identification';
 export {
+  decodeTypeVIITimingBlock,
+  encodeTypeVIITimingBlock,
+  isTypeVIITimingPayloadLengthValid,
+} from './type-vii-timing';
+export {
+  decodeTypeVIIITimingBlock,
+  encodeTypeVIIITimingBlock,
+} from './type-viii-timing';
+export {
+  decodeTypeIXTimingBlock,
+  encodeTypeIXTimingBlock,
+  isTypeIXTimingPayloadLengthValid,
+} from './type-ix-timing';
+export {
   decodeDisplayIdSection,
   encodeDisplayIdSection,
 } from './section';

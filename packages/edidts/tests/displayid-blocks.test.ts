@@ -5,6 +5,9 @@ import {
   decodeDisplayIdSection,
   encodeDisplayIdSection,
   type DisplayIdDisplayParametersBlock,
+  type DisplayIdTypeVIIDetailedTimingBlock,
+  type DisplayIdTypeVIIIEnumeratedTimingCodeBlock,
+  type DisplayIdTypeIXFormulaBasedTimingBlock,
 } from '../src/displayid';
 
 function withChecksum(bytes: number[]): Uint8Array {
@@ -112,6 +115,120 @@ describe('DisplayID Display Parameters block', () => {
     expect(reparsedBlock.tag).toBe(DisplayIdDataBlockTag.DisplayParameters);
     expect(reparsedBlock.payloadLength).toBe(2);
     expect(Array.from(reparsedBlock.payload)).toEqual([0xaa, 0xbb]);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+});
+
+describe('DisplayID timing blocks', () => {
+  it('decodes and encodes Type VII detailed timings as 12-byte entries', () => {
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x0f, 0x04, 0x00,
+      0x22, 0x00, 0x0c,
+      0x88, 0x13, 0x80, 0x07, 0x18, 0x2c, 0x38, 0x04, 0x65, 0x05, 0x0a, 0x03,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdTypeVIIDetailedTimingBlock;
+
+    expect(block.timings).toHaveLength(1);
+    expect(block.timings[0]).toMatchObject({
+      pixelClockKHz: 500000,
+      horizontalActive: 1920,
+      horizontalBlanking: 280,
+      verticalActive: 1080,
+      verticalBlanking: 101,
+      preferred: true,
+      interlaced: false,
+    });
+
+    block.timings[0].preferred = false;
+    const encoded = encodeDisplayIdSection(section);
+    const reparsed = decodeDisplayIdSection(encoded);
+    expect((reparsed.blocks[0] as DisplayIdTypeVIIDetailedTimingBlock).timings[0].preferred).toBe(false);
+  });
+
+  it('decodes and encodes Type VIII enumerated timing codes', () => {
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x07, 0x04, 0x00,
+      0x23, 0x00, 0x04,
+      0x01, 0x02, 0x40, 0x7f,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdTypeVIIIEnumeratedTimingCodeBlock;
+
+    expect(block.timingCodes).toEqual([0x01, 0x02, 0x40, 0x7f]);
+    block.timingCodes = [0x10, 0x11];
+
+    const reparsed = decodeDisplayIdSection(encodeDisplayIdSection(section));
+    expect((reparsed.blocks[0] as DisplayIdTypeVIIIEnumeratedTimingCodeBlock).timingCodes).toEqual([0x10, 0x11]);
+  });
+
+  it('decodes and encodes Type IX formula timings as 6-byte entries', () => {
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x09, 0x04, 0x00,
+      0x24, 0x00, 0x06,
+      0x80, 0x07, 0x38, 0x04, 0x3c, 0x03,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdTypeIXFormulaBasedTimingBlock;
+
+    expect(block.timings[0]).toMatchObject({
+      horizontalActive: 1920,
+      verticalActive: 1080,
+      refreshRateHz: 60,
+      preferred: true,
+      reducedBlanking: true,
+    });
+
+    block.timings[0].refreshRateHz = 75;
+    const reparsed = decodeDisplayIdSection(encodeDisplayIdSection(section));
+    expect((reparsed.blocks[0] as DisplayIdTypeIXFormulaBasedTimingBlock).timings[0].refreshRateHz).toBe(75);
+  });
+
+  it('preserves malformed Type VII payloads as generic blocks', () => {
+    const source = withChecksum([
+      0x20, 0x04, 0x04, 0x00,
+      0x22, 0x00, 0x01,
+      0xaa,
+      0x00,
+    ]);
+    const section = decodeDisplayIdSection(source);
+    const block = section.blocks[0];
+
+    expect(block.tag).toBe(DisplayIdDataBlockTag.TypeVIIDetailedTiming);
+    expect(block.payloadLength).toBe(1);
+    expect(Array.from(block.payload)).toEqual([0xaa]);
+    expect('timings' in block).toBe(false);
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsedBlock = decodeDisplayIdSection(encoded).blocks[0];
+
+    expect(Array.from(encoded)).toEqual(Array.from(source));
+    expect(Array.from(reparsedBlock.payload)).toEqual([0xaa]);
+    expect('timings' in reparsedBlock).toBe(false);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('preserves malformed Type IX payloads as generic blocks', () => {
+    const source = withChecksum([
+      0x20, 0x04, 0x04, 0x00,
+      0x24, 0x00, 0x01,
+      0xbb,
+      0x00,
+    ]);
+    const section = decodeDisplayIdSection(source);
+    const block = section.blocks[0];
+
+    expect(block.tag).toBe(DisplayIdDataBlockTag.TypeIXFormulaBasedTiming);
+    expect(block.payloadLength).toBe(1);
+    expect(Array.from(block.payload)).toEqual([0xbb]);
+    expect('timings' in block).toBe(false);
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsedBlock = decodeDisplayIdSection(encoded).blocks[0];
+
+    expect(Array.from(encoded)).toEqual(Array.from(source));
+    expect(Array.from(reparsedBlock.payload)).toEqual([0xbb]);
+    expect('timings' in reparsedBlock).toBe(false);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 });

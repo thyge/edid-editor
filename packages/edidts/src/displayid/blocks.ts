@@ -3,6 +3,9 @@ import {
   type DisplayIdDataBlock,
   type DisplayIdDisplayParametersBlock,
   type DisplayIdProductIdentificationBlock,
+  type DisplayIdTypeVIIDetailedTimingBlock,
+  type DisplayIdTypeVIIIEnumeratedTimingCodeBlock,
+  type DisplayIdTypeIXFormulaBasedTimingBlock,
   DisplayIdDecodeError,
 } from './types';
 import {
@@ -15,6 +18,20 @@ import {
   encodeProductIdentificationBlock,
   isProductIdentificationPayloadLengthValid,
 } from './product-identification';
+import {
+  decodeTypeVIITimingBlock,
+  encodeTypeVIITimingBlock,
+  isTypeVIITimingPayloadLengthValid,
+} from './type-vii-timing';
+import {
+  decodeTypeVIIITimingBlock,
+  encodeTypeVIIITimingBlock,
+} from './type-viii-timing';
+import {
+  decodeTypeIXTimingBlock,
+  encodeTypeIXTimingBlock,
+  isTypeIXTimingPayloadLengthValid,
+} from './type-ix-timing';
 
 export interface DecodeBlocksResult {
   blocks: DisplayIdDataBlock[];
@@ -101,6 +118,24 @@ function decodeKnownBlock(block: DisplayIdDataBlock): DisplayIdDataBlock {
     return decodeDisplayParametersBlock(block);
   }
 
+  if (
+    block.tag === DisplayIdDataBlockTag.TypeVIIDetailedTiming &&
+    isTypeVIITimingPayloadLengthValid(block.payloadLength)
+  ) {
+    return decodeTypeVIITimingBlock(block);
+  }
+
+  if (block.tag === DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode) {
+    return decodeTypeVIIITimingBlock(block);
+  }
+
+  if (
+    block.tag === DisplayIdDataBlockTag.TypeIXFormulaBasedTiming &&
+    isTypeIXTimingPayloadLengthValid(block.payloadLength)
+  ) {
+    return decodeTypeIXTimingBlock(block);
+  }
+
   return block;
 }
 
@@ -113,6 +148,18 @@ function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
     return encodeDisplayParametersBlock(block as DisplayIdDisplayParametersBlock);
   }
 
+  if (isTypedTypeVIITimingBlock(block)) {
+    return encodeTypeVIITimingBlock(block);
+  }
+
+  if (isTypedTypeVIIITimingBlock(block)) {
+    return encodeTypeVIIITimingBlock(block);
+  }
+
+  if (isTypedTypeIXTimingBlock(block)) {
+    return encodeTypeIXTimingBlock(block);
+  }
+
   return block.payload;
 }
 
@@ -122,5 +169,53 @@ function isTypedDisplayParametersBlock(block: DisplayIdDataBlock): block is Disp
     isDisplayParametersPayloadLengthValid(block.payloadLength) &&
     typeof (block as Partial<DisplayIdDisplayParametersBlock>).horizontalImageSizeMm === 'number' &&
     typeof (block as Partial<DisplayIdDisplayParametersBlock>).verticalImageSizeMm === 'number'
+  );
+}
+
+function isTypedTypeVIITimingBlock(block: DisplayIdDataBlock): block is DisplayIdTypeVIIDetailedTimingBlock {
+  const maybeBlock = block as Partial<DisplayIdTypeVIIDetailedTimingBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.TypeVIIDetailedTiming &&
+    Array.isArray(maybeBlock.timings) &&
+    maybeBlock.timings.every((timing) => (
+      typeof timing.pixelClockKHz === 'number' &&
+      typeof timing.horizontalActive === 'number' &&
+      typeof timing.horizontalBlanking === 'number' &&
+      typeof timing.horizontalSyncOffset === 'number' &&
+      typeof timing.horizontalSyncWidth === 'number' &&
+      typeof timing.verticalActive === 'number' &&
+      typeof timing.verticalBlanking === 'number' &&
+      typeof timing.verticalSyncOffset === 'number' &&
+      typeof timing.verticalSyncWidth === 'number' &&
+      typeof timing.preferred === 'boolean' &&
+      typeof timing.interlaced === 'boolean'
+    ))
+  );
+}
+
+function isTypedTypeVIIITimingBlock(block: DisplayIdDataBlock): block is DisplayIdTypeVIIIEnumeratedTimingCodeBlock {
+  const maybeBlock = block as Partial<DisplayIdTypeVIIIEnumeratedTimingCodeBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode &&
+    Array.isArray(maybeBlock.timingCodes) &&
+    maybeBlock.timingCodes.every((code) => typeof code === 'number')
+  );
+}
+
+function isTypedTypeIXTimingBlock(block: DisplayIdDataBlock): block is DisplayIdTypeIXFormulaBasedTimingBlock {
+  const maybeBlock = block as Partial<DisplayIdTypeIXFormulaBasedTimingBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.TypeIXFormulaBasedTiming &&
+    Array.isArray(maybeBlock.timings) &&
+    maybeBlock.timings.every((timing) => (
+      typeof timing.horizontalActive === 'number' &&
+      typeof timing.verticalActive === 'number' &&
+      typeof timing.refreshRateHz === 'number' &&
+      typeof timing.preferred === 'boolean' &&
+      typeof timing.reducedBlanking === 'boolean'
+    ))
   );
 }
