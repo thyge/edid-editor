@@ -55,6 +55,11 @@ export function encodeDisplayIdSection(section: DisplayIdSection): Uint8Array {
   const blockLength = encodedBlocks.reduce((length, block) => length + block.length, 0);
   const fillBytes = section.fillBytes;
   const bytesInSection = blockLength + fillBytes;
+
+  if (bytesInSection > 0xff) {
+    throw new Error(`DisplayID section payload length ${bytesInSection} exceeds 255 bytes`);
+  }
+
   const totalLength = bytesInSection + HEADER_LENGTH + CHECKSUM_LENGTH;
   const encoded = new Uint8Array(totalLength);
 

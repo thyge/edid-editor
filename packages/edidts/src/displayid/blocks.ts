@@ -93,6 +93,13 @@ export function decodeDisplayIdBlocks(
 
 export function encodeDisplayIdBlock(block: DisplayIdDataBlock): Uint8Array {
   const payload = encodeKnownPayload(block);
+
+  if (payload.length > 0xff) {
+    throw new Error(
+      `DisplayID data block 0x${block.tag.toString(16).padStart(2, '0')} payload length ${payload.length} exceeds 255 bytes`,
+    );
+  }
+
   const encoded = new Uint8Array(3 + payload.length);
 
   encoded[0] = block.tag & 0xff;

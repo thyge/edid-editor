@@ -3,10 +3,13 @@ import { checksum8, isChecksum8Valid } from '../src/common';
 import {
   DisplayIdDataBlockTag,
   decodeDisplayIdSection,
+  encodeDisplayIdBlock,
   encodeDisplayIdSection,
   type DisplayIdDisplayParametersBlock,
+  type DisplayIdTypeVIIDetailedTiming,
   type DisplayIdTypeVIIDetailedTimingBlock,
   type DisplayIdTypeVIIIEnumeratedTimingCodeBlock,
+  type DisplayIdTypeIXFormulaBasedTiming,
   type DisplayIdTypeIXFormulaBasedTimingBlock,
 } from '../src/displayid';
 
@@ -237,5 +240,70 @@ describe('DisplayID timing blocks', () => {
     expect(Array.from(reparsedBlock.payload)).toEqual([0xbb]);
     expect('timings' in reparsedBlock).toBe(false);
     expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('throws when a Type VII detailed timing payload exceeds one-byte block length', () => {
+    const timing: DisplayIdTypeVIIDetailedTiming = {
+      pixelClockKHz: 500000,
+      horizontalActive: 1920,
+      horizontalBlanking: 280,
+      horizontalSyncOffset: 44,
+      horizontalSyncWidth: 56,
+      verticalActive: 1080,
+      verticalBlanking: 101,
+      verticalSyncOffset: 10,
+      verticalSyncWidth: 0,
+      preferred: true,
+      interlaced: false,
+    };
+    const block: DisplayIdTypeVIIDetailedTimingBlock = {
+      tag: DisplayIdDataBlockTag.TypeVIIDetailedTiming,
+      revision: 0,
+      flags: 0,
+      payloadLength: 0,
+      payload: new Uint8Array(0),
+      timings: Array.from({ length: 22 }, () => ({ ...timing })),
+    };
+
+    expect(() => encodeDisplayIdBlock(block)).toThrow(
+      'DisplayID data block 0x22 payload length 264 exceeds 255 bytes',
+    );
+  });
+
+  it('throws when a Type VIII timing code payload exceeds one-byte block length', () => {
+    const block: DisplayIdTypeVIIIEnumeratedTimingCodeBlock = {
+      tag: DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode,
+      revision: 0,
+      flags: 0,
+      payloadLength: 0,
+      payload: new Uint8Array(0),
+      timingCodes: Array.from({ length: 256 }, (_, index) => index),
+    };
+
+    expect(() => encodeDisplayIdBlock(block)).toThrow(
+      'DisplayID data block 0x23 payload length 256 exceeds 255 bytes',
+    );
+  });
+
+  it('throws when a Type IX formula timing payload exceeds one-byte block length', () => {
+    const timing: DisplayIdTypeIXFormulaBasedTiming = {
+      horizontalActive: 1920,
+      verticalActive: 1080,
+      refreshRateHz: 60,
+      preferred: true,
+      reducedBlanking: true,
+    };
+    const block: DisplayIdTypeIXFormulaBasedTimingBlock = {
+      tag: DisplayIdDataBlockTag.TypeIXFormulaBasedTiming,
+      revision: 0,
+      flags: 0,
+      payloadLength: 0,
+      payload: new Uint8Array(0),
+      timings: Array.from({ length: 43 }, () => ({ ...timing })),
+    };
+
+    expect(() => encodeDisplayIdBlock(block)).toThrow(
+      'DisplayID data block 0x24 payload length 258 exceeds 255 bytes',
+    );
   });
 });

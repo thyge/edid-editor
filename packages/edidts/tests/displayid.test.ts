@@ -174,6 +174,21 @@ describe('DisplayID v2.0 sections', () => {
       'DisplayID section declares 21 bytes but only 5 bytes are available',
     )
   })
+
+  it('throws when encoded section payload length exceeds one byte', () => {
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20,
+      0x00,
+      0x04,
+      0x00,
+      0x00,
+    ]))
+    section.fillBytes = 256
+
+    expect(() => encodeDisplayIdSection(section)).toThrow(
+      'DisplayID section payload length 256 exceeds 255 bytes',
+    )
+  })
 })
 
 describe('DisplayID block metadata', () => {
