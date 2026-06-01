@@ -373,6 +373,29 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
+  it('preserves Display Interface Features reserved bits while editing known fields', () => {
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x08, 0x04, 0x00,
+      0x26, 0x00, 0x05,
+      0x8b, 0xf5, 0xfc, 0xaa, 0xbb,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdDisplayInterfaceFeaturesBlock;
+
+    block.supportedColorDepths = [8, 10];
+    block.ycbcr444 = true;
+    block.ycbcr422 = false;
+    block.ycbcr420 = true;
+    block.contentProtection = true;
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsed = decodeDisplayIdSection(encoded);
+    const reparsedBlock = reparsed.blocks[0] as DisplayIdDisplayInterfaceFeaturesBlock;
+
+    expect(Array.from(reparsedBlock.payload)).toEqual([0x86, 0xfb, 0xfe, 0xaa, 0xbb]);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
   it('decodes, edits, and encodes Stereo Display Interface while preserving trailing bytes', () => {
     const section = decodeDisplayIdSection(withChecksum([
       0x20, 0x06, 0x04, 0x00,
@@ -516,12 +539,121 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(Array.from(block.payload)).toEqual([0xaa, 0xbb]);
     expect('minimumPixelClockKHz' in block).toBe(false);
 
+    Object.assign(block, {
+      minimumPixelClockKHz: 1,
+      maximumPixelClockKHz: 2,
+      minimumHorizontalFrequencyHz: 3,
+      maximumHorizontalFrequencyHz: 4,
+      minimumVerticalFrequencyHz: 5,
+      maximumVerticalFrequencyHz: 6,
+      seamlessDynamicVideoTiming: true,
+    });
+
     const encoded = encodeDisplayIdSection(section);
     const reparsedBlock = decodeDisplayIdSection(encoded).blocks[0];
 
     expect(Array.from(encoded)).toEqual(Array.from(source));
     expect(Array.from(reparsedBlock.payload)).toEqual([0xaa, 0xbb]);
     expect('minimumPixelClockKHz' in reparsedBlock).toBe(false);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('preserves malformed short Display Interface Features payloads as generic blocks', () => {
+    const source = withChecksum([
+      0x20, 0x06, 0x04, 0x00,
+      0x26, 0x00, 0x03,
+      0x8b, 0xf5, 0xfc,
+      0x00,
+    ]);
+    const section = decodeDisplayIdSection(source);
+    const block = section.blocks[0];
+
+    expect(block.tag).toBe(DisplayIdDataBlockTag.DisplayInterfaceFeatures);
+    expect(block.payloadLength).toBe(3);
+    expect(Array.from(block.payload)).toEqual([0x8b, 0xf5, 0xfc]);
+    expect('supportedColorDepths' in block).toBe(false);
+
+    Object.assign(block, {
+      supportedColorDepths: [8],
+      rgb444: false,
+      ycbcr444: true,
+      ycbcr422: false,
+      ycbcr420: true,
+      audioOnInterface: true,
+      contentProtection: true,
+    });
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsedBlock = decodeDisplayIdSection(encoded).blocks[0];
+
+    expect(Array.from(encoded)).toEqual(Array.from(source));
+    expect(reparsedBlock.payloadLength).toBe(3);
+    expect(Array.from(reparsedBlock.payload)).toEqual([0x8b, 0xf5, 0xfc]);
+    expect('supportedColorDepths' in reparsedBlock).toBe(false);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('preserves malformed short Stereo Display Interface payloads as generic blocks', () => {
+    const source = withChecksum([
+      0x20, 0x04, 0x04, 0x00,
+      0x27, 0x00, 0x01,
+      0xcc,
+      0x00,
+    ]);
+    const section = decodeDisplayIdSection(source);
+    const block = section.blocks[0];
+
+    expect(block.tag).toBe(DisplayIdDataBlockTag.StereoDisplayInterface);
+    expect(block.payloadLength).toBe(1);
+    expect(Array.from(block.payload)).toEqual([0xcc]);
+    expect('stereoSupported' in block).toBe(false);
+
+    Object.assign(block, {
+      stereoSupported: true,
+      stereoTypes: [0, 1],
+    });
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsedBlock = decodeDisplayIdSection(encoded).blocks[0];
+
+    expect(Array.from(encoded)).toEqual(Array.from(source));
+    expect(reparsedBlock.payloadLength).toBe(1);
+    expect(Array.from(reparsedBlock.payload)).toEqual([0xcc]);
+    expect('stereoSupported' in reparsedBlock).toBe(false);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('preserves malformed short Tiled Display Topology payloads as generic blocks', () => {
+    const source = withChecksum([
+      0x20, 0x08, 0x04, 0x00,
+      0x28, 0x00, 0x05,
+      0x02, 0x03, 0x01, 0x02, 0xdd,
+      0x00,
+    ]);
+    const section = decodeDisplayIdSection(source);
+    const block = section.blocks[0];
+
+    expect(block.tag).toBe(DisplayIdDataBlockTag.TiledDisplayTopology);
+    expect(block.payloadLength).toBe(5);
+    expect(Array.from(block.payload)).toEqual([0x02, 0x03, 0x01, 0x02, 0xdd]);
+    expect('tileCountHorizontal' in block).toBe(false);
+
+    Object.assign(block, {
+      tileCountHorizontal: 4,
+      tileCountVertical: 4,
+      tileLocationHorizontal: 1,
+      tileLocationVertical: 1,
+      tileWidthPixels: 1920,
+      tileHeightPixels: 1080,
+    });
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsedBlock = decodeDisplayIdSection(encoded).blocks[0];
+
+    expect(Array.from(encoded)).toEqual(Array.from(source));
+    expect(reparsedBlock.payloadLength).toBe(5);
+    expect(Array.from(reparsedBlock.payload)).toEqual([0x02, 0x03, 0x01, 0x02, 0xdd]);
+    expect('tileCountHorizontal' in reparsedBlock).toBe(false);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 

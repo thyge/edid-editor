@@ -345,6 +345,7 @@ function isTypedDynamicVideoTimingRangeLimitsBlock(
 
   return (
     block.tag === DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits &&
+    isDynamicVideoTimingRangeLimitsPayloadLengthValid(block.payloadLength) &&
     typeof maybeBlock.minimumPixelClockKHz === 'number' &&
     typeof maybeBlock.maximumPixelClockKHz === 'number' &&
     typeof maybeBlock.minimumHorizontalFrequencyHz === 'number' &&
@@ -362,6 +363,7 @@ function isTypedDisplayInterfaceFeaturesBlock(
 
   return (
     block.tag === DisplayIdDataBlockTag.DisplayInterfaceFeatures &&
+    isDisplayInterfaceFeaturesPayloadLengthValid(block.payloadLength) &&
     Array.isArray(maybeBlock.supportedColorDepths) &&
     maybeBlock.supportedColorDepths.every((depth) => typeof depth === 'number') &&
     typeof maybeBlock.rgb444 === 'boolean' &&
@@ -378,6 +380,7 @@ function isTypedStereoDisplayInterfaceBlock(block: DisplayIdDataBlock): block is
 
   return (
     block.tag === DisplayIdDataBlockTag.StereoDisplayInterface &&
+    isStereoDisplayInterfacePayloadLengthValid(block.payloadLength) &&
     typeof maybeBlock.stereoSupported === 'boolean' &&
     Array.isArray(maybeBlock.stereoTypes) &&
     maybeBlock.stereoTypes.every((stereoType) => typeof stereoType === 'number')
@@ -389,6 +392,7 @@ function isTypedTiledDisplayTopologyBlock(block: DisplayIdDataBlock): block is D
 
   return (
     block.tag === DisplayIdDataBlockTag.TiledDisplayTopology &&
+    isTiledDisplayTopologyPayloadLengthValid(block.payloadLength) &&
     typeof maybeBlock.tileCountHorizontal === 'number' &&
     typeof maybeBlock.tileCountVertical === 'number' &&
     typeof maybeBlock.tileLocationHorizontal === 'number' &&

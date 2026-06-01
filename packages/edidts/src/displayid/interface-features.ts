@@ -36,18 +36,22 @@ export function encodeDisplayInterfaceFeaturesBlock(block: DisplayIdDisplayInter
     ? block.payload.slice()
     : new Uint8Array(MIN_INTERFACE_FEATURES_PAYLOAD_LENGTH);
 
-  payload[0] = COLOR_DEPTHS.reduce(
+  const colorDepthMask = COLOR_DEPTHS.reduce(
     (mask, depth, index) => mask | (block.supportedColorDepths.includes(depth) ? 1 << index : 0),
     0,
   );
-  payload[1] =
+  const pixelEncodingMask =
     (block.rgb444 ? 0x01 : 0) |
     (block.ycbcr444 ? 0x02 : 0) |
     (block.ycbcr422 ? 0x04 : 0) |
     (block.ycbcr420 ? 0x08 : 0);
-  payload[2] =
+  const flags =
     (block.audioOnInterface ? 0x01 : 0) |
     (block.contentProtection ? 0x02 : 0);
+
+  payload[0] = (payload[0] & 0xf0) | colorDepthMask;
+  payload[1] = (payload[1] & 0xf0) | pixelEncodingMask;
+  payload[2] = (payload[2] & 0xfc) | flags;
 
   return payload;
 }
