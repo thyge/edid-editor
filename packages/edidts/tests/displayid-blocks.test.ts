@@ -124,7 +124,7 @@ describe('DisplayID timing blocks', () => {
     const section = decodeDisplayIdSection(withChecksum([
       0x20, 0x0f, 0x04, 0x00,
       0x22, 0x00, 0x0c,
-      0x88, 0x13, 0x80, 0x07, 0x18, 0x2c, 0x38, 0x04, 0x65, 0x05, 0x0a, 0x03,
+      0x88, 0x13, 0x80, 0x87, 0x11, 0x2c, 0x38, 0x38, 0x54, 0x06, 0x0a, 0x01,
       0x00,
     ]));
     const block = section.blocks[0] as DisplayIdTypeVIIDetailedTimingBlock;
@@ -134,14 +134,21 @@ describe('DisplayID timing blocks', () => {
       pixelClockKHz: 500000,
       horizontalActive: 1920,
       horizontalBlanking: 280,
+      horizontalSyncOffset: 44,
+      horizontalSyncWidth: 56,
       verticalActive: 1080,
       verticalBlanking: 101,
+      verticalSyncOffset: 10,
+      verticalSyncWidth: 0,
       preferred: true,
       interlaced: false,
     });
 
     block.timings[0].preferred = false;
     const encoded = encodeDisplayIdSection(section);
+    expect(Array.from(encoded.slice(7, 19))).toEqual([
+      0x88, 0x13, 0x80, 0x87, 0x11, 0x2c, 0x38, 0x38, 0x54, 0x06, 0x0a, 0x00,
+    ]);
     const reparsed = decodeDisplayIdSection(encoded);
     expect((reparsed.blocks[0] as DisplayIdTypeVIIDetailedTimingBlock).timings[0].preferred).toBe(false);
   });
