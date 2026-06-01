@@ -1,11 +1,18 @@
 import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
+  type DisplayIdContainerIdBlock,
+  type DisplayIdCtaBlock,
+  type DisplayIdDisplayInterfaceFeaturesBlock,
   type DisplayIdDisplayParametersBlock,
+  type DisplayIdDynamicVideoTimingRangeLimitsBlock,
   type DisplayIdProductIdentificationBlock,
+  type DisplayIdStereoDisplayInterfaceBlock,
+  type DisplayIdTiledDisplayTopologyBlock,
   type DisplayIdTypeVIIDetailedTimingBlock,
   type DisplayIdTypeVIIIEnumeratedTimingCodeBlock,
   type DisplayIdTypeIXFormulaBasedTimingBlock,
+  type DisplayIdVendorSpecificBlock,
   DisplayIdDecodeError,
 } from './types';
 import {
@@ -32,6 +39,39 @@ import {
   encodeTypeIXTimingBlock,
   isTypeIXTimingPayloadLengthValid,
 } from './type-ix-timing';
+import {
+  decodeDynamicVideoTimingRangeLimitsBlock,
+  encodeDynamicVideoTimingRangeLimitsBlock,
+  isDynamicVideoTimingRangeLimitsPayloadLengthValid,
+} from './dynamic-range-limits';
+import {
+  decodeDisplayInterfaceFeaturesBlock,
+  encodeDisplayInterfaceFeaturesBlock,
+  isDisplayInterfaceFeaturesPayloadLengthValid,
+} from './interface-features';
+import {
+  decodeStereoDisplayInterfaceBlock,
+  encodeStereoDisplayInterfaceBlock,
+  isStereoDisplayInterfacePayloadLengthValid,
+} from './stereo-interface';
+import {
+  decodeTiledDisplayTopologyBlock,
+  encodeTiledDisplayTopologyBlock,
+  isTiledDisplayTopologyPayloadLengthValid,
+} from './tiled-topology';
+import {
+  decodeContainerIdBlock,
+  encodeContainerIdBlock,
+  isContainerIdPayloadLengthValid,
+} from './container-id';
+import {
+  decodeVendorSpecificBlock,
+  encodeVendorSpecificBlock,
+} from './vendor-specific';
+import {
+  decodeCtaDisplayIdBlock,
+  encodeCtaDisplayIdBlock,
+} from './cta-displayid';
 
 export interface DecodeBlocksResult {
   blocks: DisplayIdDataBlock[];
@@ -143,6 +183,49 @@ function decodeKnownBlock(block: DisplayIdDataBlock): DisplayIdDataBlock {
     return decodeTypeIXTimingBlock(block);
   }
 
+  if (
+    block.tag === DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits &&
+    isDynamicVideoTimingRangeLimitsPayloadLengthValid(block.payloadLength)
+  ) {
+    return decodeDynamicVideoTimingRangeLimitsBlock(block);
+  }
+
+  if (
+    block.tag === DisplayIdDataBlockTag.DisplayInterfaceFeatures &&
+    isDisplayInterfaceFeaturesPayloadLengthValid(block.payloadLength)
+  ) {
+    return decodeDisplayInterfaceFeaturesBlock(block);
+  }
+
+  if (
+    block.tag === DisplayIdDataBlockTag.StereoDisplayInterface &&
+    isStereoDisplayInterfacePayloadLengthValid(block.payloadLength)
+  ) {
+    return decodeStereoDisplayInterfaceBlock(block);
+  }
+
+  if (
+    block.tag === DisplayIdDataBlockTag.TiledDisplayTopology &&
+    isTiledDisplayTopologyPayloadLengthValid(block.payloadLength)
+  ) {
+    return decodeTiledDisplayTopologyBlock(block);
+  }
+
+  if (
+    block.tag === DisplayIdDataBlockTag.ContainerId &&
+    isContainerIdPayloadLengthValid(block.payloadLength)
+  ) {
+    return decodeContainerIdBlock(block);
+  }
+
+  if (block.tag === DisplayIdDataBlockTag.VendorSpecific) {
+    return decodeVendorSpecificBlock(block);
+  }
+
+  if (block.tag === DisplayIdDataBlockTag.CtaDisplayId) {
+    return decodeCtaDisplayIdBlock(block);
+  }
+
   return block;
 }
 
@@ -165,6 +248,34 @@ function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
 
   if (isTypedTypeIXTimingBlock(block)) {
     return encodeTypeIXTimingBlock(block);
+  }
+
+  if (isTypedDynamicVideoTimingRangeLimitsBlock(block)) {
+    return encodeDynamicVideoTimingRangeLimitsBlock(block);
+  }
+
+  if (isTypedDisplayInterfaceFeaturesBlock(block)) {
+    return encodeDisplayInterfaceFeaturesBlock(block);
+  }
+
+  if (isTypedStereoDisplayInterfaceBlock(block)) {
+    return encodeStereoDisplayInterfaceBlock(block);
+  }
+
+  if (isTypedTiledDisplayTopologyBlock(block)) {
+    return encodeTiledDisplayTopologyBlock(block);
+  }
+
+  if (isTypedContainerIdBlock(block)) {
+    return encodeContainerIdBlock(block);
+  }
+
+  if (isTypedVendorSpecificBlock(block)) {
+    return encodeVendorSpecificBlock(block);
+  }
+
+  if (isTypedCtaDisplayIdBlock(block)) {
+    return encodeCtaDisplayIdBlock(block);
   }
 
   return block.payload;
@@ -224,5 +335,88 @@ function isTypedTypeIXTimingBlock(block: DisplayIdDataBlock): block is DisplayId
       typeof timing.preferred === 'boolean' &&
       typeof timing.reducedBlanking === 'boolean'
     ))
+  );
+}
+
+function isTypedDynamicVideoTimingRangeLimitsBlock(
+  block: DisplayIdDataBlock,
+): block is DisplayIdDynamicVideoTimingRangeLimitsBlock {
+  const maybeBlock = block as Partial<DisplayIdDynamicVideoTimingRangeLimitsBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits &&
+    typeof maybeBlock.minimumPixelClockKHz === 'number' &&
+    typeof maybeBlock.maximumPixelClockKHz === 'number' &&
+    typeof maybeBlock.minimumHorizontalFrequencyHz === 'number' &&
+    typeof maybeBlock.maximumHorizontalFrequencyHz === 'number' &&
+    typeof maybeBlock.minimumVerticalFrequencyHz === 'number' &&
+    typeof maybeBlock.maximumVerticalFrequencyHz === 'number' &&
+    typeof maybeBlock.seamlessDynamicVideoTiming === 'boolean'
+  );
+}
+
+function isTypedDisplayInterfaceFeaturesBlock(
+  block: DisplayIdDataBlock,
+): block is DisplayIdDisplayInterfaceFeaturesBlock {
+  const maybeBlock = block as Partial<DisplayIdDisplayInterfaceFeaturesBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.DisplayInterfaceFeatures &&
+    Array.isArray(maybeBlock.supportedColorDepths) &&
+    maybeBlock.supportedColorDepths.every((depth) => typeof depth === 'number') &&
+    typeof maybeBlock.rgb444 === 'boolean' &&
+    typeof maybeBlock.ycbcr444 === 'boolean' &&
+    typeof maybeBlock.ycbcr422 === 'boolean' &&
+    typeof maybeBlock.ycbcr420 === 'boolean' &&
+    typeof maybeBlock.audioOnInterface === 'boolean' &&
+    typeof maybeBlock.contentProtection === 'boolean'
+  );
+}
+
+function isTypedStereoDisplayInterfaceBlock(block: DisplayIdDataBlock): block is DisplayIdStereoDisplayInterfaceBlock {
+  const maybeBlock = block as Partial<DisplayIdStereoDisplayInterfaceBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.StereoDisplayInterface &&
+    typeof maybeBlock.stereoSupported === 'boolean' &&
+    Array.isArray(maybeBlock.stereoTypes) &&
+    maybeBlock.stereoTypes.every((stereoType) => typeof stereoType === 'number')
+  );
+}
+
+function isTypedTiledDisplayTopologyBlock(block: DisplayIdDataBlock): block is DisplayIdTiledDisplayTopologyBlock {
+  const maybeBlock = block as Partial<DisplayIdTiledDisplayTopologyBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.TiledDisplayTopology &&
+    typeof maybeBlock.tileCountHorizontal === 'number' &&
+    typeof maybeBlock.tileCountVertical === 'number' &&
+    typeof maybeBlock.tileLocationHorizontal === 'number' &&
+    typeof maybeBlock.tileLocationVertical === 'number' &&
+    typeof maybeBlock.tileWidthPixels === 'number' &&
+    typeof maybeBlock.tileHeightPixels === 'number'
+  );
+}
+
+function isTypedContainerIdBlock(block: DisplayIdDataBlock): block is DisplayIdContainerIdBlock {
+  const maybeBlock = block as Partial<DisplayIdContainerIdBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.ContainerId &&
+    maybeBlock.containerId instanceof Uint8Array &&
+    isContainerIdPayloadLengthValid(maybeBlock.containerId.length)
+  );
+}
+
+function isTypedVendorSpecificBlock(block: DisplayIdDataBlock): block is DisplayIdVendorSpecificBlock {
+  return block.tag === DisplayIdDataBlockTag.VendorSpecific;
+}
+
+function isTypedCtaDisplayIdBlock(block: DisplayIdDataBlock): block is DisplayIdCtaBlock {
+  const maybeBlock = block as Partial<DisplayIdCtaBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.CtaDisplayId &&
+    maybeBlock.ctaPayload instanceof Uint8Array
   );
 }

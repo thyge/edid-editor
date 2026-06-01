@@ -26,6 +26,39 @@ export {
   isTypeIXTimingPayloadLengthValid,
 } from './type-ix-timing';
 export {
+  decodeDynamicVideoTimingRangeLimitsBlock,
+  encodeDynamicVideoTimingRangeLimitsBlock,
+  isDynamicVideoTimingRangeLimitsPayloadLengthValid,
+} from './dynamic-range-limits';
+export {
+  decodeDisplayInterfaceFeaturesBlock,
+  encodeDisplayInterfaceFeaturesBlock,
+  isDisplayInterfaceFeaturesPayloadLengthValid,
+} from './interface-features';
+export {
+  decodeStereoDisplayInterfaceBlock,
+  encodeStereoDisplayInterfaceBlock,
+  isStereoDisplayInterfacePayloadLengthValid,
+} from './stereo-interface';
+export {
+  decodeTiledDisplayTopologyBlock,
+  encodeTiledDisplayTopologyBlock,
+  isTiledDisplayTopologyPayloadLengthValid,
+} from './tiled-topology';
+export {
+  decodeContainerIdBlock,
+  encodeContainerIdBlock,
+  isContainerIdPayloadLengthValid,
+} from './container-id';
+export {
+  decodeVendorSpecificBlock,
+  encodeVendorSpecificBlock,
+} from './vendor-specific';
+export {
+  decodeCtaDisplayIdBlock,
+  encodeCtaDisplayIdBlock,
+} from './cta-displayid';
+export {
   decodeDisplayIdSection,
   encodeDisplayIdSection,
 } from './section';
