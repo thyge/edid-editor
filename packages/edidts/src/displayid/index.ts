@@ -3,6 +3,11 @@ export {
   encodeDisplayIdBlock,
 } from './blocks';
 export {
+  decodeDisplayParametersBlock,
+  encodeDisplayParametersBlock,
+  isDisplayParametersPayloadLengthValid,
+} from './display-parameters';
+export {
   decodeProductIdentificationBlock,
   encodeProductIdentificationBlock,
 } from './product-identification';

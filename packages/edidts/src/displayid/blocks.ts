@@ -1,9 +1,15 @@
 import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
+  type DisplayIdDisplayParametersBlock,
   type DisplayIdProductIdentificationBlock,
   DisplayIdDecodeError,
 } from './types';
+import {
+  decodeDisplayParametersBlock,
+  encodeDisplayParametersBlock,
+  isDisplayParametersPayloadLengthValid,
+} from './display-parameters';
 import {
   decodeProductIdentificationBlock,
   encodeProductIdentificationBlock,
@@ -88,12 +94,23 @@ function decodeKnownBlock(block: DisplayIdDataBlock): DisplayIdDataBlock {
     return decodeProductIdentificationBlock(block);
   }
 
+  if (
+    block.tag === DisplayIdDataBlockTag.DisplayParameters &&
+    isDisplayParametersPayloadLengthValid(block.payloadLength)
+  ) {
+    return decodeDisplayParametersBlock(block);
+  }
+
   return block;
 }
 
 function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
   if (block.tag === DisplayIdDataBlockTag.ProductIdentification) {
     return encodeProductIdentificationBlock(block as DisplayIdProductIdentificationBlock);
+  }
+
+  if (block.tag === DisplayIdDataBlockTag.DisplayParameters) {
+    return encodeDisplayParametersBlock(block as DisplayIdDisplayParametersBlock);
   }
 
   return block.payload;
