@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DISPLAY_ID_BLOCK_LABELS,
   DisplayIdDataBlockTag,
+  createDefaultDisplayIdBlock,
   decodeDisplayIdSection,
   encodeDisplayIdSection,
+  type DisplayIdDisplayParametersBlock,
   type DisplayIdProductIdentificationBlock,
 } from '../src/displayid'
 import { checksum8, isChecksum8Valid } from '../src/common'
@@ -170,6 +173,21 @@ describe('DisplayID v2.0 sections', () => {
     expect(() => decodeDisplayIdSection(sectionBytes)).toThrow(
       'DisplayID section declares 21 bytes but only 5 bytes are available',
     )
+  })
+})
+
+describe('DisplayID block metadata', () => {
+  it('creates a typed default block for each DisplayID 2.0 tag used by the editor', () => {
+    const displayParameters = (
+      createDefaultDisplayIdBlock(DisplayIdDataBlockTag.DisplayParameters)
+    ) as DisplayIdDisplayParametersBlock
+
+    expect(DISPLAY_ID_BLOCK_LABELS[DisplayIdDataBlockTag.DisplayParameters]).toBe('Display Parameters')
+    expect(displayParameters.tag).toBe(DisplayIdDataBlockTag.DisplayParameters)
+    expect(displayParameters.revision).toBe(0)
+    expect(displayParameters.flags).toBe(0)
+    expect(displayParameters.horizontalImageSizeMm).toBe(0)
+    expect(displayParameters.verticalImageSizeMm).toBe(0)
   })
 })
 
