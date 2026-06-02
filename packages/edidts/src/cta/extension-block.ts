@@ -21,7 +21,7 @@ import {
   encodeVideoTimingBlock,
   type VideoTimingBlock as VTBExtensionBlock,
   type VideoTimingBlockDetailedTiming as VTBDetailedTiming,
-} from '../common/video-timing-block';
+} from './video-timing-block';
 import { checksum8 } from '../common/checksum';
 import { decodeDisplayIdSection, encodeDisplayIdSection, type DisplayIdSection } from '../displayid';
 

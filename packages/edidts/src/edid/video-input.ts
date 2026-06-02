@@ -1,13 +1,23 @@
 /**
  * Video Input Definition
- * 
+ *
  * Handles encoding and decoding of EDID video input parameters.
  * Supports both analog and digital video inputs per VESA E-EDID A2.
+ *
+ * Per E-EDID A2 §3.6 / Table 3.11, the digital bit depth and interface codes
+ * and the analog signal-level codes are sequential integers starting at 0, so
+ * the values are stored as positional arrays — the array index *is* the
+ * on-the-wire code.
  */
 
-export type AnalogSignalLevel = '0.7/0.3V' | '0.714/0.286V' | '1.0/0.4V' | '0.7/0.0V';
-export type DigitalBitDepth = 'undefined' | 6 | 8 | 10 | 12 | 14 | 16;
-export type DigitalInterface = 'undefined' | 'DVI' | 'HDMI-a' | 'HDMI-b' | 'MDDI' | 'DisplayPort';
+export const ANALOG_SIGNAL_LEVELS = ['0.7/0.3V', '0.714/0.286V', '1.0/0.4V', '0.7/0.0V'] as const;
+export type AnalogSignalLevel = (typeof ANALOG_SIGNAL_LEVELS)[number];
+
+export const DIGITAL_BIT_DEPTHS = ['undefined', 6, 8, 10, 12, 14, 16] as const;
+export type DigitalBitDepth = (typeof DIGITAL_BIT_DEPTHS)[number];
+
+export const DIGITAL_INTERFACES = ['undefined', 'DVI', 'HDMI-a', 'HDMI-b', 'MDDI', 'DisplayPort'] as const;
+export type DigitalInterface = (typeof DIGITAL_INTERFACES)[number];
 
 export interface AnalogVideoInput {
   type: 'analog';
@@ -26,41 +36,6 @@ export interface DigitalVideoInput {
 }
 
 export type VideoInput = AnalogVideoInput | DigitalVideoInput;
-
-const SIGNAL_LEVEL_MAP: Record<number, AnalogSignalLevel> = {
-  0: '0.7/0.3V',
-  1: '0.714/0.286V',
-  2: '1.0/0.4V',
-  3: '0.7/0.0V',
-};
-
-const BIT_DEPTH_MAP: Record<number, DigitalBitDepth> = {
-  0: 'undefined',
-  1: 6,
-  2: 8,
-  3: 10,
-  4: 12,
-  5: 14,
-  6: 16,
-};
-
-const INTERFACE_MAP: Record<number, DigitalInterface> = {
-  0: 'undefined',
-  1: 'DVI',
-  2: 'HDMI-a',
-  3: 'HDMI-b',
-  4: 'MDDI',
-  5: 'DisplayPort',
-};
-
-/** All valid analog signal levels */
-export const ANALOG_SIGNAL_LEVELS: readonly AnalogSignalLevel[] = Object.values(SIGNAL_LEVEL_MAP);
-
-/** All valid digital bit depths */
-export const DIGITAL_BIT_DEPTHS: readonly DigitalBitDepth[] = Object.values(BIT_DEPTH_MAP);
-
-/** All valid digital interfaces */
-export const DIGITAL_INTERFACES: readonly DigitalInterface[] = Object.values(INTERFACE_MAP);
 
 export class VideoInputDefinition {
   public input: VideoInput;
@@ -81,15 +56,15 @@ export class VideoInputDefinition {
 
       return new VideoInputDefinition({
         type: 'digital',
-        bitDepth: BIT_DEPTH_MAP[bitDepthCode] ?? 'undefined',
-        videoInterface: INTERFACE_MAP[interfaceCode] ?? 'undefined',
+        bitDepth: DIGITAL_BIT_DEPTHS[bitDepthCode] ?? 'undefined',
+        videoInterface: DIGITAL_INTERFACES[interfaceCode] ?? 'undefined',
       });
     } else {
       const signalLevelCode = (byte >> 5) & 0x03;
 
       return new VideoInputDefinition({
         type: 'analog',
-        signalLevel: SIGNAL_LEVEL_MAP[signalLevelCode] ?? '0.7/0.3V',
+        signalLevel: ANALOG_SIGNAL_LEVELS[signalLevelCode] ?? '0.7/0.3V',
         videoSetup: (byte & 0x10) !== 0,
         separateSyncSupported: (byte & 0x08) !== 0,
         compositeSyncSupported: (byte & 0x04) !== 0,
@@ -104,41 +79,20 @@ export class VideoInputDefinition {
    */
   encode(): number {
     if (this.input.type === 'digital') {
-      let byte = 0x80; // Digital flag
-
-      // Encode bit depth
-      const digital = this.input as DigitalVideoInput;
-      const bitDepthCode = Object.entries(BIT_DEPTH_MAP)
-        .find(([, v]) => v === digital.bitDepth)?.[0];
-      if (bitDepthCode) {
-        byte |= (parseInt(bitDepthCode) & 0x07) << 4;
-      }
-
-      // Encode interface
-      const interfaceCode = Object.entries(INTERFACE_MAP)
-        .find(([, v]) => v === (this.input as DigitalVideoInput).videoInterface)?.[0];
-      if (interfaceCode) {
-        byte |= parseInt(interfaceCode) & 0x0F;
-      }
-
-      return byte;
+      const digital = this.input;
+      return (
+        0x80 |
+        (DIGITAL_BIT_DEPTHS.indexOf(digital.bitDepth) << 4) |
+        DIGITAL_INTERFACES.indexOf(digital.videoInterface)
+      );
     } else {
-      let byte = 0x00; // Analog flag
-
-      // Encode signal level
-      const signalLevelCode = Object.entries(SIGNAL_LEVEL_MAP)
-        .find(([, v]) => v === (this.input as AnalogVideoInput).signalLevel)?.[0];
-      if (signalLevelCode) {
-        byte |= (parseInt(signalLevelCode) & 0x03) << 5;
-      }
-
-      const analog = this.input as AnalogVideoInput;
+      const analog = this.input;
+      let byte = ANALOG_SIGNAL_LEVELS.indexOf(analog.signalLevel) << 5;
       if (analog.videoSetup) byte |= 0x10;
       if (analog.separateSyncSupported) byte |= 0x08;
       if (analog.compositeSyncSupported) byte |= 0x04;
       if (analog.syncOnGreenSupported) byte |= 0x02;
       if (analog.vsyncSerrationSupported) byte |= 0x01;
-
       return byte;
     }
   }

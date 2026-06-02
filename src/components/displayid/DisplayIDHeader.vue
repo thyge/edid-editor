@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { DisplayIdExtensionBlock } from 'edidts'
+import type { DisplayIdExtension } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
 const props = defineProps<{
-  displayId: DisplayIdExtensionBlock
+  displayId: DisplayIdExtension
 }>()
 
 const emit = defineEmits<{

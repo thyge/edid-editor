@@ -2,7 +2,7 @@
 import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
-  type DisplayIdExtensionBlock,
+  type DisplayIdExtension,
   type DisplayIdTypeVIIIEnumeratedTimingCodeBlock,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from './displayIdEditorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtensionBlock }>()
+const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 function updateBlock(index: number, block: DisplayIdTypeVIIIEnumeratedTimingCodeBlock, timingCodes: number[]) {

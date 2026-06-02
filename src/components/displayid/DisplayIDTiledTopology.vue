@@ -2,14 +2,14 @@
 import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
-  type DisplayIdExtensionBlock,
+  type DisplayIdExtension,
   type DisplayIdTiledDisplayTopologyBlock,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { blocksByTag, numberFromEvent } from './displayIdEditorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtensionBlock }>()
+const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 function update(index: number, block: DisplayIdTiledDisplayTopologyBlock, patch: Partial<DisplayIdTiledDisplayTopologyBlock>) {

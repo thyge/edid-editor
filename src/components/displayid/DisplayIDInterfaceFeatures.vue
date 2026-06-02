@@ -3,14 +3,14 @@ import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
   type DisplayIdDisplayInterfaceFeaturesBlock,
-  type DisplayIdExtensionBlock,
+  type DisplayIdExtension,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag } from './displayIdEditorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtensionBlock }>()
+const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 const depths = [6, 8, 10, 12]
 

@@ -3,13 +3,13 @@ import {
   DisplayIdDataBlockTag,
   type DisplayIdCtaBlock,
   type DisplayIdDataBlock,
-  type DisplayIdExtensionBlock,
+  type DisplayIdExtension,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { blocksByTag, bytesToHex, hexToBytes, stringFromEvent } from './displayIdEditorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtensionBlock }>()
+const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 </script>
 

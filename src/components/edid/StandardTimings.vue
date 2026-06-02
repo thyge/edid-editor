@@ -8,10 +8,10 @@ import StandardTimingListEditor, { type TimingInput } from '@/components/edid/de
 const props = defineProps<{ edid: EDIDViewModel }>()
 const emit = defineEmits<{ update: [field: string, value: unknown] }>()
 
-const standardTimings = computed(() => props.edid.standardTimings.filter((t) => t.width > 0))
+const standardTimings = computed(() => props.edid.base.standardTimings.filter((t: StandardTiming) => t.width > 0))
 
 const timingPayload = computed<TimingInput[]>(() =>
-  standardTimings.value.map((timing) => ({
+  standardTimings.value.map((timing: StandardTiming) => ({
     width: timing.width,
     height: timing.height,
     refreshRate: timing.refreshRate,

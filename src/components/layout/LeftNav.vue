@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { EDIDViewModel } from '@/types/edid'
+import { DISPLAY_ID_BLOCK_LABELS, getCEAExtension, getDisplayIdExtension } from 'edidts'
 import { Button } from '@/components/ui/button'
-import { DISPLAY_ID_BLOCK_LABELS } from 'edidts'
 import {
   addableDisplayIdBlocks,
   displayIdBlockSectionByTag,
@@ -41,20 +41,22 @@ const edidChildren = [
   { id: 'descriptor-blocks', label: 'Detailed Timing Descriptor' },
 ]
 
-const hasCEA = computed(() => props.edid?.ceaExtension !== null && props.edid?.ceaExtension !== undefined)
+const ceaExt = computed(() => props.edid ? getCEAExtension(props.edid) : null)
+
+const hasCEA = computed(() => ceaExt.value !== null)
 
 const ceaChildren = computed(() => {
-  const cea = props.edid?.ceaExtension
+  const cea = ceaExt.value
   if (!cea) return []
   const items: { id: string; label: string }[] = [
     { id: 'cea-header', label: 'Header & Flags' },
   ]
   const blocks = cea.dataBlocks
-  if (blocks.some(b => b.tag === 0x02)) items.push({ id: 'cea-video', label: 'Video (SVDs)' })
-  if (blocks.some(b => b.tag === 0x01)) items.push({ id: 'cea-audio', label: 'Audio (SADs)' })
-  if (blocks.some(b => b.tag === 0x04)) items.push({ id: 'cea-speakers', label: 'Speaker Allocation' })
-  if (blocks.some(b => b.tag === 0x03)) items.push({ id: 'cea-vendor', label: 'HDMI / Vendor' })
-  const hasHdrOrColor = blocks.some(b =>
+  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x02)) items.push({ id: 'cea-video', label: 'Video (SVDs)' })
+  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x01)) items.push({ id: 'cea-audio', label: 'Audio (SADs)' })
+  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x04)) items.push({ id: 'cea-speakers', label: 'Speaker Allocation' })
+  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x03)) items.push({ id: 'cea-vendor', label: 'HDMI / Vendor' })
+  const hasHdrOrColor = blocks.some((b: import('edidts').CEADataBlock) =>
     b.tag === 0x07 && ((b as { extendedTag?: number }).extendedTag === 0x05 ||
     (b as { extendedTag?: number }).extendedTag === 0x06 ||
     (b as { extendedTag?: number }).extendedTag === 0x07 ||
@@ -62,7 +64,7 @@ const ceaChildren = computed(() => {
     (b as { extendedTag?: number }).extendedTag === 0x0F)
   )
   if (hasHdrOrColor) items.push({ id: 'cea-hdr-color', label: 'HDR & Colorimetry' })
-  const hasVideoCap = blocks.some(b =>
+  const hasVideoCap = blocks.some((b: import('edidts').CEADataBlock) =>
     b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x00
   )
   if (hasVideoCap) items.push({ id: 'cea-video-cap', label: 'Video Capability' })
@@ -71,23 +73,25 @@ const ceaChildren = computed(() => {
 })
 
 const addableBlocks = computed(() => {
-  const cea = props.edid?.ceaExtension
+  const cea = ceaExt.value
   if (!cea) return []
   const blocks = cea.dataBlocks
   const options: { type: string; label: string }[] = []
-  if (!blocks.some(b => b.tag === 0x02)) options.push({ type: 'video', label: 'Video Data Block' })
-  if (!blocks.some(b => b.tag === 0x01)) options.push({ type: 'audio', label: 'Audio Data Block' })
-  if (!blocks.some(b => b.tag === 0x04)) options.push({ type: 'speakers', label: 'Speaker Allocation' })
-  if (!blocks.some(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x00))
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x02)) options.push({ type: 'video', label: 'Video Data Block' })
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x01)) options.push({ type: 'audio', label: 'Audio Data Block' })
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x04)) options.push({ type: 'speakers', label: 'Speaker Allocation' })
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x00))
     options.push({ type: 'video-capability', label: 'Video Capability' })
-  if (!blocks.some(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x05))
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x05))
     options.push({ type: 'colorimetry', label: 'Colorimetry' })
-  if (!blocks.some(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x06))
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x06))
     options.push({ type: 'hdr-static', label: 'HDR Static Metadata' })
   return options
 })
 
-const hasDisplayID = computed(() => props.edid?.displayIdExtension !== null && props.edid?.displayIdExtension !== undefined)
+const displayIdExt = computed(() => props.edid ? getDisplayIdExtension(props.edid) : null)
+
+const hasDisplayID = computed(() => displayIdExt.value !== null)
 
 interface DisplayIdNavChild {
   id: string
@@ -96,7 +100,7 @@ interface DisplayIdNavChild {
 }
 
 const displayIdChildren = computed<DisplayIdNavChild[]>(() => {
-  const displayId = props.edid?.displayIdExtension
+  const displayId = displayIdExt.value
   if (!displayId) return []
 
   return [

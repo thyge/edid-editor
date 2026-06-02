@@ -3,7 +3,7 @@ import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
   type DisplayIdDisplayParametersBlock,
-  type DisplayIdExtensionBlock,
+  type DisplayIdExtension,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent } from './displayIdEditorUtils'
 
 const props = defineProps<{
-  displayId: DisplayIdExtensionBlock
+  displayId: DisplayIdExtension
 }>()
 
 const emit = defineEmits<{

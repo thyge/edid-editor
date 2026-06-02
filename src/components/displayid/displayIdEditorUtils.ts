@@ -1,4 +1,4 @@
-import type { DisplayIdDataBlock, DisplayIdExtensionBlock } from 'edidts'
+import type { DisplayIdDataBlock, DisplayIdExtension } from 'edidts'
 
 export interface IndexedBlock<T extends DisplayIdDataBlock> {
   index: number
@@ -6,7 +6,7 @@ export interface IndexedBlock<T extends DisplayIdDataBlock> {
 }
 
 export function blocksByTag<T extends DisplayIdDataBlock>(
-  displayId: DisplayIdExtensionBlock,
+  displayId: DisplayIdExtension,
   tag: number,
 ): IndexedBlock<T>[] {
   return displayId.section.blocks

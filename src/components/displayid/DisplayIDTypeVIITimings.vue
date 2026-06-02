@@ -2,7 +2,7 @@
 import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
-  type DisplayIdExtensionBlock,
+  type DisplayIdExtension,
   type DisplayIdTypeVIIDetailedTiming,
   type DisplayIdTypeVIIDetailedTimingBlock,
 } from 'edidts'
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from './displayIdEditorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtensionBlock }>()
+const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 function defaultTiming(): DisplayIdTypeVIIDetailedTiming {

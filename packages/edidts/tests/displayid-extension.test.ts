@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   DisplayIdDataBlockTag,
   EDID,
+  EEDID,
   ExtensionBlockParser,
   createDefaultDisplayIdBlock,
+  getDisplayIdExtension,
+  type DisplayIdExtension,
   type DisplayIdExtensionBlock,
 } from '../src';
 import { isChecksum8Valid } from '../src/common';
@@ -30,6 +33,16 @@ function createDisplayIdExtension(): DisplayIdExtensionBlock {
   };
 }
 
+function createEedidDisplayIdExtension(): DisplayIdExtension {
+  return {
+    kind: 'displayid',
+    tag: 0x70,
+    revision: 0,
+    checksum: 0,
+    section: createDisplayIdExtension().section,
+  };
+}
+
 describe('DisplayID EDID extension integration', () => {
   it('encodes and decodes EDID extension tag 0x70 as DisplayID', () => {
     const encoded = ExtensionBlockParser.encode(createDisplayIdExtension());
@@ -44,20 +57,21 @@ describe('DisplayID EDID extension integration', () => {
     expect(decoded.section.isChecksumValid).toBe(true);
   });
 
-  it('exposes displayIdExtension from EDID and re-encodes it as an extension block', () => {
-    const edid = new EDID();
+  it('exposes DisplayID from EEDID and re-encodes it as an extension block', () => {
+    const edid = new EEDID({
+      base: EDID.blank(),
+      extensions: [createEedidDisplayIdExtension()],
+    });
 
-    edid.extensionBlocks = [createDisplayIdExtension()];
+    expect(getDisplayIdExtension(edid)?.tag).toBe(0x70);
 
-    expect(edid.displayIdExtension?.tag).toBe(0x70);
-
-    const encoded = edid.encode();
-    const reparsed = new EDID(encoded);
+    const encoded = EEDID.encode(edid);
+    const reparsed = EEDID.decode(encoded);
 
     expect(encoded.length).toBe(256);
     expect(encoded[126]).toBe(1);
     expect(encoded[128]).toBe(0x70);
-    expect(reparsed.displayIdExtension?.section.blocks[0].tag).toBe(DisplayIdDataBlockTag.DisplayParameters);
+    expect(getDisplayIdExtension(reparsed)?.section.blocks[0].tag).toBe(DisplayIdDataBlockTag.DisplayParameters);
   });
 
   it('throws when a DisplayID section is too large for one EDID extension block', () => {

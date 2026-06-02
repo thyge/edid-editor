@@ -1,68 +1,70 @@
 import { describe, it, expect } from 'vitest'
 import { EDID } from '../src/edid'
+import { EEDID } from '../src/eedid'
 import { checksum8, isChecksum8Valid } from '../src/common'
+import { getProductName } from '../src/edid/display-descriptor'
 import type { ColorPointDescriptor, StandardTimingIdDescriptor } from '../src/edid/display-descriptor'
 
 function createTestEDID(manufacturerId = 'ABC'): Uint8Array {
   const edid = new Uint8Array(128)
-  
+
   // EDID signature
   edid.set([0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00], 0)
-  
+
   const [manufacturerHigh, manufacturerLow] = encodeTestManufacturerId(manufacturerId)
   edid[8] = manufacturerHigh
   edid[9] = manufacturerLow
-  
+
   // Product code (little endian)
   edid[10] = 0x34
   edid[11] = 0x12
-  
+
   // Serial number (little endian)
   edid[12] = 0x78
   edid[13] = 0x56
   edid[14] = 0x34
   edid[15] = 0x12
-  
+
   // Week and year
   edid[16] = 15  // Week 15
   edid[17] = 30  // Year 2020 (1990 + 30)
-  
+
   // EDID version/revision
   edid[18] = 1   // Version 1
   edid[19] = 4   // Revision 4
-  
+
   // Fill remaining bytes with some example data
   edid[20] = 0x08  // Digital input
   edid[21] = 52    // Max horizontal size (52 cm)
   edid[22] = 29    // Max vertical size (29 cm)
   edid[23] = 120   // Gamma: (120 + 100) / 100 = 2.2
   edid[24] = 0x06  // Features
-  
+
   // Fill color characteristics (10 bytes)
   for (let i = 25; i < 35; i++) {
     edid[i] = 0x00
   }
-  
+
   // Established timings (3 bytes)
   edid[35] = 0x21
   edid[36] = 0x08
   edid[37] = 0x00
-  
+
   // Standard timings (16 bytes)
   for (let i = 38; i < 54; i++) {
     edid[i] = 0x01  // Unused timing
   }
-  
+
   // Detailed timing descriptors (72 bytes)
   for (let i = 54; i < 126; i++) {
     edid[i] = 0x00
   }
-  
+
   // Extensions
   edid[126] = 0x00
-  
+
   edid[127] = checksum8(edid, 127)
-  
+
   return edid
 }
 
@@ -76,225 +78,222 @@ function encodeTestManufacturerId(id: string): [number, number] {
   return [(value >> 8) & 0xff, value & 0xff]
 }
 
-describe('EDID', () => {
+describe('EEDID', () => {
   it('should decode EDID header correctly', () => {
     const testEDID = createTestEDID()
-    const decoded = new EDID(testEDID)
-    
-    expect(decoded.header.manufacturerId).toBe('ABC')
-    expect(decoded.header.productCode).toBe(0x1234)
-    expect(decoded.header.serialNumber).toBe(0x12345678)
-    expect(decoded.header.weekOfManufacture).toBe(15)
-    expect(decoded.header.yearOfManufacture).toBe(2020)
-    expect(decoded.header.edidVersion).toBe(1)
-    expect(decoded.header.edidRevision).toBe(4)
+    const decoded = EEDID.decode(testEDID)
+
+    expect(decoded.base.header.manufacturerId).toBe('ABC')
+    expect(decoded.base.header.productCode).toBe(0x1234)
+    expect(decoded.base.header.serialNumber).toBe(0x12345678)
+    expect(decoded.base.header.weekOfManufacture).toBe(15)
+    expect(decoded.base.header.yearOfManufacture).toBe(2020)
+    expect(decoded.base.header.edidVersion).toBe(1)
+    expect(decoded.base.header.edidRevision).toBe(4)
     expect(decoded.isValid).toBe(true)
   })
 
   it('should throw error for invalid EDID signature', () => {
     const invalidEDID = new Uint8Array(128)
     invalidEDID.fill(0x00)
-    
+
     expect(() => {
-      new EDID(invalidEDID)
+      EEDID.decode(invalidEDID)
     }).toThrow('Invalid EDID signature')
   })
 
   it('should throw error for too short data', () => {
     const shortData = new Uint8Array(50)
-    
+
     expect(() => {
-      new EDID(shortData)
-    }).toThrow('Invalid EDID: minimum 128 bytes required')
+      EEDID.decode(shortData)
+    }).toThrow('EEDID: minimum 128 bytes required')
   })
 
   it('should work with convenience function', () => {
     const testEDID = createTestEDID()
-    const decoded = new EDID(testEDID)
-    
-    expect(decoded.header.manufacturerId).toBe('ABC')
-    expect(decoded.header.productCode).toBe(0x1234)
-    expect(decoded.header.serialNumber).toBe(0x12345678)
-    expect(decoded.header.weekOfManufacture).toBe(15)
-    expect(decoded.header.yearOfManufacture).toBe(2020)
-    expect(decoded.header.edidVersion).toBe(1)
-    expect(decoded.header.edidRevision).toBe(4)
+    const decoded = EEDID.decode(testEDID)
+
+    expect(decoded.base.header.manufacturerId).toBe('ABC')
+    expect(decoded.base.header.productCode).toBe(0x1234)
+    expect(decoded.base.header.serialNumber).toBe(0x12345678)
+    expect(decoded.base.header.weekOfManufacture).toBe(15)
+    expect(decoded.base.header.yearOfManufacture).toBe(2020)
+    expect(decoded.base.header.edidVersion).toBe(1)
+    expect(decoded.base.header.edidRevision).toBe(4)
   })
 
   it('should expose manufacturer name from the registry', () => {
     const testEDID = createTestEDID('ACR')
-    const decoded = new EDID(testEDID)
+    const decoded = EEDID.decode(testEDID)
 
-    expect(decoded.header.manufacturerId).toBe('ACR')
-    expect(decoded.header.manufacturerName).toBe('Acer Technologies')
+    expect(decoded.base.header.manufacturerId).toBe('ACR')
+    expect(decoded.base.header.manufacturerName).toBe('Acer Technologies')
   })
 })
 
-describe('EDID as mutable object', () => {
+describe('EEDID as mutable object', () => {
   it('should create editable EDID object', () => {
     const testEDID = createTestEDID()
-    const edid = new EDID(testEDID)
-    
-    expect(edid.header.manufacturerId).toBe('ABC')
+    const edid = EEDID.decode(testEDID)
+
+    expect(edid.base.header.manufacturerId).toBe('ABC')
     expect(edid.isValid).toBe(true)
   })
 
   it('should allow modifications and re-encoding', () => {
     const testEDID = createTestEDID()
-    const edid = new EDID(testEDID)
-    
+    const edid = EEDID.decode(testEDID)
+
     // Modify some values
-    edid.header.manufacturerId = 'DEL'
-    edid.header.productCode = 0x1234
-    edid.displayCharacteristics.maxHorizontalSize = 60
-    edid.displayCharacteristics.maxVerticalSize = 34
-    
+    edid.base.header.manufacturerId = 'DEL'
+    edid.base.header.productCode = 0x1234
+    edid.base.screenSize = { type: 'absolute', horizontalCm: 60, verticalCm: 34 }
+
     // Re-encode
-    const reencoded = edid.encode()
-    
+    const reencoded = EEDID.encode(edid)
+
     // Decode the re-encoded data to verify
-    const verified = new EDID(reencoded)
-    expect(verified.header.manufacturerId).toBe('DEL')
-    expect(verified.header.productCode).toBe(0x1234)
-    expect(verified.displayCharacteristics.maxHorizontalSize).toBe(60)
-    expect(verified.displayCharacteristics.maxVerticalSize).toBe(34)
+    const verified = EEDID.decode(reencoded)
+    expect(verified.base.header.manufacturerId).toBe('DEL')
+    expect(verified.base.header.productCode).toBe(0x1234)
+    expect(verified.base.screenSize).toEqual({ type: 'absolute', horizontalCm: 60, verticalCm: 34 })
     expect(verified.isValid).toBe(true)
   })
 
   it('should create new EDID from scratch', () => {
-    const edid = new EDID()
-    
+    const edid = EEDID.blank()
+
     // Set some basic values
-    edid.header.manufacturerId = 'TST'
-    edid.header.productCode = 0x5678
-    edid.displayCharacteristics.maxHorizontalSize = 50
-    edid.displayCharacteristics.maxVerticalSize = 28
-    edid.displayCharacteristics.features.sRGB = true
-    
+    edid.base.header.manufacturerId = 'TST'
+    edid.base.header.productCode = 0x5678
+    edid.base.screenSize = { type: 'absolute', horizontalCm: 50, verticalCm: 28 }
+    edid.base.featureSupport.features.sRGBDefault = true
+
     // Encode and verify
-    const encoded = edid.encode()
+    const encoded = EEDID.encode(edid)
     expect(encoded.length).toBe(128)
-    
-    const verified = new EDID(encoded)
-    expect(verified.header.manufacturerId).toBe('TST')
-    expect(verified.header.productCode).toBe(0x5678)
-    expect(verified.displayCharacteristics.features.sRGB).toBe(true)
+
+    const verified = EEDID.decode(encoded)
+    expect(verified.base.header.manufacturerId).toBe('TST')
+    expect(verified.base.header.productCode).toBe(0x5678)
+    expect(verified.base.featureSupport.features.sRGBDefault).toBe(true)
     expect(verified.isValid).toBe(true)
   })
 
   it('should update checksum correctly', () => {
-    const edid = new EDID()
-    edid.header.manufacturerId = 'CHK'
-    
-    const encoded = edid.encode()
-    
+    const edid = EEDID.blank()
+    edid.base.header.manufacturerId = 'CHK'
+
+    const encoded = EEDID.encode(edid)
+
     expect(isChecksum8Valid(encoded.slice(0, 128))).toBe(true)
   })
 
   it('should encode year of manufacture correctly after modification', () => {
     const testEDID = createTestEDID()
-    const edid = new EDID(testEDID)
-    
+    const edid = EEDID.decode(testEDID)
+
     // Verify initial year (2020 = 1990 + 30)
-    expect(edid.header.yearOfManufacture).toBe(2020)
+    expect(edid.base.header.yearOfManufacture).toBe(2020)
     expect(testEDID[17]).toBe(30) // Byte 17 = year offset from 1990
-    
+
     // Change the year to 2025
-    edid.header.yearOfManufacture = 2025
-    
+    edid.base.header.yearOfManufacture = 2025
+
     // Encode to binary
-    const encoded = edid.encode()
-    
+    const encoded = EEDID.encode(edid)
+
     // Verify the binary byte is updated correctly (2025 - 1990 = 35)
     expect(encoded[17]).toBe(35)
-    
+
     // Decode again to verify round-trip
-    const decoded = new EDID(encoded)
-    expect(decoded.header.yearOfManufacture).toBe(2025)
+    const decoded = EEDID.decode(encoded)
+    expect(decoded.base.header.yearOfManufacture).toBe(2025)
     expect(decoded.isValid).toBe(true)
   })
 
   it('should encode week of manufacture correctly after modification', () => {
     const testEDID = createTestEDID()
-    const edid = new EDID(testEDID)
-    
+    const edid = EEDID.decode(testEDID)
+
     // Verify initial week
-    expect(edid.header.weekOfManufacture).toBe(15)
+    expect(edid.base.header.weekOfManufacture).toBe(15)
     expect(testEDID[16]).toBe(15)
-    
+
     // Change the week to 42
-    edid.header.weekOfManufacture = 42
-    
+    edid.base.header.weekOfManufacture = 42
+
     // Encode to binary
-    const encoded = edid.encode()
-    
+    const encoded = EEDID.encode(edid)
+
     // Verify the binary byte is updated correctly
     expect(encoded[16]).toBe(42)
-    
+
     // Decode again to verify round-trip
-    const decoded = new EDID(encoded)
-    expect(decoded.header.weekOfManufacture).toBe(42)
+    const decoded = EEDID.decode(encoded)
+    expect(decoded.base.header.weekOfManufacture).toBe(42)
     expect(decoded.isValid).toBe(true)
   })
 
   it('should recalculate checksum when fields are modified', () => {
     const testEDID = createTestEDID()
     const originalChecksum = testEDID[127]
-    const edid = new EDID(testEDID)
-    
+    const edid = EEDID.decode(testEDID)
+
     // Verify original is valid
     expect(edid.isValid).toBe(true)
-    
+
     // Change the year (this changes byte 17)
-    edid.header.yearOfManufacture = 2030
-    
+    edid.base.header.yearOfManufacture = 2030
+
     // Encode to binary
-    const encoded = edid.encode()
-    
+    const encoded = EEDID.encode(edid)
+
     // Checksum should be different since we changed a byte
     expect(encoded[127]).not.toBe(originalChecksum)
-    
+
     expect(isChecksum8Valid(encoded.slice(0, 128))).toBe(true)
-    
+
     // Decode and verify validity
-    const decoded = new EDID(encoded)
+    const decoded = EEDID.decode(encoded)
     expect(decoded.isValid).toBe(true)
-    expect(decoded.header.yearOfManufacture).toBe(2030)
+    expect(decoded.base.header.yearOfManufacture).toBe(2030)
   })
 
   it('should maintain valid checksum after multiple modifications', () => {
-    const edid = new EDID()
-    
+    const edid = EEDID.blank()
+
     // Make multiple modifications
-    edid.header.manufacturerId = 'XYZ'
-    edid.header.productCode = 0xABCD
-    edid.header.yearOfManufacture = 2024
-    edid.header.weekOfManufacture = 25
-    edid.gamma = 2.4
-    
+    edid.base.header.manufacturerId = 'XYZ'
+    edid.base.header.productCode = 0xABCD
+    edid.base.header.yearOfManufacture = 2024
+    edid.base.header.weekOfManufacture = 25
+    edid.base.gamma = 2.4
+
     // Encode
-    const encoded = edid.encode()
-    
+    const encoded = EEDID.encode(edid)
+
     expect(isChecksum8Valid(encoded.slice(0, 128))).toBe(true)
-    
+
     // Verify the checksum byte itself
     expect(encoded[127]).toBeGreaterThanOrEqual(0)
     expect(encoded[127]).toBeLessThanOrEqual(255)
-    
+
     // Round-trip decode
-    const decoded = new EDID(encoded)
+    const decoded = EEDID.decode(encoded)
     expect(decoded.isValid).toBe(true)
-    expect(decoded.header.manufacturerId).toBe('XYZ')
-    expect(decoded.header.productCode).toBe(0xABCD)
-    expect(decoded.header.yearOfManufacture).toBe(2024)
+    expect(decoded.base.header.manufacturerId).toBe('XYZ')
+    expect(decoded.base.header.productCode).toBe(0xABCD)
+    expect(decoded.base.header.yearOfManufacture).toBe(2024)
   })
 })
 
 describe('Dummy descriptor encoding', () => {
   it('should fill all 4 descriptor slots with dummies when only one DTD exists', () => {
-    const edid = new EDID()
+    const edid = EEDID.blank()
     // Default EDID has 1 detailed timing and no display descriptors
-    const encoded = edid.encode()
+    const encoded = EEDID.encode(edid)
 
     // Slot 0: detailed timing (pixel clock > 0)
     const slot0PixelClock = encoded[54] | (encoded[55] << 8)
@@ -311,9 +310,9 @@ describe('Dummy descriptor encoding', () => {
   })
 
   it('should fill remaining slots with dummies when DTD and descriptors do not fill all 4', () => {
-    const edid = new EDID()
-    edid.displayDescriptors = [{ tag: 0xFC, productName: 'Test' }]
-    const encoded = edid.encode()
+    const edid = EEDID.blank()
+    edid.base.displayDescriptors = [{ tag: 0xFC, productName: 'Test' }]
+    const encoded = EEDID.encode(edid)
 
     // Slot 0: detailed timing
     const slot0PixelClock = encoded[54] | (encoded[55] << 8)
@@ -334,14 +333,14 @@ describe('Dummy descriptor encoding', () => {
   })
 
   it('should not encode explicit dummy descriptors from the array', () => {
-    const edid = new EDID()
+    const edid = EEDID.blank()
     // Add a real descriptor plus explicit dummies — dummies should be ignored
-    edid.displayDescriptors = [
+    edid.base.displayDescriptors = [
       { tag: 0xFC, productName: 'Hello' },
       { tag: 0x10 },
       { tag: 0x10 },
     ]
-    const encoded = edid.encode()
+    const encoded = EEDID.encode(edid)
 
     // Slot 0: DTD
     // Slot 1: product name
@@ -355,14 +354,14 @@ describe('Dummy descriptor encoding', () => {
   })
 
   it('should not add dummies when all 4 slots are used', () => {
-    const edid = new EDID()
-    edid.displayDescriptors = [
+    const edid = EEDID.blank()
+    edid.base.displayDescriptors = [
       { tag: 0xFC, productName: 'Test' },
       { tag: 0xFF, serialNumber: '12345' },
       { tag: 0xFE, data: 'Info' },
     ]
     // 1 DTD + 3 descriptors = 4 slots full
-    const encoded = edid.encode()
+    const encoded = EEDID.encode(edid)
 
     expect(encoded[54 + 18 + 3]).toBe(0xFC)
     expect(encoded[54 + 36 + 3]).toBe(0xFF)
@@ -370,21 +369,21 @@ describe('Dummy descriptor encoding', () => {
   })
 
   it('should round-trip correctly with dummy descriptors', () => {
-    const edid = new EDID()
-    edid.displayDescriptors = [{ tag: 0xFC, productName: 'RoundTrip' }]
-    const encoded = edid.encode()
-    const decoded = new EDID(encoded)
+    const edid = EEDID.blank()
+    edid.base.displayDescriptors = [{ tag: 0xFC, productName: 'RoundTrip' }]
+    const encoded = EEDID.encode(edid)
+    const decoded = EEDID.decode(encoded)
 
-    expect(decoded.productName).toBe('RoundTrip')
-    expect(decoded.detailedTimings.length).toBe(1)
+    expect(getProductName(decoded.base.displayDescriptors)).toBe('RoundTrip')
+    expect(decoded.base.detailedTimings.length).toBe(1)
     expect(decoded.isValid).toBe(true)
   })
 })
 
 describe('Color point descriptors', () => {
   it('should encode and decode supplemental white points', () => {
-    const edid = new EDID()
-    edid.displayDescriptors = [
+    const edid = EEDID.blank()
+    edid.base.displayDescriptors = [
       {
         tag: 0xFB,
         colorPoints: [
@@ -394,10 +393,10 @@ describe('Color point descriptors', () => {
       },
     ]
 
-    const encoded = edid.encode()
-    const decoded = new EDID(encoded)
+    const encoded = EEDID.encode(edid)
+    const decoded = EEDID.decode(encoded)
 
-    const descriptor = decoded.displayDescriptors.find((d) => d.tag === 0xFB) as ColorPointDescriptor | undefined
+    const descriptor = decoded.base.displayDescriptors.find((d) => d.tag === 0xFB) as ColorPointDescriptor | undefined
     expect(descriptor).toBeDefined()
     expect(descriptor?.colorPoints.length).toBe(2)
     expect(descriptor?.colorPoints[0].index).toBe(1)
@@ -413,8 +412,8 @@ describe('Color point descriptors', () => {
 
 describe('Standard timing descriptors', () => {
   it('should encode and decode standard timing identifier entries', () => {
-    const edid = new EDID()
-    edid.displayDescriptors = [
+    const edid = EEDID.blank()
+    edid.base.displayDescriptors = [
       {
         tag: 0xFA,
         timings: [
@@ -424,10 +423,10 @@ describe('Standard timing descriptors', () => {
       },
     ]
 
-    const encoded = edid.encode()
-    const decoded = new EDID(encoded)
+    const encoded = EEDID.encode(edid)
+    const decoded = EEDID.decode(encoded)
 
-    const descriptor = decoded.displayDescriptors.find((d) => d.tag === 0xFA) as StandardTimingIdDescriptor | undefined
+    const descriptor = decoded.base.displayDescriptors.find((d) => d.tag === 0xFA) as StandardTimingIdDescriptor | undefined
     expect(descriptor).toBeDefined()
     expect(descriptor?.timings.length).toBe(2)
     expect(descriptor?.timings[0].width).toBe(1920)
@@ -444,17 +443,26 @@ describe('Real-world usage examples', () => {
     const testEDID = createTestEDID()
     const arrayBuffer = new ArrayBuffer(testEDID.length)
     new Uint8Array(arrayBuffer).set(testEDID)
-    
-    const decoded = new EDID(arrayBuffer)
-    expect(decoded.header.manufacturerId).toBe('ABC')
+
+    const decoded = EEDID.decode(arrayBuffer)
+    expect(decoded.base.header.manufacturerId).toBe('ABC')
   })
 
   it('should provide detailed timing information', () => {
     const testEDID = createTestEDID()
-    const decoded = new EDID(testEDID)
-    
-    expect(decoded.detailedTimings).toBeInstanceOf(Array)
-    expect(decoded.standardTimings).toBeInstanceOf(Array)
-    expect(decoded.establishedTimings).toBeInstanceOf(Array)
+    const decoded = EEDID.decode(testEDID)
+
+    expect(decoded.base.detailedTimings).toBeInstanceOf(Array)
+    expect(decoded.base.standardTimings).toBeInstanceOf(Array)
+    expect(decoded.base.establishedTimings).toBeInstanceOf(Array)
+  })
+})
+
+describe('EDID (base block only)', () => {
+  it('encodes a 128-byte blob with no extension fields', () => {
+    const edid = EDID.blank()
+    const encoded = EDID.encode(edid)
+    expect(encoded.length).toBe(128)
+    expect(encoded[126]).toBe(0)
   })
 })
