@@ -1,15 +1,23 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { DisplayIdExtensionBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
-defineProps<{
+const props = defineProps<{
   displayId: DisplayIdExtensionBlock
 }>()
 
 const emit = defineEmits<{
   update: [field: string, value: unknown]
 }>()
+
+const primaryUseCaseInvalid = computed(() =>
+  props.displayId.section.primaryUseCase < 0 || props.displayId.section.primaryUseCase > 255
+)
+const extensionCountInvalid = computed(() =>
+  props.displayId.section.extensionCount < 0 || props.displayId.section.extensionCount > 255
+)
 
 function emitNumber(field: string, event: Event) {
   const value = Number((event.target as HTMLInputElement).value)
@@ -50,9 +58,11 @@ function emitNumber(field: string, event: Event) {
               type="number"
               min="0"
               max="255"
+              :aria-invalid="primaryUseCaseInvalid"
               :model-value="displayId.section.primaryUseCase"
               @input="emitNumber('primaryUseCase', $event)"
             />
+            <p v-if="primaryUseCaseInvalid" class="text-xs text-destructive">Value must fit in one byte.</p>
           </div>
           <div class="space-y-1">
             <label class="text-xs text-muted-foreground">Extension Count</label>
@@ -60,9 +70,11 @@ function emitNumber(field: string, event: Event) {
               type="number"
               min="0"
               max="255"
+              :aria-invalid="extensionCountInvalid"
               :model-value="displayId.section.extensionCount"
               @input="emitNumber('extensionCount', $event)"
             />
+            <p v-if="extensionCountInvalid" class="text-xs text-destructive">Value must fit in one byte.</p>
           </div>
         </div>
       </section>

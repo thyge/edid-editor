@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { DisplayIdExtensionBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import DisplayIDBlockList from './DisplayIDBlockList.vue'
 
-defineProps<{
+const props = defineProps<{
   displayId: DisplayIdExtensionBlock
 }>()
 
@@ -12,6 +13,7 @@ const emit = defineEmits<{
   moveBlock: [index: number, direction: -1 | 1]
 }>()
 
+const sectionTooLarge = computed(() => props.displayId.section.totalLength > 125)
 const rowClass = 'flex items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2'
 </script>
 
@@ -23,6 +25,9 @@ const rowClass = 'flex items-center justify-between gap-2 rounded-md border bord
     <CardContent class="space-y-6 text-sm">
       <section>
         <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Section</h4>
+        <div v-if="sectionTooLarge" class="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          Section length exceeds the 125-byte EDID extension payload.
+        </div>
         <div class="grid grid-cols-3 gap-x-6 gap-y-2">
           <div :class="rowClass">
             <span class="text-muted-foreground">Version</span>
@@ -30,7 +35,7 @@ const rowClass = 'flex items-center justify-between gap-2 rounded-md border bord
           </div>
           <div :class="rowClass">
             <span class="text-muted-foreground">Section Bytes</span>
-            <span class="font-mono">{{ displayId.section.totalLength }} / 125</span>
+            <span :class="sectionTooLarge ? 'font-mono text-destructive' : 'font-mono'">{{ displayId.section.totalLength }} / 125</span>
           </div>
           <div :class="rowClass">
             <span class="text-muted-foreground">Checksum</span>
