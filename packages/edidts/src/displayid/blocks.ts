@@ -230,7 +230,7 @@ function decodeKnownBlock(block: DisplayIdDataBlock): DisplayIdDataBlock {
 }
 
 function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
-  if (block.tag === DisplayIdDataBlockTag.ProductIdentification) {
+  if (isTypedProductIdentificationBlock(block)) {
     return encodeProductIdentificationBlock(block as DisplayIdProductIdentificationBlock);
   }
 
@@ -279,6 +279,20 @@ function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
   }
 
   return block.payload;
+}
+
+function isTypedProductIdentificationBlock(block: DisplayIdDataBlock): block is DisplayIdProductIdentificationBlock {
+  const maybeBlock = block as Partial<DisplayIdProductIdentificationBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.ProductIdentification &&
+    isProductIdentificationPayloadLengthValid(block.payloadLength) &&
+    maybeBlock.productNameBytes instanceof Uint8Array &&
+    typeof maybeBlock.productName === 'string' &&
+    typeof maybeBlock.ieeeOui === 'number' &&
+    typeof maybeBlock.productId === 'number' &&
+    typeof maybeBlock.isModelYear === 'boolean'
+  );
 }
 
 function isTypedDisplayParametersBlock(block: DisplayIdDataBlock): block is DisplayIdDisplayParametersBlock {

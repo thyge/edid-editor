@@ -291,4 +291,74 @@ describe('DisplayID v2.0 Product Identification data block', () => {
     expect(reparsedBlock.payloadLength).toBe(14)
     expect(isChecksum8Valid(encoded)).toBe(true)
   })
+
+  it('preserves malformed short Product Identification payloads as generic blocks', () => {
+    const source = withChecksum([
+      0x20,
+      0x05,
+      0x04,
+      0x00,
+      0x20,
+      0x00,
+      0x02,
+      0xaa,
+      0xbb,
+      0x00,
+    ])
+
+    const section = decodeDisplayIdSection(source)
+    const block = section.blocks[0]
+
+    expect(block.tag).toBe(DisplayIdDataBlockTag.ProductIdentification)
+    expect(block.payloadLength).toBe(2)
+    expect(Array.from(block.payload)).toEqual([0xaa, 0xbb])
+    expect('productNameBytes' in block).toBe(false)
+
+    const encoded = encodeDisplayIdSection(section)
+
+    expect(Array.from(encoded)).toEqual(Array.from(source))
+    expect(isChecksum8Valid(encoded)).toBe(true)
+  })
+
+  it('preserves Product Identification bytes after the encoded product name', () => {
+    const sectionBytes = withChecksum([
+      0x20,
+      0x12,
+      0x04,
+      0x00,
+      0x20,
+      0x00,
+      0x0f,
+      0x00,
+      0x1a,
+      0x2b,
+      0x34,
+      0x12,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x16,
+      0x19,
+      0x01,
+      0x41,
+      0xaa,
+      0xbb,
+      0x00,
+    ])
+    const section = decodeDisplayIdSection(sectionBytes)
+    const block = section.blocks[0] as DisplayIdProductIdentificationBlock
+
+    block.productName = 'B'
+    block.productNameBytes = new Uint8Array([0x42])
+
+    const encoded = encodeDisplayIdSection(section)
+    const reparsed = decodeDisplayIdSection(encoded)
+    const reparsedBlock = reparsed.blocks[0] as DisplayIdProductIdentificationBlock
+
+    expect(reparsedBlock.productName).toBe('B')
+    expect(reparsedBlock.payloadLength).toBe(15)
+    expect(Array.from(reparsedBlock.payload.slice(13))).toEqual([0xaa, 0xbb])
+    expect(isChecksum8Valid(encoded)).toBe(true)
+  })
 })

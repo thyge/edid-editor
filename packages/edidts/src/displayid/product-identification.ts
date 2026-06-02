@@ -29,7 +29,10 @@ export function encodeProductIdentificationBlock(block: DisplayIdProductIdentifi
   const productNameBytes = block.productNameBytes.length > 0
     ? block.productNameBytes
     : encodeAscii(block.productName);
-  const payload = new Uint8Array(MIN_PRODUCT_IDENTIFICATION_PAYLOAD_LENGTH + productNameBytes.length);
+  const minimumLength = MIN_PRODUCT_IDENTIFICATION_PAYLOAD_LENGTH + productNameBytes.length;
+  const payload = block.payload.length >= minimumLength
+    ? block.payload.slice()
+    : new Uint8Array(minimumLength);
 
   payload[0] = block.ieeeOui & 0xff;
   payload[1] = (block.ieeeOui >> 8) & 0xff;
