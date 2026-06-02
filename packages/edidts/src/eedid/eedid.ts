@@ -51,8 +51,7 @@ export class EEDID {
     const total = (1 + eedid.extensions.length) * BLOCK_SIZE;
     const out = new Uint8Array(total);
 
-    out.set(EDID.encode(eedid.base), 0);
-    out[BLOCK_SIZE - 2] = eedid.extensions.length;
+    out.set(EDID.encode(eedid.base, { extensionCount: eedid.extensions.length }), 0);
     out[BLOCK_SIZE - 1] = checksum8(out, BLOCK_SIZE - 1);
 
     for (let i = 0; i < eedid.extensions.length; i++) {

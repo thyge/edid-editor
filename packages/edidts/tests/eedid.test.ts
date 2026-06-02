@@ -258,3 +258,44 @@ describe('encodeDisplayIdSection integration', () => {
     expect(productRed?.productName).toBe('TestMnt')
   })
 })
+
+describe('EEDID extension count byte 126', () => {
+  it('encodes a base-only EEDID with byte 126 = 0', () => {
+    const encoded = EEDID.encode(EEDID.blank())
+    expect(encoded[126]).toBe(0)
+  })
+
+  it('encodes a 3-extension EEDID with byte 126 = 3', () => {
+    const base = EDID.encode(EDID.blank())
+    const cta = ExtensionBlockParser.encode({
+      tag: 0x02,
+      revision: 3,
+      checksum: 0,
+      data: new Uint8Array(125),
+      dtdOffset: 4,
+      underscan: false,
+      basicAudio: false,
+      ycbcr444: false,
+      ycbcr422: false,
+      nativeFormats: 0,
+      dataBlocks: [],
+      detailedTimings: [],
+    })
+    const didSection = buildDisplayIdSectionBytes()
+    const opaque = new Uint8Array(128)
+    opaque[0] = 0x40
+    opaque[127] = checksum8(opaque, 127)
+
+    const blob = new Uint8Array(base.length + cta.length + didSection.length + opaque.length)
+    blob.set(base, 0)
+    blob.set(cta, 128)
+    blob.set(didSection, 256)
+    blob.set(opaque, 384)
+    blob[126] = 3
+    blob[127] = checksum8(blob, 127)
+
+    const eedid = EEDID.decode(blob)
+    const reencoded = EEDID.encode(eedid)
+    expect(reencoded[126]).toBe(3)
+  })
+})
