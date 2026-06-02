@@ -299,3 +299,39 @@ describe('EEDID extension count byte 126', () => {
     expect(reencoded[126]).toBe(3)
   })
 })
+
+describe('EEDID partial trailing bytes', () => {
+  it('ignores a 64-byte tail after the base block (no extensions decoded)', () => {
+    const base = EDID.encode(EDID.blank())
+    const blob = new Uint8Array(base.length + 64)
+    blob.set(base, 0)
+    // The trailing 64 bytes are zero-filled (no real extension); the decoder
+    // must not throw and must not invent a phantom extension from them.
+    const eedid = EEDID.decode(blob)
+    expect(eedid.extensions).toEqual([])
+  })
+
+  it('ignores a 32-byte tail when the base is followed by a full extension block', () => {
+    const base = EDID.encode(EDID.blank())
+    const cta = ExtensionBlockParser.encode({
+      tag: 0x02,
+      revision: 3,
+      checksum: 0,
+      data: new Uint8Array(125),
+      dtdOffset: 4,
+      underscan: false,
+      basicAudio: false,
+      ycbcr444: false,
+      ycbcr422: false,
+      nativeFormats: 0,
+      dataBlocks: [],
+      detailedTimings: [],
+    })
+    const blob = new Uint8Array(base.length + cta.length + 32)
+    blob.set(base, 0)
+    blob.set(cta, 128)
+    // trailing 32 bytes are zero-filled; only 1 real extension should parse.
+    const eedid = EEDID.decode(blob)
+    expect(eedid.extensions.length).toBe(1)
+  })
+})
