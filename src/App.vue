@@ -24,6 +24,8 @@ import CEAVideoCapability from '@/components/cea/CEAVideoCapability.vue'
 import CEADetailedTimings from '@/components/cea/CEADetailedTimings.vue'
 import { useEDID } from '@/composables/useEDID'
 import { displayIdSectionIds } from '@/components/displayid/displayIdLabels'
+import DisplayIDOverview from '@/components/displayid/DisplayIDOverview.vue'
+import DisplayIDHeader from '@/components/displayid/DisplayIDHeader.vue'
 
 const edidStore = useEDID()
 const edidRef = edidStore.edid as Ref<EDIDViewModel | null>
@@ -322,6 +324,14 @@ function moveDisplayIdBlock(index: number, direction: -1 | 1) {
   syncEdid()
 }
 
+function updateDisplayId(field: string, value: unknown) {
+  if (!edidRaw.value?.displayIdExtension) return
+  const section = edidRaw.value.displayIdExtension.section
+  if (field === 'primaryUseCase') section.primaryUseCase = value as number
+  if (field === 'extensionCount') section.extensionCount = value as number
+  syncEdid()
+}
+
 function updateCEA(field: string, value: unknown) {
   if (!edidRaw.value || !edidRaw.value.ceaExtension) return
   const cea = edidRaw.value.ceaExtension
@@ -426,13 +436,17 @@ function updateCEA(field: string, value: unknown) {
           <CEAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEADetailedTimings v-else-if="activeSection === 'cea-timings' && ceaExtension" :cea="ceaExtension" />
 
-          <div v-else-if="activeSection.startsWith('displayid-') && displayIdExtension" class="space-y-2">
-            <h1 class="text-2xl font-semibold tracking-normal">DisplayID</h1>
-            <p class="text-sm text-muted-foreground">
-              Version {{ displayIdExtension.section.version }}.{{ displayIdExtension.section.revision }} ·
-              {{ displayIdExtension.section.blocks.length }} blocks
-            </p>
-          </div>
+          <DisplayIDOverview
+            v-else-if="activeSection === displayIdSectionIds.overview && displayIdExtension"
+            :display-id="displayIdExtension"
+            @remove-block="removeDisplayIdBlock"
+            @move-block="moveDisplayIdBlock"
+          />
+          <DisplayIDHeader
+            v-else-if="activeSection === displayIdSectionIds.header && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update="updateDisplayId"
+          />
         </div>
       </main>
       <section id="hex-viewer" class="h-full scroll-mt-24">
