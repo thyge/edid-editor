@@ -35,6 +35,15 @@ export class EDID {
   public standardTimings: StandardTiming[];
   public detailedTimings: DetailedTimingDescriptor[];
   public displayDescriptors: DisplayDescriptor[];
+  /**
+   * True if the base block parses without errors AND has a populated first
+   * descriptor slot. Per VESA E-EDID A2 §3.10.1, the first 18-byte descriptor
+   * slot must contain either a Detailed Timing Descriptor or a non-dummy
+   * display descriptor; a dummy (tag 0x10) in slot 0 marks the EDID as
+   * structurally incomplete. Defaults to true so callers that construct an
+   * EDID directly are unaffected.
+   */
+  public isBaseValid: boolean;
 
   constructor(init?: Partial<EDID>) {
     this.header = init?.header ?? new EDIDHeader();
@@ -54,6 +63,7 @@ export class EDID {
       }),
     ];
     this.displayDescriptors = init?.displayDescriptors ?? [];
+    this.isBaseValid = init?.isBaseValid ?? true;
   }
 
   static decode(data: ArrayBuffer | Uint8Array): EDID {
@@ -67,6 +77,18 @@ export class EDID {
     const videoInput = VideoInputDefinition.decode(bytes[20]);
     const featureSupport = FeatureSupportFlags.decode(bytes[24], videoInput.isDigital);
 
+    // Section 3.10.1: slot 0 must be populated. A dummy descriptor (tag 0x10)
+    // in slot 0 marks the EDID as structurally incomplete, even if other
+    // slots contain DTDs.
+    const slot0Bytes = bytes.slice(54, 72);
+    const slot0IsDummy =
+      slot0Bytes[0] === 0x00 &&
+      slot0Bytes[1] === 0x00 &&
+      slot0Bytes[2] === 0x00 &&
+      slot0Bytes[3] === 0x10;
+    const slot0IsEmpty = slot0Bytes.every((b) => b === 0x00);
+    const isBaseValid = !(slot0IsDummy || slot0IsEmpty);
+
     return new EDID({
       header: EDIDHeader.decode(bytes),
       videoInput,
@@ -78,6 +100,7 @@ export class EDID {
       standardTimings: StandardTiming.decode(bytes),
       detailedTimings,
       displayDescriptors,
+      isBaseValid,
     });
   }
 
