@@ -335,3 +335,46 @@ describe('EEDID partial trailing bytes', () => {
     expect(eedid.extensions.length).toBe(1)
   })
 })
+
+describe('EEDID extension checksum validity (Section 3.11)', () => {
+  it('reports extensionsValid = true when all extension checksums are correct', () => {
+    const base = EDID.encode(EDID.blank())
+    const cta = ExtensionBlockParser.encode({
+      tag: 0x02, revision: 3, checksum: 0, data: new Uint8Array(125),
+      dtdOffset: 4, underscan: false, basicAudio: false,
+      ycbcr444: false, ycbcr422: false, nativeFormats: 0,
+      dataBlocks: [], detailedTimings: [],
+    })
+    const blob = new Uint8Array(base.length + cta.length)
+    blob.set(base, 0)
+    blob.set(cta, 128)
+    blob[126] = 1
+    blob[127] = checksum8(blob, 127)
+    const eedid = EEDID.decode(blob)
+    expect(eedid.extensionsValid).toBe(true)
+  })
+
+  it('reports extensionsValid = false when an extension checksum is corrupt', () => {
+    const base = EDID.encode(EDID.blank())
+    const cta = ExtensionBlockParser.encode({
+      tag: 0x02, revision: 3, checksum: 0, data: new Uint8Array(125),
+      dtdOffset: 4, underscan: false, basicAudio: false,
+      ycbcr444: false, ycbcr422: false, nativeFormats: 0,
+      dataBlocks: [], detailedTimings: [],
+    })
+    const blob = new Uint8Array(base.length + cta.length)
+    blob.set(base, 0)
+    blob.set(cta, 128)
+    blob[126] = 1
+    blob[127] = checksum8(blob, 127)
+    // Corrupt the extension block's last byte (its checksum).
+    blob[255] ^= 0xff
+    const eedid = EEDID.decode(blob)
+    expect(eedid.extensionsValid).toBe(false)
+  })
+
+  it('defaults extensionsValid to true for a programmatically constructed EEDID', () => {
+    const eedid = EEDID.blank()
+    expect(eedid.extensionsValid).toBe(true)
+  })
+})

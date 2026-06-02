@@ -15,12 +15,20 @@ export class EEDID {
   public extensions: Extension[];
   public checksum: number;
   public isValid: boolean;
+  /**
+   * True iff every decoded extension block has a valid byte-127 checksum.
+   * The base-block checksum validity is reported separately as `isValid`.
+   * Defaults to true so consumers that construct an EEDID directly (without
+   * decoding) are unaffected.
+   */
+  public extensionsValid: boolean;
 
   constructor(init?: Partial<Pick<EEDID, 'base' | 'extensions'>>) {
     this.base = init?.base ?? new EDID();
     this.extensions = init?.extensions ?? [];
     this.checksum = 0;
     this.isValid = false;
+    this.extensionsValid = true;
   }
 
   static decode(data: ArrayBuffer | Uint8Array): EEDID {
@@ -35,14 +43,20 @@ export class EEDID {
     const declaredCount = bytes[BLOCK_SIZE - 2];
 
     const extensions: Extension[] = [];
+    let extensionsValid = true;
     for (let i = 0; i < actualCount; i++) {
       const start = (i + 1) * BLOCK_SIZE;
-      extensions.push(decodeExtension(bytes.subarray(start, start + BLOCK_SIZE)));
+      const block = bytes.subarray(start, start + BLOCK_SIZE);
+      extensions.push(decodeExtension(block));
+      if (!isChecksum8Valid(block)) {
+        extensionsValid = false;
+      }
     }
 
     const eedid = new EEDID({ base, extensions });
     eedid.checksum = bytes[BLOCK_SIZE - 1];
     eedid.isValid = isChecksum8Valid(bytes.subarray(0, BLOCK_SIZE));
+    eedid.extensionsValid = extensionsValid;
     void declaredCount;
     return eedid;
   }
