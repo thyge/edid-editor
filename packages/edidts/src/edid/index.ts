@@ -81,7 +81,7 @@ export class EDID {
     });
   }
 
-  static encode(edid: EDID): Uint8Array {
+  static encode(edid: EDID, options?: { extensionCount?: number }): Uint8Array {
     const out = new Uint8Array(128);
 
     out.set(edid.header.encode(), 0);
@@ -114,7 +114,8 @@ export class EDID {
       blockIndex++;
     }
 
-    out[126] = 0;
+    const rawCount = options?.extensionCount ?? 0;
+    out[126] = rawCount < 0 ? 0 : rawCount > 0xff ? 0xff : rawCount;
     out[127] = checksum8(out, 127);
 
     return out;

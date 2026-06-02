@@ -466,3 +466,23 @@ describe('EDID (base block only)', () => {
     expect(encoded[126]).toBe(0)
   })
 })
+
+describe('EDID extension count encoding (byte 126)', () => {
+  it('writes 0 to byte 126 when no extension count is provided', () => {
+    const edid = EDID.blank()
+    const encoded = EDID.encode(edid)
+    expect(encoded[126]).toBe(0)
+  })
+
+  it('writes the provided extension count to byte 126', () => {
+    const edid = EDID.blank()
+    const encoded = EDID.encode(edid, { extensionCount: 3 })
+    expect(encoded[126]).toBe(3)
+  })
+
+  it('clamps an oversized extension count to 0xFF', () => {
+    const edid = EDID.blank()
+    const encoded = EDID.encode(edid, { extensionCount: 1000 })
+    expect(encoded[126]).toBe(0xff)
+  })
+})
