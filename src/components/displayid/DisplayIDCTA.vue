@@ -1,0 +1,26 @@
+<script setup lang="ts">
+import {
+  DisplayIdDataBlockTag,
+  type DisplayIdCtaBlock,
+  type DisplayIdDataBlock,
+  type DisplayIdExtensionBlock,
+} from 'edidts'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { blocksByTag, bytesToHex, hexToBytes, stringFromEvent } from './displayIdEditorUtils'
+
+const props = defineProps<{ displayId: DisplayIdExtensionBlock }>()
+const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
+</script>
+
+<template>
+  <Card>
+    <CardHeader><CardTitle>CTA DisplayID</CardTitle></CardHeader>
+    <CardContent class="space-y-4 text-sm">
+      <div v-for="{ block, index } in blocksByTag<DisplayIdCtaBlock>(props.displayId, DisplayIdDataBlockTag.CtaDisplayId)" :key="index" class="space-y-1">
+        <label class="text-xs text-muted-foreground">CTA Payload</label>
+        <Input :model-value="bytesToHex(block.ctaPayload)" @input="emit('updateBlock', index, { ...block, ctaPayload: hexToBytes(stringFromEvent($event)) } as DisplayIdCtaBlock)" />
+      </div>
+    </CardContent>
+  </Card>
+</template>

@@ -3,6 +3,7 @@ import { ref, triggerRef, computed, onMounted, type Ref } from 'vue'
 import { DetailedTimingDescriptor, DisplayIdDataBlockTag, createDefaultDisplayIdBlock } from 'edidts'
 import type { EDID, DisplayDescriptor, ScreenSize, VideoInputDefinition, EstablishedTiming, StandardTiming, CEAExtensionBlock, DisplayIdExtensionBlock } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
+import type { DisplayIdDataBlock } from 'edidts'
 import TopNav from '@/components/layout/TopNav.vue'
 import LeftNav from '@/components/layout/LeftNav.vue'
 import HexViewer from '@/components/layout/HexViewer.vue'
@@ -26,6 +27,18 @@ import { useEDID } from '@/composables/useEDID'
 import { displayIdSectionIds } from '@/components/displayid/displayIdLabels'
 import DisplayIDOverview from '@/components/displayid/DisplayIDOverview.vue'
 import DisplayIDHeader from '@/components/displayid/DisplayIDHeader.vue'
+import DisplayIDProductIdentification from '@/components/displayid/DisplayIDProductIdentification.vue'
+import DisplayIDDisplayParameters from '@/components/displayid/DisplayIDDisplayParameters.vue'
+import DisplayIDTypeVIITimings from '@/components/displayid/DisplayIDTypeVIITimings.vue'
+import DisplayIDTypeVIIIEnumerated from '@/components/displayid/DisplayIDTypeVIIIEnumerated.vue'
+import DisplayIDTypeIXFormula from '@/components/displayid/DisplayIDTypeIXFormula.vue'
+import DisplayIDDynamicRange from '@/components/displayid/DisplayIDDynamicRange.vue'
+import DisplayIDInterfaceFeatures from '@/components/displayid/DisplayIDInterfaceFeatures.vue'
+import DisplayIDStereoInterface from '@/components/displayid/DisplayIDStereoInterface.vue'
+import DisplayIDTiledTopology from '@/components/displayid/DisplayIDTiledTopology.vue'
+import DisplayIDContainerId from '@/components/displayid/DisplayIDContainerId.vue'
+import DisplayIDVendorSpecific from '@/components/displayid/DisplayIDVendorSpecific.vue'
+import DisplayIDCTA from '@/components/displayid/DisplayIDCTA.vue'
 
 const edidStore = useEDID()
 const edidRef = edidStore.edid as Ref<EDIDViewModel | null>
@@ -332,6 +345,12 @@ function updateDisplayId(field: string, value: unknown) {
   syncEdid()
 }
 
+function updateDisplayIdBlock(index: number, block: DisplayIdDataBlock) {
+  if (!edidRaw.value?.displayIdExtension) return
+  edidRaw.value.displayIdExtension.section.blocks[index] = block
+  syncEdid()
+}
+
 function updateCEA(field: string, value: unknown) {
   if (!edidRaw.value || !edidRaw.value.ceaExtension) return
   const cea = edidRaw.value.ceaExtension
@@ -446,6 +465,66 @@ function updateCEA(field: string, value: unknown) {
             v-else-if="activeSection === displayIdSectionIds.header && displayIdExtension"
             :display-id="displayIdExtension"
             @update="updateDisplayId"
+          />
+          <DisplayIDProductIdentification
+            v-else-if="activeSection === displayIdSectionIds.product && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDDisplayParameters
+            v-else-if="activeSection === displayIdSectionIds.parameters && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDTypeVIITimings
+            v-else-if="activeSection === displayIdSectionIds.typeVII && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDTypeVIIIEnumerated
+            v-else-if="activeSection === displayIdSectionIds.typeVIII && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDTypeIXFormula
+            v-else-if="activeSection === displayIdSectionIds.typeIX && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDDynamicRange
+            v-else-if="activeSection === displayIdSectionIds.dynamicRange && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDInterfaceFeatures
+            v-else-if="activeSection === displayIdSectionIds.interfaceFeatures && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDStereoInterface
+            v-else-if="activeSection === displayIdSectionIds.stereo && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDTiledTopology
+            v-else-if="activeSection === displayIdSectionIds.tiled && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDContainerId
+            v-else-if="activeSection === displayIdSectionIds.container && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDVendorSpecific
+            v-else-if="activeSection === displayIdSectionIds.vendor && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
+          />
+          <DisplayIDCTA
+            v-else-if="activeSection === displayIdSectionIds.cta && displayIdExtension"
+            :display-id="displayIdExtension"
+            @update-block="updateDisplayIdBlock"
           />
         </div>
       </main>
