@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import type { ColorPointDescriptor } from 'edidts'
+import { EEDID, type ColorPointDescriptor, type DisplayDescriptor } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useEDID } from '@/composables/useEDID'
@@ -9,9 +9,9 @@ const props = defineProps<{ edid: EDIDViewModel }>()
 
 const { edid: edidRef, edidData } = useEDID()
 
-const chromaticity = computed(() => props.edid.colorCharacteristics)
+const chromaticity = computed(() => props.edid.base.colorCharacteristics)
 const colorPointDescriptor = computed(() =>
-  props.edid.displayDescriptors.find((d) => d.tag === 0xFB) as ColorPointDescriptor | undefined
+  props.edid.base.displayDescriptors.find((d: DisplayDescriptor) => d.tag === 0xFB) as ColorPointDescriptor | undefined
 )
 const supplementalWhitePoints = computed(() => {
   const descriptor = colorPointDescriptor.value
@@ -124,13 +124,13 @@ function onMouseUp() {
   const key = dragging.value
   const edid = edidRef.value
   if (edid) {
-    const cc = edid.colorCharacteristics
+    const cc = edid.base.colorCharacteristics
     if (key === 'red') { cc.redX = dragX.value; cc.redY = dragY.value }
     else if (key === 'green') { cc.greenX = dragX.value; cc.greenY = dragY.value }
     else if (key === 'blue') { cc.blueX = dragX.value; cc.blueY = dragY.value }
     else if (key === 'white') { cc.whiteX = dragX.value; cc.whiteY = dragY.value }
-    edid.colorCharacteristics = cc
-    edidData.value = edid.encode()
+    edid.base.colorCharacteristics = cc
+    edidData.value = EEDID.encode(edid)
   }
   dragging.value = null
 }

@@ -13,12 +13,12 @@ const establishedTimingsI = allTimings.filter((t) => t.id <= 7)
 const establishedTimingsII = allTimings.filter((t) => t.id >= 8 && t.id <= 15)
 const manufacturerTimings = allTimings.filter((t) => t.id >= 16)
 
-const activeIds = computed(() => new Set(props.edid.establishedTimings.map((t) => t.id)))
+const activeIds = computed(() => new Set(props.edid.base.establishedTimings.map((t: EstablishedTiming) => t.id)))
 
 type TimingEntry = (typeof EstablishedTiming.TIMING_MAP)[number]
 
 function toggleEstablished(entry: TimingEntry, checked: boolean) {
-  const current = props.edid.establishedTimings
+  const current = props.edid.base.establishedTimings
   let updated: EstablishedTiming[]
   if (checked) {
     updated = [...current, new EstablishedTiming(entry)]

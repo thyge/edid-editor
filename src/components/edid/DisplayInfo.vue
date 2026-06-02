@@ -32,10 +32,10 @@ const emit = defineEmits<{
   update: [field: string, value: unknown]
 }>()
 
-const header = computed(() => props.edid.header)
-const videoInput = computed(() => props.edid.videoInput)
-const screenSize = computed(() => props.edid.screenSize)
-const featureSupport = computed(() => props.edid.featureSupport)
+const header = computed(() => props.edid.base.header)
+const videoInput = computed(() => props.edid.base.videoInput)
+const screenSize = computed(() => props.edid.base.screenSize)
+const featureSupport = computed(() => props.edid.base.featureSupport)
 const manufacturerName = computed(() => header.value.manufacturerName)
 
 const isV14 = computed(() => header.value.edidVersion === 1 && header.value.edidRevision >= 4)
@@ -125,31 +125,35 @@ function updateYear(value: string | number) {
 
 function updateScreenSizeMode(mode: string) {
   if (mode === 'absolute') {
-    emit('update', 'screenSize', { type: 'absolute', horizontalCm: 16, verticalCm: 9 } as ScreenSize)
+    emit('update', 'screenSize', { type: 'absolute', horizontalCm: 16, verticalCm: 9 } satisfies ScreenSize)
   } else if (mode === 'landscape') {
-    emit('update', 'screenSize', { type: 'aspect-ratio', landscapeAspectRatio: 79 } as ScreenSize)
+    emit('update', 'screenSize', { type: 'landscape-aspect', encodedRatio: 79 } satisfies ScreenSize)
   } else {
-    emit('update', 'screenSize', { type: 'aspect-ratio', portraitAspectRatio: 79 } as ScreenSize)
+    emit('update', 'screenSize', { type: 'portrait-aspect', encodedRatio: 79 } satisfies ScreenSize)
   }
 }
 
 function screenSizeMode(): string {
   if (screenSize.value.type === 'absolute') return 'absolute'
-  if (screenSize.value.landscapeAspectRatio !== undefined) return 'landscape'
+  if (screenSize.value.type === 'landscape-aspect') return 'landscape'
   return 'portrait'
 }
 
 function updateScreenWidth(value: string | number) {
   const num = parseInt(String(value), 10)
   if (!isNaN(num) && num >= 0 && num <= 255) {
-    emit('update', 'screenSize', { type: 'absolute', horizontalCm: num, verticalCm: screenSize.value.verticalCm ?? 0 })
+    const current = screenSize.value
+    const verticalCm = current.type === 'absolute' ? current.verticalCm : 0
+    emit('update', 'screenSize', { type: 'absolute', horizontalCm: num, verticalCm } satisfies ScreenSize)
   }
 }
 
 function updateScreenHeight(value: string | number) {
   const num = parseInt(String(value), 10)
   if (!isNaN(num) && num >= 0 && num <= 255) {
-    emit('update', 'screenSize', { type: 'absolute', horizontalCm: screenSize.value.horizontalCm ?? 0, verticalCm: num })
+    const current = screenSize.value
+    const horizontalCm = current.type === 'absolute' ? current.horizontalCm : 0
+    emit('update', 'screenSize', { type: 'absolute', horizontalCm, verticalCm: num } satisfies ScreenSize)
   }
 }
 
@@ -158,9 +162,9 @@ function updateAspectRatio(value: string | number) {
   if (isNaN(num) || num < 1 || num > 255) return
   const mode = screenSizeMode()
   if (mode === 'landscape') {
-    emit('update', 'screenSize', { type: 'aspect-ratio', landscapeAspectRatio: num } as ScreenSize)
+    emit('update', 'screenSize', { type: 'landscape-aspect', encodedRatio: num } satisfies ScreenSize)
   } else {
-    emit('update', 'screenSize', { type: 'aspect-ratio', portraitAspectRatio: num } as ScreenSize)
+    emit('update', 'screenSize', { type: 'portrait-aspect', encodedRatio: num } satisfies ScreenSize)
   }
 }
 
@@ -424,7 +428,7 @@ function updateFeature(key: string, value: unknown) {
               </label>
               <div class="flex items-center gap-4">
                 <Slider
-                  :model-value="[screenSize.landscapeAspectRatio ?? screenSize.portraitAspectRatio ?? 1]"
+                  :model-value="[screenSize.type === 'undefined' ? 1 : screenSize.encodedRatio]"
                   :min="1"
                   :max="255"
                   :step="1"
@@ -433,8 +437,8 @@ function updateFeature(key: string, value: unknown) {
                 />
                 <span class="text-sm font-mono w-20 text-right tabular-nums shrink-0">
                   {{ screenSizeMode() === 'landscape'
-                    ? `${(((screenSize.landscapeAspectRatio ?? 0) + 99) / 100).toFixed(2)} : 1`
-                    : `${(100 / ((screenSize.portraitAspectRatio ?? 0) + 99)).toFixed(2)} : 1`
+                    ? `${(((screenSize.type === 'landscape-aspect' ? screenSize.encodedRatio : 0) + 99) / 100).toFixed(2)} : 1`
+                    : `${(100 / ((screenSize.type === 'portrait-aspect' ? screenSize.encodedRatio : 0) + 99)).toFixed(2)} : 1`
                   }}
                 </span>
               </div>
@@ -448,14 +452,14 @@ function updateFeature(key: string, value: unknown) {
         <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Gamma</h4>
         <div class="flex items-center gap-4 max-w-md">
           <Slider
-            :model-value="[Math.round(edid.gamma * 100)]"
+            :model-value="[Math.round(edid.base.gamma * 100)]"
             :min="100"
             :max="354"
             :step="1"
             class="flex-1"
             @update:model-value="(v?: number[]) => { if (v?.length) updateGamma(v[0]! / 100) }"
           />
-          <span class="text-sm font-mono w-12 text-right tabular-nums">{{ edid.gamma.toFixed(2) }}</span>
+          <span class="text-sm font-mono w-12 text-right tabular-nums">{{ edid.base.gamma.toFixed(2) }}</span>
         </div>
         <p v-if="isV14" class="text-xs text-muted-foreground mt-1">
           In EDID 1.4, a stored value of FFh indicates gamma is defined in an extension block.

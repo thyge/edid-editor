@@ -1,8 +1,8 @@
 import { ref, computed } from 'vue'
-import { EDID } from 'edidts'
+import { EEDID } from 'edidts'
 
 const edidData = ref<Uint8Array | null>(null)
-const edid = ref<EDID | null>(null)
+const edid = ref<EEDID | null>(null)
 const error = ref<string | null>(null)
 
 function parseHexString(hex: string): Uint8Array {
@@ -16,7 +16,7 @@ function parseHexString(hex: string): Uint8Array {
 
 function setEdidPayload(bytes: Uint8Array) {
   edidData.value = new Uint8Array(bytes)
-  edid.value = new EDID(edidData.value)
+  edid.value = EEDID.decode(bytes)
 }
 
 export function useEDID() {
@@ -62,8 +62,8 @@ export function useEDID() {
   const createBlankEdid = () => {
     try {
       error.value = null
-      const blank = new EDID()
-      const encoded = blank.encode()
+      const blank = EEDID.blank()
+      const encoded = EEDID.encode(blank)
       setEdidPayload(encoded)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to create EDID'

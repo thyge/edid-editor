@@ -2,6 +2,12 @@
  * Standard timing information for EDID
  * Represents a standard timing mode with width, height, and refresh rate
  */
+import {
+  decodeStandardTimingAspectCode,
+  heightFromStandardTimingAspect,
+  standardTimingAspectCodeFor,
+} from '../common/aspect-ratios';
+
 export class StandardTiming {
   public readonly width: number;
   public readonly height: number;
@@ -65,26 +71,9 @@ export class StandardTiming {
       }
 
       const width = (timing1 + 31) * 8;
-      const aspectRatio = (timing2 >> 6) & 0x03;
+      const aspectCode = decodeStandardTimingAspectCode(timing2);
+      const height = heightFromStandardTimingAspect(width, aspectCode);
       const refreshRate = (timing2 & 0x3f) + 60;
-
-      let height: number;
-      switch (aspectRatio) {
-        case 0:
-          height = Math.round((width * 10) / 16);
-          break; // 16:10
-        case 1:
-          height = Math.round((width * 3) / 4);
-          break; // 4:3
-        case 2:
-          height = Math.round((width * 4) / 5);
-          break; // 5:4
-        case 3:
-          height = Math.round((width * 9) / 16);
-          break; // 16:9
-        default:
-          height = width;
-      }
 
       timings.push(new StandardTiming({ width, height, refreshRate }));
     }
@@ -102,27 +91,12 @@ export class StandardTiming {
 
     for (let i = 0; i < 8; i++) {
       const offset = i * 2;
-      
+
       if (i < timings.length && timings[i].isValid) {
         const timing = timings[i];
         const timing1 = Math.round(timing.width / 8) - 31;
-
-        // Determine aspect ratio using integer math and lookup table
-        let aspectRatio = 0;
-        const aspectRatios = [
-          { code: 0, w: 16, h: 10 }, // 16:10
-          { code: 1, w: 4, h: 3 }, // 4:3
-          { code: 2, w: 5, h: 4 }, // 5:4
-          { code: 3, w: 16, h: 9 }, // 16:9
-        ];
-        for (const ar of aspectRatios) {
-          if (Math.abs(timing.height * ar.w - timing.width * ar.h) < 2) {
-            aspectRatio = ar.code;
-            break;
-          }
-        }
-
-        const timing2 = (aspectRatio << 6) | ((timing.refreshRate - 60) & 0x3f);
+        const aspectCode = standardTimingAspectCodeFor(timing.width, timing.height);
+        const timing2 = (aspectCode << 6) | ((timing.refreshRate - 60) & 0x3f);
 
         bytes[offset] = Math.max(1, Math.min(255, timing1));
         bytes[offset + 1] = timing2;

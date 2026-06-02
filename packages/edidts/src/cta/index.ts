@@ -50,12 +50,12 @@ export type {
 } from './cta-extended-blocks';
 
 // CEA/CTA Extension Block
-export { 
-  ExtensionBlockParser, 
-  findHDMIBlock, 
-  findHDMIForumBlock, 
-  getSupportedVICs, 
-  getHDMI21Features 
+export {
+  ExtensionBlockParser,
+  findHDMIBlock,
+  findHDMIForumBlock,
+  getSupportedVICs,
+  getHDMI21Features
 } from './extension-block';
 export type {
   ExtensionBlock,
@@ -74,3 +74,18 @@ export type {
   VTBExtensionBlock,
   BlockMapExtension,
 } from './extension-block';
+
+// Video Timing Block (VTB, tag 0x10) — CTA-internal
+export {
+  decodeVideoTimingBlock,
+  encodeVideoTimingBlock,
+} from './video-timing-block';
+export type {
+  VideoTimingBlock,
+  VideoTimingBlockAspectRatio,
+  VideoTimingBlockBase,
+  VideoTimingBlockCvtTiming,
+  VideoTimingBlockDetailedTiming,
+  VideoTimingBlockInput,
+  VideoTimingBlockStandardTiming,
+} from './video-timing-block';

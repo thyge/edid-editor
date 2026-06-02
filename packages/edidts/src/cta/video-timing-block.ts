@@ -3,8 +3,8 @@ import {
   encodeEdidCtaDetailedTiming,
   type DetailedTiming,
   type DetailedTimingInput,
-} from './detailed-timing-descriptor';
-import { checksum8 } from './checksum';
+} from '../common/detailed-timing-descriptor';
+import { checksum8 } from '../common/checksum';
 
 export interface VideoTimingBlockBase {
   tag: 0x10;

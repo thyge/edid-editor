@@ -1,11 +1,17 @@
 /**
  * Display Descriptors
- * 
+ *
  * Handles all 18-byte display descriptor types per VESA E-EDID A2.
  * Display descriptors start with 00 00 00 and use byte 3 as a tag.
  */
 
-export type DisplayDescriptorTag = 
+import {
+  decodeStandardTimingAspectCode,
+  heightFromStandardTimingAspect,
+  standardTimingAspectCodeFor,
+} from '../common/aspect-ratios';
+
+export type DisplayDescriptorTag =
   | 0xFF  // Display Product Serial Number
   | 0xFE  // Alphanumeric Data String
   | 0xFD  // Display Range Limits
@@ -489,17 +495,9 @@ export class DisplayDescriptorParser {
       if (byte1 === 0x01 && byte2 === 0x01) continue; // Unused
 
       const width = (byte1 + 31) * 8;
-      const aspectRatio = (byte2 >> 6) & 0x03;
+      const aspectCode = decodeStandardTimingAspectCode(byte2);
+      const height = heightFromStandardTimingAspect(width, aspectCode);
       const refreshRate = (byte2 & 0x3F) + 60;
-
-      let height: number;
-      switch (aspectRatio) {
-        case 0: height = Math.round((width * 10) / 16); break; // 16:10
-        case 1: height = Math.round((width * 3) / 4); break;   // 4:3
-        case 2: height = Math.round((width * 4) / 5); break;   // 5:4
-        case 3: height = Math.round((width * 9) / 16); break;  // 16:9
-        default: height = width;
-      }
 
       timings.push({ width, height, refreshRate });
     }
@@ -521,37 +519,12 @@ export class DisplayDescriptorParser {
       const roundedWidth = Math.round(timing.width / 8) * 8;
       const clampedWidth = Math.min(2288, Math.max(256, roundedWidth));
       const widthByte = Math.max(1, Math.min(255, Math.round(clampedWidth / 8) - 31));
-      const aspectCode = this.aspectCodeFromTimings(clampedWidth, timing.height);
+      const aspectCode = standardTimingAspectCodeFor(clampedWidth, timing.height);
       const refresh = Math.min(123, Math.max(60, Math.round(timing.refreshRate))) - 60;
 
       bytes[offset] = widthByte & 0xFF;
       bytes[offset + 1] = ((aspectCode & 0x03) << 6) | (refresh & 0x3F);
     }
-  }
-
-  private static aspectCodeFromTimings(width: number, height?: number): number {
-    if (!height || height <= 0) return 3; // Default to 16:9 when height unknown
-
-    const targetRatio = width / height;
-    const ratios = [
-      { code: 0, ratio: 16 / 10 },
-      { code: 1, ratio: 4 / 3 },
-      { code: 2, ratio: 5 / 4 },
-      { code: 3, ratio: 16 / 9 },
-    ];
-
-    let best = 3;
-    let bestDiff = Number.POSITIVE_INFINITY;
-
-    for (const candidate of ratios) {
-      const diff = Math.abs(targetRatio - candidate.ratio);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        best = candidate.code;
-      }
-    }
-
-    return best;
   }
 
   private static decodeDCM(data: Uint8Array): DCMDescriptor {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { DetailedTimingDescriptor } from '../src/common';
 import {
-  DetailedTimingDescriptor,
   decodeVideoTimingBlock,
   encodeVideoTimingBlock,
-} from '../src/common';
+} from '../src/cta';
 
 describe('common Video Timing Block codec', () => {
   it('decodes VTB detailed, CVT, and standard timings outside CTA', () => {

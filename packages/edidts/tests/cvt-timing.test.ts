@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { 
-  calculateCVTTiming, 
-  generateCVTDetailedTiming, 
+import {
+  calculateCVTTiming,
+  generateCVTDetailedTiming,
   CVT_PRESETS,
-  type CVTTimingInput 
+  type CVTTimingInput
 } from '../src/common/cvt-timing-generator'
 import { DetailedTimingDescriptor } from '../src/common/detailed-timing-descriptor'
 import { EDID } from '../src/edid'
@@ -177,7 +177,7 @@ describe('CVT Timing Calculator', () => {
     })
 
     it('should work with EDID class', () => {
-      const edid = new EDID()
+      const edid = EDID.blank()
       const dtd = generateCVTDetailedTiming({
         horizontalActive: 1920,
         verticalActive: 1080,
@@ -186,15 +186,18 @@ describe('CVT Timing Calculator', () => {
       })
 
       edid.detailedTimings = [dtd]
-      
-      const encoded = edid.encode()
-      const decoded = new EDID(encoded)
+
+      const encoded = EDID.encode(edid)
+      const decoded = EDID.decode(encoded)
 
       expect(decoded.detailedTimings.length).toBe(1)
       expect(decoded.detailedTimings[0].horizontalActive).toBe(1920)
       expect(decoded.detailedTimings[0].verticalActive).toBe(1080)
-      expect(decoded.nativeResolution?.width).toBe(1920)
-      expect(decoded.nativeResolution?.height).toBe(1080)
+
+      // Native resolution is just the first detailed timing
+      const native = decoded.detailedTimings[0]
+      expect(native?.horizontalActive).toBe(1920)
+      expect(native?.verticalActive).toBe(1080)
     })
   })
 

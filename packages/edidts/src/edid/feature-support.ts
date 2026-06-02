@@ -1,12 +1,24 @@
 /**
  * Feature Support
- * 
+ *
  * Handles encoding and decoding of EDID feature support byte (18h).
  * Per VESA E-EDID A2 specification.
+ *
+ * Per E-EDID A2 §3.6 / Table 3.14, the analog display type and digital color
+ * encoding codes are sequential 2-bit integers (0-3), so the values are
+ * stored as positional arrays — the array index *is* the on-the-wire code.
  */
 
-export type AnalogDisplayType = 'monochrome' | 'rgb' | 'non-rgb' | 'undefined';
-export type DigitalColorEncoding = 'rgb444' | 'rgb444_ycrcb444' | 'rgb444_ycrcb422' | 'rgb444_ycrcb444_ycrcb422';
+export const ANALOG_DISPLAY_TYPES = ['monochrome', 'rgb', 'non-rgb', 'undefined'] as const;
+export type AnalogDisplayType = (typeof ANALOG_DISPLAY_TYPES)[number];
+
+export const DIGITAL_COLOR_ENCODINGS = [
+  'rgb444',
+  'rgb444_ycrcb444',
+  'rgb444_ycrcb422',
+  'rgb444_ycrcb444_ycrcb422',
+] as const;
+export type DigitalColorEncoding = (typeof DIGITAL_COLOR_ENCODINGS)[number];
 
 export interface FeatureSupport {
   // Power management (DPMS)
@@ -25,26 +37,6 @@ export interface FeatureSupport {
   preferredTimingMode: boolean;
   continuousFrequency: boolean;
 }
-
-const ANALOG_DISPLAY_TYPE_MAP: Record<number, AnalogDisplayType> = {
-  0: 'monochrome',
-  1: 'rgb',
-  2: 'non-rgb',
-  3: 'undefined',
-};
-
-const DIGITAL_COLOR_ENCODING_MAP: Record<number, DigitalColorEncoding> = {
-  0: 'rgb444',
-  1: 'rgb444_ycrcb444',
-  2: 'rgb444_ycrcb422',
-  3: 'rgb444_ycrcb444_ycrcb422',
-};
-
-/** All valid analog display types */
-export const ANALOG_DISPLAY_TYPES: readonly AnalogDisplayType[] = Object.values(ANALOG_DISPLAY_TYPE_MAP);
-
-/** All valid digital color encodings */
-export const DIGITAL_COLOR_ENCODINGS: readonly DigitalColorEncoding[] = Object.values(DIGITAL_COLOR_ENCODING_MAP);
 
 export class FeatureSupportFlags {
   public features: FeatureSupport;
@@ -80,9 +72,9 @@ export class FeatureSupportFlags {
     };
 
     if (isDigital) {
-      features.digitalColorEncoding = DIGITAL_COLOR_ENCODING_MAP[colorTypeCode] ?? 'rgb444';
+      features.digitalColorEncoding = DIGITAL_COLOR_ENCODINGS[colorTypeCode] ?? 'rgb444';
     } else {
-      features.analogDisplayType = ANALOG_DISPLAY_TYPE_MAP[colorTypeCode] ?? 'undefined';
+      features.analogDisplayType = ANALOG_DISPLAY_TYPES[colorTypeCode] ?? 'undefined';
     }
 
     return new FeatureSupportFlags(features);
@@ -99,15 +91,10 @@ export class FeatureSupportFlags {
     if (this.features.suspendSupported) byte |= 0x40;
     if (this.features.activeOffSupported) byte |= 0x20;
 
-    // Encode color type
     if (isDigital && this.features.digitalColorEncoding) {
-      const code = Object.entries(DIGITAL_COLOR_ENCODING_MAP)
-        .find(([, v]) => v === this.features.digitalColorEncoding)?.[0];
-      if (code) byte |= (parseInt(code) & 0x03) << 3;
+      byte |= DIGITAL_COLOR_ENCODINGS.indexOf(this.features.digitalColorEncoding) << 3;
     } else if (!isDigital && this.features.analogDisplayType) {
-      const code = Object.entries(ANALOG_DISPLAY_TYPE_MAP)
-        .find(([, v]) => v === this.features.analogDisplayType)?.[0];
-      if (code) byte |= (parseInt(code) & 0x03) << 3;
+      byte |= ANALOG_DISPLAY_TYPES.indexOf(this.features.analogDisplayType) << 3;
     }
 
     if (this.features.sRGBDefault) byte |= 0x04;
@@ -118,8 +105,8 @@ export class FeatureSupportFlags {
   }
 
   get supportsPowerManagement(): boolean {
-    return this.features.standbySupported || 
-           this.features.suspendSupported || 
+    return this.features.standbySupported ||
+           this.features.suspendSupported ||
            this.features.activeOffSupported;
   }
 

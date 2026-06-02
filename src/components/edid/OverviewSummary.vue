@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { DetailedTimingDescriptor } from 'edidts'
+import { getProductName, type DetailedTimingDescriptor } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const props = defineProps<{ edid: EDIDViewModel }>()
 
-const header = computed(() => props.edid.header)
-const videoInput = computed(() => props.edid.videoInput)
+const header = computed(() => props.edid.base.header)
+const videoInput = computed(() => props.edid.base.videoInput)
 const manufacturerLabel = computed(() => header.value.manufacturerName ?? header.value.manufacturerId)
 const productLabel = computed(() => {
-  const name = props.edid.productName?.trim()
+  const name = getProductName(props.edid.base.displayDescriptors)?.trim()
   return name && name.length > 0 ? name : formatProductCode(header.value.productCode)
 })
 const edidVersion = computed(() => `${header.value.edidVersion}.${header.value.edidRevision}`)
@@ -35,7 +35,7 @@ const interfaceLabel = computed(() => {
   }
   return iface
 })
-const preferredTiming = computed(() => props.edid.detailedTimings?.[0] ?? null)
+const preferredTiming = computed(() => props.edid.base.detailedTimings?.[0] ?? null)
 const preferredTimingSummary = computed(() => {
   if (!preferredTiming.value) {
     return null

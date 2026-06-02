@@ -26,20 +26,20 @@ const emit = defineEmits<{
   updateDescriptor: [index: number, descriptor: DisplayDescriptor]
 }>()
 
-const detailedTimings = computed(() => props.edid.detailedTimings)
-const displayDescriptors = computed(() => props.edid.displayDescriptors)
+const detailedTimings = computed(() => props.edid.base.detailedTimings)
+const displayDescriptors = computed(() => props.edid.base.displayDescriptors)
 const expandedTimings = ref<Set<number>>(new Set())
 
-const meaningfulDescriptors = computed(() => displayDescriptors.value.filter(d => d.tag !== 0x10))
+const meaningfulDescriptors = computed(() => displayDescriptors.value.filter((d: DisplayDescriptor) => d.tag !== 0x10))
 const usedSlots = computed(() => detailedTimings.value.length + meaningfulDescriptors.value.length)
 const canAdd = computed(() => usedSlots.value < 4)
 
 const cvtAnalysis = computed<CVTAnalysisResult[]>(() =>
-  detailedTimings.value.map((timing) => analyzeDetailedTimingWithCVT(timing))
+  detailedTimings.value.map((timing: DetailedTimingDescriptor) => analyzeDetailedTimingWithCVT(timing))
 )
 
 const ceaAnalysis = computed<CTAAnalysisResult[]>(() =>
-  detailedTimings.value.map((timing) => analyzeDetailedTimingAgainstCTA(timing))
+  detailedTimings.value.map((timing: DetailedTimingDescriptor) => analyzeDetailedTimingAgainstCTA(timing))
 )
 
 function toggleTimingDetails(index: number) {

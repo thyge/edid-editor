@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { ref, triggerRef, computed, onMounted, type Ref } from 'vue'
-import { DetailedTimingDescriptor } from 'edidts'
-import type { EDID, DisplayDescriptor, ScreenSize, VideoInputDefinition, EstablishedTiming, StandardTiming, CEAExtensionBlock } from 'edidts'
-import type { EDIDViewModel } from '@/types/edid'
+import { ref, triggerRef, computed, onMounted } from 'vue'
+import {
+  EEDID,
+  DetailedTimingDescriptor,
+  getCEAExtension,
+  type DisplayDescriptor,
+  type ScreenSize,
+  type VideoInputDefinition,
+  type EstablishedTiming,
+  type StandardTiming,
+  type CEAExtension,
+} from 'edidts'
 import TopNav from '@/components/layout/TopNav.vue'
 import LeftNav from '@/components/layout/LeftNav.vue'
 import HexViewer from '@/components/layout/HexViewer.vue'
@@ -25,8 +33,7 @@ import CEADetailedTimings from '@/components/cea/CEADetailedTimings.vue'
 import { useEDID } from '@/composables/useEDID'
 
 const edidStore = useEDID()
-const edidRef = edidStore.edid as Ref<EDIDViewModel | null>
-const edidRaw = edidStore.edid as Ref<EDID | null>
+const edidRef = edidStore.edid
 const { edidData, error, isLoaded, loadFromHex, loadFromFile, createBlankEdid } = edidStore
 
 onMounted(() => {
@@ -53,16 +60,16 @@ onMounted(() => {
 const activeSection = ref('overview')
 
 function addTiming() {
-  if (!edidRaw.value) return
-  const timings = [...edidRaw.value.detailedTimings, new DetailedTimingDescriptor()]
-  edidRaw.value.detailedTimings = timings
+  if (!edidRef.value) return
+  const timings = [...edidRef.value.base.detailedTimings, new DetailedTimingDescriptor()]
+  edidRef.value.base.detailedTimings = timings
   syncEdid()
 }
 
 function removeTiming(index: number) {
-  if (!edidRaw.value) return
-  const timings = edidRaw.value.detailedTimings.filter((_, i) => i !== index)
-  edidRaw.value.detailedTimings = timings
+  if (!edidRef.value) return
+  const timings = edidRef.value.base.detailedTimings.filter((_, i) => i !== index)
+  edidRef.value.base.detailedTimings = timings
   syncEdid()
 }
 
@@ -91,46 +98,45 @@ function createDefaultDescriptor(tag: number): DisplayDescriptor {
 }
 
 function addDescriptor(tag: number) {
-  if (!edidRaw.value) return
+  if (!edidRef.value) return
   const descriptor = createDefaultDescriptor(tag)
-  const descriptors = [...edidRaw.value.displayDescriptors, descriptor]
-  edidRaw.value.displayDescriptors = descriptors
+  const descriptors = [...edidRef.value.base.displayDescriptors, descriptor]
+  edidRef.value.base.displayDescriptors = descriptors
   syncEdid()
 }
 
 function removeDescriptor(index: number) {
-  if (!edidRaw.value) return
-  const meaningful = edidRaw.value.displayDescriptors.filter(d => d.tag !== 0x10)
+  if (!edidRef.value) return
+  const meaningful = edidRef.value.base.displayDescriptors.filter(d => d.tag !== 0x10)
   meaningful.splice(index, 1)
-  const dummies = edidRaw.value.displayDescriptors.filter(d => d.tag === 0x10)
-  edidRaw.value.displayDescriptors = [...meaningful, ...dummies]
+  const dummies = edidRef.value.base.displayDescriptors.filter(d => d.tag === 0x10)
+  edidRef.value.base.displayDescriptors = [...meaningful, ...dummies]
   syncEdid()
 }
 
 function updateDescriptor(index: number, descriptor: DisplayDescriptor) {
-  if (!edidRaw.value) return
-  const descriptors = [...edidRaw.value.displayDescriptors]
+  if (!edidRef.value) return
+  const descriptors = [...edidRef.value.base.displayDescriptors]
   if (index < 0 || index >= descriptors.length) return
   descriptors[index] = descriptor
-  edidRaw.value.displayDescriptors = descriptors
+  edidRef.value.base.displayDescriptors = descriptors
   syncEdid()
 }
 
 function syncEdid() {
-  if (!edidRaw.value) return
-  const encoded = edidRaw.value.encode()
+  if (!edidRef.value) return
+  const encoded = EEDID.encode(edidRef.value)
   edidStore.edidData.value = encoded
   triggerRef(edidStore.edid)
 }
 
 function updateDisplayInfo(field: string, value: unknown) {
-  if (!edidRaw.value) return
-  const edid = edidRaw.value
+  if (!edidRef.value) return
+  const edid = edidRef.value.base
 
   if (field.startsWith('header.')) {
-    const key = field.slice(7) as keyof typeof edid.header
+    const key = field.slice(7) as keyof typeof edid.header & string
     ;(edid.header as unknown as Record<string, unknown>)[key] = value
-    edid.header = edid.header
   } else if (field === 'videoInput') {
     edid.videoInput = value as VideoInputDefinition
   } else if (field === 'screenSize') {
@@ -138,29 +144,28 @@ function updateDisplayInfo(field: string, value: unknown) {
   } else if (field === 'gamma') {
     edid.gamma = value as number
   } else if (field.startsWith('featureSupport.')) {
-    const key = field.slice(15) as keyof typeof edid.featureSupport.features
+    const key = field.slice(15) as keyof typeof edid.featureSupport.features & string
     ;(edid.featureSupport.features as unknown as Record<string, unknown>)[key] = value
-    edid.featureSupport = edid.featureSupport
   }
 
   syncEdid()
 }
 
 function updateTimings(field: string, value: unknown) {
-  if (!edidRaw.value) return
+  if (!edidRef.value) return
   if (field === 'establishedTimings') {
-    edidRaw.value.establishedTimings = value as EstablishedTiming[]
+    edidRef.value.base.establishedTimings = value as EstablishedTiming[]
   } else if (field === 'standardTimings') {
-    edidRaw.value.standardTimings = value as StandardTiming[]
+    edidRef.value.base.standardTimings = value as StandardTiming[]
   }
   syncEdid()
 }
 
-const ceaExtension = computed(() => edidRef.value?.ceaExtension ?? null)
+const ceaExtension = computed(() => edidRef.value ? getCEAExtension(edidRef.value) : null)
 
 function addCEAExtension() {
-  if (!edidRaw.value) return
-  const blankCEA: CEAExtensionBlock = {
+  if (!edidRef.value) return
+  const blankCEA: CEAExtension = {
     tag: 0x02,
     revision: 3,
     checksum: 0,
@@ -174,14 +179,14 @@ function addCEAExtension() {
     dataBlocks: [],
     detailedTimings: [],
   }
-  edidRaw.value.extensionBlocks = [...edidRaw.value.extensionBlocks, blankCEA]
+  edidRef.value.extensions = [...edidRef.value.extensions, blankCEA]
   activeSection.value = 'cea-overview'
   syncEdid()
 }
 
 function removeCEAExtension() {
-  if (!edidRaw.value) return
-  edidRaw.value.extensionBlocks = edidRaw.value.extensionBlocks.filter(b => b.tag !== 0x02)
+  if (!edidRef.value) return
+  edidRef.value.extensions = edidRef.value.extensions.filter(b => b.tag !== 0x02)
   if (activeSection.value.startsWith('cea-')) {
     activeSection.value = 'overview'
   }
@@ -189,8 +194,9 @@ function removeCEAExtension() {
 }
 
 function addCEADataBlock(blockType: string) {
-  if (!edidRaw.value || !edidRaw.value.ceaExtension) return
-  const cea = edidRaw.value.ceaExtension
+  if (!edidRef.value) return
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
   const empty = new Uint8Array(0)
 
   switch (blockType) {
@@ -246,8 +252,9 @@ function addCEADataBlock(blockType: string) {
 }
 
 function removeCEADataBlock(blockTag: number, extendedTag?: number) {
-  if (!edidRaw.value || !edidRaw.value.ceaExtension) return
-  const cea = edidRaw.value.ceaExtension
+  if (!edidRef.value) return
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
   if (extendedTag !== undefined) {
     cea.dataBlocks = cea.dataBlocks.filter(b =>
       !(b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === extendedTag)
@@ -263,8 +270,9 @@ function removeCEADataBlock(blockTag: number, extendedTag?: number) {
 }
 
 function updateCEA(field: string, value: unknown) {
-  if (!edidRaw.value || !edidRaw.value.ceaExtension) return
-  const cea = edidRaw.value.ceaExtension
+  if (!edidRef.value) return
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
 
   if (field === 'revision') {
     cea.revision = value as number

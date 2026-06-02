@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { DetailedTimingDescriptor } from '../src/edid';
 import {
-  DetailedTimingDescriptor,
   ExtensionBlockParser,
   decodeExtendedDataBlock,
   encodeExtendedDataBlock,
@@ -17,7 +17,7 @@ import {
   type ColorimetryDataBlock,
   type HDRStaticMetadataDataBlock,
   type YCbCr420VideoDataBlock,
-} from '../src/edid/index';
+} from '../src/cta';
 import { checksum8 } from '../src/common';
 
 describe('CTA and VTB detailed timing descriptors', () => {
