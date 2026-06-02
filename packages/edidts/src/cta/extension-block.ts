@@ -23,6 +23,7 @@ import {
   type VideoTimingBlockDetailedTiming as VTBDetailedTiming,
 } from '../common/video-timing-block';
 import { checksum8 } from '../common/checksum';
+import { decodeDisplayIdSection, encodeDisplayIdSection, type DisplayIdSection } from '../displayid';
 
 export type { VTBExtensionBlock, VTBDetailedTiming };
 
@@ -32,6 +33,7 @@ export type ExtensionTag =
   | 0x40  // Display Information Extension
   | 0x50  // Localized String Extension
   | 0x60  // Digital Packet Video Link Extension
+  | 0x70  // DisplayID Extension
   | 0xF0  // Extension Block Map
   | 0xFF  // Manufacturer Defined
   | number;
@@ -196,9 +198,15 @@ export interface BlockMapExtension extends BaseExtensionBlock {
   blockTags: number[]; // Up to 126 extension block tags
 }
 
+export interface DisplayIdExtensionBlock extends BaseExtensionBlock {
+  tag: 0x70;
+  section: DisplayIdSection;
+}
+
 export type ExtensionBlock = 
   | CEAExtensionBlock 
   | VTBExtensionBlock 
+  | DisplayIdExtensionBlock
   | BlockMapExtension 
   | BaseExtensionBlock;
 
@@ -225,6 +233,8 @@ export class ExtensionBlockParser {
         return this.decodeCEA(data, base);
       case 0x10:
         return this.decodeVTB(data, base);
+      case 0x70:
+        return this.decodeDisplayId(data, base);
       case 0xF0:
         return this.decodeBlockMap(data, base);
       default:
@@ -246,6 +256,9 @@ export class ExtensionBlockParser {
         break;
       case 0x10:
         bytes.set(encodeVideoTimingBlock(block as VTBExtensionBlock).slice(2, 127), 2);
+        break;
+      case 0x70:
+        this.encodeDisplayId(bytes, block as DisplayIdExtensionBlock);
         break;
       case 0xF0:
         this.encodeBlockMap(bytes, block as BlockMapExtension);
@@ -521,6 +534,14 @@ export class ExtensionBlockParser {
     return decodeVideoTimingBlock(data, base);
   }
 
+  private static decodeDisplayId(data: Uint8Array, base: BaseExtensionBlock): DisplayIdExtensionBlock {
+    return {
+      ...base,
+      tag: 0x70,
+      section: decodeDisplayIdSection(data.slice(2, 127)),
+    };
+  }
+
   private static decodeBlockMap(data: Uint8Array, base: BaseExtensionBlock): BlockMapExtension {
     const blockTags: number[] = [];
     for (let i = 1; i < 127; i++) {
@@ -578,6 +599,16 @@ export class ExtensionBlockParser {
       default:
         return block.data;
     }
+  }
+
+  private static encodeDisplayId(bytes: Uint8Array, block: DisplayIdExtensionBlock): void {
+    const sectionBytes = encodeDisplayIdSection(block.section);
+
+    if (sectionBytes.length > 125) {
+      throw new Error(`DisplayID EDID extension payload length ${sectionBytes.length} exceeds 125 bytes`);
+    }
+
+    bytes.set(sectionBytes, 2);
   }
 
   private static encodeAudioDataBlock(block: AudioDataBlock): Uint8Array {

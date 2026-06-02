@@ -62,6 +62,7 @@ export type {
   ExtensionTag,
   BaseExtensionBlock,
   CEAExtensionBlock,
+  DisplayIdExtensionBlock,
   CEADataBlock,
   CEADataBlockTag,
   AudioDataBlock,

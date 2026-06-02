@@ -14,7 +14,7 @@ import {
   getProductSerial,
   getRangeLimits,
 } from "./display-descriptor";
-import { ExtensionBlock, ExtensionBlockParser, CEAExtensionBlock } from "../cta/extension-block";
+import { ExtensionBlock, ExtensionBlockParser, CEAExtensionBlock, DisplayIdExtensionBlock } from "../cta/extension-block";
 
 
 /**
@@ -520,6 +520,13 @@ export class EDID {
   }
 
   /**
+   * Get DisplayID extension block if present
+   */
+  get displayIdExtension(): DisplayIdExtensionBlock | null {
+    return this.extensionBlocks.find(b => b.tag === 0x70) as DisplayIdExtensionBlock ?? null;
+  }
+
+  /**
    * Check if HDMI is supported (via CEA extension)
    */
   get isHDMI(): boolean {
@@ -618,6 +625,7 @@ export type {
   ManufacturerDescriptor,
 } from "./display-descriptor";
 export { ExtensionBlockParser, findHDMIBlock, findHDMIForumBlock, getSupportedVICs, getHDMI21Features } from "../cta/extension-block";
+export type { DisplayIdExtensionBlock } from "../cta/extension-block";
 export type {
   ExtensionBlock,
   ExtensionTag,
