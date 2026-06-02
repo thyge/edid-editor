@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, triggerRef, computed, onMounted, type Ref } from 'vue'
-import { DetailedTimingDescriptor } from 'edidts'
-import type { EDID, DisplayDescriptor, ScreenSize, VideoInputDefinition, EstablishedTiming, StandardTiming, CEAExtensionBlock } from 'edidts'
+import { DetailedTimingDescriptor, DisplayIdDataBlockTag, createDefaultDisplayIdBlock } from 'edidts'
+import type { EDID, DisplayDescriptor, ScreenSize, VideoInputDefinition, EstablishedTiming, StandardTiming, CEAExtensionBlock, DisplayIdExtensionBlock } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import TopNav from '@/components/layout/TopNav.vue'
 import LeftNav from '@/components/layout/LeftNav.vue'
@@ -23,6 +23,7 @@ import CEAHDRColorimetry from '@/components/cea/CEAHDRColorimetry.vue'
 import CEAVideoCapability from '@/components/cea/CEAVideoCapability.vue'
 import CEADetailedTimings from '@/components/cea/CEADetailedTimings.vue'
 import { useEDID } from '@/composables/useEDID'
+import { displayIdSectionIds } from '@/components/displayid/displayIdLabels'
 
 const edidStore = useEDID()
 const edidRef = edidStore.edid as Ref<EDIDViewModel | null>
@@ -157,6 +158,7 @@ function updateTimings(field: string, value: unknown) {
 }
 
 const ceaExtension = computed(() => edidRef.value?.ceaExtension ?? null)
+const displayIdExtension = computed(() => edidRef.value?.displayIdExtension ?? null)
 
 function addCEAExtension() {
   if (!edidRaw.value) return
@@ -262,6 +264,64 @@ function removeCEADataBlock(blockTag: number, extendedTag?: number) {
   syncEdid()
 }
 
+function addDisplayIdExtension() {
+  if (!edidRaw.value) return
+  const displayId: DisplayIdExtensionBlock = {
+    tag: 0x70,
+    revision: 0,
+    checksum: 0,
+    data: new Uint8Array(125),
+    section: {
+      version: 2,
+      revision: 0,
+      versionByte: 0x20,
+      bytesInSection: 0,
+      totalLength: 5,
+      primaryUseCase: 0x04,
+      extensionCount: 0,
+      blocks: [],
+      fillBytes: 0,
+      checksum: 0,
+      isChecksumValid: true,
+    },
+  }
+  edidRaw.value.extensionBlocks = [...edidRaw.value.extensionBlocks, displayId]
+  activeSection.value = displayIdSectionIds.overview
+  syncEdid()
+}
+
+function removeDisplayIdExtension() {
+  if (!edidRaw.value) return
+  edidRaw.value.extensionBlocks = edidRaw.value.extensionBlocks.filter(b => b.tag !== 0x70)
+  if (activeSection.value.startsWith('displayid-')) {
+    activeSection.value = 'overview'
+  }
+  syncEdid()
+}
+
+function addDisplayIdBlock(tag: number) {
+  if (!edidRaw.value?.displayIdExtension) return
+  edidRaw.value.displayIdExtension.section.blocks.push(createDefaultDisplayIdBlock(tag as DisplayIdDataBlockTag))
+  activeSection.value = displayIdSectionIds.overview
+  syncEdid()
+}
+
+function removeDisplayIdBlock(index: number) {
+  if (!edidRaw.value?.displayIdExtension) return
+  edidRaw.value.displayIdExtension.section.blocks.splice(index, 1)
+  syncEdid()
+}
+
+function moveDisplayIdBlock(index: number, direction: -1 | 1) {
+  if (!edidRaw.value?.displayIdExtension) return
+  const blocks = edidRaw.value.displayIdExtension.section.blocks
+  const nextIndex = index + direction
+  if (nextIndex < 0 || nextIndex >= blocks.length) return
+  const [block] = blocks.splice(index, 1)
+  blocks.splice(nextIndex, 0, block)
+  syncEdid()
+}
+
 function updateCEA(field: string, value: unknown) {
   if (!edidRaw.value || !edidRaw.value.ceaExtension) return
   const cea = edidRaw.value.ceaExtension
@@ -309,7 +369,19 @@ function updateCEA(field: string, value: unknown) {
       @new-edid="createBlankEdid"
     />
     <div class="flex flex-1 overflow-hidden">
-      <LeftNav :edid="edidRef" v-model:active-section="activeSection" @add-cea="addCEAExtension" @remove-cea="removeCEAExtension" @add-cea-block="addCEADataBlock" @remove-cea-block="removeCEADataBlock" />
+      <LeftNav
+        :edid="edidRef"
+        v-model:active-section="activeSection"
+        @add-cea="addCEAExtension"
+        @remove-cea="removeCEAExtension"
+        @add-cea-block="addCEADataBlock"
+        @remove-cea-block="removeCEADataBlock"
+        @add-display-id="addDisplayIdExtension"
+        @remove-display-id="removeDisplayIdExtension"
+        @add-display-id-block="addDisplayIdBlock"
+        @remove-display-id-block="removeDisplayIdBlock"
+        @move-display-id-block="moveDisplayIdBlock"
+      />
       <main class="flex-1 p-4 overflow-auto">
         <div v-if="error" class="mb-4 p-4 bg-destructive/10 border border-destructive rounded-lg text-destructive">
           {{ error }}
@@ -353,6 +425,14 @@ function updateCEA(field: string, value: unknown) {
           <CEAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" />
           <CEAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEADetailedTimings v-else-if="activeSection === 'cea-timings' && ceaExtension" :cea="ceaExtension" />
+
+          <div v-else-if="activeSection.startsWith('displayid-') && displayIdExtension" class="space-y-2">
+            <h1 class="text-2xl font-semibold tracking-normal">DisplayID</h1>
+            <p class="text-sm text-muted-foreground">
+              Version {{ displayIdExtension.section.version }}.{{ displayIdExtension.section.revision }} ·
+              {{ displayIdExtension.section.blocks.length }} blocks
+            </p>
+          </div>
         </div>
       </main>
       <section id="hex-viewer" class="h-full scroll-mt-24">

@@ -30,4 +30,6 @@ export type EDIDViewModel = Pick<
     'extensionBlocks'
   |
     'ceaExtension'
+  |
+    'displayIdExtension'
 >

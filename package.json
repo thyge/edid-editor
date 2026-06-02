@@ -7,8 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc -b && vite build",
+    "dev": "npm --workspace edidts run build && vite",
+    "build": "npm --workspace edidts run build && vue-tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

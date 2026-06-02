@@ -2,6 +2,12 @@
 import { computed } from 'vue'
 import type { EDIDViewModel } from '@/types/edid'
 import { Button } from '@/components/ui/button'
+import { DISPLAY_ID_BLOCK_LABELS } from 'edidts'
+import {
+  addableDisplayIdBlocks,
+  displayIdBlockSectionByTag,
+  displayIdSectionIds,
+} from '@/components/displayid/displayIdLabels'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +26,11 @@ const emit = defineEmits<{
   removeCea: []
   addCeaBlock: [blockType: string]
   removeCeaBlock: [blockTag: number, extendedTag?: number]
+  addDisplayId: []
+  removeDisplayId: []
+  addDisplayIdBlock: [tag: number]
+  removeDisplayIdBlock: [index: number]
+  moveDisplayIdBlock: [index: number, direction: -1 | 1]
 }>()
 
 const edidChildren = [
@@ -76,9 +87,27 @@ const addableBlocks = computed(() => {
   return options
 })
 
-const hasDisplayID = computed(() =>
-  props.edid?.extensionBlocks?.some(b => b.tag === 0x70) ?? false
-)
+const hasDisplayID = computed(() => props.edid?.displayIdExtension !== null && props.edid?.displayIdExtension !== undefined)
+
+interface DisplayIdNavChild {
+  id: string
+  label: string
+  index?: number
+}
+
+const displayIdChildren = computed<DisplayIdNavChild[]>(() => {
+  const displayId = props.edid?.displayIdExtension
+  if (!displayId) return []
+
+  return [
+    { id: displayIdSectionIds.header, label: 'Section Header' },
+    ...displayId.section.blocks.map((block, index) => ({
+      id: displayIdBlockSectionByTag[block.tag as number] ?? `${displayIdSectionIds.overview}-${index}`,
+      label: DISPLAY_ID_BLOCK_LABELS[block.tag as keyof typeof DISPLAY_ID_BLOCK_LABELS] ?? `Unknown 0x${block.tag.toString(16).padStart(2, '0')}`,
+      index,
+    })),
+  ]
+})
 
 function selectSection(id: string) {
   emit('update:activeSection', id)
@@ -201,13 +230,83 @@ function selectSection(id: string) {
       </Button>
 
       <!-- DisplayID extension -->
-      <button
-        v-if="hasDisplayID"
-        class="flex items-center gap-1.5 px-2 py-1.5 rounded-md font-semibold text-left w-full mt-1 text-muted-foreground cursor-default opacity-60"
-        disabled
+      <template v-if="hasDisplayID">
+        <div class="flex items-center justify-between mt-1">
+          <button
+            class="flex items-center gap-1.5 px-2 py-1.5 rounded-md font-semibold text-left hover:bg-accent/50 transition-colors flex-1"
+            :class="activeSection === displayIdSectionIds.overview ? 'bg-accent text-accent-foreground' : 'text-foreground'"
+            @click="selectSection(displayIdSectionIds.overview)"
+          >
+            DisplayID
+          </button>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="text-destructive hover:text-destructive hover:bg-destructive/10 h-6 w-6 p-0 shrink-0"
+            title="Remove DisplayID extension"
+            @click="emit('removeDisplayId')"
+          >
+            ✕
+          </Button>
+        </div>
+
+        <div class="ml-3 border-l border-border pl-2 flex flex-col gap-0.5">
+          <template v-for="child in displayIdChildren" :key="`${child.id}-${child.index ?? 'header'}`">
+            <div v-if="child.index === undefined" class="flex">
+              <button
+                class="px-2 py-1 rounded-md text-left w-full hover:bg-accent/50 transition-colors"
+                :class="activeSection === child.id ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'"
+                @click="selectSection(child.id)"
+              >
+                {{ child.label }}
+              </button>
+            </div>
+            <div v-else class="flex items-center">
+              <button
+                class="px-2 py-1 rounded-md text-left flex-1 hover:bg-accent/50 transition-colors"
+                :class="activeSection === child.id ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'"
+                @click="selectSection(child.id)"
+              >
+                {{ child.label }}
+              </button>
+              <button
+                class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+                :title="`Remove ${child.label}`"
+                @click.stop="emit('removeDisplayIdBlock', child.index)"
+              >
+                ✕
+              </button>
+            </div>
+          </template>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="ghost" size="sm" class="w-full text-xs text-muted-foreground mt-0.5 h-7">
+                + Add Block
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem
+                v-for="opt in addableDisplayIdBlocks"
+                :key="opt.tag"
+                @click="emit('addDisplayIdBlock', opt.tag)"
+              >
+                {{ opt.label }}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </template>
+
+      <Button
+        v-if="!hasDisplayID"
+        variant="outline"
+        size="sm"
+        class="mt-2 w-full text-xs"
+        @click="emit('addDisplayId')"
       >
-        DisplayID
-      </button>
+        Add DisplayID Extension
+      </Button>
     </template>
   </aside>
 </template>
