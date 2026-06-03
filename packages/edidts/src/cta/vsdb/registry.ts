@@ -1,6 +1,5 @@
 // packages/edidts/src/cta/vsdb/registry.ts
 
-import { writeIeeeOui } from '../../common/bintools';
 import type { VendorSpecificDecoded, VendorSpecificDataBlock } from './types';
 import type { CEAExtensionBlock } from '../extension-block';
 
@@ -21,13 +20,17 @@ export interface VendorEncoder<K extends VendorSpecificDecoded['kind']> {
 export const VENDOR_DECODERS: Record<number, VendorDecoder<VendorSpecificDecoded['kind']>> = {};
 export const VENDOR_ENCODERS: Record<string, VendorEncoder<VendorSpecificDecoded['kind']>> = {};
 
-/** Build the full block bytes from an OUI and a payload (post-OUI). */
+/** Build the full block bytes from an OUI and a payload (post-OUI).
+ *  The OUI is written in little-endian wire order, matching the
+ *  CTA-861-G VSDB convention. See `docs/planning/vsdb/README.md`. */
 export function reassembleVsdbBlock(ieeeOui: number, payload: Uint8Array): Uint8Array {
   const length = 3 + payload.length;
   const header = (3 << 5) | (length & 0x1F);
   const out = new Uint8Array(1 + length);
   out[0] = header;
-  writeIeeeOui(out, 1, ieeeOui);
+  out[1] = ieeeOui & 0xff;
+  out[2] = (ieeeOui >>> 8) & 0xff;
+  out[3] = (ieeeOui >>> 16) & 0xff;
   out.set(payload, 4);
   return out;
 }
