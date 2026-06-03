@@ -13,9 +13,10 @@ npm run build          # tsc + Vite, produces dist/index.js + .d.ts
 ## Tests
 
 ```sh
-npx vitest run         # all tests against the in-module fixtures
-npm run test:corpus    # tests/testedids.test.ts against the full corpus
-                       # (requires fixtures-linuxhw/ — see below)
+# From packages/edidts/ (or via `npm run test:corpus` at the repo root):
+npx vitest run             # all tests against the in-module fixtures
+npm run test:corpus        # tests/testedids.test.ts against the full corpus
+                           # (requires fixtures-linuxhw/ — see below)
 ```
 
 ## Real-world corpus (linuxhw/EDID)
