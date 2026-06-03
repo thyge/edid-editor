@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:corpus": "npm --workspace edidts run test:corpus",
     "deploy": "bash deploy.sh"
   },
   "dependencies": {
