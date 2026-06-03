@@ -8,6 +8,8 @@
  */
 
 import { decodeExtendedDataBlock, encodeExtendedDataBlock, type CTAExtendedDataBlock } from './cta-extended-blocks';
+import { decodeVendorSpecificBlock, findVSDBByKind, VENDOR_ENCODERS, reassembleVsdbBlock } from './vsdb/registry';
+import type { VendorSpecificDecoded } from './vsdb/types';
 import {
   DetailedTimingDescriptor,
   decodeEdidCtaDetailedTiming,
@@ -109,38 +111,7 @@ export interface VendorSpecificDataBlock extends CEADataBlock {
   tag: 0x03;
   ieeeOui: number; // 24-bit IEEE OUI
   payload: Uint8Array;
-  // HDMI 1.4 Vendor Specific (OUI = 0x000C03)
-  hdmi?: {
-    sourcePhysicalAddress: [number, number, number, number];
-    supportsAI: boolean;
-    dcY444: boolean;
-    dc30bit: boolean;
-    dc36bit: boolean;
-    dc48bit: boolean;
-    maxTmdsClockMHz: number;
-  };
-  // HDMI Forum Vendor Specific (OUI = 0xC45DD8) - HDMI 2.0/2.1
-  hdmiForum?: {
-    version: number;
-    maxTmdsCharacterRate: number; // Max TMDS Character Rate (in MHz, 0 = use HDMI 1.4 VSDB value)
-    scdc: boolean;              // SCDC Present
-    rr: boolean;                // HDMI Forum VSDB Ready Request
-    lte340McscScramble: boolean; // LTE 340Mcsc Scramble
-    independentView: boolean;    // Independent View
-    dualView: boolean;           // Dual View
-    osd3d: boolean;              // 3D OSD Disparity
-    dc30bit420: boolean;         // Deep Color 4:2:0 30-bit
-    dc36bit420: boolean;         // Deep Color 4:2:0 36-bit
-    dc48bit420: boolean;         // Deep Color 4:2:0 48-bit
-    uhd4k: boolean;              // Supports 4K video
-    vrr: boolean;                // Variable Refresh Rate (HDMI 2.1)
-    fapa: boolean;               // Fast Active Processing Area (HDMI 2.1)
-    allm: boolean;               // Auto Low Latency Mode (HDMI 2.1)
-    fva: boolean;                // Fast VActive (HDMI 2.1)
-    cnmVrr: boolean;             // CinemaVRR (HDMI 2.1)
-    dsc: boolean;                // DSC support (HDMI 2.1)
-    maxFrlRate: number;          // Max FRL Rate (0-6)
-  };
+  vendor?: VendorSpecificDecoded; // decoded via the VSDB registry; see ./vsdb
 }
 
 export interface SpeakerAllocationBlock extends CEADataBlock {
@@ -399,72 +370,7 @@ export class ExtensionBlockParser {
   }
 
   private static decodeVendorSpecificBlock(data: Uint8Array): VendorSpecificDataBlock {
-    if (data.length < 3) {
-      return { tag: 0x03, data, ieeeOui: 0, payload: new Uint8Array() };
-    }
-
-    const ieeeOui = data[0] | (data[1] << 8) | (data[2] << 16);
-    const payload = data.slice(3);
-
-    const block: VendorSpecificDataBlock = {
-      tag: 0x03,
-      data,
-      ieeeOui,
-      payload,
-    };
-
-    // HDMI Vendor Specific (OUI 0x000C03)
-    if (ieeeOui === 0x000C03 && payload.length >= 2) {
-      const physAddr = payload[0] << 8 | payload[1];
-      block.hdmi = {
-        sourcePhysicalAddress: [
-          (physAddr >> 12) & 0x0F,
-          (physAddr >> 8) & 0x0F,
-          (physAddr >> 4) & 0x0F,
-          physAddr & 0x0F,
-        ],
-        supportsAI: payload.length >= 3 && (payload[2] & 0x80) !== 0,
-        dcY444: payload.length >= 3 && (payload[2] & 0x08) !== 0,
-        dc30bit: payload.length >= 3 && (payload[2] & 0x10) !== 0,
-        dc36bit: payload.length >= 3 && (payload[2] & 0x20) !== 0,
-        dc48bit: payload.length >= 3 && (payload[2] & 0x40) !== 0,
-        maxTmdsClockMHz: payload.length >= 4 ? payload[3] * 5 : 0,
-      };
-    }
-
-    // HDMI Forum Vendor Specific (OUI 0xC45DD8) - HDMI 2.0/2.1
-    if (ieeeOui === 0xC45DD8 && payload.length >= 4) {
-      const byte4 = payload[0];
-      const byte5 = payload[1];
-      const byte6 = payload.length >= 3 ? payload[2] : 0;
-      const byte7 = payload.length >= 4 ? payload[3] : 0;
-      const byte8 = payload.length >= 5 ? payload[4] : 0;
-      const byte9 = payload.length >= 6 ? payload[5] : 0;
-      
-      block.hdmiForum = {
-        version: byte4,
-        maxTmdsCharacterRate: byte5 * 5, // 5 MHz units
-        scdc: (byte6 & 0x80) !== 0,
-        rr: (byte6 & 0x40) !== 0,
-        lte340McscScramble: (byte6 & 0x08) !== 0,
-        independentView: (byte6 & 0x04) !== 0,
-        dualView: (byte6 & 0x02) !== 0,
-        osd3d: (byte6 & 0x01) !== 0,
-        dc30bit420: (byte7 & 0x01) !== 0,
-        dc36bit420: (byte7 & 0x02) !== 0,
-        dc48bit420: (byte7 & 0x04) !== 0,
-        uhd4k: (byte7 & 0x08) !== 0,
-        vrr: (byte8 & 0x40) !== 0,        // VRR
-        fapa: (byte8 & 0x04) !== 0,       // FAPA Start Location
-        allm: (byte8 & 0x02) !== 0,       // ALLM
-        fva: (byte8 & 0x01) !== 0,        // FVA
-        cnmVrr: (byte9 & 0x80) !== 0,     // CinemaVRR
-        dsc: (byte9 & 0x40) !== 0,        // DSC
-        maxFrlRate: (byte7 >> 4) & 0x0F,  // Max FRL Rate
-      };
-    }
-
-    return block;
+    return decodeVendorSpecificBlock(data);
   }
 
   private static decodeSpeakerAllocationBlock(data: Uint8Array): SpeakerAllocationBlock {
@@ -645,7 +551,13 @@ export class ExtensionBlockParser {
   }
 
   private static encodeVendorSpecificDataBlock(block: VendorSpecificDataBlock): Uint8Array {
-    return block.data;
+    if (!block.vendor || block.vendor.kind === 'unknown') return block.data;
+    const encoder = VENDOR_ENCODERS[block.vendor.kind];
+    if (!encoder) return block.data;
+    return reassembleVsdbBlock(
+      block.ieeeOui,
+      encoder.encode(block.vendor.fields as Parameters<typeof encoder.encode>[0])
+    );
   }
 
   private static encodeSpeakerAllocationBlock(block: SpeakerAllocationBlock): Uint8Array {
@@ -710,20 +622,15 @@ export class ExtensionBlockParser {
  * Helper to find HDMI vendor specific block (HDMI 1.4)
  */
 export function findHDMIBlock(cea: CEAExtensionBlock): VendorSpecificDataBlock | null {
-  const vsdb = cea.dataBlocks.find(
-    b => b.tag === 0x03 && (b as VendorSpecificDataBlock).ieeeOui === 0x000C03
-  );
-  return vsdb as VendorSpecificDataBlock ?? null;
+  return findVSDBByKind(cea, 'hdmi14');
 }
 
 /**
- * Helper to find HDMI Forum vendor specific block (HDMI 2.0/2.1)
+ * Helper to find HDMI Forum vendor specific block (HDMI 2.0/2.1).
+ * Returns null until the HDMI Forum decoder is registered (see Task 3).
  */
 export function findHDMIForumBlock(cea: CEAExtensionBlock): VendorSpecificDataBlock | null {
-  const vsdb = cea.dataBlocks.find(
-    b => b.tag === 0x03 && (b as VendorSpecificDataBlock).ieeeOui === 0xC45DD8
-  );
-  return vsdb as VendorSpecificDataBlock ?? null;
+  return findVSDBByKind(cea, 'hdmiForum');
 }
 
 /**
@@ -745,13 +652,14 @@ export function getHDMI21Features(cea: CEAExtensionBlock): {
   maxFrlRate: number;
 } | null {
   const forum = findHDMIForumBlock(cea);
-  if (!forum?.hdmiForum) return null;
-  
+  if (!forum?.vendor || forum.vendor.kind !== 'hdmiForum') return null;
+
+  const fields = forum.vendor.fields;
   return {
-    vrr: forum.hdmiForum.vrr,
-    allm: forum.hdmiForum.allm,
-    qms: forum.hdmiForum.fva,
-    dsc: forum.hdmiForum.dsc,
-    maxFrlRate: forum.hdmiForum.maxFrlRate,
+    vrr: fields.vrr,
+    allm: fields.allm,
+    qms: fields.fva,
+    dsc: fields.dsc,
+    maxFrlRate: fields.maxFrlRate,
   };
 }

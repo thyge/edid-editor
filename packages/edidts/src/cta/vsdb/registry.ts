@@ -3,22 +3,25 @@
 import type { VendorSpecificDecoded, VendorSpecificDataBlock } from './types';
 import type { CEAExtensionBlock } from '../extension-block';
 
-type FieldsFor<K extends VendorSpecificDecoded['kind']> =
+// 'unknown' is the fallback case and is never paired with a decoder/encoder.
+type DecoderKind = Exclude<VendorSpecificDecoded['kind'], 'unknown'>;
+
+type FieldsFor<K extends DecoderKind> =
   Extract<VendorSpecificDecoded, { kind: K }> extends { fields: infer F } ? F : never;
 
-export interface VendorDecoder<K extends VendorSpecificDecoded['kind']> {
+export interface VendorDecoder<K extends DecoderKind> {
   readonly kind: K;
   readonly minLength: number;
   decode(payload: Uint8Array): FieldsFor<K>;
 }
 
-export interface VendorEncoder<K extends VendorSpecificDecoded['kind']> {
+export interface VendorEncoder<K extends DecoderKind> {
   readonly kind: K;
   encode(fields: FieldsFor<K>): Uint8Array;
 }
 
-export const VENDOR_DECODERS: Record<number, VendorDecoder<VendorSpecificDecoded['kind']>> = {};
-export const VENDOR_ENCODERS: Record<string, VendorEncoder<VendorSpecificDecoded['kind']>> = {};
+export const VENDOR_DECODERS: Record<number, VendorDecoder<DecoderKind>> = {};
+export const VENDOR_ENCODERS: Record<string, VendorEncoder<DecoderKind>> = {};
 
 /** Build the full block bytes from an OUI and a payload (post-OUI).
  *  The OUI is written in little-endian wire order, matching the
