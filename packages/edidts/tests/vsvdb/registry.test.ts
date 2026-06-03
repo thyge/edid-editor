@@ -1,10 +1,11 @@
 // packages/edidts/tests/vsvdb/registry.test.ts
 
 import { describe, it, expect } from 'vitest';
-import { VENDOR_VSVDB_DECODERS, VENDOR_VSVDB_ENCODERS, decodeVSVDB } from '../../src/cta/vsvdb/registry';
+import { VENDOR_VSVDB_DECODERS, VENDOR_VSVDB_ENCODERS, decodeVSVDB, findVSVDBs } from '../../src/cta/vsvdb/registry';
 import { DolbyVSDBDecoder, DolbyVSDBEncoder } from '../../src/cta/vsvdb/dolby';
 import { OUI } from '../../src/cta/vsdb/types';
 import type { ExtendedDataBlock } from '../../src/cta/cta-extended-blocks';
+import type { CEAExtensionBlock } from '../../src/cta/extension-block';
 
 const base: ExtendedDataBlock = {
   tag: 0x07,
@@ -53,6 +54,63 @@ describe('VSVDB registry', () => {
     const decoded = decodeVSVDB(base, new Uint8Array([0x01, 0x02]));
     expect(decoded.ieeeOui).toBe(0);
     expect(decoded.payload.length).toBe(0);
+  });
+});
+
+describe('findVSVDBs', () => {
+  it('returns an empty array when there are no VSVDBs', () => {
+    const cea: CEAExtensionBlock = {
+      tag: 0x02,
+      revision: 0x03,
+      dtdOffset: 0,
+      underscan: false,
+      basicAudio: false,
+      ycbcr444: false,
+      ycbcr422: false,
+      nativeFormats: 0,
+      dataBlocks: [],
+      detailedTimings: [],
+    };
+    expect(findVSVDBs(cea)).toEqual([]);
+  });
+
+  it('returns only blocks with tag 0x07 and extendedTag 0x01', () => {
+    const dolbyBlock = decodeVSVDB(
+      { tag: 0x07, extendedTag: 0x01, data: new Uint8Array(0) },
+      new Uint8Array([0x46, 0xD0, 0x00, 0x25]),
+    );
+    const cea: CEAExtensionBlock = {
+      tag: 0x02,
+      revision: 0x03,
+      dtdOffset: 0,
+      underscan: false,
+      basicAudio: false,
+      ycbcr444: false,
+      ycbcr422: false,
+      nativeFormats: 0,
+      dataBlocks: [
+        // A regular VSDB (tag 0x03) — should NOT match
+        {
+          tag: 0x03,
+          ieeeOui: OUI.HDMI_1_4,
+          payload: new Uint8Array(0),
+          data: new Uint8Array(0),
+        },
+        // An extended tag block with a different extended tag (0x05 colorimetry)
+        {
+          tag: 0x07,
+          extendedTag: 0x05,
+          data: new Uint8Array(0),
+        },
+        // The Dolby VSVDB we want
+        dolbyBlock,
+      ],
+      detailedTimings: [],
+    };
+    const result = findVSVDBs(cea);
+    expect(result).toHaveLength(1);
+    expect(result[0].extendedTag).toBe(0x01);
+    expect(result[0].ieeeOui).toBe(OUI.DOLBY);
   });
 });
 

@@ -103,6 +103,7 @@ export type {
   VendorSpecificDecoded,
 } from './vsdb/types';
 export { OUI } from './vsdb/types';
+export { MICROSOFT_HMD_USE_CASES } from './vsdb/microsoft-hmd';
 // The VSDB `decodeVendorSpecificBlock` is re-exported as
 // `decodeVsdbBlock` to avoid colliding with the DisplayID module's
 // `decodeVendorSpecificBlock` (which operates on a `DisplayIdDataBlock`).
@@ -121,6 +122,7 @@ export type { DolbyVSDB } from './vsvdb/types';
 export {
   decodeVSVDB,
   reassembleVsvdbBlock,
+  findVSVDBs,
   VENDOR_VSVDB_DECODERS,
   VENDOR_VSVDB_ENCODERS,
 } from './vsvdb/registry';

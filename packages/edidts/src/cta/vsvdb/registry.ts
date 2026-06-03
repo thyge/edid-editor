@@ -1,6 +1,7 @@
 // packages/edidts/src/cta/vsvdb/registry.ts
 
 import type { ExtendedDataBlock, VendorSpecificVideoDataBlock } from '../cta-extended-blocks';
+import type { CEAExtensionBlock, CEADataBlock } from '../extension-block';
 import { writeIeeeOui } from '../../common/bintools';
 
 // The VSVDB (Vendor-Specific Video Data Block) is the CTA-861-G extended tag
@@ -72,4 +73,17 @@ export function reassembleVsvdbBlock(ieeeOui: number, payload: Uint8Array): Uint
   writeIeeeOui(out, 1, ieeeOui);
   out.set(payload, 4);
   return out;
+}
+
+/**
+ * Return all Vendor-Specific Video Data Blocks (tag 0x07, extended tag
+ * 0x01) from a CEA extension's data block list. Mirrors `findVSDBs` in
+ * the parallel VSDB module; the UI uses it to render VSVDB subcomponents
+ * (currently only Dolby Vision).
+ */
+export function findVSVDBs(cea: CEAExtensionBlock): VendorSpecificVideoDataBlock[] {
+  return cea.dataBlocks.filter(
+    (b): b is VendorSpecificVideoDataBlock =>
+      b.tag === 0x07 && (b as CEADataBlock & { extendedTag?: number }).extendedTag === 0x01
+  );
 }
