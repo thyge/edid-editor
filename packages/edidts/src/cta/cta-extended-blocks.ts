@@ -1,11 +1,12 @@
 /**
  * CTA-861-G Extended Tag Data Blocks
- * 
+ *
  * When a CEA data block has tag 7 (Extended Tag), the first byte of the
  * payload contains the Extended Tag Code that identifies the specific block type.
  */
 
 import type { CEADataBlock } from './extension-block';
+import { decodeVSVDB } from './vsvdb/registry';
 
 export type ExtendedTagCode =
   | 0x00  // Video Capability Data Block
@@ -120,22 +121,16 @@ export interface YCbCr420CapabilityMapDataBlock extends ExtendedDataBlock {
 
 /**
  * Vendor-Specific Video Data Block (Extended Tag 1)
+ *
+ * The decoded per-vendor shape (Dolby Vision, HDR10+, ...) is no longer
+ * surfaced on this carrier; see `./vsvdb/` for the registry of decoders
+ * keyed by OUI. Callers needing the decoded form should look up the
+ * decoder directly via `VENDOR_VSVDB_DECODERS[block.ieeeOui]`.
  */
 export interface VendorSpecificVideoDataBlock extends ExtendedDataBlock {
   extendedTag: 0x01;
   ieeeOui: number;
   payload: Uint8Array;
-  // Dolby Vision specific (OUI 0x00D046)
-  dolbyVision?: {
-    version: number;
-    supportsYUV422_12bit: boolean;
-    supports2160p60: boolean;
-    supportsGlobalDimming: boolean;
-  };
-  // HDR10+ specific (OUI 0x90848B)
-  hdr10Plus?: {
-    applicationVersion: number;
-  };
 }
 
 /**
@@ -380,36 +375,7 @@ function decodeYCbCr420CapabilityMapBlock(base: ExtendedDataBlock, payload: Uint
 }
 
 function decodeVendorSpecificVideoBlock(base: ExtendedDataBlock, payload: Uint8Array): VendorSpecificVideoDataBlock {
-  if (payload.length < 3) {
-    return {
-      ...base,
-      extendedTag: 0x01,
-      ieeeOui: 0,
-      payload: new Uint8Array(),
-    };
-  }
-
-  const ieeeOui = payload[0] | (payload[1] << 8) | (payload[2] << 16);
-  const data = payload.slice(3);
-
-  const block: VendorSpecificVideoDataBlock = {
-    ...base,
-    extendedTag: 0x01,
-    ieeeOui,
-    payload: data,
-  };
-
-  // Dolby Vision (OUI 0x00D046)
-  if (ieeeOui === 0x00D046 && data.length >= 1) {
-    block.dolbyVision = {
-      version: (data[0] >> 5) & 0x07,
-      supportsYUV422_12bit: (data[0] & 0x01) !== 0,
-      supports2160p60: (data[0] & 0x02) !== 0,
-      supportsGlobalDimming: (data[0] & 0x04) !== 0,
-    };
-  }
-
-  return block;
+  return decodeVSVDB(base, payload);
 }
 
 function decodeVendorSpecificAudioBlock(base: ExtendedDataBlock, payload: Uint8Array): VendorSpecificAudioDataBlock {

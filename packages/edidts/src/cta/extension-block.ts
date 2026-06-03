@@ -10,6 +10,9 @@
 import { decodeExtendedDataBlock, encodeExtendedDataBlock, type CTAExtendedDataBlock } from './cta-extended-blocks';
 import { decodeVendorSpecificBlock, findVSDBByKind, VENDOR_ENCODERS, reassembleVsdbBlock } from './vsdb/registry';
 import type { VendorSpecificDecoded } from './vsdb/types';
+// Side-effect import: registers the Dolby VSVDB decoder/encoder with the
+// VSVDB registry so consumers can find it via VENDOR_VSVDB_DECODERS[OUI.DOLBY].
+import './vsvdb/dolby';
 import {
   DetailedTimingDescriptor,
   decodeEdidCtaDetailedTiming,

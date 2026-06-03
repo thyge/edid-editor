@@ -101,4 +101,8 @@ export const OUI = {
   HDR10_PLUS: 0x8B8490,        // LE on-wire; big-endian integer
   VESA_ADAPTIVE_SYNC: 0x9C5A78,
   NVIDIA: 0x00044B,
+  // Dolby Vision lives in a Vendor-Specific Video Data Block (tag 0x07 ext 0x01),
+  // not a regular VSDB. The constant is exported here so that the vsvdb/ module
+  // can register its decoder under the same OUI namespace.
+  DOLBY: 0x00D046,
 } as const;
