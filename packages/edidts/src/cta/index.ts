@@ -67,7 +67,6 @@ export type {
   CEADataBlockTag,
   AudioDataBlock,
   VideoDataBlock,
-  VendorSpecificDataBlock,
   SpeakerAllocationBlock,
   VESADisplayTransferCharacteristicBlock,
   CEADetailedTiming,
@@ -90,3 +89,39 @@ export type {
   VideoTimingBlockInput,
   VideoTimingBlockStandardTiming,
 } from './video-timing-block';
+
+// Vendor-Specific Data Blocks (tag 0x03)
+export type {
+  HDMI14VSDB,
+  HDMIForumVSDB,
+  MicrosoftHMDVSDB,
+  AMDFreeSyncVSDB,
+  HDR10PlusVSDB,
+  VESAAdaptiveSyncVSDB,
+  NvidiaVSDB,
+  VendorSpecificDataBlock,
+  VendorSpecificDecoded,
+} from './vsdb/types';
+export { OUI } from './vsdb/types';
+// The VSDB `decodeVendorSpecificBlock` is re-exported as
+// `decodeVsdbBlock` to avoid colliding with the DisplayID module's
+// `decodeVendorSpecificBlock` (which operates on a `DisplayIdDataBlock`).
+export {
+  decodeVendorSpecificBlock as decodeVsdbBlock,
+  reassembleVsdbBlock,
+  findVSDBs,
+  findVSDBByKind,
+  VENDOR_DECODERS,
+  VENDOR_ENCODERS,
+} from './vsdb/registry';
+export type { VendorDecoder, VendorEncoder } from './vsdb/registry';
+
+// Vendor-Specific Video Data Blocks (tag 0x07 ext 0x01, e.g., Dolby Vision)
+export type { DolbyVSDB } from './vsvdb/types';
+export {
+  decodeVSVDB,
+  reassembleVsvdbBlock,
+  VENDOR_VSVDB_DECODERS,
+  VENDOR_VSVDB_ENCODERS,
+} from './vsvdb/registry';
+export { DolbyVSDBDecoder, DolbyVSDBEncoder, DOLBY_VSDB_DEFAULT } from './vsvdb/dolby';

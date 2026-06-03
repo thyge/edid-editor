@@ -9,7 +9,7 @@
 
 import { decodeExtendedDataBlock, encodeExtendedDataBlock, type CTAExtendedDataBlock } from './cta-extended-blocks';
 import { decodeVendorSpecificBlock, findVSDBByKind, VENDOR_ENCODERS, reassembleVsdbBlock } from './vsdb/registry';
-import type { VendorSpecificDecoded } from './vsdb/types';
+import type { VendorSpecificDataBlock } from './vsdb/types';
 // Side-effect import: registers the Dolby VSVDB decoder/encoder with the
 // VSVDB registry so consumers can find it via VENDOR_VSVDB_DECODERS[OUI.DOLBY].
 import './vsvdb/dolby';
@@ -110,12 +110,10 @@ export interface VideoDataBlock extends CEADataBlock {
   }>;
 }
 
-export interface VendorSpecificDataBlock extends CEADataBlock {
-  tag: 0x03;
-  ieeeOui: number; // 24-bit IEEE OUI
-  payload: Uint8Array;
-  vendor?: VendorSpecificDecoded; // decoded via the VSDB registry; see ./vsdb
-}
+// `VendorSpecificDataBlock` is imported from `./vsdb/types` (re-exported at the
+// top of this module) so there is a single canonical definition. This avoids
+// a duplicate-identifier error when both the CTA module and the VSDB module
+// try to re-export the same name from the public API surface.
 
 export interface SpeakerAllocationBlock extends CEADataBlock {
   tag: 0x04;
