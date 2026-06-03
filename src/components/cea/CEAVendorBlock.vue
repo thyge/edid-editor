@@ -10,8 +10,10 @@ const props = defineProps<{
 
 const hdmiBlock = computed(() => findHDMIBlock(props.cea))
 const hdmiForumBlock = computed(() => findHDMIForumBlock(props.cea))
-const hdmi = computed(() => hdmiBlock.value?.hdmi)
-const forum = computed(() => hdmiForumBlock.value?.hdmiForum)
+// Adapter: read decoded fields via the discriminated `vendor?` union. The full
+// dispatcher rewrite lives in Task 13; this keeps the build green through Tasks 3-12.
+const hdmi = computed(() => hdmiBlock.value?.vendor?.kind === 'hdmi14' ? hdmiBlock.value.vendor.fields : undefined)
+const forum = computed(() => hdmiForumBlock.value?.vendor?.kind === 'hdmiForum' ? hdmiForumBlock.value.vendor.fields : undefined)
 
 const rowClass = 'flex items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2'
 
