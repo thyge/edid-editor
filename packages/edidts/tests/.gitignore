@@ -1,0 +1,3 @@
+# Linuxhw/EDID corpus — see tests/fixture-loader.ts.
+# Clone with: git clone --depth=1 https://github.com/linuxhw/EDID.git tests/fixtures-linuxhw
+fixtures-linuxhw/

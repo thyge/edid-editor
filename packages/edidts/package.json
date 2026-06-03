@@ -21,6 +21,7 @@
     "build": "tsc && vite build",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
+    "test:corpus": "vitest run testedids.test.ts",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
