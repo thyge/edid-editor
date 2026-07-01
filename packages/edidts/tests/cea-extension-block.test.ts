@@ -146,4 +146,38 @@ describe('CEA extension block container', () => {
       expect(Array.from(out.data)).toEqual([0x02, 0xaa, 0xbb, 0xcc]);
     });
   });
+
+  describe('audio format code 15 (Audio Format Extension)', () => {
+    it('captures and round-trips the extended format code in byte 3 bits 7:3', () => {
+      // CTA-861-G Table 53: when format code = 15, byte 3 bits 7:3 carry the
+      // extended audio format code (e.g. 12 = AC-4). The decoder must surface
+      // it and the encoder must write it back.
+      const audio: AudioDataBlock = {
+        tag: 0x01,
+        data: new Uint8Array(0),
+        descriptors: [
+          {
+            format: 15,
+            channels: 8,
+            samplingRates: {
+              sr32kHz: false, sr44_1kHz: false, sr48kHz: true, sr88_2kHz: false,
+              sr96kHz: false, sr176_4kHz: false, sr192kHz: false,
+            },
+            extendedFormat: 12, // AC-4
+          },
+        ],
+      };
+
+      const bytes = ExtensionBlockParser.encode(ceaWith([audio]));
+      // Data-block header sits at byte 4; the 3-byte SAD payload occupies bytes
+      // 5..7. SAD byte 3 (extendedFormat in bits 7:3) is therefore at byte 7,
+      // and equals (12 << 3) = 0x60.
+      expect(bytes[7]).toBe(12 << 3);
+
+      const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
+      const out = decoded.dataBlocks[0] as AudioDataBlock;
+      expect(out.descriptors[0].format).toBe(15);
+      expect(out.descriptors[0].extendedFormat).toBe(12);
+    });
+  });
 });

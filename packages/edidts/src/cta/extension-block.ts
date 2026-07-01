@@ -99,6 +99,7 @@ export interface AudioDataBlock extends CEADataBlock {
       bd24: boolean;
     };
     maxBitrate?: number; // For compressed formats, in kHz
+    extendedFormat?: number; // For format code 15, byte 3 bits 7:3
   }>;
 }
 
@@ -348,6 +349,8 @@ export class ExtensionBlockParser {
         };
       } else if (format >= 2 && format <= 8) {
         descriptor.maxBitrate = data[i + 2] * 8;
+      } else if (format === 15) { // Audio Format Extension — byte 3 bits 7:3
+        descriptor.extendedFormat = (data[i + 2] >> 3) & 0x1F;
       }
 
       descriptors.push(descriptor);
@@ -547,6 +550,8 @@ export class ExtensionBlockParser {
         if (desc.bitDepths.bd24) byte3 |= 0x04;
       } else if (desc.maxBitrate !== undefined) {
         byte3 = Math.round(desc.maxBitrate / 8) & 0xFF;
+      } else if (desc.format === 15 && desc.extendedFormat !== undefined) {
+        byte3 = (desc.extendedFormat & 0x1F) << 3;
       }
       bytes.push(byte1, byte2, byte3);
     }
