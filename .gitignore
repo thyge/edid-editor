@@ -30,3 +30,9 @@ TODO.MD
 *.pdf
 src/edidts/__tests__/fixtures_proprietary.ts
 packages/*/tests/fixtures_proprietary.ts
+
+# linuxhw/EDID corpus — one-time local clone, not tracked (see packages/edidts/README.md)
+# Root checkout location (don't commit a nested clone here):
+/tests/
+# Documented location the fixture loader reads from:
+packages/*/tests/fixtures-linuxhw/

@@ -16,6 +16,14 @@ The `edidts` package has its own scripts (run from `packages/edidts/`):
 
 - `npm run build` — Type-check with `tsc` and build with Vite (produces `dist/index.js` + dts).
 - `npx vitest run` — Run the library's test suite (no `test` script wired up; use vitest directly).
+- `npm run test:corpus` — Run `testedids.test.ts` against the full linuxhw/EDID fixture corpus.
+
+The linuxhw/EDID corpus (~175k real EDIDs, ~5 GB) is **not** tracked in the repo.
+Clone it one-time where the fixture loader reads from:
+`git clone --depth=1 https://github.com/linuxhw/EDID.git packages/edidts/tests/fixtures-linuxhw`
+That directory (and a root `tests/` checkout) is gitignored; if absent the loader
+silently skips it and falls back to the in-module fixtures. Set `EDID_FIXTURE_LIMIT`
+to a positive integer to run a deterministic sample. See `packages/edidts/README.md`.
 
 There is no test runner or linter configured for the Vue app.
 
