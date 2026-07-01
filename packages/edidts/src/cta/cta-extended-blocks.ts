@@ -462,14 +462,57 @@ export function encodeExtendedDataBlock(block: CTAExtendedDataBlock): Uint8Array
       return encodeColorimetryBlock(block as ColorimetryDataBlock);
     case 0x06:
       return encodeHDRStaticMetadataBlock(block as HDRStaticMetadataDataBlock);
+    case 0x07:
+      return encodeHDRDynamicMetadataBlock(block as HDRDynamicMetadataDataBlock);
+    case 0x0D:
+      return encodeVideoFormatPreferenceBlock(block as VideoFormatPreferenceDataBlock);
     case 0x0E:
       return encodeYCbCr420VideoBlock(block as YCbCr420VideoDataBlock);
     case 0x0F:
       return encodeYCbCr420CapabilityMapBlock(block as YCbCr420CapabilityMapDataBlock);
+    case 0x11:
+      return encodeVendorSpecificAudioBlock(block as VendorSpecificAudioDataBlock);
+    case 0x13:
+      return encodeRoomConfigurationBlock(block as RoomConfigurationDataBlock);
     default:
       // Return original data for unhandled types
       return block.data;
   }
+}
+
+function encodeHDRDynamicMetadataBlock(block: HDRDynamicMetadataDataBlock): Uint8Array {
+  const bytes = [0x07];
+  for (const type of block.supportedTypes) bytes.push(type & 0xff);
+  return new Uint8Array(bytes);
+}
+
+function encodeVideoFormatPreferenceBlock(block: VideoFormatPreferenceDataBlock): Uint8Array {
+  const bytes = [0x0d];
+  for (const svr of block.svrs) {
+    if (svr.vic !== undefined) {
+      // VICs occupy byte values 1..127; a 0 byte means "no entry".
+      if (svr.vic > 0 && svr.vic < 128) bytes.push(svr.vic);
+    } else if (svr.dtdIndex !== undefined) {
+      // DTD indices are carried as 128 + index (129..255).
+      bytes.push(128 + svr.dtdIndex);
+    }
+  }
+  return new Uint8Array(bytes);
+}
+
+function encodeVendorSpecificAudioBlock(block: VendorSpecificAudioDataBlock): Uint8Array {
+  const bytes = [
+    0x11,
+    block.ieeeOui & 0xff,
+    (block.ieeeOui >> 8) & 0xff,
+    (block.ieeeOui >> 16) & 0xff,
+  ];
+  for (const b of block.payload) bytes.push(b);
+  return new Uint8Array(bytes);
+}
+
+function encodeRoomConfigurationBlock(block: RoomConfigurationDataBlock): Uint8Array {
+  return new Uint8Array([0x13, block.speakerCount & 0xff, block.speakerPresenceDescriptor & 0xff]);
 }
 
 function encodeVideoCapabilityBlock(block: VideoCapabilityDataBlock): Uint8Array {

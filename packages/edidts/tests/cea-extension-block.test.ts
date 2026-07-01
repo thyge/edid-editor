@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { ExtensionBlockParser, type CEAExtensionBlock, type VideoDataBlock, type AudioDataBlock, type ExtendedDataBlock } from '../src/cta';
+import {
+  ExtensionBlockParser,
+  decodeExtendedDataBlock,
+  encodeExtendedDataBlock,
+  type CEAExtensionBlock,
+  type VideoDataBlock,
+  type AudioDataBlock,
+  type ExtendedDataBlock,
+  type HDRDynamicMetadataDataBlock,
+  type VideoFormatPreferenceDataBlock,
+  type VendorSpecificAudioDataBlock,
+  type RoomConfigurationDataBlock,
+} from '../src/cta';
 import { isChecksum8Valid, checksum8 } from '../src/common';
 
 /** Build a Video Data Block with `count` non-native VICs. */
@@ -178,6 +190,84 @@ describe('CEA extension block container', () => {
       const out = decoded.dataBlocks[0] as AudioDataBlock;
       expect(out.descriptors[0].format).toBe(15);
       expect(out.descriptors[0].extendedFormat).toBe(12);
+    });
+  });
+
+  describe('structured encoders for decode-only extended blocks', () => {
+    // These blocks decoded to structured fields but encoded by returning the
+    // original raw `data`, so edits to the structured fields never serialized.
+    // Each encoder now rebuilds from the structured fields (matching the
+    // existing Video Capability / Colorimetry / HDR Static encoders).
+
+    it('0x07 HDR Dynamic Metadata encodes from supportedTypes', () => {
+      const block: HDRDynamicMetadataDataBlock = {
+        tag: 0x07,
+        extendedTag: 0x07,
+        data: new Uint8Array([0x07, 0xff]), // sentinel: must not survive
+        supportedTypes: [0x01, 0x02, 0x03],
+      };
+      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x07, 0x01, 0x02, 0x03]);
+    });
+
+    it('0x07 HDR Dynamic Metadata round-trips a decoded payload', () => {
+      const original = new Uint8Array([0x07, 0x01, 0x02, 0x03]);
+      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
+        Array.from(original),
+      );
+    });
+
+    it('0x0D Video Format Preference encodes from svrs (VICs and DTD indices)', () => {
+      const block: VideoFormatPreferenceDataBlock = {
+        tag: 0x07,
+        extendedTag: 0x0d,
+        data: new Uint8Array([0x0d, 0xff]), // sentinel
+        svrs: [{ vic: 16 }, { dtdIndex: 3 }],
+      };
+      // VIC 16 → 0x10; DTD index 3 → 128 + 3 = 0x83.
+      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x0d, 0x10, 0x83]);
+    });
+
+    it('0x0D Video Format Preference round-trips a decoded payload', () => {
+      const original = new Uint8Array([0x0d, 0x10, 0x83, 0x00]); // trailing 0 ignored on decode
+      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
+        [0x0d, 0x10, 0x83],
+      );
+    });
+
+    it('0x11 Vendor-Specific Audio encodes OUI (little-endian) + payload', () => {
+      const block: VendorSpecificAudioDataBlock = {
+        tag: 0x07,
+        extendedTag: 0x11,
+        data: new Uint8Array([0x11, 0xff]), // sentinel
+        ieeeOui: 0x1a0b,
+        payload: new Uint8Array([0xaa, 0xbb]),
+      };
+      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x11, 0x0b, 0x1a, 0x00, 0xaa, 0xbb]);
+    });
+
+    it('0x11 Vendor-Specific Audio round-trips a decoded payload', () => {
+      const original = new Uint8Array([0x11, 0x0b, 0x1a, 0x00, 0xaa, 0xbb]);
+      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
+        Array.from(original),
+      );
+    });
+
+    it('0x13 Room Configuration encodes speaker count + presence descriptor', () => {
+      const block: RoomConfigurationDataBlock = {
+        tag: 0x07,
+        extendedTag: 0x13,
+        data: new Uint8Array([0x13, 0xff]), // sentinel
+        speakerCount: 5,
+        speakerPresenceDescriptor: 0x03,
+      };
+      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x13, 0x05, 0x03]);
+    });
+
+    it('0x13 Room Configuration round-trips a decoded payload', () => {
+      const original = new Uint8Array([0x13, 0x05, 0x03]);
+      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
+        Array.from(original),
+      );
     });
   });
 });
