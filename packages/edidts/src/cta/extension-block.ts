@@ -467,6 +467,16 @@ export class ExtensionBlockParser {
     let offset = 4;
     for (const block of cea.dataBlocks) {
       const encoded = this.encodeCEADataBlock(block);
+      // Data blocks occupy bytes 4..126; byte 127 is the checksum. A single
+      // data block payload is at most 31 bytes (5-bit length), so a long
+      // block list can run past the end of the 128-byte block. Guard with a
+      // descriptive error instead of letting bytes.set() throw a cryptic
+      // RangeError (or silently truncating).
+      if (offset + 1 + encoded.length > 127) {
+        throw new Error(
+          `CEA data blocks overflow the 127-byte payload area at offset ${offset} (block tag 0x${block.tag.toString(16).padStart(2, '0')}, ${encoded.length} bytes)`,
+        );
+      }
       const header = ((block.tag & 0x07) << 5) | (encoded.length & 0x1F);
       bytes[offset] = header;
       bytes.set(encoded, offset + 1);
