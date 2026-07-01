@@ -474,10 +474,39 @@ export function encodeExtendedDataBlock(block: CTAExtendedDataBlock): Uint8Array
       return encodeVendorSpecificAudioBlock(block as VendorSpecificAudioDataBlock);
     case 0x13:
       return encodeRoomConfigurationBlock(block as RoomConfigurationDataBlock);
+    case 0x01:
+      return encodeVendorSpecificVideoBlock(block as VendorSpecificVideoDataBlock);
+    case 0x14:
+      return encodeSpeakerLocationBlock(block as SpeakerLocationDataBlock);
+    case 0x20:
+      return encodeInfoFrameBlock(block as InfoFrameDataBlock);
     default:
       // Return original data for unhandled types
       return block.data;
   }
+}
+
+function encodeVendorSpecificVideoBlock(block: VendorSpecificVideoDataBlock): Uint8Array {
+  const bytes = [0x01, block.ieeeOui & 0xff, (block.ieeeOui >> 8) & 0xff, (block.ieeeOui >> 16) & 0xff];
+  for (const b of block.payload) bytes.push(b);
+  return new Uint8Array(bytes);
+}
+
+function encodeSpeakerLocationBlock(block: SpeakerLocationDataBlock): Uint8Array {
+  const bytes = [0x14];
+  for (const loc of block.speakerLocations) {
+    bytes.push(loc.channelIndex & 0xff, loc.x & 0xff, loc.y & 0xff, loc.z & 0xff);
+  }
+  return new Uint8Array(bytes);
+}
+
+function encodeInfoFrameBlock(block: InfoFrameDataBlock): Uint8Array {
+  const bytes = [0x20];
+  for (const desc of block.shortInfoFrameDescriptors) {
+    bytes.push(desc.infoFrameType & 0xff, desc.payload.length & 0xff);
+    for (const b of desc.payload) bytes.push(b);
+  }
+  return new Uint8Array(bytes);
 }
 
 function encodeHDRDynamicMetadataBlock(block: HDRDynamicMetadataDataBlock): Uint8Array {

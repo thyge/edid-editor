@@ -11,6 +11,9 @@ import {
   type VideoFormatPreferenceDataBlock,
   type VendorSpecificAudioDataBlock,
   type RoomConfigurationDataBlock,
+  type VendorSpecificVideoDataBlock,
+  type SpeakerLocationDataBlock,
+  type InfoFrameDataBlock,
 } from '../src/cta';
 import { isChecksum8Valid, checksum8 } from '../src/common';
 
@@ -265,6 +268,72 @@ describe('CEA extension block container', () => {
 
     it('0x13 Room Configuration round-trips a decoded payload', () => {
       const original = new Uint8Array([0x13, 0x05, 0x03]);
+      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
+        Array.from(original),
+      );
+    });
+
+    it('0x01 Vendor-Specific Video encodes OUI (little-endian) + payload', () => {
+      const block: VendorSpecificVideoDataBlock = {
+        tag: 0x07,
+        extendedTag: 0x01,
+        data: new Uint8Array([0x01, 0xff]), // sentinel
+        ieeeOui: 0x1a0b,
+        payload: new Uint8Array([0xaa, 0xbb]),
+      };
+      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x01, 0x0b, 0x1a, 0x00, 0xaa, 0xbb]);
+    });
+
+    it('0x01 Vendor-Specific Video round-trips a decoded payload', () => {
+      const original = new Uint8Array([0x01, 0x0b, 0x1a, 0x00, 0xaa, 0xbb]);
+      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
+        Array.from(original),
+      );
+    });
+
+    it('0x14 Speaker Location encodes 4-byte channel/x/y/z entries', () => {
+      const block: SpeakerLocationDataBlock = {
+        tag: 0x07,
+        extendedTag: 0x14,
+        data: new Uint8Array([0x14, 0xff]), // sentinel
+        speakerLocations: [
+          { channelIndex: 1, x: 10, y: 20, z: 30 },
+          { channelIndex: 2, x: 5, y: 6, z: 7 },
+        ],
+      };
+      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([
+        0x14, 1, 10, 20, 30, 2, 5, 6, 7,
+      ]);
+    });
+
+    it('0x14 Speaker Location round-trips a decoded payload', () => {
+      const original = new Uint8Array([0x14, 1, 10, 20, 30, 2, 5, 6, 7]);
+      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
+        Array.from(original),
+      );
+    });
+
+    it('0x14 Speaker Location drops a trailing partial entry (simplified 4-byte stride)', () => {
+      // Decode walks 4-byte strides; a trailing 1 leftover byte is not an
+      // entry, so it is not reproduced on encode.
+      const original = new Uint8Array([0x14, 1, 10, 20, 30, 0xff]);
+      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual([
+        0x14, 1, 10, 20, 30,
+      ]);
+    });
+
+    it('0x20 InfoFrame encodes type/length/payload entries', () => {
+      const block: InfoFrameDataBlock = {
+        tag: 0x07,
+        extendedTag: 0x20,
+        data: new Uint8Array([0x20, 0xff]), // sentinel
+        shortInfoFrameDescriptors: [{ infoFrameType: 4, payload: new Uint8Array([0x01, 0x02]) }],
+      };
+      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x20, 4, 2, 0x01, 0x02]);
+    });
+
+    it('0x20 InfoFrame round-trips a decoded payload', () => {
+      const original = new Uint8Array([0x20, 4, 2, 0x01, 0x02]);
       expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
         Array.from(original),
       );
