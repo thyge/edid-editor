@@ -96,23 +96,23 @@ export function findVSVDBs(cea: CEAExtensionBlock): VendorSpecificVideoDataBlock
 
 // HDR10+ Vendor-Specific Video Data Block (VSVDB).
 //
-// CTA-861 extended tag 0x01, OUI 0x8B8490 (HDR10_PLUS). This is the VSVDB-form
-// carrier variant, distinct from the HDR10+ VSDB (tag 0x03, kind 'hdr10Plus')
-// in `vsdb/`. The post-OUI payload layout follows edid-decode `cta_hdr10plus`
-// (parse-cta-block.cpp): byte 0 = Application Version (full byte, printed as
-// %u); bytes 1.. = vendor-specific payload (opaque, preserved verbatim).
+// CTA-861 extended tag 0x01, OUI 0x90848B (HDR10_PLUS). IEEE oui.txt assigns
+// 90-84-8B to "HDR10+ Technologies, LLC" (Beaverton, OR); edid-decode keys this
+// OUI as 0x90848b and parses it in the Vendor-Specific Video Data Block path
+// (tag 0x07, ext 0x01) via `cta_hdr10plus` (parse-cta-block.cpp). HDR10+ is
+// carried ONLY as a VSVDB — edid-decode does not special-case this OUI in the
+// tag-0x03 VSDB handler, so a tag-0x03 block with this OUI is dumped raw (the
+// previous tag-0x03 "HDR10+ VSDB" codec was fabricated and has been removed).
 //
-// NOTE: the local planning doc `docs/planning/vsdb/ouis/8B-84-90-hdr10-plus.md`
-// is stale (it could not access edid-decode) and marks the OUI as unverified;
-// this codec is therefore EXPERIMENTAL until the OUI assignment is confirmed
-// against an authoritative CTA-861 registry.
+// Post-OUI payload layout (verified against edid-decode `cta_hdr10plus`):
+//   byte 0    Application Version (full byte)
+//   bytes 1.. vendor-specific payload (opaque, preserved verbatim)
 //
 // The codec classes live directly in `registry.ts` (rather than a separate
 // `hdr10plus.ts` file) so that importing `vsvdb/registry` registers them in
-// production without requiring a side-effect import in `extension-block.ts`
-// (which cannot be edited here). This mirrors the Dolby registration shape but
-// keeps the definition adjacent to the registry maps to avoid a circular
-// side-effect import / temporal-dead-zone.
+// production without requiring a side-effect import in `extension-block.ts`.
+// This mirrors the Dolby registration shape but keeps the definition adjacent
+// to the registry maps to avoid a circular side-effect import / TDZ.
 
 export const HDR10_PLUS_VSVDB_DEFAULT: HDR10PlusVSDB = {
   applicationVersion: 0,

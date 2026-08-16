@@ -5,7 +5,6 @@ export type {
   HDMIForumVSDB,
   MicrosoftHMDVSDB,
   AMDFreeSyncVSDB,
-  HDR10PlusVSDB,
   VendorSpecificDataBlock,
   VendorSpecificDecoded,
 } from './types';

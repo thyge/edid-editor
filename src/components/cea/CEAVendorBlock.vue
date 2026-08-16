@@ -8,7 +8,6 @@ import CEAVendorHDMIForum from './vsdb/CEAVendorHDMIForum.vue'
 import CEAVendorMicrosoftHMD from './vsdb/CEAVendorMicrosoftHMD.vue'
 import CEAVendorDolby from './vsdb/CEAVendorDolby.vue'
 import CEAVendorAMD from './vsdb/CEAVendorAMD.vue'
-import CEAVendorHDR10Plus from './vsdb/CEAVendorHDR10Plus.vue'
 import CEAVendorUnknown from './vsdb/CEAVendorUnknown.vue'
 
 interface DolbyRenderable {
@@ -18,7 +17,7 @@ interface DolbyRenderable {
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
-// Tag 0x03 VSDBs (HDMI 1.4, HDMI Forum, Microsoft HMD, AMD, HDR10+)
+// Tag 0x03 VSDBs (HDMI 1.4, HDMI Forum, Microsoft HMD, AMD)
 const vsdbs = computed(() => findVSDBs(props.cea))
 
 // Tag 0x07 ext 0x01 VSVDBs. Only Dolby is currently registered in the VSVDB
@@ -45,7 +44,6 @@ const dolbyRenderables = computed<DolbyRenderable[]>(() => {
       <CEAVendorHDMIForum       v-else-if="block.vendor?.kind === 'hdmiForum'"   :fields="block.vendor.fields" />
       <CEAVendorMicrosoftHMD    v-else-if="block.vendor?.kind === 'microsoftHmd'" :fields="block.vendor.fields" />
       <CEAVendorAMD             v-else-if="block.vendor?.kind === 'amdFreeSync'" :fields="block.vendor.fields" />
-      <CEAVendorHDR10Plus       v-else-if="block.vendor?.kind === 'hdr10Plus'"   :fields="block.vendor.fields" />
       <CEAVendorUnknown         v-else                                            :block="block" />
     </template>
 

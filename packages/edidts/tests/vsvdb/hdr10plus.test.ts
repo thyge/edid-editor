@@ -84,4 +84,27 @@ describe('HDR10+ VSVDB end-to-end carrier', () => {
     const encoded = encoder.encode(fields);
     expect(encoded).toEqual(postOui);
   });
+
+  it('decodes a real HDR10+ VSVDB using the on-wire LE OUI bytes 8B 84 90', () => {
+    // Real HDR10+ OUI is 90-84-8B (HDR10+ Technologies, LLC, IEEE oui.txt).
+    // On-wire (LE) the three OUI bytes are 8B 84 90; the dispatcher reads them
+    // as the integer 0x90848B, which must equal OUI.HDR10_PLUS and resolve to
+    // the registered decoder. This guards against the byte-reversed 0x8B8490
+    // regression (with that value the decoder would never fire on real EDIDs).
+    expect(OUI.HDR10_PLUS).toBe(0x90848b);
+    // extended-tag byte (0x01) + LE OUI 8B 84 90 + post-OUI body (version, ...)
+    const wire = new Uint8Array([0x01, 0x8b, 0x84, 0x90, 0x02, 0xaa, 0xbb]);
+    const decoded = decodeVSVDB(
+      { tag: 0x07, extendedTag: 0x01, data: new Uint8Array(0) },
+      wire.slice(1), // drop extended-tag byte
+    );
+    expect(decoded.ieeeOui).toBe(0x90848b);
+    expect(VENDOR_VSVDB_DECODERS[decoded.ieeeOui]).toBeDefined();
+    const fields = VENDOR_VSVDB_DECODERS[decoded.ieeeOui]!.decode(decoded.payload) as {
+      applicationVersion: number;
+      payload: Uint8Array;
+    };
+    expect(fields.applicationVersion).toBe(0x02);
+    expect(Array.from(fields.payload)).toEqual([0xaa, 0xbb]);
+  });
 });

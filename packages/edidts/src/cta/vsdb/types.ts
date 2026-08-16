@@ -49,12 +49,6 @@ export interface AMDFreeSyncVSDB {
   flags: number;
 }
 
-export interface HDR10PlusVSDB {
-  applicationIdentifier: number;
-  applicationVersion: number;
-  payload: Uint8Array;
-}
-
 export interface MHLVSDB {
   version: number;          // byte 0 bits 7:4 — MHL major version
   revision: number;         // byte 0 bits 3:0 — MHL minor revision
@@ -67,7 +61,6 @@ export type VendorSpecificDecoded =
   | { kind: 'hdmiForum'; fields: HDMIForumVSDB }
   | { kind: 'microsoftHmd'; fields: MicrosoftHMDVSDB }
   | { kind: 'amdFreeSync'; fields: AMDFreeSyncVSDB }
-  | { kind: 'hdr10Plus'; fields: HDR10PlusVSDB }
   | { kind: 'mhl'; fields: MHLVSDB }
   | { kind: 'unknown'; ieeeOui: number; raw: Uint8Array };
 
@@ -83,7 +76,13 @@ export const OUI = {
   HDMI_FORUM: 0xC45DD8,
   MICROSOFT_HMD: 0xCA125C,
   AMD: 0x00001A,
-  HDR10_PLUS: 0x8B8490,        // LE on-wire; big-endian integer
+  // HDR10+ Technologies, LLC (IEEE oui.txt 90-84-8B). edid-decode keys this as
+  // 0x90848b. The dispatcher reads the LE wire bytes (8B 84 90) as the integer
+  // (MSB<<16)|(mid<<8)|LSB = 0x90848B, so the constant must be 0x90848B — NOT the
+  // reversed 0x8B8490. HDR10+ is carried in a VSVDB (tag 0x07 ext 0x01), see
+  // cta/vsvdb/registry.ts; there is no tag-0x03 VSDB form (edid-decode dumps a
+  // tag-0x03 block with this OUI as raw bytes).
+  HDR10_PLUS: 0x90848B,
   MHL: 0x7CD880,            // Silicon Image / MHL Consortium — LE on-wire; big-endian integer
   // Dolby Vision lives in a Vendor-Specific Video Data Block (tag 0x07 ext 0x01),
   // not a regular VSDB. The constant is exported here so that the vsvdb/ module
