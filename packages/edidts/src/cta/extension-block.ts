@@ -514,6 +514,8 @@ export class ExtensionBlockParser {
         return this.encodeVendorSpecificDataBlock(block as VendorSpecificDataBlock);
       case 0x04:
         return this.encodeSpeakerAllocationBlock(block as SpeakerAllocationBlock);
+      case 0x05:
+        return this.encodeVESADisplayTransferBlock(block as VESADisplayTransferCharacteristicBlock);
       case 0x07:
         return encodeExtendedDataBlock(block as CTAExtendedDataBlock);
       default:
@@ -592,6 +594,42 @@ export class ExtensionBlockParser {
     if (s.topCenter) byte2 |= 0x02;
     if (s.frontCenterHigh) byte2 |= 0x04;
     return new Uint8Array([byte1, byte2, 0]);
+  }
+
+  /**
+   * Encode a VESA Display Transfer Characteristic Data Block (CTA tag 0x05).
+   *
+   * CTA-861-G Section 6.8.2 "VESA Display Transfer Characteristic Data Block":
+   * the header byte packs the transfer type and the entry-count code alongside
+   * reserved bits, and the following bytes are gamma values (normalized value
+   * = byte / 255).
+   *
+   * The encoder reverses `decodeVESADisplayTransferBlock` exactly: it starts
+   * from a copy of the original payload (so reserved bits and any trailing
+   * bytes are preserved) and overwrites only the modeled fields. The decoder
+   * reads the transfer-type code from bits 6:5 and the entry-count code from
+   * bits 4:3, so the encoder writes back to those same bit positions.
+   */
+  private static encodeVESADisplayTransferBlock(block: VESADisplayTransferCharacteristicBlock): Uint8Array {
+    const out = block.data.slice();
+    if (out.length < 1) return out;
+
+    // Same maps as the decoder (see decodeVESADisplayTransferBlock).
+    const typeCode: Record<typeof block.transferType, number> = { white: 0, red: 1, green: 2, blue: 3 };
+    const numCode: Record<number, number> = { 8: 0, 16: 1, 32: 2, 48: 3 };
+
+    // Preserve bit 7 and bits 2:0 (reserved); overwrite bits 6:5 (type) and
+    // bits 4:3 (entry-count code). Unknown values fall back to 0 like the
+    // decoder's `?? 'white'` / `?? 8` defaults.
+    out[0] =
+      (out[0] & 0x87) |
+      ((typeCode[block.transferType] ?? 0) << 5) |
+      ((numCode[block.numEntries] ?? 0) << 3);
+
+    for (let i = 0; i < block.gammaValues.length && 1 + i < out.length; i++) {
+      out[1 + i] = Math.round(block.gammaValues[i] * 255) & 0xFF;
+    }
+    return out;
   }
 
   private static encodeBlockMap(bytes: Uint8Array, blockMap: BlockMapExtension): void {
