@@ -252,7 +252,18 @@ export class ExtensionBlockParser {
     return bytes;
   }
 
-  private static decodeCEA(data: Uint8Array, base: BaseExtensionBlock): CEAExtensionBlock {
+  static decodeCEA(data: Uint8Array, base: BaseExtensionBlock): CEAExtensionBlock {
+    // Explicit tag guard: decodeCEA only applies to CTA-861 extension blocks
+    // (tag 0x02). The ExtensionBlockParser.decode switch gates on data[0] before
+    // calling this, so the guard is defensive against future callers that might
+    // misroute a non-0x02 buffer here. Throw a clear error rather than silently
+    // mis-parsing; the EEDID dispatcher catches this and falls back to opaque.
+    if (data[0] !== 0x02) {
+      throw new Error(
+        `CEA extension block tag must be 0x02; got 0x${data[0].toString(16).padStart(2, '0')}`,
+      );
+    }
+
     const dtdOffset = data[2];
     const flags = data[3];
 

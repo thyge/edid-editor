@@ -16,6 +16,7 @@ import {
   type InfoFrameDataBlock,
 } from '../src/cta';
 import { isChecksum8Valid, checksum8 } from '../src/common';
+import { decodeExtension, isCEAExtension, isOpaqueExtension } from '../src/eedid';
 
 /** Build a Video Data Block with `count` non-native VICs. */
 function videoBlock(count: number): VideoDataBlock {
@@ -338,5 +339,55 @@ describe('CEA extension block container', () => {
         Array.from(original),
       );
     });
+  });
+});
+
+describe('CEA tag-0x02 validation (TASK-2)', () => {
+  /** Minimal valid 128-byte CEA block: tag 0x02, rev 3, dtdOffset 4, no blocks. */
+  function validCeaBytes(): Uint8Array {
+    const bytes = new Uint8Array(128);
+    bytes[0] = 0x02;
+    bytes[1] = 3;
+    bytes[2] = 4; // dtdOffset — no data blocks, no DTDs
+    bytes[3] = 0;
+    bytes[127] = checksum8(bytes, 127);
+    return bytes;
+  }
+
+  it('decodeCEA throws a clear error when the tag is not 0x02 (misrouted input)', () => {
+    const bad = new Uint8Array(128);
+    bad[0] = 0x10; // wrong tag
+    bad[127] = checksum8(bad, 127);
+    const base = {
+      tag: 0x10 as const,
+      revision: bad[1],
+      checksum: bad[127],
+      checksumValid: isChecksum8Valid(bad),
+      data: bad.slice(2, 127),
+    };
+    expect(() => ExtensionBlockParser.decodeCEA(bad, base)).toThrow(
+      /CEA extension block tag must be 0x02; got 0x10/,
+    );
+  });
+
+  it('decodeExtension returns a CEA extension for a valid 0x02 block', () => {
+    const ext = decodeExtension(validCeaBytes());
+    expect(isCEAExtension(ext)).toBe(true);
+    if (isCEAExtension(ext)) {
+      expect(ext.tag).toBe(0x02);
+      expect(ext.revision).toBe(3);
+    }
+  });
+
+  it('decodeExtension falls back to opaque for a non-0x02 tag', () => {
+    const bytes = new Uint8Array(128);
+    bytes[0] = 0x10; // VTB-style tag — not a CTA block
+    bytes[1] = 1;
+    bytes[127] = checksum8(bytes, 127);
+    const ext = decodeExtension(bytes);
+    expect(isOpaqueExtension(ext)).toBe(true);
+    if (isOpaqueExtension(ext)) {
+      expect(ext.tag).toBe(0x10);
+    }
   });
 });

@@ -96,9 +96,16 @@ export function decodeExtension(bytes: Uint8Array): Extension {
 
   switch (tag) {
     case 0x02: {
-      const cta = ExtensionBlockParser.decode(bytes);
-      if (cta && cta.tag === 0x02) {
-        return cta as CEAExtension;
+      // Parse as CTA-861; on any parse error (or a non-0x02 result) fall back
+      // to opaque, mirroring the DisplayID arm's try/catch → opaque pattern so
+      // a single malformed CTA block never crashes the whole EEDID decode.
+      try {
+        const cta = ExtensionBlockParser.decode(bytes);
+        if (cta && cta.tag === 0x02) {
+          return cta as CEAExtension;
+        }
+      } catch {
+        // fall through to opaque
       }
       return decodeOpaque(bytes);
     }
