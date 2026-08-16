@@ -59,6 +59,33 @@ export {
   encodeCtaDisplayIdBlock,
 } from './cta-displayid';
 export {
+  decodeTypeXTimingBlock,
+  encodeTypeXTimingBlock,
+  isTypeXTimingPayloadLengthValid,
+} from './type-x-timing';
+export {
+  decodeAdaptiveSyncBlock,
+  encodeAdaptiveSyncBlock,
+  isAdaptiveSyncPayloadValid,
+} from './adaptive-sync';
+export {
+  decodeArvrHmdBlock,
+  encodeArvrHmdBlock,
+  decodeArvrLayerBlock,
+  encodeArvrLayerBlock,
+  ARVR_HMD_TAG,
+  ARVR_LAYER_TAG,
+  ARVR_HMD_PAYLOAD_LENGTH,
+  ARVR_LAYER_PAYLOAD_LENGTH,
+} from './ar-vr';
+export {
+  decodeBrightnessLuminanceRangeBlock,
+  encodeBrightnessLuminanceRangeBlock,
+  isBrightnessLuminanceRangePayloadLengthValid,
+  BRIGHTNESS_LUMINANCE_RANGE_TAG,
+  BRIGHTNESS_LUMINANCE_RANGE_PAYLOAD_LENGTH,
+} from './brightness-luminance';
+export {
   decodeDisplayIdSection,
   encodeDisplayIdSection,
 } from './section';
@@ -87,3 +114,18 @@ export type {
   DisplayIdVendorSpecificBlock,
   KnownDisplayIdDataBlock,
 } from './types';
+export type {
+  DisplayIdTypeXTimingBlock,
+  DisplayIdTypeXTimingDescriptor,
+} from './type-x-timing';
+export type {
+  DisplayIdAdaptiveSyncBlock,
+  DisplayIdAdaptiveSyncDescriptor,
+} from './adaptive-sync';
+export type {
+  DisplayIdArvrHmdBlock,
+  DisplayIdArvrLayerBlock,
+} from './ar-vr';
+export type {
+  DisplayIdBrightnessLuminanceRangeBlock,
+} from './brightness-luminance';

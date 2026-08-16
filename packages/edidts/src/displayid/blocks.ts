@@ -72,6 +72,34 @@ import {
   decodeCtaDisplayIdBlock,
   encodeCtaDisplayIdBlock,
 } from './cta-displayid';
+import {
+  decodeTypeXTimingBlock,
+  encodeTypeXTimingBlock,
+  isTypeXTimingPayloadLengthValid,
+  type DisplayIdTypeXTimingBlock,
+} from './type-x-timing';
+import {
+  decodeAdaptiveSyncBlock,
+  encodeAdaptiveSyncBlock,
+  isAdaptiveSyncPayloadValid,
+  type DisplayIdAdaptiveSyncBlock,
+} from './adaptive-sync';
+import {
+  decodeArvrHmdBlock,
+  encodeArvrHmdBlock,
+  decodeArvrLayerBlock,
+  encodeArvrLayerBlock,
+  ARVR_HMD_PAYLOAD_LENGTH,
+  ARVR_LAYER_PAYLOAD_LENGTH,
+  type DisplayIdArvrHmdBlock,
+  type DisplayIdArvrLayerBlock,
+} from './ar-vr';
+import {
+  decodeBrightnessLuminanceRangeBlock,
+  encodeBrightnessLuminanceRangeBlock,
+  isBrightnessLuminanceRangePayloadLengthValid,
+  type DisplayIdBrightnessLuminanceRangeBlock,
+} from './brightness-luminance';
 
 export interface DecodeBlocksResult {
   blocks: DisplayIdDataBlock[];
@@ -218,6 +246,36 @@ function decodeKnownBlock(block: DisplayIdDataBlock): DisplayIdDataBlock {
     return decodeContainerIdBlock(block);
   }
 
+  if (block.tag === DisplayIdDataBlockTag.TypeXTiming) {
+    const descriptorSizeCode = (block.flags >> 1) & 0x07;
+    const descriptorSize = 6 + descriptorSizeCode;
+    if (descriptorSizeCode <= 2 && isTypeXTimingPayloadLengthValid(block.payloadLength, descriptorSize)) {
+      return decodeTypeXTimingBlock(block);
+    }
+  }
+
+  if (block.tag === DisplayIdDataBlockTag.AdaptiveSync) {
+    const descriptorLenCode = (block.flags >> 1) & 0x07;
+    if (descriptorLenCode === 0 && isAdaptiveSyncPayloadValid(block.payloadLength)) {
+      return decodeAdaptiveSyncBlock(block);
+    }
+  }
+
+  if (block.tag === DisplayIdDataBlockTag.ArvrHmd && block.payloadLength === ARVR_HMD_PAYLOAD_LENGTH) {
+    return decodeArvrHmdBlock(block);
+  }
+
+  if (block.tag === DisplayIdDataBlockTag.ArvrLayer && block.payloadLength === ARVR_LAYER_PAYLOAD_LENGTH) {
+    return decodeArvrLayerBlock(block);
+  }
+
+  if (
+    block.tag === DisplayIdDataBlockTag.BrightnessLuminanceRange &&
+    isBrightnessLuminanceRangePayloadLengthValid(block.payloadLength)
+  ) {
+    return decodeBrightnessLuminanceRangeBlock(block);
+  }
+
   if (block.tag === DisplayIdDataBlockTag.VendorSpecific) {
     return decodeVendorSpecificBlock(block);
   }
@@ -268,6 +326,26 @@ function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
 
   if (isTypedContainerIdBlock(block)) {
     return encodeContainerIdBlock(block);
+  }
+
+  if (isTypedTypeXTimingBlock(block)) {
+    return encodeTypeXTimingBlock(block);
+  }
+
+  if (isTypedAdaptiveSyncBlock(block)) {
+    return encodeAdaptiveSyncBlock(block);
+  }
+
+  if (isTypedArvrHmdBlock(block)) {
+    return encodeArvrHmdBlock(block);
+  }
+
+  if (isTypedArvrLayerBlock(block)) {
+    return encodeArvrLayerBlock(block);
+  }
+
+  if (isTypedBrightnessLuminanceRangeBlock(block)) {
+    return encodeBrightnessLuminanceRangeBlock(block);
   }
 
   if (isTypedVendorSpecificBlock(block)) {
@@ -423,6 +501,46 @@ function isTypedContainerIdBlock(block: DisplayIdDataBlock): block is DisplayIdC
     block.tag === DisplayIdDataBlockTag.ContainerId &&
     maybeBlock.containerId instanceof Uint8Array &&
     isContainerIdPayloadLengthValid(maybeBlock.containerId.length)
+  );
+}
+
+function isTypedTypeXTimingBlock(block: DisplayIdDataBlock): block is DisplayIdTypeXTimingBlock {
+  const maybeBlock = block as Partial<DisplayIdTypeXTimingBlock>;
+
+  return (
+    block.tag === DisplayIdDataBlockTag.TypeXTiming &&
+    typeof maybeBlock.descriptorSize === 'number' &&
+    Array.isArray(maybeBlock.timings)
+  );
+}
+
+function isTypedAdaptiveSyncBlock(block: DisplayIdDataBlock): block is DisplayIdAdaptiveSyncBlock {
+  return (
+    block.tag === DisplayIdDataBlockTag.AdaptiveSync &&
+    Array.isArray((block as Partial<DisplayIdAdaptiveSyncBlock>).descriptors)
+  );
+}
+
+function isTypedArvrHmdBlock(block: DisplayIdDataBlock): block is DisplayIdArvrHmdBlock {
+  return (
+    block.tag === DisplayIdDataBlockTag.ArvrHmd &&
+    typeof (block as Partial<DisplayIdArvrHmdBlock>).dualLayerSingleStreamTransport === 'number'
+  );
+}
+
+function isTypedArvrLayerBlock(block: DisplayIdDataBlock): block is DisplayIdArvrLayerBlock {
+  return (
+    block.tag === DisplayIdDataBlockTag.ArvrLayer &&
+    typeof (block as Partial<DisplayIdArvrLayerBlock>).hmdManufacturerOui === 'number'
+  );
+}
+
+function isTypedBrightnessLuminanceRangeBlock(
+  block: DisplayIdDataBlock,
+): block is DisplayIdBrightnessLuminanceRangeBlock {
+  return (
+    block.tag === DisplayIdDataBlockTag.BrightnessLuminanceRange &&
+    typeof (block as Partial<DisplayIdBrightnessLuminanceRangeBlock>).minSdrLuminance === 'number'
   );
 }
 

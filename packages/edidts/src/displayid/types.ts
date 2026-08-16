@@ -1,3 +1,8 @@
+import type { DisplayIdTypeXTimingBlock } from './type-x-timing';
+import type { DisplayIdAdaptiveSyncBlock } from './adaptive-sync';
+import type { DisplayIdArvrHmdBlock, DisplayIdArvrLayerBlock } from './ar-vr';
+import type { DisplayIdBrightnessLuminanceRangeBlock } from './brightness-luminance';
+
 export enum DisplayIdDataBlockTag {
   ProductIdentification = 0x20,
   DisplayParameters = 0x21,
@@ -9,6 +14,11 @@ export enum DisplayIdDataBlockTag {
   StereoDisplayInterface = 0x27,
   TiledDisplayTopology = 0x28,
   ContainerId = 0x29,
+  TypeXTiming = 0x2a,
+  AdaptiveSync = 0x2b,
+  ArvrHmd = 0x2c,
+  ArvrLayer = 0x2d,
+  BrightnessLuminanceRange = 0x2e,
   VendorSpecific = 0x7e,
   CtaDisplayId = 0x81,
 }
@@ -148,6 +158,11 @@ export type KnownDisplayIdDataBlock =
   | DisplayIdStereoDisplayInterfaceBlock
   | DisplayIdTiledDisplayTopologyBlock
   | DisplayIdContainerIdBlock
+  | DisplayIdTypeXTimingBlock
+  | DisplayIdAdaptiveSyncBlock
+  | DisplayIdArvrHmdBlock
+  | DisplayIdArvrLayerBlock
+  | DisplayIdBrightnessLuminanceRangeBlock
   | DisplayIdVendorSpecificBlock
   | DisplayIdCtaBlock;
 
@@ -162,6 +177,11 @@ export const DISPLAY_ID_BLOCK_LABELS: Record<DisplayIdDataBlockTag, string> = {
   [DisplayIdDataBlockTag.StereoDisplayInterface]: 'Stereo Display Interface',
   [DisplayIdDataBlockTag.TiledDisplayTopology]: 'Tiled Display Topology',
   [DisplayIdDataBlockTag.ContainerId]: 'ContainerID',
+  [DisplayIdDataBlockTag.TypeXTiming]: 'Type X Timing',
+  [DisplayIdDataBlockTag.AdaptiveSync]: 'Adaptive Sync',
+  [DisplayIdDataBlockTag.ArvrHmd]: 'AR/VR HMD',
+  [DisplayIdDataBlockTag.ArvrLayer]: 'AR/VR Layer',
+  [DisplayIdDataBlockTag.BrightnessLuminanceRange]: 'Brightness Luminance Range',
   [DisplayIdDataBlockTag.VendorSpecific]: 'Vendor-Specific',
   [DisplayIdDataBlockTag.CtaDisplayId]: 'CTA DisplayID',
 };
@@ -258,6 +278,34 @@ export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDi
         ...createDefaultBlock(tag, 16),
         tag,
         containerId: new Uint8Array(16),
+      };
+    case DisplayIdDataBlockTag.TypeXTiming:
+      return {
+        ...createDefaultBlock(tag, 0),
+        tag,
+        timings: [],
+        descriptorSize: 6,
+      };
+    case DisplayIdDataBlockTag.AdaptiveSync:
+      return {
+        ...createDefaultBlock(tag, 0),
+        tag,
+        descriptors: [],
+      };
+    case DisplayIdDataBlockTag.ArvrHmd:
+      // 79-byte HMD block; structured fields default to all-zero (a zero payload
+      // decodes to zero/false for every field). Cast avoids enumerating ~40 fields.
+      return { ...createDefaultBlock(tag, 79), tag } as DisplayIdArvrHmdBlock;
+    case DisplayIdDataBlockTag.ArvrLayer:
+      // 20-byte Layer block; same zero-default rationale as the HMD case.
+      return { ...createDefaultBlock(tag, 20), tag } as DisplayIdArvrLayerBlock;
+    case DisplayIdDataBlockTag.BrightnessLuminanceRange:
+      return {
+        ...createDefaultBlock(tag, 6),
+        tag,
+        minSdrLuminance: 0,
+        maxSdrLuminance: 0,
+        maxBoostSdrLuminance: 0,
       };
     case DisplayIdDataBlockTag.VendorSpecific:
       return {
