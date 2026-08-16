@@ -4,6 +4,7 @@ node_modules
 packages/*/dist
 .worktrees/
 .claude/worktrees/
+backlog/
 
 
 # local env files
