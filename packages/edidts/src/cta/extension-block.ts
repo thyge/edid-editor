@@ -27,7 +27,7 @@ import {
   type VideoTimingBlock as VTBExtensionBlock,
   type VideoTimingBlockDetailedTiming as VTBDetailedTiming,
 } from './video-timing-block';
-import { checksum8 } from '../common/checksum';
+import { checksum8, isChecksum8Valid } from '../common/checksum';
 import { decodeDisplayIdSection, encodeDisplayIdSection, type DisplayIdSection } from '../displayid';
 
 export type { VTBExtensionBlock, VTBDetailedTiming };
@@ -48,6 +48,13 @@ export interface BaseExtensionBlock {
   revision: number;
   checksum: number;
   data: Uint8Array;
+  /**
+   * True iff the 128-byte block's byte-127 8-bit checksum is valid (sum of all
+   * 128 bytes ≡ 0 mod 256). Always populated by `ExtensionBlockParser.decode`;
+   * optional so programmatic object literals (tests, `blank()`) type-check
+   * without supplying it.
+   */
+  checksumValid?: boolean;
 }
 
 /**
@@ -198,6 +205,7 @@ export class ExtensionBlockParser {
       tag,
       revision,
       checksum,
+      checksumValid: isChecksum8Valid(data),
       data: data.slice(2, 127),
     };
 

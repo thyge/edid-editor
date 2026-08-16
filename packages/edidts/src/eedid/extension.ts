@@ -20,7 +20,7 @@ import {
 } from '../cta/extension-block';
 import { decodeDisplayIdSections, encodeDisplayIdSection } from '../displayid/section';
 import type { DisplayIdSection } from '../displayid/types';
-import { checksum8 } from '../common/checksum';
+import { checksum8, isChecksum8Valid } from '../common/checksum';
 
 export type CEAExtension = CEAExtensionBlock;
 
@@ -45,6 +45,13 @@ export interface DisplayIdExtension {
    */
   sections?: DisplayIdSection[];
   checksum: number;
+  /**
+   * True iff this 0x70 extension block's byte-127 EDID block checksum is valid.
+   * Each carried section's own section-level checksum validity is exposed on
+   * `sections[].isChecksumValid`. Always populated by `decodeDisplayId`;
+   * optional so programmatic literals type-check without it.
+   */
+  checksumValid?: boolean;
 }
 
 export interface OpaqueExtension {
@@ -53,6 +60,11 @@ export interface OpaqueExtension {
   revision: number;
   bytes: Uint8Array;
   checksum: number;
+  /**
+   * True iff the 128-byte block's byte-127 8-bit checksum is valid. Always
+   * populated by `decodeOpaque`; optional so programmatic literals type-check.
+   */
+  checksumValid?: boolean;
 }
 
 export type Extension = CEAExtension | DisplayIdExtension | OpaqueExtension;
@@ -112,6 +124,7 @@ function decodeOpaque(bytes: Uint8Array): OpaqueExtension {
     revision: bytes[1],
     bytes: bytes.slice(),
     checksum: bytes[127],
+    checksumValid: isChecksum8Valid(bytes),
   };
 }
 
@@ -142,6 +155,7 @@ function decodeDisplayId(bytes: Uint8Array): DisplayIdExtension | OpaqueExtensio
       section,
       sections,
       checksum: bytes[127],
+      checksumValid: isChecksum8Valid(bytes),
     };
   } catch {
     return decodeOpaque(bytes);

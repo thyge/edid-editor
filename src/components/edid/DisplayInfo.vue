@@ -267,6 +267,9 @@ function updateFeature(key: string, value: unknown) {
                 {{ edid.isValid ? 'Valid' : 'Invalid' }}
               </span>
             </div>
+            <ul v-if="edid.checksumDiagnostics?.length" class="mt-1 space-y-0.5 text-xs text-destructive">
+              <li v-for="(d, i) in edid.checksumDiagnostics" :key="i">{{ d }}</li>
+            </ul>
           </div>
         </div>
       </section>

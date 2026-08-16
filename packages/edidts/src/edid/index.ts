@@ -1,6 +1,6 @@
 import { DetailedTimingDescriptor } from "../common/detailed-timing-descriptor";
 import { generateCVTDetailedTiming } from "../common/cvt-timing-generator";
-import { checksum8 } from "../common/checksum";
+import { checksum8, isChecksum8Valid } from "../common/checksum";
 import { ColorCharacteristics } from "./color-characteristics";
 import { EDIDHeader } from "./edid-header";
 import { EstablishedTiming } from "./established-timing";
@@ -44,6 +44,12 @@ export class EDID {
    * EDID directly are unaffected.
    */
   public isBaseValid: boolean;
+  /**
+   * True iff the 128-byte base block's byte-127 8-bit checksum is valid (sum of
+   * all 128 bytes ≡ 0 mod 256). Populated by `EDID.decode`; defaults to true so
+   * programmatically constructed/blank EDIDs are unaffected.
+   */
+  public checksumValid: boolean;
 
   constructor(init?: Partial<EDID>) {
     this.header = init?.header ?? new EDIDHeader();
@@ -64,6 +70,7 @@ export class EDID {
     ];
     this.displayDescriptors = init?.displayDescriptors ?? [];
     this.isBaseValid = init?.isBaseValid ?? true;
+    this.checksumValid = init?.checksumValid ?? true;
   }
 
   static decode(data: ArrayBuffer | Uint8Array): EDID {
@@ -88,6 +95,7 @@ export class EDID {
       slot0Bytes[3] === 0x10;
     const slot0IsEmpty = slot0Bytes.every((b) => b === 0x00);
     const isBaseValid = !(slot0IsDummy || slot0IsEmpty);
+    const checksumValid = isChecksum8Valid(bytes);
 
     return new EDID({
       header: EDIDHeader.decode(bytes),
@@ -101,6 +109,7 @@ export class EDID {
       detailedTimings,
       displayDescriptors,
       isBaseValid,
+      checksumValid,
     });
   }
 

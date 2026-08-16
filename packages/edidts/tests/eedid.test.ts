@@ -378,3 +378,57 @@ describe('EEDID extension checksum validity (Section 3.11)', () => {
     expect(eedid.extensionsValid).toBe(true)
   })
 })
+
+describe('EEDID per-block checksum validity + diagnostics (TASK-1)', () => {
+  // Build a base block + one CTA extension block, both with correct checksums.
+  function buildBlob(): Uint8Array {
+    const base = EDID.encode(EDID.blank())
+    const cta = ExtensionBlockParser.encode({
+      tag: 0x02, revision: 3, checksum: 0, data: new Uint8Array(125),
+      dtdOffset: 4, underscan: false, basicAudio: false,
+      ycbcr444: false, ycbcr422: false, nativeFormats: 0,
+      dataBlocks: [], detailedTimings: [],
+    })
+    const blob = new Uint8Array(base.length + cta.length)
+    blob.set(base, 0)
+    blob.set(cta, 128)
+    blob[126] = 1 // declared extension count
+    blob[127] = checksum8(blob, 127) // re-fix base checksum after editing byte 126
+    return blob
+  }
+
+  it('records base checksumValid and isValid = true for a well-formed blob', () => {
+    const eedid = EEDID.decode(buildBlob())
+    expect(eedid.base.checksumValid).toBe(true)
+    expect(eedid.isValid).toBe(true)
+    expect(eedid.extensionsValid).toBe(true)
+    expect(eedid.checksumDiagnostics).toEqual([])
+  })
+
+  it('records base.checksumValid = false + a diagnostic when the base checksum is corrupt', () => {
+    const blob = buildBlob()
+    blob[60] ^= 0x01 // corrupt a base byte (not the 8-byte signature, not the checksum byte) → base sum != 0
+    const eedid = EEDID.decode(blob)
+    expect(eedid.base.checksumValid).toBe(false)
+    expect(eedid.isValid).toBe(false)
+    expect(eedid.checksumDiagnostics).toContain('Base EDID block checksum is invalid')
+    // The extension is still valid on its own.
+    expect(eedid.extensionsValid).toBe(true)
+    expect(eedid.extensions[0].checksumValid).toBe(true)
+  })
+
+  it('records the extension checksumValid = false + a diagnostic when the CTA block checksum is corrupt', () => {
+    const blob = buildBlob()
+    blob[255] ^= 0xff // corrupt the CTA block's byte-127 checksum
+    const eedid = EEDID.decode(blob)
+    expect(eedid.base.checksumValid).toBe(true)
+    expect(eedid.isValid).toBe(true)
+    expect(eedid.extensionsValid).toBe(false)
+    expect(eedid.extensions[0].checksumValid).toBe(false)
+    expect(eedid.checksumDiagnostics).toContain(
+      'Extension 1 (CTA-861, tag 0x02) block checksum is invalid',
+    )
+    // Base diagnostic must NOT be present — only the extension is bad.
+    expect(eedid.checksumDiagnostics).not.toContain('Base EDID block checksum is invalid')
+  })
+})

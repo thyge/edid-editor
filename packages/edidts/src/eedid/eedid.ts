@@ -1,6 +1,6 @@
 import { EDID } from '../edid';
-import { decodeExtension, encodeExtension, type Extension } from './extension';
-import { checksum8, isChecksum8Valid } from '../common/checksum';
+import { decodeExtension, encodeExtension, isDisplayIdExtension, type Extension } from './extension';
+import { checksum8 } from '../common/checksum';
 
 const BLOCK_SIZE = 128;
 
@@ -22,6 +22,14 @@ export class EEDID {
    * decoding) are unaffected.
    */
   public extensionsValid: boolean;
+  /**
+   * Human-readable bad-checksum warnings, one per offending block. Covers the
+   * base block (byte-127 8-bit checksum), each extension block (byte-127),
+   * and — for DisplayID extensions — each carried section's section-level
+   * checksum. Empty when every checksum is valid. Populated by `EEDID.decode`;
+   * defaults to `[]` for directly-constructed instances.
+   */
+  public checksumDiagnostics: string[];
 
   constructor(init?: Partial<Pick<EEDID, 'base' | 'extensions'>>) {
     this.base = init?.base ?? new EDID();
@@ -29,6 +37,7 @@ export class EEDID {
     this.checksum = 0;
     this.isValid = false;
     this.extensionsValid = true;
+    this.checksumDiagnostics = [];
   }
 
   static decode(data: ArrayBuffer | Uint8Array): EEDID {
@@ -43,20 +52,37 @@ export class EEDID {
     const declaredCount = bytes[BLOCK_SIZE - 2];
 
     const extensions: Extension[] = [];
-    let extensionsValid = true;
     for (let i = 0; i < actualCount; i++) {
       const start = (i + 1) * BLOCK_SIZE;
       const block = bytes.subarray(start, start + BLOCK_SIZE);
       extensions.push(decodeExtension(block));
-      if (!isChecksum8Valid(block)) {
-        extensionsValid = false;
-      }
     }
+
+    const diagnostics: string[] = [];
+    if (!base.checksumValid) {
+      diagnostics.push('Base EDID block checksum is invalid');
+    }
+    extensions.forEach((ext, i) => {
+      const label = extensionLabel(ext);
+      if (ext.checksumValid === false) {
+        diagnostics.push(`Extension ${i + 1} (${label}) block checksum is invalid`);
+      }
+      if (isDisplayIdExtension(ext) && ext.sections) {
+        ext.sections.forEach((section, n) => {
+          if (!section.isChecksumValid) {
+            diagnostics.push(
+              `DisplayID section ${n + 1} (extension ${i + 1}) checksum is invalid`,
+            );
+          }
+        });
+      }
+    });
 
     const eedid = new EEDID({ base, extensions });
     eedid.checksum = bytes[BLOCK_SIZE - 1];
-    eedid.isValid = isChecksum8Valid(bytes.subarray(0, BLOCK_SIZE));
-    eedid.extensionsValid = extensionsValid;
+    eedid.isValid = base.checksumValid;
+    eedid.extensionsValid = extensions.every((ext) => ext.checksumValid === true);
+    eedid.checksumDiagnostics = diagnostics;
     void declaredCount;
     return eedid;
   }
@@ -78,4 +104,16 @@ export class EEDID {
   static blank(): EEDID {
     return new EEDID({ base: EDID.blank(), extensions: [] });
   }
+}
+
+/**
+ * Human-readable label for an extension, used in checksum diagnostics. Names
+ * the two first-class extension types (CTA-861, DisplayID) and falls back to
+ * the raw tag for opaque extensions (VTB, Block Map, manufacturer-defined…).
+ */
+function extensionLabel(ext: Extension): string {
+  if (ext.tag === 0x02) return 'CTA-861, tag 0x02';
+  if (isDisplayIdExtension(ext)) return 'DisplayID, tag 0x70';
+  const tag = ext.tag;
+  return `tag 0x${tag.toString(16).padStart(2, '0').toUpperCase()}`;
 }
