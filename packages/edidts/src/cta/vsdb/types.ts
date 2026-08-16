@@ -55,20 +55,6 @@ export interface HDR10PlusVSDB {
   payload: Uint8Array;
 }
 
-export interface VESAAdaptiveSyncVSDB {
-  fixedRateLink: boolean;
-  minRefreshHz: number;
-  maxRefreshHz: number;
-  minBacklightHz: number;
-  adaptiveSyncCapable: boolean;
-  bcap30: boolean;
-  dsc8bpc: boolean;
-  dsc10bpc: boolean;
-  dsc12bpc: boolean;
-  selFl: boolean;
-  vfrInactive: boolean;
-}
-
 export interface NvidiaVSDB {
   version: number;
   minRefreshHz: number;
@@ -89,7 +75,6 @@ export type VendorSpecificDecoded =
   | { kind: 'microsoftHmd'; fields: MicrosoftHMDVSDB }
   | { kind: 'amdFreeSync'; fields: AMDFreeSyncVSDB }
   | { kind: 'hdr10Plus'; fields: HDR10PlusVSDB }
-  | { kind: 'vesaAdaptiveSync'; fields: VESAAdaptiveSyncVSDB }
   | { kind: 'nvidia'; fields: NvidiaVSDB }
   | { kind: 'mhl'; fields: MHLVSDB }
   | { kind: 'unknown'; ieeeOui: number; raw: Uint8Array };
@@ -107,7 +92,6 @@ export const OUI = {
   MICROSOFT_HMD: 0xCA125C,
   AMD: 0x00001A,
   HDR10_PLUS: 0x8B8490,        // LE on-wire; big-endian integer
-  VESA_ADAPTIVE_SYNC: 0x9C5A78,
   NVIDIA: 0x00044B,
   MHL: 0x7CD880,            // Silicon Image / MHL Consortium — LE on-wire; big-endian integer
   // Dolby Vision lives in a Vendor-Specific Video Data Block (tag 0x07 ext 0x01),
