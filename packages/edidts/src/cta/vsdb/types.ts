@@ -42,11 +42,27 @@ export interface MicrosoftHMDVSDB {
   containerId: Uint8Array;  // 16-byte UUID
 }
 
+/**
+ * AMD FreeSync VSDB (OUI 0x00001A). Layout per edid-decode `cta_amd`
+ * (parse-cta-block.cpp), reverse-engineered from real EDIDs:
+ *   byte 0  versionMajor      — FreeSync version major
+ *   byte 1  versionMinor      — FreeSync version minor
+ *   byte 2  minRefreshHz      — minimum refresh rate (Hz)
+ *   byte 3  maxRefreshHz      — maximum refresh rate (Hz)
+ *   byte 4  flags1            — FreeSync 1.x flags (raw); bits in 0xE6 ⇒ MCCS
+ *   bytes 5.. payload         — FreeSync 2.x extension, preserved verbatim.
+ *                  edid-decode parses byte 5 as flags 2.x and bytes 6-9 as
+ *                  max/min luminance (with and without local dimming) when
+ *                  length >= 10, but marks those semantics as speculative, so
+ *                  they are kept opaque here for round-trip safety.
+ */
 export interface AMDFreeSyncVSDB {
+  versionMajor: number;
+  versionMinor: number;
   minRefreshHz: number;
   maxRefreshHz: number;
-  nativeRefreshHz: number;
-  flags: number;
+  flags1: number;
+  payload: Uint8Array;      // bytes 5.. — FreeSync 2.x extension, preserved verbatim
 }
 
 export interface MHLVSDB {
