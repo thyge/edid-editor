@@ -15,5 +15,6 @@ export interface DolbyVSDB {
 }
 
 export interface HDR10PlusVSDB {
-  applicationVersion: number;
+  applicationVersion: number;  // post-OUI byte 0 (full byte)
+  payload: Uint8Array;         // post-OUI bytes 1.. — vendor-specific, preserved verbatim
 }

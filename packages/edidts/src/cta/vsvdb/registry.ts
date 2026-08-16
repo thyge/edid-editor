@@ -2,7 +2,8 @@
 
 import type { ExtendedDataBlock, VendorSpecificVideoDataBlock } from '../cta-extended-blocks';
 import type { CEAExtensionBlock, CEADataBlock } from '../extension-block';
-import { writeIeeeOui } from '../../common/bintools';
+import { OUI } from '../vsdb/types';
+import type { HDR10PlusVSDB } from './types';
 
 // The VSVDB (Vendor-Specific Video Data Block) is the CTA-861-G extended tag
 // 0x01, distinct from the regular VSDB at tag 0x03. Only Dolby Vision is
@@ -70,7 +71,12 @@ export function decodeVSVDB(base: ExtendedDataBlock, payload: Uint8Array): Vendo
 export function reassembleVsvdbBlock(ieeeOui: number, payload: Uint8Array): Uint8Array {
   const out = new Uint8Array(1 + 3 + payload.length);
   out[0] = 0x01; // extended tag code
-  writeIeeeOui(out, 1, ieeeOui);
+  // OUI is written little-endian on the wire (low byte first), matching
+  // `decodeVSVDB`'s reader and the production `encodeVendorSpecificVideoBlock`.
+  // `writeIeeeOui` is big-endian, so write the bytes explicitly here.
+  out[1] = ieeeOui & 0xff;
+  out[2] = (ieeeOui >>> 8) & 0xff;
+  out[3] = (ieeeOui >>> 16) & 0xff;
   out.set(payload, 4);
   return out;
 }
@@ -87,3 +93,55 @@ export function findVSVDBs(cea: CEAExtensionBlock): VendorSpecificVideoDataBlock
       b.tag === 0x07 && (b as CEADataBlock & { extendedTag?: number }).extendedTag === 0x01
   );
 }
+
+// HDR10+ Vendor-Specific Video Data Block (VSVDB).
+//
+// CTA-861 extended tag 0x01, OUI 0x8B8490 (HDR10_PLUS). This is the VSVDB-form
+// carrier variant, distinct from the HDR10+ VSDB (tag 0x03, kind 'hdr10Plus')
+// in `vsdb/`. The post-OUI payload layout follows edid-decode `cta_hdr10plus`
+// (parse-cta-block.cpp): byte 0 = Application Version (full byte, printed as
+// %u); bytes 1.. = vendor-specific payload (opaque, preserved verbatim).
+//
+// NOTE: the local planning doc `docs/planning/vsdb/ouis/8B-84-90-hdr10-plus.md`
+// is stale (it could not access edid-decode) and marks the OUI as unverified;
+// this codec is therefore EXPERIMENTAL until the OUI assignment is confirmed
+// against an authoritative CTA-861 registry.
+//
+// The codec classes live directly in `registry.ts` (rather than a separate
+// `hdr10plus.ts` file) so that importing `vsvdb/registry` registers them in
+// production without requiring a side-effect import in `extension-block.ts`
+// (which cannot be edited here). This mirrors the Dolby registration shape but
+// keeps the definition adjacent to the registry maps to avoid a circular
+// side-effect import / temporal-dead-zone.
+
+export const HDR10_PLUS_VSVDB_DEFAULT: HDR10PlusVSDB = {
+  applicationVersion: 0,
+  payload: new Uint8Array(),
+};
+
+export class HDR10PlusVsvdbDecoder implements VendorDecoder<'hdr10PlusVsvdb'> {
+  readonly kind = 'hdr10PlusVsvdb' as const;
+  readonly minLength = 1;
+
+  decode(payload: Uint8Array): HDR10PlusVSDB {
+    if (payload.length < 1) return { ...HDR10_PLUS_VSVDB_DEFAULT };
+    return {
+      applicationVersion: payload[0],
+      payload: payload.slice(1),
+    };
+  }
+}
+
+export class HDR10PlusVsvdbEncoder implements VendorEncoder<'hdr10PlusVsvdb'> {
+  readonly kind = 'hdr10PlusVsvdb' as const;
+
+  encode(fields: HDR10PlusVSDB): Uint8Array {
+    const out = new Uint8Array(1 + fields.payload.length);
+    out[0] = fields.applicationVersion & 0xff;
+    out.set(fields.payload, 1);
+    return out;
+  }
+}
+
+VENDOR_VSVDB_DECODERS[OUI.HDR10_PLUS] = new HDR10PlusVsvdbDecoder();
+VENDOR_VSVDB_ENCODERS['hdr10PlusVsvdb'] = new HDR10PlusVsvdbEncoder();
