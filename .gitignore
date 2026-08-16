@@ -3,6 +3,7 @@ node_modules
 /dist
 packages/*/dist
 .worktrees/
+.claude/worktrees/
 
 
 # local env files
