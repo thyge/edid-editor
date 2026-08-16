@@ -98,7 +98,6 @@ export type {
   MicrosoftHMDVSDB,
   AMDFreeSyncVSDB,
   HDR10PlusVSDB,
-  NvidiaVSDB,
   MHLVSDB,
   VendorSpecificDataBlock,
   VendorSpecificDecoded,

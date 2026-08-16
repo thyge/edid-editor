@@ -6,7 +6,6 @@ export type {
   MicrosoftHMDVSDB,
   AMDFreeSyncVSDB,
   HDR10PlusVSDB,
-  NvidiaVSDB,
   VendorSpecificDataBlock,
   VendorSpecificDecoded,
 } from './types';

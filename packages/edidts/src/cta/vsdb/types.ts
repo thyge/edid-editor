@@ -55,13 +55,6 @@ export interface HDR10PlusVSDB {
   payload: Uint8Array;
 }
 
-export interface NvidiaVSDB {
-  version: number;
-  minRefreshHz: number;
-  maxRefreshHz: number;
-  flags: number;
-}
-
 export interface MHLVSDB {
   version: number;          // byte 0 bits 7:4 — MHL major version
   revision: number;         // byte 0 bits 3:0 — MHL minor revision
@@ -75,7 +68,6 @@ export type VendorSpecificDecoded =
   | { kind: 'microsoftHmd'; fields: MicrosoftHMDVSDB }
   | { kind: 'amdFreeSync'; fields: AMDFreeSyncVSDB }
   | { kind: 'hdr10Plus'; fields: HDR10PlusVSDB }
-  | { kind: 'nvidia'; fields: NvidiaVSDB }
   | { kind: 'mhl'; fields: MHLVSDB }
   | { kind: 'unknown'; ieeeOui: number; raw: Uint8Array };
 
@@ -92,7 +84,6 @@ export const OUI = {
   MICROSOFT_HMD: 0xCA125C,
   AMD: 0x00001A,
   HDR10_PLUS: 0x8B8490,        // LE on-wire; big-endian integer
-  NVIDIA: 0x00044B,
   MHL: 0x7CD880,            // Silicon Image / MHL Consortium — LE on-wire; big-endian integer
   // Dolby Vision lives in a Vendor-Specific Video Data Block (tag 0x07 ext 0x01),
   // not a regular VSDB. The constant is exported here so that the vsvdb/ module
