@@ -50,6 +50,48 @@ export function decodeDisplayIdSection(data: Uint8Array): DisplayIdSection {
   };
 }
 
+/**
+ * Walk a byte buffer containing one or more concatenated DisplayID 2.0
+ * sections and decode every section whose version byte (0x20) appears at a
+ * section boundary.
+ *
+ * The DisplayID 2.0 spec allows a single EDID `0x70` extension block to carry
+ * multiple chained sections when the base section's `extensionCount` (byte 3
+ * of the section) is greater than zero. Each section's total length is
+ * `bytesInSection + 5` (4-byte header + 1-byte trailing checksum), so after
+ * decoding one section we advance by `section.totalLength` and look for the
+ * next `0x20` version byte.
+ *
+ * Trailing fill bytes inside the EDID block are `0x00`, so the walk stops
+ * naturally when the next byte is no longer a section version byte. If a
+ * later section is malformed, the error is swallowed and the sections decoded
+ * so far are returned (so a single bad trailing section does not collapse the
+ * whole extension into opaque bytes). Returns at least one section for valid
+ * input; an empty array signals "no DisplayID section starts here".
+ */
+export function decodeDisplayIdSections(data: Uint8Array): DisplayIdSection[] {
+  const sections: DisplayIdSection[] = [];
+  let offset = 0;
+
+  while (
+    offset + MIN_SECTION_LENGTH <= data.length &&
+    data[offset] === DISPLAY_ID_2_0_VERSION_BYTE
+  ) {
+    let section: DisplayIdSection;
+    try {
+      section = decodeDisplayIdSection(data.subarray(offset));
+    } catch {
+      // A trailing section is malformed: keep what we have rather than
+      // throwing the whole extension into opaque.
+      break;
+    }
+    sections.push(section);
+    offset += section.totalLength;
+  }
+
+  return sections;
+}
+
 export function encodeDisplayIdSection(section: DisplayIdSection): Uint8Array {
   const encodedBlocks = section.blocks.map(encodeDisplayIdBlock);
   const blockLength = encodedBlocks.reduce((length, block) => length + block.length, 0);

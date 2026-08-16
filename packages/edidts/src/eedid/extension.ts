@@ -18,7 +18,7 @@ import {
   type CEAExtensionBlock,
   type ExtensionBlock,
 } from '../cta/extension-block';
-import { decodeDisplayIdSection, encodeDisplayIdSection } from '../displayid/section';
+import { decodeDisplayIdSections, encodeDisplayIdSection } from '../displayid/section';
 import type { DisplayIdSection } from '../displayid/types';
 import { checksum8 } from '../common/checksum';
 
@@ -28,7 +28,22 @@ export interface DisplayIdExtension {
   kind: 'displayid';
   tag: 0x70;
   revision: number;
+  /**
+   * The FIRST DisplayID section in this extension block. Kept for backward
+   * compatibility — the Vue UI reads `displayId.section` extensively. New
+   * consumers should prefer `sections` (which holds every chained section).
+   */
   section: DisplayIdSection;
+  /**
+   * ALL concatenated DisplayID sections carried by this `0x70` extension
+   * block. A single-block payload has exactly one section; when the base
+   * section's `extensionCount > 0` additional sections follow it and are
+   * preserved here so multi-section payloads round-trip. Optional only so
+   * legacy callers that construct an extension literal with just `section`
+   * keep type-checking — `encodeDisplayId` falls back to `[ext.section]`
+   * when this is absent; `decodeDisplayId` always populates it.
+   */
+  sections?: DisplayIdSection[];
   checksum: number;
 }
 
@@ -111,14 +126,21 @@ function encodeOpaque(ext: OpaqueExtension): Uint8Array {
 function decodeDisplayId(bytes: Uint8Array): DisplayIdExtension | OpaqueExtension {
   try {
     // DisplayID sections embedded in EDID extension blocks start at byte 1
-    // (byte 0 is the EDID tag = 0x70). The section's own version byte, etc.,
-    // live at bytes[1..]. Slice past the tag before handing to the section parser.
-    const section = decodeDisplayIdSection(bytes.subarray(1));
+    // (byte 0 is the EDID tag = 0x70). The DisplayID payload occupies bytes
+    // 1..126; byte 127 is the EDID block checksum and is NOT part of any
+    // section. Walk every concatenated section in that payload so multi-
+    // section chains (base section extensionCount > 0) are preserved.
+    const sections = decodeDisplayIdSections(bytes.subarray(1, 127));
+    if (sections.length === 0) {
+      return decodeOpaque(bytes);
+    }
+    const section = sections[0];
     return {
       kind: 'displayid',
       tag: 0x70,
       revision: section.revision,
       section,
+      sections,
       checksum: bytes[127],
     };
   } catch {
@@ -127,12 +149,28 @@ function decodeDisplayId(bytes: Uint8Array): DisplayIdExtension | OpaqueExtensio
 }
 
 function encodeDisplayId(ext: DisplayIdExtension): Uint8Array {
-  const encoded = encodeDisplayIdSection(ext.section);
+  // Encode every chained section. Fall back to the single `section` field for
+  // any extension built the old way (no `sections` array) so the common
+  // single-section path stays byte-identical.
+  const sections = ext.sections && ext.sections.length > 0
+    ? ext.sections
+    : [ext.section];
+  const encodedSections = sections.map(encodeDisplayIdSection);
+  const totalLength = encodedSections.reduce((sum, s) => sum + s.length, 0);
+
   const out = new Uint8Array(128);
   // byte 0 is the EDID tag (0x70); section content starts at byte 1
   out[0] = 0x70;
-  const available = Math.min(encoded.length, 127);
-  out.set(encoded.subarray(0, available), 1);
+  const available = Math.min(totalLength, 127);
+  let offset = 1;
+  let remaining = available;
+  for (const encoded of encodedSections) {
+    if (remaining <= 0) break;
+    const take = Math.min(encoded.length, remaining);
+    out.set(encoded.subarray(0, take), offset);
+    offset += take;
+    remaining -= take;
+  }
   out[127] = checksum8(out, 127);
   return out;
 }
