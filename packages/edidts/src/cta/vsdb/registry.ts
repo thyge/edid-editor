@@ -1,6 +1,7 @@
 // packages/edidts/src/cta/vsdb/registry.ts
 
-import type { VendorSpecificDecoded, VendorSpecificDataBlock } from './types';
+import type { VendorSpecificDecoded, VendorSpecificDataBlock, MHLVSDB } from './types';
+import { OUI } from './types';
 import type { CEAExtensionBlock } from '../extension-block';
 
 // 'unknown' is the fallback case and is never paired with a decoder/encoder.
@@ -73,3 +74,45 @@ export function findVSDBByKind(
 ): VendorSpecificDataBlock | null {
   return findVSDBs(cea).find(b => b.vendor?.kind === kind) ?? null;
 }
+
+/**
+ * MHL VSDB per the MHL specification (Silicon Image / MHL Consortium);
+ * OUI 0x7CD880; layout not in CTA-861-G — EXPERIMENTAL, byte-identical
+ * round-trip is the correctness gate.
+ *
+ * Post-OUI payload:
+ *   byte 0: bits 7:4 = MHL major version, bits 3:0 = MHL minor revision
+ *           (e.g. 0x10=v1.0, 0x20=v2.0, 0x30=v3.0).
+ *   byte 1: Device Capability — capability bit flags per MHL spec; per-bit
+ *           semantics not publicly verified, kept as a RAW byte.
+ *   bytes 2..: reserved / vendor-specific — preserved verbatim as `payload`.
+ */
+export class MHLDecoder implements VendorDecoder<'mhl'> {
+  readonly kind = 'mhl' as const;
+  readonly minLength = 1;
+
+  decode(payload: Uint8Array): MHLVSDB {
+    if (payload.length < 1) return { version: 0, revision: 0, deviceCapability: 0, payload: new Uint8Array() };
+    return {
+      version: (payload[0] >> 4) & 0x0F,
+      revision: payload[0] & 0x0F,
+      deviceCapability: payload.length >= 2 ? payload[1] : 0,
+      payload: payload.slice(2),
+    };
+  }
+}
+
+export class MHLEncoder implements VendorEncoder<'mhl'> {
+  readonly kind = 'mhl' as const;
+
+  encode(fields: MHLVSDB): Uint8Array {
+    const out = new Uint8Array(2 + fields.payload.length);
+    out[0] = ((fields.version & 0x0F) << 4) | (fields.revision & 0x0F);
+    out[1] = fields.deviceCapability & 0xFF;
+    out.set(fields.payload, 2);
+    return out;
+  }
+}
+
+VENDOR_DECODERS[OUI.MHL] = new MHLDecoder();
+VENDOR_ENCODERS['mhl'] = new MHLEncoder();

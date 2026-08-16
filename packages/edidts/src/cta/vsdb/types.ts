@@ -76,6 +76,13 @@ export interface NvidiaVSDB {
   flags: number;
 }
 
+export interface MHLVSDB {
+  version: number;          // byte 0 bits 7:4 — MHL major version
+  revision: number;         // byte 0 bits 3:0 — MHL minor revision
+  deviceCapability: number; // byte 1 — capability flags (raw byte; per-bit semantics unverified)
+  payload: Uint8Array;      // bytes 2.. — reserved/vendor-specific, preserved verbatim
+}
+
 export type VendorSpecificDecoded =
   | { kind: 'hdmi14'; fields: HDMI14VSDB }
   | { kind: 'hdmiForum'; fields: HDMIForumVSDB }
@@ -84,6 +91,7 @@ export type VendorSpecificDecoded =
   | { kind: 'hdr10Plus'; fields: HDR10PlusVSDB }
   | { kind: 'vesaAdaptiveSync'; fields: VESAAdaptiveSyncVSDB }
   | { kind: 'nvidia'; fields: NvidiaVSDB }
+  | { kind: 'mhl'; fields: MHLVSDB }
   | { kind: 'unknown'; ieeeOui: number; raw: Uint8Array };
 
 export interface VendorSpecificDataBlock extends CEADataBlock {
@@ -101,6 +109,7 @@ export const OUI = {
   HDR10_PLUS: 0x8B8490,        // LE on-wire; big-endian integer
   VESA_ADAPTIVE_SYNC: 0x9C5A78,
   NVIDIA: 0x00044B,
+  MHL: 0x7CD880,            // Silicon Image / MHL Consortium — LE on-wire; big-endian integer
   // Dolby Vision lives in a Vendor-Specific Video Data Block (tag 0x07 ext 0x01),
   // not a regular VSDB. The constant is exported here so that the vsvdb/ module
   // can register its decoder under the same OUI namespace.

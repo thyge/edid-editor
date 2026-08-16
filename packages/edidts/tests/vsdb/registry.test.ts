@@ -11,7 +11,7 @@ import '../../src/cta/vsdb/nvidia';
 
 describe('VSDB registry', () => {
   it('has a decoder for every OUI constant except Dolby (which is in VSVDB)', () => {
-    const expected = [OUI.HDMI_1_4, OUI.HDMI_FORUM, OUI.MICROSOFT_HMD, OUI.AMD, OUI.HDR10_PLUS, OUI.VESA_ADAPTIVE_SYNC, OUI.NVIDIA];
+    const expected = [OUI.HDMI_1_4, OUI.HDMI_FORUM, OUI.MICROSOFT_HMD, OUI.AMD, OUI.HDR10_PLUS, OUI.VESA_ADAPTIVE_SYNC, OUI.NVIDIA, OUI.MHL];
     for (const oui of expected) {
       expect(VENDOR_DECODERS[oui]).toBeDefined();
     }
