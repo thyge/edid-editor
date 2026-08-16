@@ -46,6 +46,7 @@ export type {
   VendorSpecificAudioDataBlock,
   RoomConfigurationDataBlock,
   SpeakerLocationDataBlock,
+  RoomEnvironmentDataBlock,
   InfoFrameDataBlock,
 } from './cta-extended-blocks';
 
@@ -99,6 +100,7 @@ export type {
   HDR10PlusVSDB,
   VESAAdaptiveSyncVSDB,
   NvidiaVSDB,
+  MHLVSDB,
   VendorSpecificDataBlock,
   VendorSpecificDecoded,
 } from './vsdb/types';

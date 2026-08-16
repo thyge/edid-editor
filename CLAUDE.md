@@ -6,6 +6,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a client-side Vue 3 application for viewing and editing EDID (Extended Display Identification Data), CEA-861 extension blocks, and DisplayID data. All EDID decoding and encoding logic lives in `packages/edidts/src/` and is framework-agnostic; the Vue layer in `src/components/` provides the UI. The root `package.json` depends on the local `packages/edidts` workspace package.
 
+## Specification references
+
+**Prefer the local spec material before searching online.** Authoritative spec PDFs live at the repo root:
+
+- `CTA-861-G_FINAL_revised_2017.pdf` — CTA-861-G (CEA extension, VSDBs, extended-tag data blocks).
+- `DisplayID_v2.0.pdf` — DisplayID 2.0.
+- `VESA-EEDID-A2.pdf` — VESA E-EDID (extension block structure).
+- `VESA-EEDID-VTB-EXT-A.pdf` — VESA VTB extension.
+- `VESA-DMT-1.13.pdf` — VESA DMT (video timings / DTD).
+
+Human-readable per-section breakdowns (byte layouts, field tables, implementation status) are in `docs/planning/`:
+
+- `docs/planning/cta-861-g-spec-breakdown/` — CTA-861-G section-by-section (data blocks, VSDBs, extended tags).
+- `docs/planning/vsdb/` — per-OUI VSDB layouts and status (`vsdb/ouis/<OUI>.md`).
+- `docs/planning/eedid-spec-breakdown/` — EDID 1.4 base block.
+- `docs/planning/displayid-v2-spec-breakdown/` — DisplayID 2.0.
+
+When the local docs don't cover a block (e.g. a CTA-861-H addition like the Room Environment Data Block, ext tag 0x15), cross-check against a reference parser and **cite the source (spec section or parser function) in a code comment**:
+
+- edid-decode (Hans Verkuil) — `parse-cta-block.cpp` in the v4l-utils tree: `https://git.linuxtv.org/v4l-utils.git` (upstream web access is bot-protected; use `git clone`). Mirror: `https://android.googlesource.com/platform/external/edid-decode`.
+- libdisplay-info (CTA-861-H based) — `https://gitlab.freedesktop.org/emersion/libdisplay-info`.
+- IEEE OUI registry — `https://standards-oui.ieee.org/oui/oui.txt`.
+
 ## Development Commands
 
 - `npm run dev` — Start the Vite development server.
