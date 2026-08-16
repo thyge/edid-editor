@@ -22,6 +22,7 @@ export type ExtendedTagCode =
   | 0x11  // Vendor-Specific Audio Data Block
   | 0x13  // Room Configuration Data Block
   | 0x14  // Speaker Location Data Block
+  | 0x15  // Room Environment Data Block (EXPERIMENTAL — CTA-861-H §7.5.17)
   | 0x20  // InfoFrame Data Block
   | number;
 
@@ -165,6 +166,25 @@ export interface SpeakerLocationDataBlock extends ExtendedDataBlock {
 }
 
 /**
+ * Room Environment Data Block (Extended Tag 0x15) — EXPERIMENTAL
+ *
+ * CTA-861-H §7.5.17 Room Environment Data Block; field semantics per
+ * ITU-T H.265 Ambient Viewing Environment SEI (Annex D.3.39); layout not
+ * verified against a parser — byte-identical round-trip is the correctness gate.
+ *
+ * Post-ext-tag payload (big-endian, fields optional — block may be shorter):
+ *   bytes 0–3: Ambient Illuminance, 32-bit BE, units 0.0001 lux (0 = unknown)
+ *   bytes 4–5: Ambient Light X, 16-bit BE, CIE 1931 x, units 0.00002
+ *   bytes 6–7: Ambient Light Y, 16-bit BE, CIE 1931 y, units 0.00002
+ */
+export interface RoomEnvironmentDataBlock extends ExtendedDataBlock {
+  extendedTag: 0x15;
+  ambientIlluminance?: number;
+  ambientLightX?: number;
+  ambientLightY?: number;
+}
+
+/**
  * InfoFrame Data Block (Extended Tag 32)
  */
 export interface InfoFrameDataBlock extends ExtendedDataBlock {
@@ -187,6 +207,7 @@ export type CTAExtendedDataBlock =
   | VendorSpecificAudioDataBlock
   | RoomConfigurationDataBlock
   | SpeakerLocationDataBlock
+  | RoomEnvironmentDataBlock
   | InfoFrameDataBlock
   | ExtendedDataBlock;
 
@@ -230,6 +251,8 @@ export function decodeExtendedDataBlock(blockData: Uint8Array): CTAExtendedDataB
       return decodeRoomConfigurationBlock(base, payload);
     case 0x14:
       return decodeSpeakerLocationBlock(base, payload);
+    case 0x15:
+      return decodeRoomEnvironmentBlock(base, payload);
     case 0x20:
       return decodeInfoFrameBlock(base, payload);
     default:
@@ -428,6 +451,23 @@ function decodeSpeakerLocationBlock(base: ExtendedDataBlock, payload: Uint8Array
   };
 }
 
+function decodeRoomEnvironmentBlock(base: ExtendedDataBlock, payload: Uint8Array): RoomEnvironmentDataBlock {
+  // EXPERIMENTAL — CTA-861-H §7.5.17 Room Environment Data Block;
+  // field semantics per ITU-T H.265 Ambient Viewing Environment SEI;
+  // layout not verified against a parser — byte-identical round-trip is the correctness gate.
+  const block: RoomEnvironmentDataBlock = { ...base, extendedTag: 0x15 };
+  if (payload.length >= 4) {
+    block.ambientIlluminance = ((payload[0] << 24) | (payload[1] << 16) | (payload[2] << 8) | payload[3]) >>> 0;
+  }
+  if (payload.length >= 6) {
+    block.ambientLightX = (payload[4] << 8) | payload[5];
+  }
+  if (payload.length >= 8) {
+    block.ambientLightY = (payload[6] << 8) | payload[7];
+  }
+  return block;
+}
+
 function decodeInfoFrameBlock(base: ExtendedDataBlock, payload: Uint8Array): InfoFrameDataBlock {
   const shortInfoFrameDescriptors: InfoFrameDataBlock['shortInfoFrameDescriptors'] = [];
   
@@ -478,6 +518,8 @@ export function encodeExtendedDataBlock(block: CTAExtendedDataBlock): Uint8Array
       return encodeVendorSpecificVideoBlock(block as VendorSpecificVideoDataBlock);
     case 0x14:
       return encodeSpeakerLocationBlock(block as SpeakerLocationDataBlock);
+    case 0x15:
+      return encodeRoomEnvironmentBlock(block as RoomEnvironmentDataBlock);
     case 0x20:
       return encodeInfoFrameBlock(block as InfoFrameDataBlock);
     default:
@@ -542,6 +584,31 @@ function encodeVendorSpecificAudioBlock(block: VendorSpecificAudioDataBlock): Ui
 
 function encodeRoomConfigurationBlock(block: RoomConfigurationDataBlock): Uint8Array {
   return new Uint8Array([0x13, block.speakerCount & 0xff, block.speakerPresenceDescriptor & 0xff]);
+}
+
+function encodeRoomEnvironmentBlock(block: RoomEnvironmentDataBlock): Uint8Array {
+  // EXPERIMENTAL — CTA-861-H §7.5.17 Room Environment Data Block;
+  // field semantics per ITU-T H.265 Ambient Viewing Environment SEI;
+  // layout not verified against a parser — byte-identical round-trip is the correctness gate.
+  // Slice-and-overwrite: start from block.data (which includes the ext-tag byte at index 0);
+  // payload starts at index 1. Reserved/trailing bytes are preserved.
+  const out = block.data.slice();
+  if (block.ambientIlluminance !== undefined && out.length >= 5) {
+    const v = block.ambientIlluminance >>> 0;
+    out[1] = (v >>> 24) & 0xff;
+    out[2] = (v >>> 16) & 0xff;
+    out[3] = (v >>> 8) & 0xff;
+    out[4] = v & 0xff;
+  }
+  if (block.ambientLightX !== undefined && out.length >= 7) {
+    out[5] = (block.ambientLightX >> 8) & 0xff;
+    out[6] = block.ambientLightX & 0xff;
+  }
+  if (block.ambientLightY !== undefined && out.length >= 9) {
+    out[7] = (block.ambientLightY >> 8) & 0xff;
+    out[8] = block.ambientLightY & 0xff;
+  }
+  return out;
 }
 
 function encodeVideoCapabilityBlock(block: VideoCapabilityDataBlock): Uint8Array {
