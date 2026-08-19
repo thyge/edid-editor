@@ -206,15 +206,58 @@ export interface DisplayIdDynamicVideoTimingRangeLimitsBlock extends DisplayIdDa
   seamlessDynamicVideoTiming: boolean;
 }
 
+/**
+ * Additional color space / EOTF combination (DisplayID 2.0 §4.5, Table 4-27).
+ * One byte: bits 3:0 = EOTF, bits 7:4 = color space.
+ */
+export interface DisplayIdColorSpaceEotfCombination {
+  /** bits 7:4 — 0=undefined, 1=sRGB, 2=BT.601, 3=BT.709, 4=Adobe RGB, 5=DCI-P3, 6=BT.2020, 7=Custom (8-15 reserved). */
+  colorSpace: number;
+  /** bits 3:0 — 0=undefined, 1=sRGB, 2=BT.601, 3=BT.1886, 4=Adobe RGB, 5=DCI-P3, 6=BT.2020, 7=Gamma function, 8=SMPTE ST 2084, 9=Hybrid Log, 10=Custom (11-15 reserved). */
+  eotf: number;
+}
+
+/**
+ * DisplayID 2.0 §4.5 Display Interface Features Data Block (tag 0x26).
+ *
+ * Variable 9+N byte payload per Table 4-23 (N = number of additional color
+ * space/EOTF combinations, 0-7). Field bit layouts per Tables 4-24..4-27 and
+ * edid-decode parse_displayid_interface_features
+ * (parse-displayid-block.cpp:1298-1353). Reserved bits and any bytes past
+ * 9+N are preserved in `trailing` for byte-exact round-trip.
+ */
 export interface DisplayIdDisplayInterfaceFeaturesBlock extends DisplayIdDataBlock {
   tag: DisplayIdDataBlockTag.DisplayInterfaceFeatures;
-  supportedColorDepths: number[];
-  rgb444: boolean;
-  ycbcr444: boolean;
-  ycbcr422: boolean;
-  ycbcr420: boolean;
-  audioOnInterface: boolean;
-  contentProtection: boolean;
+  /** payload[0] bits 0-5: 6/8/10/12/14/16 bpc for RGB encoding. */
+  rgbColorDepths: number[];
+  /** payload[1] bits 0-5: 6/8/10/12/14/16 bpc for YCbCr 4:4:4 encoding. */
+  ycbcr444ColorDepths: number[];
+  /** payload[2] bits 0-4: 8/10/12/14/16 bpc for YCbCr 4:2:2 encoding. */
+  ycbcr422ColorDepths: number[];
+  /** payload[3] bits 0-4: 8/10/12/14/16 bpc for YCbCr 4:2:0 encoding. */
+  ycbcr420ColorDepths: number[];
+  /** payload[4]: min pixel rate for YCbCr 4:2:0 = 74.25 × this MHz; 0 = all DisplayID-exposed modes. */
+  ycbcr420MinPixelRateMultiplier: number;
+  /** payload[5] bits 7/6/5: 32/44.1/48 kHz audio sample rates (bits 4:0 reserved). */
+  audioSampleRates: {
+    sr32kHz: boolean;
+    sr44_1kHz: boolean;
+    sr48kHz: boolean;
+  };
+  /** payload[6] bits 0-6: standard color space/EOTF combination 1 (bit 7 reserved). */
+  colorSpaceEotfStandard1: {
+    srgb: boolean;
+    bt601: boolean;
+    bt709Bt1886: boolean;
+    adobeRgb: boolean;
+    dciP3: boolean;
+    bt2020: boolean;
+    bt2020St2084: boolean;
+  };
+  /** payload[9..]: additional color space/EOTF combinations (N entries, 0-7). */
+  additionalColorSpaceEotfCombinations: DisplayIdColorSpaceEotfCombination[];
+  /** bytes past 9+N (and reserved byte 0Ah / reserved bits), preserved verbatim. */
+  trailing: Uint8Array;
 }
 
 export interface DisplayIdStereoDisplayInterfaceBlock extends DisplayIdDataBlock {
@@ -359,15 +402,29 @@ export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDi
       };
     case DisplayIdDataBlockTag.DisplayInterfaceFeatures:
       return {
-        ...createDefaultBlock(tag, 4),
+        ...createDefaultBlock(tag, 9),
         tag,
-        supportedColorDepths: [],
-        rgb444: true,
-        ycbcr444: false,
-        ycbcr422: false,
-        ycbcr420: false,
-        audioOnInterface: false,
-        contentProtection: false,
+        rgbColorDepths: [8],
+        ycbcr444ColorDepths: [],
+        ycbcr422ColorDepths: [],
+        ycbcr420ColorDepths: [],
+        ycbcr420MinPixelRateMultiplier: 0,
+        audioSampleRates: {
+          sr32kHz: false,
+          sr44_1kHz: false,
+          sr48kHz: false,
+        },
+        colorSpaceEotfStandard1: {
+          srgb: false,
+          bt601: false,
+          bt709Bt1886: false,
+          adobeRgb: false,
+          dciP3: false,
+          bt2020: false,
+          bt2020St2084: false,
+        },
+        additionalColorSpaceEotfCombinations: [],
+        trailing: new Uint8Array(),
       };
     case DisplayIdDataBlockTag.StereoDisplayInterface:
       return {

@@ -470,55 +470,87 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
-  it('decodes, edits, and encodes Display Interface Features while preserving reserved and trailing bytes', () => {
+  it('decodes and round-trips all Display Interface Features fields (§4.5, 9+N payload)', () => {
+    // N=2 additional combinations => 11-byte payload.
+    // [0] RGB 6/8/10/12/14/16=0x3f  [1] 444 8/10/12=0x0e  [2] 422 8/10/12/14/16=0x1f
+    // [3] 420 10/12=0x06  [4] 420 min rate mult=5  [5] audio 48k+44.1k=0x60
+    // [6] std1 sRGB|BT.709/1886|DCI-P3|BT.2020/ST2084=0x55  [7] std2 reserved=0x00
+    // [8] N=2=0x02  [9] BT.2020/ST2084=0x68  [10] sRGB/sRGB=0x11
     const section = decodeDisplayIdSection(withChecksum([
-      0x20, 0x08, 0x04, 0x00,
-      0x26, 0x00, 0x05,
-      0x0b, 0x05, 0x00, 0xaa, 0xbb,
+      0x20, 0x0e, 0x04, 0x00,
+      0x26, 0x00, 0x0b,
+      0x3f, 0x0e, 0x1f, 0x06, 0x05, 0x60, 0x55, 0x00, 0x02, 0x68, 0x11,
       0x00,
     ]));
     const block = section.blocks[0] as DisplayIdDisplayInterfaceFeaturesBlock;
 
-    expect(block.supportedColorDepths).toEqual([6, 8, 12]);
-    expect(block.rgb444).toBe(true);
-    expect(block.ycbcr444).toBe(false);
-    expect(block.ycbcr422).toBe(true);
-    expect(block.ycbcr420).toBe(false);
-    expect(block.audioOnInterface).toBe(false);
-    expect(block.contentProtection).toBe(false);
+    expect(block.rgbColorDepths).toEqual([6, 8, 10, 12, 14, 16]);
+    expect(block.ycbcr444ColorDepths).toEqual([8, 10, 12]);
+    expect(block.ycbcr422ColorDepths).toEqual([8, 10, 12, 14, 16]);
+    expect(block.ycbcr420ColorDepths).toEqual([10, 12]);
+    expect(block.ycbcr420MinPixelRateMultiplier).toBe(5);
+    expect(block.audioSampleRates).toEqual({ sr32kHz: false, sr44_1kHz: true, sr48kHz: true });
+    expect(block.colorSpaceEotfStandard1).toEqual({
+      srgb: true, bt601: false, bt709Bt1886: true, adobeRgb: false,
+      dciP3: true, bt2020: false, bt2020St2084: true,
+    });
+    expect(block.additionalColorSpaceEotfCombinations).toEqual([
+      { colorSpace: 6, eotf: 8 },
+      { colorSpace: 1, eotf: 1 },
+    ]);
+    expect(Array.from(block.trailing)).toEqual([]);
 
-    block.audioOnInterface = true;
+    // Edit a combination (color space/EOTF) and an audio rate, then round-trip.
+    block.additionalColorSpaceEotfCombinations = [
+      { colorSpace: 3, eotf: 9 }, // BT.709 / Hybrid Log
+    ];
+    block.audioSampleRates = { sr32kHz: true, sr44_1kHz: false, sr48kHz: true };
 
     const encoded = encodeDisplayIdSection(section);
-    const reparsed = decodeDisplayIdSection(encoded);
-    const reparsedBlock = reparsed.blocks[0] as DisplayIdDisplayInterfaceFeaturesBlock;
+    const reparsedBlock = decodeDisplayIdSection(encoded).blocks[0] as DisplayIdDisplayInterfaceFeaturesBlock;
 
-    expect(reparsedBlock.audioOnInterface).toBe(true);
-    expect(reparsedBlock.payload[3]).toBe(0xaa);
-    expect(reparsedBlock.payload[4]).toBe(0xbb);
+    expect(reparsedBlock.additionalColorSpaceEotfCombinations).toEqual([{ colorSpace: 3, eotf: 9 }]);
+    expect(reparsedBlock.audioSampleRates).toEqual({ sr32kHz: true, sr44_1kHz: false, sr48kHz: true });
+    // payload shrinks to 9 + 1 = 10 bytes; [5]=32k+48k=0xa0, [8]=N=1, [9]=0x39.
+    expect(Array.from(reparsedBlock.payload)).toEqual([0x3f, 0x0e, 0x1f, 0x06, 0x05, 0xa0, 0x55, 0x00, 0x01, 0x39]);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
-  it('preserves Display Interface Features reserved bits while editing known fields', () => {
+  it('preserves Display Interface Features reserved bits, std2 byte, and trailing bytes', () => {
+    // N=1 declared, length 12 => 9+1 combination + 2 trailing bytes.
+    // Reserved bits set in every modeled byte (7:6, 7:5, audio 4:0, std1 bit7,
+    // std2 all, N-count 7:3) must be preserved; trailing 0xaa 0xbb preserved.
     const section = decodeDisplayIdSection(withChecksum([
-      0x20, 0x08, 0x04, 0x00,
-      0x26, 0x00, 0x05,
-      0x8b, 0xf5, 0xfc, 0xaa, 0xbb,
+      0x20, 0x0f, 0x04, 0x00,
+      0x26, 0x00, 0x0c,
+      0x8b, 0xc5, 0xe1, 0xe2, 0x03, 0x1f, 0x81, 0xab, 0xf9, 0x68, 0xaa, 0xbb,
       0x00,
     ]));
     const block = section.blocks[0] as DisplayIdDisplayInterfaceFeaturesBlock;
 
-    block.supportedColorDepths = [8, 10];
-    block.ycbcr444 = true;
-    block.ycbcr422 = false;
-    block.ycbcr420 = true;
-    block.contentProtection = true;
+    expect(block.rgbColorDepths).toEqual([6, 8, 12]); // 0x8b & 0x3f
+    expect(block.ycbcr444ColorDepths).toEqual([6, 10]); // 0xc5 & 0x1f
+    expect(block.ycbcr422ColorDepths).toEqual([8]); // 0xe1 & 0x1f
+    expect(block.ycbcr420ColorDepths).toEqual([10]); // 0xe2 & 0x1f
+    expect(block.ycbcr420MinPixelRateMultiplier).toBe(3);
+    expect(block.audioSampleRates).toEqual({ sr32kHz: false, sr44_1kHz: false, sr48kHz: false });
+    expect(block.colorSpaceEotfStandard1).toEqual({
+      srgb: true, bt601: false, bt709Bt1886: false, adobeRgb: false,
+      dciP3: false, bt2020: false, bt2020St2084: false,
+    });
+    expect(block.additionalColorSpaceEotfCombinations).toEqual([{ colorSpace: 6, eotf: 8 }]);
+    expect(Array.from(block.trailing)).toEqual([0xaa, 0xbb]);
+
+    block.ycbcr444ColorDepths = [8, 10, 12]; // bits 1,2,3 = 0x0e
 
     const encoded = encodeDisplayIdSection(section);
-    const reparsed = decodeDisplayIdSection(encoded);
-    const reparsedBlock = reparsed.blocks[0] as DisplayIdDisplayInterfaceFeaturesBlock;
+    const reparsedBlock = decodeDisplayIdSection(encoded).blocks[0] as DisplayIdDisplayInterfaceFeaturesBlock;
 
-    expect(Array.from(reparsedBlock.payload)).toEqual([0x86, 0xfb, 0xfe, 0xaa, 0xbb]);
+    expect(Array.from(reparsedBlock.payload)).toEqual([
+      0x8b, 0xce, 0xe1, 0xe2, 0x03, 0x1f, 0x81, 0xab, 0xf9, 0x68, 0xaa, 0xbb,
+    ]);
+    expect(reparsedBlock.additionalColorSpaceEotfCombinations).toEqual([{ colorSpace: 6, eotf: 8 }]);
+    expect(Array.from(reparsedBlock.trailing)).toEqual([0xaa, 0xbb]);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
@@ -686,36 +718,41 @@ describe('remaining DisplayID semantic blocks', () => {
 
   it('preserves malformed short Display Interface Features payloads as generic blocks', () => {
     const source = withChecksum([
-      0x20, 0x06, 0x04, 0x00,
-      0x26, 0x00, 0x03,
-      0x8b, 0xf5, 0xfc,
+      0x20, 0x08, 0x04, 0x00,
+      0x26, 0x00, 0x05,
+      0x8b, 0xf5, 0xfc, 0xaa, 0xbb,
       0x00,
     ]);
     const section = decodeDisplayIdSection(source);
     const block = section.blocks[0];
 
     expect(block.tag).toBe(DisplayIdDataBlockTag.DisplayInterfaceFeatures);
-    expect(block.payloadLength).toBe(3);
-    expect(Array.from(block.payload)).toEqual([0x8b, 0xf5, 0xfc]);
-    expect('supportedColorDepths' in block).toBe(false);
+    expect(block.payloadLength).toBe(5);
+    expect(Array.from(block.payload)).toEqual([0x8b, 0xf5, 0xfc, 0xaa, 0xbb]);
+    expect('rgbColorDepths' in block).toBe(false);
 
     Object.assign(block, {
-      supportedColorDepths: [8],
-      rgb444: false,
-      ycbcr444: true,
-      ycbcr422: false,
-      ycbcr420: true,
-      audioOnInterface: true,
-      contentProtection: true,
+      rgbColorDepths: [8],
+      ycbcr444ColorDepths: [],
+      ycbcr422ColorDepths: [],
+      ycbcr420ColorDepths: [],
+      ycbcr420MinPixelRateMultiplier: 0,
+      audioSampleRates: { sr32kHz: true, sr44_1kHz: false, sr48kHz: true },
+      colorSpaceEotfStandard1: {
+        srgb: true, bt601: false, bt709Bt1886: false, adobeRgb: false,
+        dciP3: false, bt2020: false, bt2020St2084: false,
+      },
+      additionalColorSpaceEotfCombinations: [],
+      trailing: new Uint8Array(),
     });
 
     const encoded = encodeDisplayIdSection(section);
     const reparsedBlock = decodeDisplayIdSection(encoded).blocks[0];
 
     expect(Array.from(encoded)).toEqual(Array.from(source));
-    expect(reparsedBlock.payloadLength).toBe(3);
-    expect(Array.from(reparsedBlock.payload)).toEqual([0x8b, 0xf5, 0xfc]);
-    expect('supportedColorDepths' in reparsedBlock).toBe(false);
+    expect(reparsedBlock.payloadLength).toBe(5);
+    expect(Array.from(reparsedBlock.payload)).toEqual([0x8b, 0xf5, 0xfc, 0xaa, 0xbb]);
+    expect('rgbColorDepths' in reparsedBlock).toBe(false);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 

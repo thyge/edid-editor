@@ -463,18 +463,35 @@ function isTypedDisplayInterfaceFeaturesBlock(
   block: DisplayIdDataBlock,
 ): block is DisplayIdDisplayInterfaceFeaturesBlock {
   const maybeBlock = block as Partial<DisplayIdDisplayInterfaceFeaturesBlock>;
+  const audio = maybeBlock.audioSampleRates;
+  const std1 = maybeBlock.colorSpaceEotfStandard1;
 
   return (
     block.tag === DisplayIdDataBlockTag.DisplayInterfaceFeatures &&
     isDisplayInterfaceFeaturesPayloadLengthValid(block.payloadLength) &&
-    Array.isArray(maybeBlock.supportedColorDepths) &&
-    maybeBlock.supportedColorDepths.every((depth) => typeof depth === 'number') &&
-    typeof maybeBlock.rgb444 === 'boolean' &&
-    typeof maybeBlock.ycbcr444 === 'boolean' &&
-    typeof maybeBlock.ycbcr422 === 'boolean' &&
-    typeof maybeBlock.ycbcr420 === 'boolean' &&
-    typeof maybeBlock.audioOnInterface === 'boolean' &&
-    typeof maybeBlock.contentProtection === 'boolean'
+    Array.isArray(maybeBlock.rgbColorDepths) &&
+    Array.isArray(maybeBlock.ycbcr444ColorDepths) &&
+    Array.isArray(maybeBlock.ycbcr422ColorDepths) &&
+    Array.isArray(maybeBlock.ycbcr420ColorDepths) &&
+    maybeBlock.rgbColorDepths.every((d) => typeof d === 'number') &&
+    typeof maybeBlock.ycbcr420MinPixelRateMultiplier === 'number' &&
+    audio !== undefined &&
+    typeof audio.sr32kHz === 'boolean' &&
+    typeof audio.sr44_1kHz === 'boolean' &&
+    typeof audio.sr48kHz === 'boolean' &&
+    std1 !== undefined &&
+    typeof std1.srgb === 'boolean' &&
+    typeof std1.bt601 === 'boolean' &&
+    typeof std1.bt709Bt1886 === 'boolean' &&
+    typeof std1.adobeRgb === 'boolean' &&
+    typeof std1.dciP3 === 'boolean' &&
+    typeof std1.bt2020 === 'boolean' &&
+    typeof std1.bt2020St2084 === 'boolean' &&
+    Array.isArray(maybeBlock.additionalColorSpaceEotfCombinations) &&
+    maybeBlock.additionalColorSpaceEotfCombinations.every(
+      (c) => typeof c?.colorSpace === 'number' && typeof c?.eotf === 'number',
+    ) &&
+    block.payload instanceof Uint8Array
   );
 }
 

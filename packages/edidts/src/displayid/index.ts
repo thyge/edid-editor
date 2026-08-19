@@ -103,6 +103,7 @@ export {
 } from './types';
 export type {
   DisplayIdChromaticity,
+  DisplayIdColorSpaceEotfCombination,
   DisplayIdContainerIdBlock,
   DisplayIdCtaBlock,
   DisplayIdDataBlock,
