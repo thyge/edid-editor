@@ -284,21 +284,39 @@ describe('CEA extension block container', () => {
     // Each encoder now rebuilds from the structured fields (matching the
     // existing Video Capability / Colorimetry / HDR Static encoders).
 
-    it('0x07 HDR Dynamic Metadata encodes from supportedTypes', () => {
+    it('0x07 HDR Dynamic Metadata encodes entries (Table 87: [len][typeLSB][typeMSB][flags][opt])', () => {
       const block: HDRDynamicMetadataDataBlock = {
         tag: 0x07,
         extendedTag: 0x07,
         data: new Uint8Array([0x07, 0xff]), // sentinel: must not survive
-        supportedTypes: [0x01, 0x02, 0x03],
+        entries: [{ type: 0x0001, supportFlags: 0x01, optionalFields: new Uint8Array() }],
+        trailing: new Uint8Array(),
       };
-      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x07, 0x01, 0x02, 0x03]);
+      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x07, 0x03, 0x01, 0x00, 0x01]);
     });
 
-    it('0x07 HDR Dynamic Metadata round-trips a decoded payload', () => {
-      const original = new Uint8Array([0x07, 0x01, 0x02, 0x03]);
-      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
-        Array.from(original),
-      );
+    it('0x07 HDR Dynamic Metadata round-trips multi-entry payload with optional fields', () => {
+      // type 0x0001 (flags 1, no optional) + type 0x0004 (flags 2, 1 optional byte 0xAB)
+      const original = new Uint8Array([0x07, 0x03, 0x01, 0x00, 0x01, 0x04, 0x04, 0x00, 0x02, 0xab]);
+      const decoded = decodeExtendedDataBlock(original) as HDRDynamicMetadataDataBlock;
+      expect(decoded.entries.length).toBe(2);
+      expect(decoded.entries[0]).toEqual({
+        type: 1, supportFlags: 1, optionalFields: new Uint8Array(),
+      });
+      expect(decoded.entries[1].type).toBe(4);
+      expect(decoded.entries[1].supportFlags).toBe(2);
+      expect(Array.from(decoded.entries[1].optionalFields)).toEqual([0xab]);
+      expect(Array.from(encodeExtendedDataBlock(decoded))).toEqual(Array.from(original));
+    });
+
+    it('0x07 HDR Dynamic Metadata preserves malformed trailing bytes', () => {
+      // len=0x01 is malformed (< 3 minimum); decode stops and keeps the rest as
+      // trailing so the block round-trips byte-identically.
+      const original = new Uint8Array([0x07, 0x01, 0xff]);
+      const decoded = decodeExtendedDataBlock(original) as HDRDynamicMetadataDataBlock;
+      expect(decoded.entries.length).toBe(0);
+      expect(Array.from(decoded.trailing)).toEqual([0x01, 0xff]);
+      expect(Array.from(encodeExtendedDataBlock(decoded))).toEqual(Array.from(original));
     });
 
     it('0x0D Video Format Preference encodes from svrs (VICs and DTD indices)', () => {
@@ -373,52 +391,78 @@ describe('CEA extension block container', () => {
       );
     });
 
-    it('0x14 Speaker Location encodes 4-byte channel/x/y/z entries', () => {
+    it('0x14 Speaker Location encodes 2-byte and 5-byte (COORD) descriptors', () => {
       const block: SpeakerLocationDataBlock = {
         tag: 0x07,
         extendedTag: 0x14,
         data: new Uint8Array([0x14, 0xff]), // sentinel
-        speakerLocations: [
-          { channelIndex: 1, x: 10, y: 20, z: 30 },
-          { channelIndex: 2, x: 5, y: 6, z: 7 },
+        descriptors: [
+          { channelIndex: 1, speakerId: 2, active: true }, // 2 bytes, no coords
+          { channelIndex: 0, speakerId: 3, active: true, coordinates: { x: 0.5, y: -0.25, z: 0 } },
         ],
+        trailing: new Uint8Array(),
       };
+      // desc1: byte0 = 0x20(active) | 0x01 = 0x21, byte1 = 0x02
+      // desc2: byte0 = 0x40(COORD) | 0x20(active) | 0x00 = 0x60, byte1 = 0x03
+      //   x=0.5 → 32/64 → 0x20; y=-0.25 → -16 → 0xF0; z=0 → 0x00
       expect(Array.from(encodeExtendedDataBlock(block))).toEqual([
-        0x14, 1, 10, 20, 30, 2, 5, 6, 7,
+        0x14, 0x21, 0x02, 0x60, 0x03, 0x20, 0xf0, 0x00,
       ]);
     });
 
-    it('0x14 Speaker Location round-trips a decoded payload', () => {
-      const original = new Uint8Array([0x14, 1, 10, 20, 30, 2, 5, 6, 7]);
-      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
-        Array.from(original),
-      );
+    it('0x14 Speaker Location round-trips a mixed-stride decoded payload', () => {
+      const original = new Uint8Array([0x14, 0x21, 0x02, 0x60, 0x03, 0x20, 0xf0, 0x00]);
+      const decoded = decodeExtendedDataBlock(original) as SpeakerLocationDataBlock;
+      expect(decoded.descriptors.length).toBe(2);
+      expect(decoded.descriptors[0]).toEqual({ channelIndex: 1, speakerId: 2, active: true });
+      expect(decoded.descriptors[1].channelIndex).toBe(0);
+      expect(decoded.descriptors[1].speakerId).toBe(3);
+      expect(decoded.descriptors[1].active).toBe(true);
+      expect(decoded.descriptors[1].coordinates).toEqual({ x: 0.5, y: -0.25, z: 0 });
+      expect(Array.from(encodeExtendedDataBlock(decoded))).toEqual(Array.from(original));
     });
 
-    it('0x14 Speaker Location drops a trailing partial entry (simplified 4-byte stride)', () => {
-      // Decode walks 4-byte strides; a trailing 1 leftover byte is not an
-      // entry, so it is not reproduced on encode.
-      const original = new Uint8Array([0x14, 1, 10, 20, 30, 0xff]);
-      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual([
-        0x14, 1, 10, 20, 30,
-      ]);
+    it('0x14 Speaker Location preserves a trailing partial descriptor', () => {
+      // A lone byte after a complete 2-byte descriptor is not a full
+      // descriptor; decode keeps it as trailing for byte-exact round-trip.
+      const original = new Uint8Array([0x14, 0x21, 0x02, 0xff]);
+      const decoded = decodeExtendedDataBlock(original) as SpeakerLocationDataBlock;
+      expect(decoded.descriptors.length).toBe(1);
+      expect(Array.from(decoded.trailing)).toEqual([0xff]);
+      expect(Array.from(encodeExtendedDataBlock(decoded))).toEqual(Array.from(original));
     });
 
-    it('0x20 InfoFrame encodes type/length/payload entries', () => {
+    it('0x20 InfoFrame encodes processing descriptor + short descriptor', () => {
       const block: InfoFrameDataBlock = {
         tag: 0x07,
         extendedTag: 0x20,
         data: new Uint8Array([0x20, 0xff]), // sentinel
-        shortInfoFrameDescriptors: [{ infoFrameType: 4, payload: new Uint8Array([0x01, 0x02]) }],
+        additionalVsifs: 2,
+        processingPayload: new Uint8Array(),
+        descriptors: [{ kind: 'short', infoFrameType: 4, payload: new Uint8Array() }],
+        trailing: new Uint8Array(),
       };
-      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x20, 4, 2, 0x01, 0x02]);
+      // header = (Lb=0 << 5) | reserved = 0x00; additionalVsifs = 0x02;
+      // short desc type 4, payloadLen 0 → 0x04
+      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x20, 0x00, 0x02, 0x04]);
     });
 
-    it('0x20 InfoFrame round-trips a decoded payload', () => {
-      const original = new Uint8Array([0x20, 4, 2, 0x01, 0x02]);
-      expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
-        Array.from(original),
-      );
+    it('0x20 InfoFrame round-trips short + vendor-specific descriptors', () => {
+      // processing: Lb=0, additionalVsifs=0. Short desc type 4 (payloadLen 2,
+      // payload 01 02). Vendor desc type 1, OUI 0x1a0b (LE: 0b 1a 00), no payload.
+      const original = new Uint8Array([
+        0x20, 0x00, 0x00, 0x44, 0x01, 0x02, 0x01, 0x0b, 0x1a, 0x00,
+      ]);
+      const decoded = decodeExtendedDataBlock(original) as InfoFrameDataBlock;
+      expect(decoded.additionalVsifs).toBe(0);
+      expect(decoded.descriptors.length).toBe(2);
+      expect(decoded.descriptors[0]).toEqual({
+        kind: 'short', infoFrameType: 4, payload: new Uint8Array([0x01, 0x02]),
+      });
+      expect(decoded.descriptors[1]).toEqual({
+        kind: 'vendor', ieeeOui: 0x1a0b, payload: new Uint8Array(),
+      });
+      expect(Array.from(encodeExtendedDataBlock(decoded))).toEqual(Array.from(original));
     });
   });
 });

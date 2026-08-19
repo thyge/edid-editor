@@ -110,7 +110,7 @@ function vicLabel(vic: number): string {
         <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">HDR Dynamic Metadata</h4>
         <div :class="rowClass">
           <span>Supported Types</span>
-          <span class="font-mono">{{ hdrDynamic.supportedTypes.join(', ') || 'None' }}</span>
+          <span class="font-mono">{{ hdrDynamic.entries.map((e) => `0x${e.type.toString(16).padStart(4, '0')}`).join(', ') || 'None' }}</span>
         </div>
       </section>
 

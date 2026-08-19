@@ -85,7 +85,20 @@ export interface HDRStaticMetadataDataBlock extends ExtendedDataBlock {
  */
 export interface HDRDynamicMetadataDataBlock extends ExtendedDataBlock {
   extendedTag: 0x07;
-  supportedTypes: number[];  // Dynamic metadata types supported
+  /**
+   * Supported HDR Dynamic Metadata Type entries (CTA-861-G Table 87).
+   * Each entry: a 16-bit type code (Extended InfoFrame Type Code, Table 47),
+   * an 8-bit Support Flags byte (format depends on the type, Tables 88-90),
+   * and any optional fields that follow. `optionalFields` is empty in
+   * CTA-861-G (length-3 == 0) but is carried for forward compatibility.
+   */
+  entries: Array<{
+    type: number;            // 16-bit (LSB | MSB<<8)
+    supportFlags: number;    // 8-bit
+    optionalFields: Uint8Array;
+  }>;
+  /** Bytes after the last complete entry (preserved for byte-exact round-trip). */
+  trailing: Uint8Array;
 }
 
 /**
@@ -162,15 +175,23 @@ export interface RoomConfigurationDataBlock extends ExtendedDataBlock {
 
 /**
  * Speaker Location Data Block (Extended Tag 20)
+ *
+ * CTA-861-G §7.5.16, Tables 92-94. The payload is a sequence of Speaker
+ * Location Descriptors, each 2 bytes (no coordinates) or 5 bytes (with X/Y/Z
+ * coordinates, when the COORD flag is set). Coordinates are signed 1.6
+ * two's-complement values (Table 94): value = signedByte / 64.
  */
 export interface SpeakerLocationDataBlock extends ExtendedDataBlock {
   extendedTag: 0x14;
-  speakerLocations: Array<{
-    channelIndex: number;
-    x: number;  // Position in cm
-    y: number;
-    z: number;
+  descriptors: Array<{
+    channelIndex: number;  // 0-31 (bits 4:0 of byte 0)
+    speakerId: number;      // 0-31 (bits 4:0 of byte 1, per Table 34)
+    active: boolean;        // bit 5 of byte 0
+    /** Present iff the COORD flag (bit 6 of byte 0) is set. */
+    coordinates?: { x: number; y: number; z: number };
   }>;
+  /** Bytes after the last complete descriptor (preserved for byte-exact round-trip). */
+  trailing: Uint8Array;
 }
 
 /**
@@ -194,13 +215,28 @@ export interface RoomEnvironmentDataBlock extends ExtendedDataBlock {
 
 /**
  * InfoFrame Data Block (Extended Tag 32)
+ *
+ * CTA-861-G §7.5.9, Tables 77-80. The payload begins with an InfoFrame
+ * Processing Descriptor (a header byte carrying Length Lb in bits 7:5 plus
+ * reserved bits 4:0, followed by a byte giving the number of additional
+ * VSIFs that can be received simultaneously, followed by Lb extension
+ * bytes), then optional Short InfoFrame / Short Vendor-Specific InfoFrame
+ * Descriptors listed in priority order. Each descriptor header carries a
+ * 3-bit Payload Length (bits 7:5) and a 5-bit InfoFrame Type Code (bits 4:0);
+ * type 0x01 is the vendor-specific form (3-byte IEEE OUI + payload).
  */
 export interface InfoFrameDataBlock extends ExtendedDataBlock {
   extendedTag: 0x20;
-  shortInfoFrameDescriptors: Array<{
-    infoFrameType: number;
-    payload: Uint8Array;
-  }>;
+  /** Number of additional VSIFs that can be received simultaneously (byte 2). */
+  additionalVsifs: number;
+  /** Lb extension bytes of the Processing Descriptor (normally empty). */
+  processingPayload: Uint8Array;
+  descriptors: Array<
+    | { kind: 'short'; infoFrameType: number; payload: Uint8Array }
+    | { kind: 'vendor'; ieeeOui: number; payload: Uint8Array }
+  >;
+  /** Bytes after the last complete descriptor (preserved for byte-exact round-trip). */
+  trailing: Uint8Array;
 }
 
 export type CTAExtendedDataBlock =
@@ -345,16 +381,27 @@ function decodeHDRStaticMetadataBlock(base: ExtendedDataBlock, payload: Uint8Arr
 }
 
 function decodeHDRDynamicMetadataBlock(base: ExtendedDataBlock, payload: Uint8Array): HDRDynamicMetadataDataBlock {
-  const supportedTypes: number[] = [];
-  
-  for (let i = 0; i < payload.length; i++) {
-    supportedTypes.push(payload[i]);
+  // CTA-861-G Table 87: repeated entries [Length L][Type LSB][Type MSB]
+  // [SupportFlags][L-3 optional bytes]. Entry stride = 1 + L. L < 3 is
+  // malformed; stop at the first incomplete entry and keep the rest as
+  // trailing so the block round-trips byte-identically.
+  const entries: HDRDynamicMetadataDataBlock['entries'] = [];
+  let i = 0;
+  while (i < payload.length) {
+    const len = payload[i];
+    if (len < 3 || i + 1 + len > payload.length) break;
+    const type = payload[i + 1] | (payload[i + 2] << 8);
+    const supportFlags = payload[i + 3];
+    const optionalFields = payload.slice(i + 4, i + 1 + len);
+    entries.push({ type, supportFlags, optionalFields });
+    i += 1 + len;
   }
 
   return {
     ...base,
     extendedTag: 0x07,
-    supportedTypes,
+    entries,
+    trailing: payload.slice(i),
   };
 }
 
@@ -440,24 +487,52 @@ function decodeRoomConfigurationBlock(base: ExtendedDataBlock, payload: Uint8Arr
   };
 }
 
+/** Decode a signed 1.6 two's-complement coordinate byte (Table 94): value = signedByte / 64. */
+function decodeCoordinate(byte: number): number {
+  const signed = byte > 0x7f ? byte - 0x100 : byte;
+  return signed / 64;
+}
+
+/** Encode a coordinate value to a signed 1.6 two's-complement byte (clamped to [-128, 127]). */
+function encodeCoordinate(value: number): number {
+  const scaled = Math.round(value * 64);
+  const clamped = Math.max(-128, Math.min(127, scaled));
+  return clamped & 0xff;
+}
+
 function decodeSpeakerLocationBlock(base: ExtendedDataBlock, payload: Uint8Array): SpeakerLocationDataBlock {
-  const speakerLocations: SpeakerLocationDataBlock['speakerLocations'] = [];
-  
-  // Each speaker location descriptor is variable length
-  // Simplified parsing - each entry is 4 bytes: channel, x, y, z
-  for (let i = 0; i + 4 <= payload.length; i += 4) {
-    speakerLocations.push({
-      channelIndex: payload[i],
-      x: payload[i + 1],
-      y: payload[i + 2],
-      z: payload[i + 3],
-    });
+  // CTA-861-G Tables 92-94: descriptors are 2 bytes (no coords) or 5 bytes
+  // (COORD flag set). Byte 0: bit7=0, bit6=COORD, bit5=Active, bits4:0=Channel
+  // Index. Byte 1: bits4:0=Speaker ID. If COORD, 3 signed 1.6 coordinate bytes.
+  const descriptors: SpeakerLocationDataBlock['descriptors'] = [];
+  let i = 0;
+  while (i + 2 <= payload.length) {
+    const byte0 = payload[i];
+    const byte1 = payload[i + 1];
+    const coord = (byte0 & 0x40) !== 0;
+    const stride = coord ? 5 : 2;
+    if (i + stride > payload.length) break;
+    const descriptor: SpeakerLocationDataBlock['descriptors'][0] = {
+      channelIndex: byte0 & 0x1f,
+      speakerId: byte1 & 0x1f,
+      active: (byte0 & 0x20) !== 0,
+    };
+    if (coord) {
+      descriptor.coordinates = {
+        x: decodeCoordinate(payload[i + 2]),
+        y: decodeCoordinate(payload[i + 3]),
+        z: decodeCoordinate(payload[i + 4]),
+      };
+    }
+    descriptors.push(descriptor);
+    i += stride;
   }
 
   return {
     ...base,
     extendedTag: 0x14,
-    speakerLocations,
+    descriptors,
+    trailing: payload.slice(i),
   };
 }
 
@@ -479,25 +554,59 @@ function decodeRoomEnvironmentBlock(base: ExtendedDataBlock, payload: Uint8Array
 }
 
 function decodeInfoFrameBlock(base: ExtendedDataBlock, payload: Uint8Array): InfoFrameDataBlock {
-  const shortInfoFrameDescriptors: InfoFrameDataBlock['shortInfoFrameDescriptors'] = [];
-  
-  let offset = 0;
-  while (offset + 2 <= payload.length) {
-    const type = payload[offset];
-    const length = payload[offset + 1];
-    if (offset + 2 + length > payload.length) break;
-    
-    shortInfoFrameDescriptors.push({
-      infoFrameType: type,
-      payload: payload.slice(offset + 2, offset + 2 + length),
-    });
-    offset += 2 + length;
+  // CTA-861-G Tables 77-80. The payload begins with an InfoFrame Processing
+  // Descriptor: header byte 0 (Length Lb in bits 7:5, reserved bits 4:0),
+  // byte 1 = number of additional VSIFs, then Lb extension bytes. Then
+  // optional Short InfoFrame / Short Vendor-Specific InfoFrame Descriptors,
+  // each with a 3-bit Payload Length (bits 7:5) and 5-bit Type Code (bits 4:0).
+  if (payload.length < 2) {
+    return {
+      ...base,
+      extendedTag: 0x20,
+      additionalVsifs: 0,
+      processingPayload: new Uint8Array(),
+      descriptors: [],
+      trailing: payload.slice(),
+    };
+  }
+
+  const header = payload[0];
+  const lb = (header >> 5) & 0x07;
+  const additionalVsifs = payload[1];
+  const processingPayload = payload.slice(2, 2 + lb);
+
+  const descriptors: InfoFrameDataBlock['descriptors'] = [];
+  let i = 2 + lb;
+  while (i < payload.length) {
+    const descHeader = payload[i];
+    const payloadLen = (descHeader >> 5) & 0x07;
+    const typeCode = descHeader & 0x1f;
+    if (typeCode === 0x01) {
+      // Short Vendor-Specific InfoFrame Descriptor (Table 80): 3-byte OUI + payload.
+      if (i + 1 + 3 + payloadLen > payload.length) break;
+      const ieeeOui = payload[i + 1] | (payload[i + 2] << 8) | (payload[i + 3] << 16);
+      const descPayload = payload.slice(i + 4, i + 4 + payloadLen);
+      descriptors.push({ kind: 'vendor', ieeeOui, payload: descPayload });
+      i += 4 + payloadLen;
+    } else if (typeCode === 0x00) {
+      // 0x00 is reserved as a descriptor type code; stop parsing.
+      break;
+    } else {
+      // Short InfoFrame Descriptor (Table 79): payloadLen bytes of payload.
+      if (i + 1 + payloadLen > payload.length) break;
+      const descPayload = payload.slice(i + 1, i + 1 + payloadLen);
+      descriptors.push({ kind: 'short', infoFrameType: typeCode, payload: descPayload });
+      i += 1 + payloadLen;
+    }
   }
 
   return {
     ...base,
     extendedTag: 0x20,
-    shortInfoFrameDescriptors,
+    additionalVsifs,
+    processingPayload,
+    descriptors,
+    trailing: payload.slice(i),
   };
 }
 
@@ -546,24 +655,55 @@ function encodeVendorSpecificVideoBlock(block: VendorSpecificVideoDataBlock): Ui
 
 function encodeSpeakerLocationBlock(block: SpeakerLocationDataBlock): Uint8Array {
   const bytes = [0x14];
-  for (const loc of block.speakerLocations) {
-    bytes.push(loc.channelIndex & 0xff, loc.x & 0xff, loc.y & 0xff, loc.z & 0xff);
+  for (const d of block.descriptors) {
+    let byte0 = 0;
+    if (d.coordinates) byte0 |= 0x40;          // COORD
+    if (d.active) byte0 |= 0x20;                // Active
+    byte0 |= d.channelIndex & 0x1f;            // Channel Index
+    const byte1 = d.speakerId & 0x1f;           // Speaker ID
+    bytes.push(byte0, byte1);
+    if (d.coordinates) {
+      bytes.push(
+        encodeCoordinate(d.coordinates.x),
+        encodeCoordinate(d.coordinates.y),
+        encodeCoordinate(d.coordinates.z),
+      );
+    }
   }
+  for (const b of block.trailing ?? []) bytes.push(b);
   return new Uint8Array(bytes);
 }
 
 function encodeInfoFrameBlock(block: InfoFrameDataBlock): Uint8Array {
   const bytes = [0x20];
-  for (const desc of block.shortInfoFrameDescriptors) {
-    bytes.push(desc.infoFrameType & 0xff, desc.payload.length & 0xff);
-    for (const b of desc.payload) bytes.push(b);
+  // InfoFrame Processing Descriptor: header (Lb in bits 7:5) + additionalVsifs + Lb bytes.
+  const lb = (block.processingPayload?.length ?? 0) & 0x07;
+  bytes.push((lb << 5) & 0xff, block.additionalVsifs & 0xff);
+  for (const b of block.processingPayload ?? []) bytes.push(b);
+  for (const desc of block.descriptors ?? []) {
+    const payloadLen = (desc.payload.length) & 0x07;
+    if (desc.kind === 'vendor') {
+      bytes.push((payloadLen << 5) | 0x01);
+      bytes.push(desc.ieeeOui & 0xff, (desc.ieeeOui >> 8) & 0xff, (desc.ieeeOui >> 16) & 0xff);
+      for (const b of desc.payload) bytes.push(b);
+    } else {
+      bytes.push((payloadLen << 5) | (desc.infoFrameType & 0x1f));
+      for (const b of desc.payload) bytes.push(b);
+    }
   }
+  for (const b of block.trailing ?? []) bytes.push(b);
   return new Uint8Array(bytes);
 }
 
 function encodeHDRDynamicMetadataBlock(block: HDRDynamicMetadataDataBlock): Uint8Array {
   const bytes = [0x07];
-  for (const type of block.supportedTypes) bytes.push(type & 0xff);
+  for (const e of block.entries) {
+    const len = (3 + (e.optionalFields?.length ?? 0)) & 0xff;
+    bytes.push(len);
+    bytes.push(e.type & 0xff, (e.type >> 8) & 0xff, e.supportFlags & 0xff);
+    for (const b of e.optionalFields ?? []) bytes.push(b);
+  }
+  for (const b of block.trailing ?? []) bytes.push(b);
   return new Uint8Array(bytes);
 }
 
