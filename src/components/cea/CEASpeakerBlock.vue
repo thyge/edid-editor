@@ -31,6 +31,8 @@ interface SpeakerNode {
 const pairedKeys = [
   'frontLeftRight', 'rearLeftRight', 'frontLeftRightCenter',
   'rearLeftRightCenter', 'frontLeftRightWide', 'frontLeftRightHigh',
+  'surroundLeftRight', 'sideLeftRight', 'topSideLeftRight',
+  'topBackLeftRight', 'bottomFrontLeftRight', 'topLeftRightSurround',
 ]
 
 const speakerNodes: SpeakerNode[] = [

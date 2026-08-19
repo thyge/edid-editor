@@ -15,6 +15,8 @@ import {
   type VendorSpecificVideoDataBlock,
   type SpeakerLocationDataBlock,
   type InfoFrameDataBlock,
+  type SpeakerAllocationBlock,
+  unifySpeakerLayout,
 } from '../src/cta';
 import { isChecksum8Valid, checksum8 } from '../src/common';
 import { decodeExtension, isCEAExtension, isOpaqueExtension } from '../src/eedid';
@@ -607,5 +609,149 @@ describe('Video Data Block VIC validation (TASK-4)', () => {
     const video = redecoded.dataBlocks[0] as VideoDataBlock;
     expect(video.vics.map((v) => v.vic)).toEqual([16, 0, 4]);
     expect(video.vics[1].known).toBe(false);
+  });
+});
+
+describe('CEA speaker allocation full bit model (TASK-6)', () => {
+  /** Speaker Allocation Data Block with every spec-defined bit off. */
+  function speakerBlock(overrides: Partial<SpeakerAllocationBlock['speakers']> = {}): SpeakerAllocationBlock {
+    const speakers: SpeakerAllocationBlock['speakers'] = {
+      frontLeftRight: false, lfe: false, frontCenter: false,
+      rearLeftRight: false, rearCenter: false, frontLeftRightCenter: false,
+      rearLeftRightCenter: false, frontLeftRightWide: false,
+      frontLeftRightHigh: false, topCenter: false, frontCenterHigh: false,
+      surroundLeftRight: false, lfe2: false, topBackCenter: false,
+      sideLeftRight: false, topSideLeftRight: false,
+      topBackLeftRight: false, bottomFrontCenter: false,
+      bottomFrontLeftRight: false, topLeftRightSurround: false,
+      ...overrides,
+    };
+    return { tag: 0x04, data: new Uint8Array(), speakers, trailing: new Uint8Array() };
+  }
+
+  it('round-trips all 20 SADB speaker bits set (byte1=0xff, byte2=0xff, byte3=0x0f)', () => {
+    const all = speakerBlock({
+      frontLeftRight: true, lfe: true, frontCenter: true, rearLeftRight: true,
+      rearCenter: true, frontLeftRightCenter: true, rearLeftRightCenter: true,
+      frontLeftRightWide: true, frontLeftRightHigh: true, topCenter: true,
+      frontCenterHigh: true, surroundLeftRight: true, lfe2: true, topBackCenter: true,
+      sideLeftRight: true, topSideLeftRight: true, topBackLeftRight: true,
+      bottomFrontCenter: true, bottomFrontLeftRight: true, topLeftRightSurround: true,
+    });
+    const original = ceaWith([all]);
+    const bytes = ExtensionBlockParser.encode(original);
+    const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
+    const s = decoded.dataBlocks[0] as SpeakerAllocationBlock;
+
+    // Every modelled bit survives the round trip.
+    for (const key of Object.keys(all.speakers) as (keyof SpeakerAllocationBlock['speakers'])[]) {
+      expect(s.speakers[key], `bit ${key}`).toBe(true);
+    }
+    // byte3 reserved bits 7:4 stay 0 → 0x0f, not 0xff.
+    expect(s.data[0]).toBe(0xff);
+    expect(s.data[1]).toBe(0xff);
+    expect(s.data[2]).toBe(0x0f);
+
+    // Re-encoding is byte-identical.
+    const reencoded = ExtensionBlockParser.encode(decoded);
+    expect(Array.from(reencoded)).toEqual(Array.from(bytes));
+  });
+
+  it('preserves trailing payload bytes beyond the 3-byte SADB mask', () => {
+    const block = speakerBlock({ frontLeftRight: true });
+    block.trailing = new Uint8Array([0xab, 0xcd]);
+    const original = ceaWith([block]);
+    const bytes = ExtensionBlockParser.encode(original);
+    const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
+    const s = decoded.dataBlocks[0] as SpeakerAllocationBlock;
+    expect(Array.from(s.trailing)).toEqual([0xab, 0xcd]);
+    expect(ExtensionBlockParser.encode(decoded)).toEqual(bytes);
+  });
+});
+
+describe('unifySpeakerLayout: SADB + Speaker Location (TASK-6)', () => {
+  function locationBlock(descriptors: SpeakerLocationDataBlock['descriptors']): SpeakerLocationDataBlock {
+    return {
+      tag: 0x07,
+      extendedTag: 0x14,
+      data: new Uint8Array(),
+      descriptors,
+      trailing: new Uint8Array(),
+    };
+  }
+
+  function sadb(set: Partial<SpeakerAllocationBlock['speakers']> = {}): SpeakerAllocationBlock {
+    const speakers: SpeakerAllocationBlock['speakers'] = {
+      frontLeftRight: false, lfe: false, frontCenter: false,
+      rearLeftRight: false, rearCenter: false, frontLeftRightCenter: false,
+      rearLeftRightCenter: false, frontLeftRightWide: false,
+      frontLeftRightHigh: false, topCenter: false, frontCenterHigh: false,
+      surroundLeftRight: false, lfe2: false, topBackCenter: false,
+      sideLeftRight: false, topSideLeftRight: false,
+      topBackLeftRight: false, bottomFrontCenter: false,
+      bottomFrontLeftRight: false, topLeftRightSurround: false,
+      ...set,
+    };
+    return { tag: 0x04, data: new Uint8Array(), speakers, trailing: new Uint8Array() };
+  }
+
+  it('returns 20 SADB entries with present flags when only a SADB is given', () => {
+    const u = unifySpeakerLayout(sadb({ frontLeftRight: true, lfe: true }));
+    expect(u).toHaveLength(20);
+    const flfr = u.find((e) => e.allocationKey === 'frontLeftRight');
+    const lfe = u.find((e) => e.allocationKey === 'lfe');
+    expect(flfr?.present).toBe(true);
+    expect(lfe?.present).toBe(true);
+    expect(flfr?.speakerIds).toEqual([0x00, 0x01]);
+    // No Location block → no location data on any entry.
+    expect(u.every((e) => e.location === undefined)).toBe(true);
+  });
+
+  it('joins a Speaker Location descriptor to its matching SADB bit', () => {
+    // FC = speakerId 0x02, covered by the `frontCenter` SADB bit.
+    const loc = locationBlock([{ channelIndex: 3, speakerId: 0x02, active: true }]);
+    const u = unifySpeakerLayout(sadb({ frontCenter: true }), loc);
+    const fc = u.find((e) => e.allocationKey === 'frontCenter');
+    expect(fc?.present).toBe(true);
+    expect(fc?.location).toEqual({ channelIndex: 3, active: true, coordinates: undefined });
+  });
+
+  it('reports a Location descriptor even when the SADB bit is absent', () => {
+    // LFE2 = 0x09 is covered by the `lfe2` SADB bit; leave that bit off.
+    const loc = locationBlock([{ channelIndex: 7, speakerId: 0x09, active: false }]);
+    const u = unifySpeakerLayout(sadb(), loc);
+    const lfe2 = u.find((e) => e.allocationKey === 'lfe2');
+    expect(lfe2?.present).toBe(false);
+    expect(lfe2?.location?.channelIndex).toBe(7);
+  });
+
+  it('appends reserved-speakerId Location descriptors not covered by any SADB bit', () => {
+    // 0x1f is a reserved Table 34 code with no SADB bit.
+    const loc = locationBlock([{ channelIndex: 9, speakerId: 0x1f, active: true }]);
+    const u = unifySpeakerLayout(sadb(), loc);
+    expect(u).toHaveLength(21);
+    const extra = u[20];
+    expect(extra.allocationKey).toBeUndefined();
+    expect(extra.present).toBe(false);
+    expect(extra.speakerIds).toEqual([0x1f]);
+    expect(extra.location?.channelIndex).toBe(9);
+  });
+
+  it('never attaches a Location to the RLC/RRC or TpLS/TpRS bits (no Table 34 code)', () => {
+    const loc = locationBlock([
+      { channelIndex: 0, speakerId: 0x00, active: true }, // FL — matches frontLeftRight, not RLC/RRC
+    ]);
+    const u = unifySpeakerLayout(
+      sadb({ rearLeftRightCenter: true, topLeftRightSurround: true }),
+      loc,
+    );
+    const rlc = u.find((e) => e.allocationKey === 'rearLeftRightCenter');
+    const tls = u.find((e) => e.allocationKey === 'topLeftRightSurround');
+    expect(rlc?.present).toBe(true);
+    expect(rlc?.speakerIds).toEqual([]);
+    expect(rlc?.location).toBeUndefined();
+    expect(tls?.present).toBe(true);
+    expect(tls?.speakerIds).toEqual([]);
+    expect(tls?.location).toBeUndefined();
   });
 });

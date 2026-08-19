@@ -237,7 +237,12 @@ function addCEADataBlock(blockType: string) {
           rearLeftRight: false, rearCenter: false, frontLeftRightCenter: false,
           rearLeftRightCenter: false, frontLeftRightWide: false,
           frontLeftRightHigh: false, topCenter: false, frontCenterHigh: false,
+          surroundLeftRight: false, lfe2: false, topBackCenter: false,
+          sideLeftRight: false, topSideLeftRight: false,
+          topBackLeftRight: false, bottomFrontCenter: false,
+          bottomFrontLeftRight: false, topLeftRightSurround: false,
         },
+        trailing: new Uint8Array(),
       } as unknown as import('edidts').CEADataBlock)
       activeSection.value = 'cea-speakers'
       break

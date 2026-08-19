@@ -133,19 +133,42 @@ export interface VideoDataBlock extends CEADataBlock {
 
 export interface SpeakerAllocationBlock extends CEADataBlock {
   tag: 0x04;
+  /**
+   * CTA-861-G Table 69 "Speaker Allocation Data Block Payload" — a 20-bit
+   * speaker mask packed across 3 payload bytes (byte3 bits 7:4 are reserved
+   * and always 0). Each flag denotes a single speaker or a Left/Right pair.
+   *
+   * The first 11 fields are the original subset the UI already renders; the
+   * remaining 9 (byte2 bits 7:4 + byte3 bits 3:0) are the CTA-861-G additions
+   * that complete the spec-defined bit set.
+   */
   speakers: {
-    frontLeftRight: boolean;
-    lfe: boolean;
-    frontCenter: boolean;
-    rearLeftRight: boolean;
-    rearCenter: boolean;
-    frontLeftRightCenter: boolean;
-    rearLeftRightCenter: boolean;
-    frontLeftRightWide: boolean;
-    frontLeftRightHigh: boolean;
-    topCenter: boolean;
-    frontCenterHigh: boolean;
+    // byte 1
+    frontLeftRight: boolean; // 0x01 FL/FR
+    lfe: boolean; // 0x02 LFE (LFE1)
+    frontCenter: boolean; // 0x04 FC
+    rearLeftRight: boolean; // 0x08 BL/BR
+    rearCenter: boolean; // 0x10 BC
+    frontLeftRightCenter: boolean; // 0x20 FLC/FRC
+    rearLeftRightCenter: boolean; // 0x40 RLC/RRC
+    frontLeftRightWide: boolean; // 0x80 FLW/FRW
+    // byte 2
+    frontLeftRightHigh: boolean; // 0x01 TpFL/TpFR
+    topCenter: boolean; // 0x02 TpC
+    frontCenterHigh: boolean; // 0x04 TpFC
+    surroundLeftRight: boolean; // 0x08 LS/RS
+    lfe2: boolean; // 0x10 LFE2
+    topBackCenter: boolean; // 0x20 TpBC
+    sideLeftRight: boolean; // 0x40 SiL/SiR
+    topSideLeftRight: boolean; // 0x80 TpSiL/TpSiR
+    // byte 3 (bits 7:4 reserved)
+    topBackLeftRight: boolean; // 0x01 TpBL/TpBR
+    bottomFrontCenter: boolean; // 0x02 BtFC
+    bottomFrontLeftRight: boolean; // 0x04 BtFL/BtFR
+    topLeftRightSurround: boolean; // 0x08 TpLS/TpRS
   };
+  /** Payload bytes beyond the 3-byte SADB mask (preserved for byte-exact round-trip). */
+  trailing: Uint8Array;
 }
 
 /**
@@ -412,11 +435,13 @@ export class ExtensionBlockParser {
   private static decodeSpeakerAllocationBlock(data: Uint8Array): SpeakerAllocationBlock {
     const byte1 = data[0] || 0;
     const byte2 = data[1] || 0;
+    const byte3 = data[2] || 0;
 
     return {
       tag: 0x04,
       data,
       speakers: {
+        // byte 1
         frontLeftRight: (byte1 & 0x01) !== 0,
         lfe: (byte1 & 0x02) !== 0,
         frontCenter: (byte1 & 0x04) !== 0,
@@ -425,10 +450,22 @@ export class ExtensionBlockParser {
         frontLeftRightCenter: (byte1 & 0x20) !== 0,
         rearLeftRightCenter: (byte1 & 0x40) !== 0,
         frontLeftRightWide: (byte1 & 0x80) !== 0,
+        // byte 2
         frontLeftRightHigh: (byte2 & 0x01) !== 0,
         topCenter: (byte2 & 0x02) !== 0,
         frontCenterHigh: (byte2 & 0x04) !== 0,
+        surroundLeftRight: (byte2 & 0x08) !== 0,
+        lfe2: (byte2 & 0x10) !== 0,
+        topBackCenter: (byte2 & 0x20) !== 0,
+        sideLeftRight: (byte2 & 0x40) !== 0,
+        topSideLeftRight: (byte2 & 0x80) !== 0,
+        // byte 3 (bits 7:4 reserved)
+        topBackLeftRight: (byte3 & 0x01) !== 0,
+        bottomFrontCenter: (byte3 & 0x02) !== 0,
+        bottomFrontLeftRight: (byte3 & 0x04) !== 0,
+        topLeftRightSurround: (byte3 & 0x08) !== 0,
       },
+      trailing: data.length > 3 ? data.slice(3) : new Uint8Array(),
     };
   }
 
@@ -614,6 +651,7 @@ export class ExtensionBlockParser {
     const s = block.speakers;
     let byte1 = 0;
     let byte2 = 0;
+    let byte3 = 0;
     if (s.frontLeftRight) byte1 |= 0x01;
     if (s.lfe) byte1 |= 0x02;
     if (s.frontCenter) byte1 |= 0x04;
@@ -625,7 +663,23 @@ export class ExtensionBlockParser {
     if (s.frontLeftRightHigh) byte2 |= 0x01;
     if (s.topCenter) byte2 |= 0x02;
     if (s.frontCenterHigh) byte2 |= 0x04;
-    return new Uint8Array([byte1, byte2, 0]);
+    if (s.surroundLeftRight) byte2 |= 0x08;
+    if (s.lfe2) byte2 |= 0x10;
+    if (s.topBackCenter) byte2 |= 0x20;
+    if (s.sideLeftRight) byte2 |= 0x40;
+    if (s.topSideLeftRight) byte2 |= 0x80;
+    if (s.topBackLeftRight) byte3 |= 0x01;
+    if (s.bottomFrontCenter) byte3 |= 0x02;
+    if (s.bottomFrontLeftRight) byte3 |= 0x04;
+    if (s.topLeftRightSurround) byte3 |= 0x08;
+    // byte3 bits 7:4 are reserved (always 0)
+    const head = new Uint8Array([byte1, byte2, byte3]);
+    const trailing = block.trailing ?? new Uint8Array();
+    if (trailing.length === 0) return head;
+    const out = new Uint8Array(head.length + trailing.length);
+    out.set(head, 0);
+    out.set(trailing, head.length);
+    return out;
   }
 
   /**

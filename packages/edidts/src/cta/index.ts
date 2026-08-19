@@ -32,6 +32,11 @@ export type { AudioFormatDefinition } from './audio-format-codes';
 
 // CTA-861-G Extended Tag Data Blocks
 export { decodeExtendedDataBlock, encodeExtendedDataBlock } from './cta-extended-blocks';
+export {
+  SPEAKER_PLACEMENT,
+  SPEAKER_ALLOCATION_BITS,
+  unifySpeakerLayout,
+} from './cta-extended-blocks';
 export type {
   ExtendedTagCode,
   ExtendedDataBlock,
@@ -49,6 +54,9 @@ export type {
   SpeakerLocationDataBlock,
   RoomEnvironmentDataBlock,
   InfoFrameDataBlock,
+  SpeakerPlacement,
+  SpeakerAllocationBit,
+  UnifiedSpeaker,
 } from './cta-extended-blocks';
 
 // CEA/CTA Extension Block

@@ -5,7 +5,7 @@
  * payload contains the Extended Tag Code that identifies the specific block type.
  */
 
-import type { CEADataBlock } from './extension-block';
+import type { CEADataBlock, SpeakerAllocationBlock } from './extension-block';
 import { decodeVSVDB } from './vsvdb/registry';
 import { isKnownVIC } from './vic-table';
 
@@ -192,6 +192,188 @@ export interface SpeakerLocationDataBlock extends ExtendedDataBlock {
   }>;
   /** Bytes after the last complete descriptor (preserved for byte-exact round-trip). */
   trailing: Uint8Array;
+}
+
+/**
+ * CTA-861-G Table 34 "Speaker Placement" — the canonical speaker designation
+ * codes (0x00–0x1F) shared by the Audio InfoFrame channel allocation, the
+ * Speaker Allocation Data Block, and the Speaker Location Data Block.
+ *
+ * Consistent with ISO/IEC 62574. Codes 0x1C–0x1F are reserved.
+ */
+export interface SpeakerPlacement {
+  /** Speaker designation code (Table 34 "Code" column). */
+  id: number;
+  /** Short label (e.g. "FL", "LFE1"). */
+  code: string;
+  /** Human-readable position description. */
+  label: string;
+}
+
+export const SPEAKER_PLACEMENT: ReadonlyArray<SpeakerPlacement> = [
+  { id: 0x00, code: 'FL', label: 'Front Left' },
+  { id: 0x01, code: 'FR', label: 'Front Right' },
+  { id: 0x02, code: 'FC', label: 'Front Center' },
+  { id: 0x03, code: 'LFE1', label: 'Low Frequency Effects 1' },
+  { id: 0x04, code: 'BL', label: 'Back Left' },
+  { id: 0x05, code: 'BR', label: 'Back Right' },
+  { id: 0x06, code: 'FLc', label: 'Front Left of Center' },
+  { id: 0x07, code: 'FRc', label: 'Front Right of Center' },
+  { id: 0x08, code: 'BC', label: 'Back Center' },
+  { id: 0x09, code: 'LFE2', label: 'Low Frequency Effects 2' },
+  { id: 0x0a, code: 'SiL', label: 'Side Left' },
+  { id: 0x0b, code: 'SiR', label: 'Side Right' },
+  { id: 0x0c, code: 'TpFL', label: 'Top Front Left' },
+  { id: 0x0d, code: 'TpFR', label: 'Top Front Right' },
+  { id: 0x0e, code: 'TpFC', label: 'Top Front Center' },
+  { id: 0x0f, code: 'TpC', label: 'Top Center' },
+  { id: 0x10, code: 'TpBL', label: 'Top Back Left' },
+  { id: 0x11, code: 'TpBR', label: 'Top Back Right' },
+  { id: 0x12, code: 'TpSiL', label: 'Top Side Left' },
+  { id: 0x13, code: 'TpSiR', label: 'Top Side Right' },
+  { id: 0x14, code: 'TpBC', label: 'Top Back Center' },
+  { id: 0x15, code: 'BtFC', label: 'Bottom Front Center' },
+  { id: 0x16, code: 'BtFL', label: 'Bottom Front Left' },
+  { id: 0x17, code: 'BtFR', label: 'Bottom Front Right' },
+  { id: 0x18, code: 'FLw', label: 'Front Left Wide' },
+  { id: 0x19, code: 'FRw', label: 'Front Right Wide' },
+  { id: 0x1a, code: 'LS', label: 'Left Surround' },
+  { id: 0x1b, code: 'RS', label: 'Right Surround' },
+];
+
+/**
+ * Maps a Speaker Allocation Data Block bit (CTA-861-G Table 69) to the
+ * `SpeakerAllocationBlock.speakers` key that carries it, the SADB pair/single
+ * label, and the Table 34 speaker-designation codes the bit covers.
+ *
+ * Two SADB designations — `RLC/RRC` (Rear Left/Right of Center) and
+ * `TpLS/TpRS` (Top Left/Right Surround) — have no entry in Table 34, so their
+ * `speakerIds` are empty; they are still modelled as SADB bits but cannot be
+ * cross-referenced with a Speaker Location descriptor.
+ */
+export interface SpeakerAllocationBit {
+  /** Field key on `SpeakerAllocationBlock.speakers`. */
+  key: keyof SpeakerAllocationBlock['speakers'];
+  /** SADB label as printed in Table 69 (e.g. "FL/FR", "LFE"). */
+  label: string;
+  /** Table 34 speaker-designation codes this bit represents (may be empty). */
+  speakerIds: number[];
+}
+
+export const SPEAKER_ALLOCATION_BITS: ReadonlyArray<SpeakerAllocationBit> = [
+  // byte 1
+  { key: 'frontLeftRight', label: 'FL/FR', speakerIds: [0x00, 0x01] },
+  { key: 'lfe', label: 'LFE', speakerIds: [0x03] },
+  { key: 'frontCenter', label: 'FC', speakerIds: [0x02] },
+  { key: 'rearLeftRight', label: 'BL/BR', speakerIds: [0x04, 0x05] },
+  { key: 'rearCenter', label: 'BC', speakerIds: [0x08] },
+  { key: 'frontLeftRightCenter', label: 'FLC/FRC', speakerIds: [0x06, 0x07] },
+  { key: 'rearLeftRightCenter', label: 'RLC/RRC', speakerIds: [] },
+  { key: 'frontLeftRightWide', label: 'FLW/FRW', speakerIds: [0x18, 0x19] },
+  // byte 2
+  { key: 'frontLeftRightHigh', label: 'TpFL/TpFR', speakerIds: [0x0c, 0x0d] },
+  { key: 'topCenter', label: 'TpC', speakerIds: [0x0f] },
+  { key: 'frontCenterHigh', label: 'TpFC', speakerIds: [0x0e] },
+  { key: 'surroundLeftRight', label: 'LS/RS', speakerIds: [0x1a, 0x1b] },
+  { key: 'lfe2', label: 'LFE2', speakerIds: [0x09] },
+  { key: 'topBackCenter', label: 'TpBC', speakerIds: [0x14] },
+  { key: 'sideLeftRight', label: 'SiL/SiR', speakerIds: [0x0a, 0x0b] },
+  { key: 'topSideLeftRight', label: 'TpSiL/TpSiR', speakerIds: [0x12, 0x13] },
+  // byte 3 (bits 7:4 reserved)
+  { key: 'topBackLeftRight', label: 'TpBL/TpBR', speakerIds: [0x10, 0x11] },
+  { key: 'bottomFrontCenter', label: 'BtFC', speakerIds: [0x15] },
+  { key: 'bottomFrontLeftRight', label: 'BtFL/BtFR', speakerIds: [0x16, 0x17] },
+  { key: 'topLeftRightSurround', label: 'TpLS/TpRS', speakerIds: [] },
+];
+
+/**
+ * A single speaker position resolved from the Speaker Allocation Data Block
+ * and/or the Speaker Location Data Block. Produced by `unifySpeakerLayout`.
+ */
+export interface UnifiedSpeaker {
+  /** SADB field key when the position is declared via the allocation bitmask. */
+  allocationKey?: keyof SpeakerAllocationBlock['speakers'];
+  /** SADB pair/single label (Table 69). */
+  allocationLabel?: string;
+  /** Table 34 speaker-designation codes the position covers (may be empty). */
+  speakerIds: number[];
+  /** True when the SADB declares the speaker present. */
+  present: boolean;
+  /** Speaker Location descriptor matched by speakerId, when one exists. */
+  location?: {
+    channelIndex: number;
+    active: boolean;
+    coordinates?: { x: number; y: number; z: number };
+  };
+}
+
+/**
+ * Build a unified speaker model from the (optional) Speaker Allocation Data
+ * Block and Speaker Location Data Block (CTA-861-G §7.5.3 / §7.5.16).
+ *
+ * The result has one entry per SADB bit (carrying its `present` flag), joined
+ * with any Speaker Location descriptor whose `speakerId` overlaps the bit's
+ * Table 34 codes. Speaker Location descriptors whose `speakerId` is not
+ * covered by any SADB bit are appended as additional entries with
+ * `present: false`. SADB bits with no Table 34 code (RLC/RRC, TpLS/TpRS) never
+ * match a Location descriptor.
+ */
+export function unifySpeakerLayout(
+  sadb?: SpeakerAllocationBlock,
+  location?: SpeakerLocationDataBlock,
+): UnifiedSpeaker[] {
+  const byId = new Map<number, SpeakerLocationDataBlock['descriptors'][0]>();
+  if (location) {
+    for (const d of location.descriptors) {
+      if (!byId.has(d.speakerId)) byId.set(d.speakerId, d);
+    }
+  }
+
+  const matchedIds = new Set<number>();
+  const result: UnifiedSpeaker[] = [];
+
+  for (const bit of SPEAKER_ALLOCATION_BITS) {
+    const present = sadb ? Boolean(sadb.speakers[bit.key]) : false;
+    // Find the first Location descriptor whose speakerId this bit covers.
+    let loc: UnifiedSpeaker['location'];
+    for (const id of bit.speakerIds) {
+      const d = byId.get(id);
+      if (d) {
+        matchedIds.add(id);
+        loc = {
+          channelIndex: d.channelIndex,
+          active: d.active,
+          coordinates: d.coordinates,
+        };
+        break;
+      }
+    }
+    result.push({
+      allocationKey: bit.key,
+      allocationLabel: bit.label,
+      speakerIds: [...bit.speakerIds],
+      present,
+      location: loc,
+    });
+  }
+
+  // Append Location-only descriptors (speakerId not covered by any SADB bit).
+  if (location) {
+    for (const d of location.descriptors) {
+      if (matchedIds.has(d.speakerId)) continue;
+      result.push({
+        speakerIds: [d.speakerId],
+        present: false,
+        location: {
+          channelIndex: d.channelIndex,
+          active: d.active,
+          coordinates: d.coordinates,
+        },
+      });
+    }
+  }
+
+  return result;
 }
 
 /**
