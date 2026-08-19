@@ -2,6 +2,24 @@
 
 import type { CEADataBlock } from '../extension-block';
 
+/**
+ * HDMI 1.4 Vendor-Specific Data Block (OUI 0x000C03).
+ *
+ * Layout per edid-decode `cta_hdmi_block` (parse-cta-block.cpp) and the HDMI 1.4
+ * Specification. The post-OUI payload is:
+ *   byte 0–1  Source Physical Address (A.B, C.D)
+ *   byte 2    Flags (Supports_AI, DC_*, DVI_Dual)
+ *   byte 3    Max TMDS Clock (in 5 MHz units)
+ *   byte 4    Video/Latency byte (optional): Content Types (3:0),
+ *             Interlaced latency present (6), Latency present (7),
+ *             Extended HDMI video details present (5)
+ *   byte 5..  Latency (progressive, optional interlaced) + extended details
+ *             (3D present/mode, image size, HDMI VIC list, 3D structures)
+ *
+ * Fields after `maxTmdsClockMHz` are optional; they are `undefined` when the
+ * payload is too short to carry them. `trailing` preserves any bytes after the
+ * last modeled byte for byte-exact round-trip.
+ */
 export interface HDMI14VSDB {
   sourcePhysicalAddress: [number, number, number, number];
   supportsAI: boolean;
@@ -10,6 +28,54 @@ export interface HDMI14VSDB {
   dc36bit: boolean;
   dc48bit: boolean;
   maxTmdsClockMHz: number;
+
+  /** Byte 4 low nibble: Supported Content Types bitmap (Graphics=0x01, Photo=0x02, Cinema=0x04, Game=0x08). */
+  contentTypes?: number;
+  /** Video/audio latency, present iff byte 4 bit 7 set. */
+  latency?: {
+    progressive: HdmiLatency;
+    /** Interlaced latency, present iff byte 4 bit 6 set. */
+    interlaced?: HdmiLatency;
+  };
+  /** Extended HDMI video details, present iff byte 4 bit 5 set. */
+  extended?: {
+    /** Byte bit 7: 3D present. */
+    threeDPresent: boolean;
+    /** Byte bits 6:5 — determines whether 3D_Structure_ALL / VIC mask follow. */
+    threeDMode: Hdmi3DMode;
+    /** Byte bits 3:2 — Base EDID image size interpretation. */
+    imageSize: HdmiImageSize;
+    /** HDMI VIC list (HDMI VIC codes 1–4; maps to 4K formats). */
+    hdmiVics: number[];
+    /** 3D_Structure_ALL 16-bit mask, present iff threeDMode !== 'none'. */
+    structureAll?: number;
+    /** 3D-capable-VIC 16-bit mask, present iff threeDMode === 'vic-mask'. */
+    vicMask?: number;
+    /** Per-VIC 3D_Structure_X list (decoded with edid-decode's stride rule). */
+    structures: Hdmi3DStructure[];
+  };
+
+  /** Bytes after the last modeled byte (preserved for byte-exact round-trip). */
+  trailing: Uint8Array;
+}
+
+/** A video/audio latency pair. The raw byte encodes latency_ms = 1 + 2*byte (0 = not present, 0xff = unknown). */
+export interface HdmiLatency {
+  video: number;
+  audio: number;
+}
+
+export type Hdmi3DMode = 'none' | 'all-vics-3d' | 'vic-mask';
+export type HdmiImageSize = 'none' | 'aspect-ratio' | 'cm' | '5cm';
+
+/** A per-VIC 3D structure entry (3D_Structure_X / 3D_Detail_X nibbles). */
+export interface Hdmi3DStructure {
+  /** 2D VIC order index (high nibble). */
+  vicIndex: number;
+  /** 3D_Structure_X (low nibble). */
+  structure: number;
+  /** 3D_Detail_X (high nibble of the following byte); present iff structure >= 8. */
+  detail?: number;
 }
 
 export interface HDMIForumVSDB {

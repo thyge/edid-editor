@@ -103,6 +103,10 @@ export type {
 // Vendor-Specific Data Blocks (tag 0x03)
 export type {
   HDMI14VSDB,
+  HdmiLatency,
+  Hdmi3DMode,
+  Hdmi3DStructure,
+  HdmiImageSize,
   HDMIForumVSDB,
   MicrosoftHMDVSDB,
   AMDFreeSyncVSDB,
