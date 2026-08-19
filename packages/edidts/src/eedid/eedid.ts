@@ -30,6 +30,12 @@ export class EEDID {
    * defaults to `[]` for directly-constructed instances.
    */
   public checksumDiagnostics: string[];
+  /**
+   * Base-block structural diagnostics (e.g. the VESA E-EDID A2 §3.10.1
+   * first-descriptor warning), surfaced from `base.baseDiagnostics` so the UI
+   * can render them next to `checksumDiagnostics`. Defaults to `[]`.
+   */
+  public baseDiagnostics: string[];
 
   constructor(init?: Partial<Pick<EEDID, 'base' | 'extensions'>>) {
     this.base = init?.base ?? new EDID();
@@ -38,6 +44,7 @@ export class EEDID {
     this.isValid = false;
     this.extensionsValid = true;
     this.checksumDiagnostics = [];
+    this.baseDiagnostics = [];
   }
 
   static decode(data: ArrayBuffer | Uint8Array): EEDID {
@@ -83,6 +90,7 @@ export class EEDID {
     eedid.isValid = base.checksumValid;
     eedid.extensionsValid = extensions.every((ext) => ext.checksumValid === true);
     eedid.checksumDiagnostics = diagnostics;
+    eedid.baseDiagnostics = base.baseDiagnostics;
     void declaredCount;
     return eedid;
   }

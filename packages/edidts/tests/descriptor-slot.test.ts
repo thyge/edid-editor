@@ -134,6 +134,51 @@ describe('First descriptor validation (Section 3.10.1)', () => {
   })
 })
 
+describe('First descriptor diagnostics (Section 3.10.1, TASK-25)', () => {
+  it('emits no baseDiagnostics when slot 0 is populated (DTD)', () => {
+    const dtd = new DetailedTimingDescriptor({
+      pixelClock: 25.175,
+      horizontalActive: 640,
+      horizontalBlanking: 160,
+      verticalActive: 480,
+      verticalBlanking: 45,
+    })
+    const edid = EDID.decode(makeEdidWithSlots([dtd]))
+    expect(edid.isBaseValid).toBe(true)
+    expect(edid.baseDiagnostics).toEqual([])
+  })
+
+  it('emits no baseDiagnostics when slot 0 is a non-dummy display descriptor', () => {
+    const edid = EDID.decode(makeEdidWithSlots([{ tag: 0xfc }]))
+    expect(edid.isBaseValid).toBe(true)
+    expect(edid.baseDiagnostics).toEqual([])
+  })
+
+  it('warns that slot 0 is a dummy (tag 0x10) and marks base invalid', () => {
+    const edid = EDID.decode(makeEdidWithSlots([{ tag: 0x10 }, { tag: 0xfc }]))
+    expect(edid.isBaseValid).toBe(false)
+    expect(edid.baseDiagnostics.length).toBe(1)
+    expect(edid.baseDiagnostics[0]).toMatch(/First descriptor slot is a dummy/)
+    expect(edid.baseDiagnostics[0]).toMatch(/3\.10\.1/)
+  })
+
+  it('warns that slot 0 is empty and marks base invalid', () => {
+    // A genuinely all-zero slot 0 (not a dummy — byte 3 is 0x00, not 0x10).
+    // Slot 1 carries a real descriptor so the block isn't otherwise empty.
+    const bytes = makeEdidWithSlots([undefined, { tag: 0xfc }])
+    bytes.set(new Uint8Array(18), 54) // overwrite slot 0 with all zeros
+    bytes[127] = checksum8(bytes, 127)
+    const edid = EDID.decode(bytes)
+    expect(edid.isBaseValid).toBe(false)
+    expect(edid.baseDiagnostics.length).toBe(1)
+    expect(edid.baseDiagnostics[0]).toMatch(/First descriptor slot is empty/)
+  })
+
+  it('defaults baseDiagnostics to [] for a programmatically constructed EDID', () => {
+    expect(new EDID().baseDiagnostics).toEqual([])
+  })
+})
+
 describe('Borders math (Section 3.12)', () => {
   it('round-trips a DTD with non-zero horizontal and vertical borders', () => {
     const dtd = new DetailedTimingDescriptor({

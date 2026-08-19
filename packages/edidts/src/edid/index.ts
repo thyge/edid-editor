@@ -50,6 +50,15 @@ export class EDID {
    * programmatically constructed/blank EDIDs are unaffected.
    */
   public checksumValid: boolean;
+  /**
+   * Human-readable base-block structural warnings. Currently covers the
+   * VESA E-EDID A2 §3.10.1 first-descriptor requirement: the first 18-byte
+   * descriptor slot must be populated (a Detailed Timing Descriptor or a
+   * non-dummy display descriptor); a dummy (tag 0x10) or all-zero slot 0 marks
+   * the EDID structurally incomplete. Empty when slot 0 is populated.
+   * Populated by `EDID.decode`; defaults to `[]` for constructed instances.
+   */
+  public baseDiagnostics: string[];
 
   constructor(init?: Partial<EDID>) {
     this.header = init?.header ?? new EDIDHeader();
@@ -71,6 +80,7 @@ export class EDID {
     this.displayDescriptors = init?.displayDescriptors ?? [];
     this.isBaseValid = init?.isBaseValid ?? true;
     this.checksumValid = init?.checksumValid ?? true;
+    this.baseDiagnostics = init?.baseDiagnostics ?? [];
   }
 
   static decode(data: ArrayBuffer | Uint8Array): EDID {
@@ -97,6 +107,21 @@ export class EDID {
     const isBaseValid = !(slot0IsDummy || slot0IsEmpty);
     const checksumValid = isChecksum8Valid(bytes);
 
+    // VESA E-EDID A2 §3.10.1: the first 18-byte descriptor slot must be
+    // populated (a DTD or a non-dummy display descriptor). Surface a
+    // human-readable diagnostic so the UI can explain a structurally
+    // incomplete base block, not just flag it invalid.
+    const baseDiagnostics: string[] = [];
+    if (slot0IsDummy) {
+      baseDiagnostics.push(
+        'First descriptor slot is a dummy (tag 0x10); the preferred-timing descriptor must be populated per VESA E-EDID A2 §3.10.1',
+      );
+    } else if (slot0IsEmpty) {
+      baseDiagnostics.push(
+        'First descriptor slot is empty; the preferred-timing descriptor must be populated per VESA E-EDID A2 §3.10.1',
+      );
+    }
+
     return new EDID({
       header: EDIDHeader.decode(bytes),
       videoInput,
@@ -110,6 +135,7 @@ export class EDID {
       displayDescriptors,
       isBaseValid,
       checksumValid,
+      baseDiagnostics,
     });
   }
 

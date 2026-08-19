@@ -270,6 +270,9 @@ function updateFeature(key: string, value: unknown) {
             <ul v-if="edid.checksumDiagnostics?.length" class="mt-1 space-y-0.5 text-xs text-destructive">
               <li v-for="(d, i) in edid.checksumDiagnostics" :key="i">{{ d }}</li>
             </ul>
+            <ul v-if="edid.baseDiagnostics?.length" class="mt-1 space-y-0.5 text-xs text-amber-600 dark:text-amber-500">
+              <li v-for="(d, i) in edid.baseDiagnostics" :key="`b${i}`">{{ d }}</li>
+            </ul>
           </div>
         </div>
       </section>
