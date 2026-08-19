@@ -18,16 +18,20 @@ const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBloc
 function defaultTiming(): DisplayIdTypeVIIDetailedTiming {
   return {
     pixelClockKHz: 148500,
+    aspectRatio: 8,
+    interlaced: false,
+    stereo: 0,
+    preferred: false,
     horizontalActive: 1920,
     horizontalBlanking: 280,
     horizontalSyncOffset: 44,
+    horizontalSyncPolarity: true,
     horizontalSyncWidth: 56,
     verticalActive: 1080,
     verticalBlanking: 45,
     verticalSyncOffset: 4,
+    verticalSyncPolarity: true,
     verticalSyncWidth: 5,
-    preferred: false,
-    interlaced: false,
   }
 }
 
@@ -58,6 +62,7 @@ function updateBlock(index: number, block: DisplayIdTypeVIIDetailedTimingBlock, 
           </div>
           <div class="grid grid-cols-4 gap-3">
             <Input type="number" :model-value="timing.pixelClockKHz" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, pixelClockKHz: numberFromEvent($event) }))" />
+            <Input type="number" min="0" max="15" :model-value="timing.aspectRatio" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, aspectRatio: numberFromEvent($event) }))" />
             <Input type="number" :model-value="timing.horizontalActive" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, horizontalActive: numberFromEvent($event) }))" />
             <Input type="number" :model-value="timing.horizontalBlanking" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, horizontalBlanking: numberFromEvent($event) }))" />
             <Input type="number" :model-value="timing.horizontalSyncOffset" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, horizontalSyncOffset: numberFromEvent($event) }))" />
@@ -67,7 +72,7 @@ function updateBlock(index: number, block: DisplayIdTypeVIIDetailedTimingBlock, 
             <Input type="number" :model-value="timing.verticalSyncOffset" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, verticalSyncOffset: numberFromEvent($event) }))" />
             <Input type="number" :model-value="timing.verticalSyncWidth" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, verticalSyncWidth: numberFromEvent($event) }))" />
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-3 gap-3">
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
               <span>Preferred</span>
               <Switch :checked="timing.preferred" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, preferred: value }))" />
@@ -75,6 +80,18 @@ function updateBlock(index: number, block: DisplayIdTypeVIIDetailedTimingBlock, 
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
               <span>Interlaced</span>
               <Switch :checked="timing.interlaced" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, interlaced: value }))" />
+            </label>
+            <div class="space-y-1">
+              <label class="text-xs text-muted-foreground">3D Stereo (0–3)</label>
+              <Input type="number" min="0" max="3" :model-value="timing.stereo" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, stereo: numberFromEvent($event) }))" />
+            </div>
+            <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
+              <span>Hsync +</span>
+              <Switch :checked="timing.horizontalSyncPolarity" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, horizontalSyncPolarity: value }))" />
+            </label>
+            <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
+              <span>Vsync +</span>
+              <Switch :checked="timing.verticalSyncPolarity" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, verticalSyncPolarity: value }))" />
             </label>
           </div>
         </div>

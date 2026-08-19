@@ -184,75 +184,140 @@ describe('DisplayID Display Parameters block', () => {
 });
 
 describe('DisplayID timing blocks', () => {
-  it('decodes and encodes Type VII detailed timings as 12-byte entries', () => {
+  // Type VII: 20-byte Detailed Timing descriptor (DisplayID 2.0 §4.3.1, Table 4-18).
+  // pixelClock 148.5 MHz (raw24 = 148499 = 0x24413), aspect 16:9 (4), stereo (1),
+  // preferred, 1920x1080 with 280/45 blanking, 44/4 front porch, 56/5 sync, +/+ polarity.
+  const typeViiDescriptor = [
+    0x13, 0x44, 0x02, 0xa4, 0x7f, 0x07, 0x17, 0x01, 0x2b, 0x80, 0x37, 0x00, 0x37, 0x04, 0x2c, 0x00, 0x03, 0x80, 0x04, 0x00,
+  ];
+
+  it('decodes and encodes Type VII detailed timings as full 20-byte descriptors', () => {
     const section = decodeDisplayIdSection(withChecksum([
-      0x20, 0x0f, 0x04, 0x00,
-      0x22, 0x00, 0x0c,
-      0x88, 0x13, 0x80, 0x87, 0x11, 0x2c, 0x38, 0x38, 0x54, 0x06, 0x0a, 0x01,
+      0x20, 0x17, 0x04, 0x00,
+      0x22, 0x00, 0x14,
+      ...typeViiDescriptor,
       0x00,
     ]));
     const block = section.blocks[0] as DisplayIdTypeVIIDetailedTimingBlock;
 
     expect(block.timings).toHaveLength(1);
-    expect(block.timings[0]).toMatchObject({
-      pixelClockKHz: 500000,
+    expect(block.timings[0]).toEqual({
+      pixelClockKHz: 148500,
+      aspectRatio: 4,
+      interlaced: false,
+      stereo: 1,
+      preferred: true,
       horizontalActive: 1920,
       horizontalBlanking: 280,
       horizontalSyncOffset: 44,
+      horizontalSyncPolarity: true,
       horizontalSyncWidth: 56,
       verticalActive: 1080,
-      verticalBlanking: 101,
-      verticalSyncOffset: 10,
-      verticalSyncWidth: 0,
-      preferred: true,
-      interlaced: false,
+      verticalBlanking: 45,
+      verticalSyncOffset: 4,
+      verticalSyncPolarity: true,
+      verticalSyncWidth: 5,
     });
 
     block.timings[0].preferred = false;
     const encoded = encodeDisplayIdSection(section);
-    expect(Array.from(encoded.slice(7, 19))).toEqual([
-      0x88, 0x13, 0x80, 0x87, 0x11, 0x2c, 0x38, 0x38, 0x54, 0x06, 0x0a, 0x00,
-    ]);
+    // Options byte (payload byte 3, section index 10) loses the preferred bit 0x80 → 0x24.
+    expect(encoded[10]).toBe(0x24);
     const reparsed = decodeDisplayIdSection(encoded);
     expect((reparsed.blocks[0] as DisplayIdTypeVIIDetailedTimingBlock).timings[0].preferred).toBe(false);
+    expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
-  it('decodes and encodes Type VIII enumerated timing codes', () => {
+  it('round-trips a multi-entry Type VII block byte-identically', () => {
+    const source = withChecksum([
+      0x20, 0x2b, 0x04, 0x00,
+      0x22, 0x00, 0x28,
+      ...typeViiDescriptor, ...typeViiDescriptor,
+      0x00,
+    ]);
+    const encoded = encodeDisplayIdSection(decodeDisplayIdSection(source));
+    expect(Array.from(encoded)).toEqual(Array.from(source));
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('decodes and encodes Type VIII 1-byte CTA VIC timing codes', () => {
     const section = decodeDisplayIdSection(withChecksum([
       0x20, 0x07, 0x04, 0x00,
-      0x23, 0x00, 0x04,
+      0x23, 0x40, 0x04,
       0x01, 0x02, 0x40, 0x7f,
       0x00,
     ]));
     const block = section.blocks[0] as DisplayIdTypeVIIIEnumeratedTimingCodeBlock;
 
+    expect(block.codeType).toBe(1); // CTA VIC
+    expect(block.codeSize).toBe(1);
     expect(block.timingCodes).toEqual([0x01, 0x02, 0x40, 0x7f]);
-    block.timingCodes = [0x10, 0x11];
 
-    const reparsed = decodeDisplayIdSection(encodeDisplayIdSection(section));
-    expect((reparsed.blocks[0] as DisplayIdTypeVIIIEnumeratedTimingCodeBlock).timingCodes).toEqual([0x10, 0x11]);
+    block.timingCodes = [0x10, 0x11];
+    const reparsed = decodeDisplayIdSection(encodeDisplayIdSection(section)) as unknown as { blocks: DisplayIdTypeVIIIEnumeratedTimingCodeBlock[] };
+    expect(reparsed.blocks[0].timingCodes).toEqual([0x10, 0x11]);
+    expect(reparsed.blocks[0].codeSize).toBe(1);
   });
 
-  it('decodes and encodes Type IX formula timings as 6-byte entries', () => {
+  it('decodes and encodes Type VIII 2-byte HDMI VIC timing codes', () => {
+    const source = withChecksum([
+      0x20, 0x07, 0x04, 0x00,
+      0x23, 0x88, 0x04,
+      0x23, 0x01, 0x67, 0x45,
+      0x00,
+    ]);
+    const section = decodeDisplayIdSection(source);
+    const block = section.blocks[0] as DisplayIdTypeVIIIEnumeratedTimingCodeBlock;
+
+    expect(block.codeType).toBe(2); // HDMI VIC
+    expect(block.codeSize).toBe(2);
+    expect(block.timingCodes).toEqual([0x0123, 0x4567]);
+
+    const encoded = encodeDisplayIdSection(section);
+    expect(Array.from(encoded)).toEqual(Array.from(source));
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('preserves malformed odd-length 2-byte Type VIII payloads as generic blocks', () => {
+    const source = withChecksum([
+      0x20, 0x06, 0x04, 0x00,
+      0x23, 0x88, 0x03,
+      0xaa, 0xbb, 0xcc,
+      0x00,
+    ]);
+    const section = decodeDisplayIdSection(source);
+    const block = section.blocks[0];
+
+    expect(block.payloadLength).toBe(3);
+    expect('timingCodes' in block).toBe(false);
+
+    const encoded = encodeDisplayIdSection(section);
+    expect(Array.from(encoded)).toEqual(Array.from(source));
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('decodes and encodes Type IX formula timings as full 6-byte descriptors', () => {
     const section = decodeDisplayIdSection(withChecksum([
       0x20, 0x09, 0x04, 0x00,
       0x24, 0x00, 0x06,
-      0x80, 0x07, 0x38, 0x04, 0x3c, 0x03,
+      0x11, 0x7f, 0x07, 0x37, 0x04, 0x3b,
       0x00,
     ]));
     const block = section.blocks[0] as DisplayIdTypeIXFormulaBasedTimingBlock;
 
-    expect(block.timings[0]).toMatchObject({
+    expect(block.timings[0]).toEqual({
+      formula: 1,
+      ntscPullDown: true,
+      stereo: 0,
       horizontalActive: 1920,
       verticalActive: 1080,
       refreshRateHz: 60,
-      preferred: true,
-      reducedBlanking: true,
     });
 
     block.timings[0].refreshRateHz = 75;
     const reparsed = decodeDisplayIdSection(encodeDisplayIdSection(section));
     expect((reparsed.blocks[0] as DisplayIdTypeIXFormulaBasedTimingBlock).timings[0].refreshRateHz).toBe(75);
+    expect(isChecksum8Valid(encodeDisplayIdSection(section))).toBe(true);
   });
 
   it('preserves malformed Type VII payloads as generic blocks', () => {
@@ -305,17 +370,21 @@ describe('DisplayID timing blocks', () => {
 
   it('throws when a Type VII detailed timing payload exceeds one-byte block length', () => {
     const timing: DisplayIdTypeVIIDetailedTiming = {
-      pixelClockKHz: 500000,
+      pixelClockKHz: 148500,
+      aspectRatio: 4,
+      interlaced: false,
+      stereo: 0,
+      preferred: true,
       horizontalActive: 1920,
       horizontalBlanking: 280,
       horizontalSyncOffset: 44,
+      horizontalSyncPolarity: true,
       horizontalSyncWidth: 56,
       verticalActive: 1080,
-      verticalBlanking: 101,
-      verticalSyncOffset: 10,
-      verticalSyncWidth: 0,
-      preferred: true,
-      interlaced: false,
+      verticalBlanking: 45,
+      verticalSyncOffset: 4,
+      verticalSyncPolarity: true,
+      verticalSyncWidth: 5,
     };
     const block: DisplayIdTypeVIIDetailedTimingBlock = {
       tag: DisplayIdDataBlockTag.TypeVIIDetailedTiming,
@@ -323,11 +392,11 @@ describe('DisplayID timing blocks', () => {
       flags: 0,
       payloadLength: 0,
       payload: new Uint8Array(0),
-      timings: Array.from({ length: 22 }, () => ({ ...timing })),
+      timings: Array.from({ length: 13 }, () => ({ ...timing })),
     };
 
     expect(() => encodeDisplayIdBlock(block)).toThrow(
-      'DisplayID data block 0x22 payload length 264 exceeds 255 bytes',
+      'DisplayID data block 0x22 payload length 260 exceeds 255 bytes',
     );
   });
 
@@ -338,6 +407,8 @@ describe('DisplayID timing blocks', () => {
       flags: 0,
       payloadLength: 0,
       payload: new Uint8Array(0),
+      codeType: 0,
+      codeSize: 1,
       timingCodes: Array.from({ length: 256 }, (_, index) => index),
     };
 
@@ -348,11 +419,12 @@ describe('DisplayID timing blocks', () => {
 
   it('throws when a Type IX formula timing payload exceeds one-byte block length', () => {
     const timing: DisplayIdTypeIXFormulaBasedTiming = {
+      formula: 1,
+      ntscPullDown: false,
+      stereo: 0,
       horizontalActive: 1920,
       verticalActive: 1080,
       refreshRateHz: 60,
-      preferred: true,
-      reducedBlanking: true,
     };
     const block: DisplayIdTypeIXFormulaBasedTimingBlock = {
       tag: DisplayIdDataBlockTag.TypeIXFormulaBasedTiming,

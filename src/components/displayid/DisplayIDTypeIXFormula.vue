@@ -17,11 +17,12 @@ const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBloc
 
 function defaultTiming(): DisplayIdTypeIXFormulaBasedTiming {
   return {
+    formula: 1,
+    ntscPullDown: false,
+    stereo: 0,
     horizontalActive: 1920,
     verticalActive: 1080,
     refreshRateHz: 60,
-    preferred: false,
-    reducedBlanking: true,
   }
 }
 
@@ -51,14 +52,18 @@ function updateBlock(index: number, block: DisplayIdTypeIXFormulaBasedTimingBloc
             <Input type="number" :model-value="timing.verticalActive" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, verticalActive: numberFromEvent($event) }))" />
             <Input type="number" :model-value="timing.refreshRateHz" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, refreshRateHz: numberFromEvent($event) }))" />
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-3 gap-3">
+            <div class="space-y-1">
+              <label class="text-xs text-muted-foreground">Formula (0=std, 1=RB v1, 2=RB v2)</label>
+              <Input type="number" min="0" max="7" :model-value="timing.formula" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, formula: numberFromEvent($event) }))" />
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-muted-foreground">3D Stereo (0–3)</label>
+              <Input type="number" min="0" max="3" :model-value="timing.stereo" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, stereo: numberFromEvent($event) }))" />
+            </div>
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
-              <span>Preferred</span>
-              <Switch :checked="timing.preferred" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, preferred: value }))" />
-            </label>
-            <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
-              <span>Reduced Blanking</span>
-              <Switch :checked="timing.reducedBlanking" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, reducedBlanking: value }))" />
+              <span>NTSC Pull-down</span>
+              <Switch :checked="timing.ntscPullDown" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, ntscPullDown: value }))" />
             </label>
           </div>
         </div>

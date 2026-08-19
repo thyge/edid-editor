@@ -24,6 +24,7 @@ export {
 export {
   decodeTypeVIIITimingBlock,
   encodeTypeVIIITimingBlock,
+  isTypeVIIITimingPayloadLengthValid,
 } from './type-viii-timing';
 export {
   decodeTypeIXTimingBlock,

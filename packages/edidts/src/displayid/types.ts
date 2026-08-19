@@ -102,18 +102,45 @@ export interface DisplayIdDisplayParametersBlock extends DisplayIdDataBlock {
   gammaEotf: number;
 }
 
+/**
+ * DisplayID 2.0 §4.3.1 Type VII Detailed Timing descriptor (Table 4-18).
+ *
+ * Fixed 20-byte descriptor. Every count field uses the spec's "1 + raw"
+ * convention (stored value = raw + 1), so e.g. horizontalActive = 1 + raw16.
+ * Pixel clock is 24-bit little-endian at 1 kHz resolution (1 + raw24).
+ * Field layout per edid-decode parse_displayid_type_1_7_timing.
+ */
 export interface DisplayIdTypeVIIDetailedTiming {
+  /** Bytes 0-2 — pixel clock in kHz (1 + raw 24-bit LE). */
   pixelClockKHz: number;
-  horizontalActive: number;
-  horizontalBlanking: number;
-  horizontalSyncOffset: number;
-  horizontalSyncWidth: number;
-  verticalActive: number;
-  verticalBlanking: number;
-  verticalSyncOffset: number;
-  verticalSyncWidth: number;
-  preferred: boolean;
+  /** Byte 3 bits 3:0 — aspect ratio code (0-8; 8 = calculate from active). */
+  aspectRatio: number;
+  /** Byte 3 bit 4 — true = interlaced scan. */
   interlaced: boolean;
+  /** Byte 3 bits 6:5 — 3D stereo support (0=mono, 1=stereo, 2=user action, 3=reserved). */
+  stereo: number;
+  /** Byte 3 bit 7 — preferred detailed timing. */
+  preferred: boolean;
+  /** Bytes 4-5 — horizontal active pixels (1 + raw16). */
+  horizontalActive: number;
+  /** Bytes 6-7 — horizontal blank pixels (1 + raw16). */
+  horizontalBlanking: number;
+  /** Bytes 8 + (9 & 0x7f)<<8 — horizontal sync offset / front porch (1 + raw14). */
+  horizontalSyncOffset: number;
+  /** Byte 9 bit 7 — horizontal sync polarity (true = positive). */
+  horizontalSyncPolarity: boolean;
+  /** Bytes 10-11 — horizontal sync width (1 + raw16). */
+  horizontalSyncWidth: number;
+  /** Bytes 12-13 — vertical active lines (1 + raw16). */
+  verticalActive: number;
+  /** Bytes 14-15 — vertical blank lines (1 + raw16). */
+  verticalBlanking: number;
+  /** Bytes 16 + (17 & 0x7f)<<8 — vertical sync offset / front porch (1 + raw14). */
+  verticalSyncOffset: number;
+  /** Byte 17 bit 7 — vertical sync polarity (true = positive). */
+  verticalSyncPolarity: boolean;
+  /** Bytes 18-19 — vertical sync width (1 + raw16). */
+  verticalSyncWidth: number;
 }
 
 export interface DisplayIdTypeVIIDetailedTimingBlock extends DisplayIdDataBlock {
@@ -121,17 +148,46 @@ export interface DisplayIdTypeVIIDetailedTimingBlock extends DisplayIdDataBlock 
   timings: DisplayIdTypeVIIDetailedTiming[];
 }
 
+/**
+ * DisplayID 2.0 §4.3.2 Type VIII Enumerated Timing Code block (Table 4-19).
+ *
+ * The timing-code type and size live in the block header revision/flags byte
+ * (byte 1): bits 7:6 = code type, bit 3 = code size. They are exposed here as
+ * derived read-only views (`codeType`, `codeSize`); the authoritative source is
+ * `block.flags`, which the generic encoder writes back to byte 1. The payload
+ * is a list of `codeSize`-byte little-endian timing codes.
+ */
 export interface DisplayIdTypeVIIIEnumeratedTimingCodeBlock extends DisplayIdDataBlock {
   tag: DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode;
+  /** Derived from header flags bits 7:6. 0 = DMT, 1 = CTA VIC, 2 = HDMI VIC, 3 = reserved. */
+  codeType: number;
+  /** Derived from header flags bit 3. 1 = 1-byte codes, 2 = 2-byte codes. */
+  codeSize: number;
+  /** Timing codes, read as `codeSize`-byte little-endian values. */
   timingCodes: number[];
 }
 
+/**
+ * DisplayID 2.0 §4.3.3 Type IX Formula-based Timing descriptor (Table 4-21).
+ *
+ * Fixed 6-byte descriptor. Byte 0 carries the formula, NTSC pull-down, and
+ * stereo flags; byte 5 is the refresh rate (1 + raw, range 1-256 Hz). Active
+ * pixel/line counts use the "1 + raw16" convention. There is no preferred
+ * flag in Type IX (priority is purely positional).
+ */
 export interface DisplayIdTypeIXFormulaBasedTiming {
+  /** Byte 0 bits 2:0 — CVT formula (0 = standard blanking, 1 = RB v1.1+, 2 = RB v2; 3-7 reserved). */
+  formula: number;
+  /** Byte 0 bit 4 — true = refresh × (1000/1001) (NTSC pull-down) supported. */
+  ntscPullDown: boolean;
+  /** Byte 0 bits 6:5 — 3D stereo support (0=mono, 1=stereo, 2=user action, 3=reserved). */
+  stereo: number;
+  /** Bytes 1-2 — horizontal active pixels (1 + raw16). */
   horizontalActive: number;
+  /** Bytes 3-4 — vertical active lines (1 + raw16). */
   verticalActive: number;
+  /** Byte 5 — refresh rate in Hz (1 + raw, range 1-256). */
   refreshRateHz: number;
-  preferred: boolean;
-  reducedBlanking: boolean;
 }
 
 export interface DisplayIdTypeIXFormulaBasedTimingBlock extends DisplayIdDataBlock {
@@ -279,6 +335,8 @@ export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDi
       return {
         ...createDefaultBlock(tag, 0),
         tag,
+        codeType: 0,
+        codeSize: 1,
         timingCodes: [],
       };
     case DisplayIdDataBlockTag.TypeIXFormulaBasedTiming:

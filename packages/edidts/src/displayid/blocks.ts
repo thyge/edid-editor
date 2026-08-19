@@ -33,6 +33,7 @@ import {
 import {
   decodeTypeVIIITimingBlock,
   encodeTypeVIIITimingBlock,
+  isTypeVIIITimingPayloadLengthValid,
 } from './type-viii-timing';
 import {
   decodeTypeIXTimingBlock,
@@ -200,7 +201,10 @@ function decodeKnownBlock(block: DisplayIdDataBlock): DisplayIdDataBlock {
     return decodeTypeVIITimingBlock(block);
   }
 
-  if (block.tag === DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode) {
+  if (
+    block.tag === DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode &&
+    isTypeVIIITimingPayloadLengthValid(block.payloadLength, block.flags)
+  ) {
     return decodeTypeVIIITimingBlock(block);
   }
 
@@ -390,16 +394,20 @@ function isTypedTypeVIITimingBlock(block: DisplayIdDataBlock): block is DisplayI
     Array.isArray(maybeBlock.timings) &&
     maybeBlock.timings.every((timing) => (
       typeof timing.pixelClockKHz === 'number' &&
+      typeof timing.aspectRatio === 'number' &&
+      typeof timing.interlaced === 'boolean' &&
+      typeof timing.stereo === 'number' &&
+      typeof timing.preferred === 'boolean' &&
       typeof timing.horizontalActive === 'number' &&
       typeof timing.horizontalBlanking === 'number' &&
       typeof timing.horizontalSyncOffset === 'number' &&
+      typeof timing.horizontalSyncPolarity === 'boolean' &&
       typeof timing.horizontalSyncWidth === 'number' &&
       typeof timing.verticalActive === 'number' &&
       typeof timing.verticalBlanking === 'number' &&
       typeof timing.verticalSyncOffset === 'number' &&
-      typeof timing.verticalSyncWidth === 'number' &&
-      typeof timing.preferred === 'boolean' &&
-      typeof timing.interlaced === 'boolean'
+      typeof timing.verticalSyncPolarity === 'boolean' &&
+      typeof timing.verticalSyncWidth === 'number'
     ))
   );
 }
@@ -409,6 +417,8 @@ function isTypedTypeVIIITimingBlock(block: DisplayIdDataBlock): block is Display
 
   return (
     block.tag === DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode &&
+    typeof maybeBlock.codeType === 'number' &&
+    typeof maybeBlock.codeSize === 'number' &&
     Array.isArray(maybeBlock.timingCodes) &&
     maybeBlock.timingCodes.every((code) => typeof code === 'number')
   );
@@ -421,11 +431,12 @@ function isTypedTypeIXTimingBlock(block: DisplayIdDataBlock): block is DisplayId
     block.tag === DisplayIdDataBlockTag.TypeIXFormulaBasedTiming &&
     Array.isArray(maybeBlock.timings) &&
     maybeBlock.timings.every((timing) => (
+      typeof timing.formula === 'number' &&
+      typeof timing.ntscPullDown === 'boolean' &&
+      typeof timing.stereo === 'number' &&
       typeof timing.horizontalActive === 'number' &&
       typeof timing.verticalActive === 'number' &&
-      typeof timing.refreshRateHz === 'number' &&
-      typeof timing.preferred === 'boolean' &&
-      typeof timing.reducedBlanking === 'boolean'
+      typeof timing.refreshRateHz === 'number'
     ))
   );
 }

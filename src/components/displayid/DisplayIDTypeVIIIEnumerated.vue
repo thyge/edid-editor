@@ -29,8 +29,12 @@ function updateBlock(index: number, block: DisplayIdTypeVIIIEnumeratedTimingCode
         :key="index"
         class="space-y-3"
       >
+        <p class="text-xs text-muted-foreground">
+          Code type: {{ ['DMT', 'CTA VIC', 'HDMI VIC', 'reserved'][block.codeType] ?? block.codeType }}
+          ({{ block.codeSize }}-byte codes)
+        </p>
         <div v-for="(code, codeIndex) in block.timingCodes" :key="codeIndex" class="flex items-center gap-2">
-          <Input type="number" min="0" max="255" :model-value="code" @input="updateBlock(index, block, updateArrayItem(block.timingCodes, codeIndex, numberFromEvent($event)))" />
+          <Input type="number" min="0" :max="block.codeSize === 2 ? 65535 : 255" :model-value="code" @input="updateBlock(index, block, updateArrayItem(block.timingCodes, codeIndex, numberFromEvent($event)))" />
           <Button variant="ghost" size="sm" class="text-destructive" @click="updateBlock(index, block, removeArrayItem(block.timingCodes, codeIndex))">Remove</Button>
         </div>
         <Button variant="outline" size="sm" @click="updateBlock(index, block, [...block.timingCodes, 0])">Add Code</Button>
