@@ -3,6 +3,9 @@ import { checksum8, isChecksum8Valid } from '../src/common';
 import {
   DisplayIdDataBlockTag,
   decodeDisplayIdSection,
+  displayIdChromaticityValue,
+  displayIdGammaValue,
+  displayIdLuminanceToCdM2,
   encodeDisplayIdBlock,
   encodeDisplayIdSection,
   type DisplayIdDisplayParametersBlock,
@@ -27,79 +30,130 @@ function withChecksum(bytes: number[]): Uint8Array {
 }
 
 describe('DisplayID Display Parameters block', () => {
-  it('decodes display size, color depth, dynamic range, and feature flags', () => {
-    const section = decodeDisplayIdSection(withChecksum([
-      0x20, 0x0a, 0x04, 0x00,
-      0x21, 0x00, 0x07,
-      0x58, 0x02, 0x22, 0x01, 0x0a, 0x03, 0x1d,
-      0x00,
-    ]));
+  // Full 29-byte DisplayID 2.0 §4.2 payload (Table 4-7), field-by-field crafted.
+  // image size 600x290 (0.1mm), pixel count 1920x1080, feature byte 0x49
+  // (scan 1, luminance info 1, CIE 1976, audio integrated),
+  // primaries P1=(0x200,0x100) P2=(0x640,0x320) P3=(0x320,0x258),
+  // white point (0x960,0xA00), luminance raw16 0x4248/0x4A48/0x0000,
+  // color-depth byte 0x96 (depth 6, tech 2, dark theme), gamma 0x64 (2.00).
+  const payload = new Uint8Array([
+    0x58, 0x02, 0x22, 0x01, 0x80, 0x07, 0x38, 0x04, 0x49,
+    0x00, 0x02, 0x10, 0x40, 0x06, 0x32, 0x20, 0x83, 0x25, 0x60, 0x09, 0xa0,
+    0x48, 0x42, 0x48, 0x4a, 0x00, 0x00, 0x96, 0x64,
+  ]);
+  if (payload.length !== 29) throw new Error(`payload must be 29 bytes, got ${payload.length}`);
 
+  function sectionWith(payloadBytes: Uint8Array): Uint8Array {
+    const bytesInSection = 3 + payloadBytes.length;
+    return withChecksum([
+      0x20, bytesInSection, 0x04, 0x00,
+      0x21, 0x00, payloadBytes.length,
+      ...payloadBytes,
+      0x00,
+    ]);
+  }
+
+  it('decodes the full 29-byte field set (chromaticity, luminance, gamma, scan orientation)', () => {
+    const section = decodeDisplayIdSection(sectionWith(payload));
     const block = section.blocks[0] as DisplayIdDisplayParametersBlock;
 
     expect(block.tag).toBe(DisplayIdDataBlockTag.DisplayParameters);
+    // Image size + pixel count
     expect(block.horizontalImageSizeMm).toBe(600);
     expect(block.verticalImageSizeMm).toBe(290);
-    expect(block.nativeColorBitDepth).toBe(10);
-    expect(block.dynamicRange).toBe(3);
-    expect(block.audioSupport).toBe(true);
-    expect(block.fixedPixelFormat).toBe(true);
-    expect(block.fixedTiming).toBe(true);
-    expect(block.deinterlacing).toBe(true);
+    expect(block.horizontalPixelCount).toBe(1920);
+    expect(block.verticalPixelCount).toBe(1080);
+    // Feature byte (scan orientation, luminance info, CIE, audio)
+    expect(block.scanOrientation).toBe(1);
+    expect(block.luminanceInformation).toBe(1);
+    expect(block.colorInformationCie1976).toBe(true);
+    expect(block.audioSpeakerNotIntegrated).toBe(false);
+    // Chromaticity (AC #1) — 12-bit packed
+    expect(block.primary1).toEqual({ x: 0x200, y: 0x100 });
+    expect(block.primary2).toEqual({ x: 0x640, y: 0x320 });
+    expect(block.primary3).toEqual({ x: 0x320, y: 0x258 });
+    expect(block.whitePoint).toEqual({ x: 0x960, y: 0xa00 });
+    // Luminance (AC #2) — IEEE 754 binary16 raw
+    expect(block.maxLuminanceFullCoverage).toBe(0x4248);
+    expect(block.maxLuminance10PercentRect).toBe(0x4a48);
+    expect(block.minLuminance).toBe(0x0000);
+    // Color depth + technology + theme
+    expect(block.nativeColorDepth).toBe(6);
+    expect(block.displayDeviceTechnology).toBe(2);
+    expect(block.displayDeviceThemePreference).toBe(true);
+    // Gamma (AC #3)
+    expect(block.gammaEotf).toBe(0x64);
   });
 
-  it('encodes Display Parameters from typed fields', () => {
-    const section = decodeDisplayIdSection(withChecksum([
-      0x20, 0x0a, 0x04, 0x00,
-      0x21, 0x00, 0x07,
-      0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00,
-      0x00,
-    ]));
+  it('round-trips the full 29-byte block byte-identically (AC #5)', () => {
+    const source = sectionWith(payload);
+    const section = decodeDisplayIdSection(source);
+    const encoded = encodeDisplayIdSection(section);
+    expect(Array.from(encoded)).toEqual(Array.from(source));
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('encodes Display Parameters from edited typed fields', () => {
+    const section = decodeDisplayIdSection(sectionWith(new Uint8Array(29)));
     const block = section.blocks[0] as DisplayIdDisplayParametersBlock;
 
-    block.horizontalImageSizeMm = 344;
-    block.verticalImageSizeMm = 194;
-    block.nativeColorBitDepth = 8;
-    block.dynamicRange = 2;
-    block.audioSupport = true;
-    block.separateAudioInputs = true;
-    block.fixedPixelFormat = false;
-    block.fixedTiming = true;
-    block.deinterlacing = false;
+    block.horizontalImageSizeMm = 3440;
+    block.verticalImageSizeMm = 1940;
+    block.horizontalPixelCount = 2560;
+    block.verticalPixelCount = 1440;
+    block.scanOrientation = 4;
+    block.colorInformationCie1976 = false;
+    block.primary1 = { x: 0x640, y: 0x350 };
+    block.whitePoint = { x: 0x950, y: 0xa50 };
+    block.maxLuminanceFullCoverage = 0x4248;
+    block.minLuminance = 0x0001;
+    block.nativeColorDepth = 4; // 3-bit field (0..7)
+    block.displayDeviceTechnology = 3;
+    block.gammaEotf = 0x78; // (100+0x78)/100 = 2.20
 
     const encoded = encodeDisplayIdSection(section);
     const reparsed = decodeDisplayIdSection(encoded);
     const reparsedBlock = reparsed.blocks[0] as DisplayIdDisplayParametersBlock;
 
-    expect(reparsedBlock.horizontalImageSizeMm).toBe(344);
-    expect(reparsedBlock.verticalImageSizeMm).toBe(194);
-    expect(reparsedBlock.nativeColorBitDepth).toBe(8);
-    expect(reparsedBlock.dynamicRange).toBe(2);
-    expect(reparsedBlock.audioSupport).toBe(true);
-    expect(reparsedBlock.separateAudioInputs).toBe(true);
-    expect(reparsedBlock.fixedTiming).toBe(true);
+    expect(reparsedBlock.horizontalImageSizeMm).toBe(3440);
+    expect(reparsedBlock.verticalImageSizeMm).toBe(1940);
+    expect(reparsedBlock.horizontalPixelCount).toBe(2560);
+    expect(reparsedBlock.verticalPixelCount).toBe(1440);
+    expect(reparsedBlock.scanOrientation).toBe(4);
+    expect(reparsedBlock.colorInformationCie1976).toBe(false);
+    expect(reparsedBlock.primary1).toEqual({ x: 0x640, y: 0x350 });
+    expect(reparsedBlock.whitePoint).toEqual({ x: 0x950, y: 0xa50 });
+    expect(reparsedBlock.maxLuminanceFullCoverage).toBe(0x4248);
+    expect(reparsedBlock.minLuminance).toBe(0x0001);
+    expect(reparsedBlock.nativeColorDepth).toBe(4);
+    expect(reparsedBlock.displayDeviceTechnology).toBe(3);
+    expect(reparsedBlock.gammaEotf).toBe(0x78);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
-  it('preserves trailing bytes when encoding longer Display Parameters payloads', () => {
-    const section = decodeDisplayIdSection(withChecksum([
-      0x20, 0x0c, 0x04, 0x00,
-      0x21, 0x00, 0x09,
-      0x58, 0x02, 0x22, 0x01, 0x0a, 0x03, 0x1d, 0xaa, 0xbb,
+  it('decodes the image-size precision multiplier from the block flags bit 7', () => {
+    // flags byte (section[5]) bit 7 set → 1.0 mm precision. byte1 = (flags<<3)|rev,
+    // so flags 0x10 (bit 4) → byte1 bit 7 = 0x80. With revision 0, byte1 = 0x80.
+    const source = withChecksum([
+      0x20, 0x20, 0x04, 0x00,
+      0x21, 0x80, 0x1d,
+      ...payload,
       0x00,
-    ]));
-    const block = section.blocks[0] as DisplayIdDisplayParametersBlock;
+    ]);
+    const block = decodeDisplayIdSection(source).blocks[0] as DisplayIdDisplayParametersBlock;
+    expect(block.imageSizeInMm).toBe(true);
+    // Round-trips the flags byte unchanged.
+    const reencoded = encodeDisplayIdSection(decodeDisplayIdSection(source));
+    expect(reencoded[5]).toBe(0x80);
+  });
 
-    block.horizontalImageSizeMm = 344;
-
-    const encoded = encodeDisplayIdSection(section);
-    const reparsed = decodeDisplayIdSection(encoded);
-    const reparsedBlock = reparsed.blocks[0] as DisplayIdDisplayParametersBlock;
-
-    expect(reparsedBlock.horizontalImageSizeMm).toBe(344);
-    expect(reparsedBlock.payloadLength).toBe(9);
-    expect(Array.from(reparsedBlock.payload.slice(7))).toEqual([0xaa, 0xbb]);
-    expect(isChecksum8Valid(encoded)).toBe(true);
+  it('exposes luminance/gamma/chromaticity helper decoders', () => {
+    expect(displayIdLuminanceToCdM2(0x4248)).toBeCloseTo(3.140625, 5);
+    expect(Number.isNaN(displayIdLuminanceToCdM2(0x8000))).toBe(true); // "do not use"
+    expect(Number.isNaN(displayIdLuminanceToCdM2(0x8400))).toBe(true); // reserved
+    expect(displayIdGammaValue(0xff)).toBeNull();
+    expect(displayIdGammaValue(0x64)).toBeCloseTo(2.0, 5);
+    expect(displayIdChromaticityValue(0x200)).toBeCloseTo(0.125, 5);
   });
 
   it('preserves malformed short Display Parameters payloads as generic blocks', () => {

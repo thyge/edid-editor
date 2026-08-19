@@ -6,6 +6,11 @@ export {
   decodeDisplayParametersBlock,
   encodeDisplayParametersBlock,
   isDisplayParametersPayloadLengthValid,
+  displayIdLuminanceToCdM2,
+  displayIdChromaticityValue,
+  displayIdGammaValue,
+  DISPLAY_ID_GAMMA_NOT_DEFINED,
+  DISPLAY_ID_LUMINANCE_DO_NOT_USE,
 } from './display-parameters';
 export {
   decodeProductIdentificationBlock,
@@ -96,6 +101,7 @@ export {
   createDefaultDisplayIdBlock,
 } from './types';
 export type {
+  DisplayIdChromaticity,
   DisplayIdContainerIdBlock,
   DisplayIdCtaBlock,
   DisplayIdDataBlock,

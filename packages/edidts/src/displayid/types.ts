@@ -44,17 +44,62 @@ export interface DisplayIdProductIdentificationBlock extends DisplayIdDataBlock 
   productName: string;
 }
 
+/** 12-bit CIE chromaticity coordinate pair (raw 0..4095; value = raw / 4096). */
+export interface DisplayIdChromaticity {
+  x: number;
+  y: number;
+}
+
+/**
+ * DisplayID 2.0 §4.2 Display Parameters Data Block (tag 0x21).
+ *
+ * Fixed 29-byte payload per Table 4-7; field layout per edid-decode
+ * parse_displayid_parameters_v2 (parse-displayid-block.cpp:1109-1195).
+ * The image-size precision multiplier lives in the block header flags
+ * (byte 1 bit 7) and is exposed here as `imageSizeInMm`.
+ */
 export interface DisplayIdDisplayParametersBlock extends DisplayIdDataBlock {
   tag: DisplayIdDataBlockTag.DisplayParameters;
+  /** Derived from block flags bit 7: false = 0.1 mm precision, true = 1.0 mm. */
+  imageSizeInMm: boolean;
+  /** Payload[0..1] — horizontal image size (raw; see imageSizeInMm for units). */
   horizontalImageSizeMm: number;
+  /** Payload[2..3] — vertical image size (raw). */
   verticalImageSizeMm: number;
-  nativeColorBitDepth: number;
-  dynamicRange: number;
-  audioSupport: boolean;
-  separateAudioInputs: boolean;
-  fixedPixelFormat: boolean;
-  fixedTiming: boolean;
-  deinterlacing: boolean;
+  /** Payload[4..5] — horizontal native pixel count. */
+  horizontalPixelCount: number;
+  /** Payload[6..7] — vertical native pixel count. */
+  verticalPixelCount: number;
+  /** Payload[8] bits 2:0 — scan orientation (0..7). */
+  scanOrientation: number;
+  /** Payload[8] bits 4:3 — luminance information type (0..3). */
+  luminanceInformation: number;
+  /** Payload[8] bit 6 — true = CIE 1976, false = CIE 1931. */
+  colorInformationCie1976: boolean;
+  /** Payload[8] bit 7 — true = audio speaker NOT integrated. */
+  audioSpeakerNotIntegrated: boolean;
+  /** Payload[9..11] — native color primary #1 chromaticity (12-bit x/y). */
+  primary1: DisplayIdChromaticity;
+  /** Payload[12..14] — native color primary #2 chromaticity. */
+  primary2: DisplayIdChromaticity;
+  /** Payload[15..17] — native color primary #3 chromaticity. */
+  primary3: DisplayIdChromaticity;
+  /** Payload[18..20] — white point chromaticity. */
+  whitePoint: DisplayIdChromaticity;
+  /** Payload[21..22] — native max luminance, full coverage (IEEE 754 binary16, raw). */
+  maxLuminanceFullCoverage: number;
+  /** Payload[23..24] — native max luminance, 10% rectangular coverage (binary16, raw). */
+  maxLuminance10PercentRect: number;
+  /** Payload[25..26] — native minimum luminance (binary16, raw). */
+  minLuminance: number;
+  /** Payload[27] bits 2:0 — native color depth (0 = not defined; else bpc444 code). */
+  nativeColorDepth: number;
+  /** Payload[27] bits 6:3 — display device technology (0..7). */
+  displayDeviceTechnology: number;
+  /** Payload[27] bit 7 — display device theme preference (meaningful when revision >= 1). */
+  displayDeviceThemePreference: boolean;
+  /** Payload[28] — native gamma EOTF (0xff = not defined; else (100 + byte) / 100). */
+  gammaEotf: number;
 }
 
 export interface DisplayIdTypeVIIDetailedTiming {
@@ -201,17 +246,28 @@ export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDi
       };
     case DisplayIdDataBlockTag.DisplayParameters:
       return {
-        ...createDefaultBlock(tag, 7),
+        ...createDefaultBlock(tag, 29),
         tag,
+        imageSizeInMm: false,
         horizontalImageSizeMm: 0,
         verticalImageSizeMm: 0,
-        nativeColorBitDepth: 8,
-        dynamicRange: 0,
-        audioSupport: false,
-        separateAudioInputs: false,
-        fixedPixelFormat: false,
-        fixedTiming: false,
-        deinterlacing: false,
+        horizontalPixelCount: 0,
+        verticalPixelCount: 0,
+        scanOrientation: 0,
+        luminanceInformation: 0,
+        colorInformationCie1976: false,
+        audioSpeakerNotIntegrated: false,
+        primary1: { x: 0, y: 0 },
+        primary2: { x: 0, y: 0 },
+        primary3: { x: 0, y: 0 },
+        whitePoint: { x: 0, y: 0 },
+        maxLuminanceFullCoverage: 0,
+        maxLuminance10PercentRect: 0,
+        minLuminance: 0,
+        nativeColorDepth: 0,
+        displayDeviceTechnology: 0,
+        displayDeviceThemePreference: false,
+        gammaEotf: 0xff,
       };
     case DisplayIdDataBlockTag.TypeVIIDetailedTiming:
       return {
