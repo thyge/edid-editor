@@ -421,6 +421,189 @@ export interface InfoFrameDataBlock extends ExtendedDataBlock {
   trailing: Uint8Array;
 }
 
+/**
+ * VESA Video Display Device Data Block (Extended Tag 0x02)
+ *
+ * Fixed 30-byte payload defined by the VESA Display Device Data Block (DDDB)
+ * Standard, v1 (Sep 25 2006) and carried in CTA-861-G Annex A.5 (Table 57,
+ * extended tag 2). Byte layout modeled on edid-decode `cta_vesa_vdddb`
+ * (parse-cta-block.cpp:1330-1492). When the payload is not exactly 30 bytes
+ * the block is malformed; decode falls back to the raw `data` form so it still
+ * round-trips byte-identically.
+ */
+export interface VESAVideoDisplayDeviceDataBlock extends ExtendedDataBlock {
+  extendedTag: 0x02;
+  /** x[0] high nibble — interface category (see VESA_INTERFACE_CATEGORIES). */
+  interfaceCategory: number;
+  /** x[0] low nibble — lanes / channels / analog sub-type depending on category. */
+  interfaceDetail: number;
+  /** x[1] high nibble — interface standard version major. */
+  interfaceStandardMajor: number;
+  /** x[1] low nibble — interface standard version minor. */
+  interfaceStandardMinor: number;
+  /** x[2] content protection (see VESA_CONTENT_PROTECTION). */
+  contentProtection: number;
+  /** x[3] bits 7:2 — minimum clock frequency, MHz. */
+  minClockMHz: number;
+  /** x[3] bits 1:0 (high) | x[4] (low) — maximum clock frequency, MHz. */
+  maxClockMHz: number;
+  /** x[5]|x[6]<<8 — device native pixel format width. */
+  nativePixelWidth: number;
+  /** x[7]|x[8]<<8 — device native pixel format height. */
+  nativePixelHeight: number;
+  /** x[9] — aspect ratio raw byte; ratio = (100 + byte) / 100. */
+  aspectRatio: number;
+  /** x[0x0a] bits 7:6 — default orientation (see VESA_ORIENTATION). */
+  orientation: number;
+  /** x[0x0a] bits 5:4 — rotation capability (see VESA_ROTATION). */
+  rotationCapability: number;
+  /** x[0x0a] bits 3:2 — zero pixel location. */
+  zeroPixelLocation: number;
+  /** x[0x0a] bits 1:0 — scan direction. */
+  scanDirection: number;
+  /** x[0x0b] — subpixel information (see VESA_SUBPIXEL_INFORMATION). */
+  subpixelInformation: number;
+  /** x[0x0c] / 100 — horizontal dot/pixel pitch, mm. */
+  horizontalPitchMm: number;
+  /** x[0x0d] / 100 — vertical dot/pixel pitch, mm. */
+  verticalPitchMm: number;
+  /** x[0x0e] bits 7:6 — dithering (see VESA_DITHERING). */
+  dithering: number;
+  /** x[0x0e] bit 5 — direct drive. */
+  directDrive: boolean;
+  /** x[0x0e] bit 4 — overdrive recommended (bit is inverted: 0 = recommended). */
+  overdriveRecommended: boolean;
+  /** x[0x0e] bit 3 — deinterlacing. */
+  deinterlacing: boolean;
+  /** x[0x0f] bit 7 — audio support. */
+  audioSupport: boolean;
+  /** x[0x0f] bit 6 — separate audio inputs provided. */
+  separateAudioInputs: boolean;
+  /** x[0x0f] bit 5 — audio input override. */
+  audioInputOverride: boolean;
+  /** x[0x10] bits 6:0 × 2 — audio delay magnitude in ms (always ≥ 0). */
+  audioDelayMs: number;
+  /** x[0x10] bit 7 — true = positive delay, false = negative delay (preserves +0/−0). */
+  audioDelayPositive: boolean;
+  /** x[0x11] bits 7:6 — frame rate / mode conversion (see VESA_FRAME_RATE_CONVERSION). */
+  frameRateConversion: number;
+  /** x[0x11] bits 5:0 — frame rate range (fps ±), 0 = nominal. */
+  frameRateRange: number;
+  /** x[0x12] — nominal frame rate / frame-rate center, fps. */
+  nominalFrameRate: number;
+  /** x[0x13] bits 7:4 + 1 — color bit depth at interface. */
+  colorBitDepthInterface: number;
+  /** x[0x13] bits 3:0 + 1 — color bit depth at display. */
+  colorBitDepthDisplay: number;
+  /** x[0x15] bits 1:0 — number of additional primary chromaticities (0..3). */
+  additionalPrimaryCount: number;
+  /** Primary 4 chromaticity (10-bit x/y); null only conceptually — bytes are always present. */
+  primary4: VESAChromaticity;
+  /** Primary 5 chromaticity (10-bit x/y). */
+  primary5: VESAChromaticity;
+  /** Primary 6 chromaticity (10-bit x/y). */
+  primary6: VESAChromaticity;
+  /** x[0x1c] bit 7 — response-time direction (0 = Black→White, 1 = White→Black). */
+  responseTimeDirection: number;
+  /** x[0x1c] bits 6:0 — response time, ms. */
+  responseTimeMs: number;
+  /** x[0x1d] bits 7:4 — overscan horizontal, %. */
+  overscanHorizontal: number;
+  /** x[0x1d] bits 3:0 — overscan vertical, %. */
+  overscanVertical: number;
+  /** Bytes after the 30-byte model (present only for over-length payloads). */
+  trailing: Uint8Array;
+}
+
+/** 10-bit chromaticity pair (0..1023). */
+export interface VESAChromaticity {
+  x: number;
+  y: number;
+}
+
+/**
+ * VESA Video Timing Block Extension (Extended Tag 0x03)
+ *
+ * The byte layout is defined by the external "VESA Video Timing Block Extension
+ * Data Standard, Release A, Nov 24 2003" (CTA-861-G normative reference #101),
+ * which is not available in this repository; edid-decode (parse-cta-block.cpp)
+ * hex-dumps it unparsed. We therefore model the block as a structured
+ * opaque-payload container: a dedicated type with its own decode/encode path
+ * that preserves the payload byte-for-byte, rather than the generic
+ * data-only fallback.
+ */
+export interface VESAVideoTimingBlockExtensionDataBlock extends ExtendedDataBlock {
+  extendedTag: 0x03;
+  /** VESA-defined timing payload, preserved verbatim. */
+  payload: Uint8Array;
+}
+
+/** Label maps for VESA VDDB enumerated sub-fields (UI helpers). */
+export const VESA_INTERFACE_CATEGORIES: ReadonlyArray<{ id: number; label: string }> = [
+  { id: 0, label: 'Analog' },
+  { id: 1, label: 'LVDS' },
+  { id: 2, label: 'RSDS' },
+  { id: 3, label: 'DVI-D' },
+  { id: 4, label: 'DVI-I analog' },
+  { id: 5, label: 'DVI-I digital' },
+  { id: 6, label: 'HDMI-A' },
+  { id: 7, label: 'HDMI-B' },
+  { id: 8, label: 'MDDI' },
+  { id: 9, label: 'DisplayPort' },
+  { id: 10, label: 'IEEE-1394' },
+  { id: 11, label: 'M1 analog' },
+  { id: 12, label: 'M1 digital' },
+];
+export const VESA_CONTENT_PROTECTION: ReadonlyArray<{ id: number; label: string }> = [
+  { id: 0, label: 'None' },
+  { id: 1, label: 'HDCP' },
+  { id: 2, label: 'DTCP' },
+  { id: 3, label: 'DPCP' },
+];
+export const VESA_ORIENTATION: ReadonlyArray<{ id: number; label: string }> = [
+  { id: 0, label: 'Landscape' },
+  { id: 1, label: 'Portrait' },
+  { id: 2, label: 'Not fixed' },
+  { id: 3, label: 'Undefined' },
+];
+export const VESA_ROTATION: ReadonlyArray<{ id: number; label: string }> = [
+  { id: 0, label: 'None' },
+  { id: 1, label: '90° clockwise' },
+  { id: 2, label: '90° counterclockwise' },
+  { id: 3, label: '90° either direction' },
+];
+export const VESA_SUBPIXEL_INFORMATION: ReadonlyArray<{ id: number; label: string }> = [
+  { id: 0x00, label: 'Not defined' },
+  { id: 0x01, label: 'RGB vertical stripes' },
+  { id: 0x02, label: 'RGB horizontal stripes' },
+  { id: 0x03, label: 'Vertical stripes (primary order)' },
+  { id: 0x04, label: 'Horizontal stripes (primary order)' },
+  { id: 0x05, label: 'Quad sub-pixels, red top-left' },
+  { id: 0x06, label: 'Quad sub-pixels, red bottom-left' },
+  { id: 0x07, label: 'Delta (triad) RGB' },
+  { id: 0x08, label: 'Mosaic' },
+  { id: 0x09, label: 'Quad sub-pixels, RGB + 1 color' },
+  { id: 0x0a, label: 'Five sub-pixels, RGB + 2 colors' },
+  { id: 0x0b, label: 'Six sub-pixels, RGB + 3 colors' },
+  { id: 0x0c, label: 'PenTile Matrix' },
+];
+export const VESA_DITHERING: ReadonlyArray<{ id: number; label: string }> = [
+  { id: 0, label: 'None' },
+  { id: 1, label: 'Spatial' },
+  { id: 2, label: 'Temporal' },
+  { id: 3, label: 'Spatial and temporal' },
+];
+export const VESA_FRAME_RATE_CONVERSION: ReadonlyArray<{ id: number; label: string }> = [
+  { id: 0, label: 'None' },
+  { id: 1, label: 'Single buffering' },
+  { id: 2, label: 'Double buffering' },
+  { id: 3, label: 'Advanced frame rate conversion' },
+];
+export const VESA_RESPONSE_TIME_DIRECTION: ReadonlyArray<{ id: number; label: string }> = [
+  { id: 0, label: 'Black → White' },
+  { id: 1, label: 'White → Black' },
+];
+
 export type CTAExtendedDataBlock =
   | VideoCapabilityDataBlock
   | ColorimetryDataBlock
@@ -435,6 +618,8 @@ export type CTAExtendedDataBlock =
   | SpeakerLocationDataBlock
   | RoomEnvironmentDataBlock
   | InfoFrameDataBlock
+  | VESAVideoDisplayDeviceDataBlock
+  | VESAVideoTimingBlockExtensionDataBlock
   | ExtendedDataBlock;
 
 /**
@@ -471,6 +656,10 @@ export function decodeExtendedDataBlock(blockData: Uint8Array): CTAExtendedDataB
       return decodeYCbCr420CapabilityMapBlock(base, payload);
     case 0x01:
       return decodeVendorSpecificVideoBlock(base, payload);
+    case 0x02:
+      return decodeVESAVideoDisplayDeviceBlock(base, payload);
+    case 0x03:
+      return decodeVESAVideoTimingBlockExtension(base, payload);
     case 0x11:
       return decodeVendorSpecificAudioBlock(base, payload);
     case 0x13:
@@ -660,6 +849,84 @@ function decodeVendorSpecificAudioBlock(base: ExtendedDataBlock, payload: Uint8A
   };
 }
 
+/**
+ * Decode the VESA Video Display Device Data Block (ext tag 0x02).
+ * The payload must be exactly 30 bytes; otherwise the block is malformed and
+ * we fall back to the raw `base` so it still round-trips byte-identically.
+ */
+function decodeVESAVideoDisplayDeviceBlock(base: ExtendedDataBlock, payload: Uint8Array): CTAExtendedDataBlock {
+  if (payload.length !== 30) {
+    return base;
+  }
+
+  const b = (i: number) => payload[i];
+
+  // Additional primary chromaticities — 10-bit packed across x[0x14..0x1b].
+  const p4x = (b(0x16) << 2) | (b(0x14) >> 6);
+  const p4y = (b(0x17) << 2) | ((b(0x14) >> 4) & 0x03);
+  const p5x = (b(0x18) << 2) | ((b(0x14) >> 2) & 0x03);
+  const p5y = (b(0x19) << 2) | (b(0x14) & 0x03);
+  const p6x = (b(0x1a) << 2) | (b(0x15) >> 6);
+  const p6y = (b(0x1b) << 2) | ((b(0x15) >> 4) & 0x03);
+
+  const audioDelayByte = b(0x10);
+  const audioDelayMs = (audioDelayByte & 0x7f) * 2;
+
+  return {
+    ...base,
+    extendedTag: 0x02,
+    interfaceCategory: b(0) >> 4,
+    interfaceDetail: b(0) & 0x0f,
+    interfaceStandardMajor: b(1) >> 4,
+    interfaceStandardMinor: b(1) & 0x0f,
+    contentProtection: b(2),
+    minClockMHz: b(3) >> 2,
+    maxClockMHz: ((b(3) & 0x03) << 8) | b(4),
+    nativePixelWidth: b(5) | (b(6) << 8),
+    nativePixelHeight: b(7) | (b(8) << 8),
+    aspectRatio: b(9),
+    orientation: (b(0x0a) >> 6) & 0x03,
+    rotationCapability: (b(0x0a) >> 4) & 0x03,
+    zeroPixelLocation: (b(0x0a) >> 2) & 0x03,
+    scanDirection: b(0x0a) & 0x03,
+    subpixelInformation: b(0x0b),
+    horizontalPitchMm: b(0x0c) / 100,
+    verticalPitchMm: b(0x0d) / 100,
+    dithering: b(0x0e) >> 6,
+    directDrive: (b(0x0e) & 0x20) !== 0,
+    overdriveRecommended: (b(0x0e) & 0x10) === 0,
+    deinterlacing: (b(0x0e) & 0x08) !== 0,
+    audioSupport: (b(0x0f) & 0x80) !== 0,
+    separateAudioInputs: (b(0x0f) & 0x40) !== 0,
+    audioInputOverride: (b(0x0f) & 0x20) !== 0,
+    audioDelayMs,
+    audioDelayPositive: (audioDelayByte & 0x80) !== 0,
+    frameRateConversion: b(0x11) >> 6,
+    frameRateRange: b(0x11) & 0x3f,
+    nominalFrameRate: b(0x12),
+    colorBitDepthInterface: (b(0x13) >> 4) + 1,
+    colorBitDepthDisplay: (b(0x13) & 0x0f) + 1,
+    additionalPrimaryCount: b(0x15) & 0x03,
+    primary4: { x: p4x, y: p4y },
+    primary5: { x: p5x, y: p5y },
+    primary6: { x: p6x, y: p6y },
+    responseTimeDirection: b(0x1c) >> 7,
+    responseTimeMs: b(0x1c) & 0x7f,
+    overscanHorizontal: b(0x1d) >> 4,
+    overscanVertical: b(0x1d) & 0x0f,
+    trailing: new Uint8Array(),
+  };
+}
+
+/** Decode the VESA Video Timing Block Extension (ext tag 0x03) — opaque payload. */
+function decodeVESAVideoTimingBlockExtension(base: ExtendedDataBlock, payload: Uint8Array): VESAVideoTimingBlockExtensionDataBlock {
+  return {
+    ...base,
+    extendedTag: 0x03,
+    payload: payload.slice(),
+  };
+}
+
 function decodeRoomConfigurationBlock(base: ExtendedDataBlock, payload: Uint8Array): RoomConfigurationDataBlock {
   return {
     ...base,
@@ -817,6 +1084,16 @@ export function encodeExtendedDataBlock(block: CTAExtendedDataBlock): Uint8Array
       return encodeRoomConfigurationBlock(block as RoomConfigurationDataBlock);
     case 0x01:
       return encodeVendorSpecificVideoBlock(block as VendorSpecificVideoDataBlock);
+    case 0x02:
+      // Malformed (non-30-byte) blocks decode to the generic ExtendedDataBlock
+      // fallback; only the structured VDDB carries `interfaceCategory`.
+      return 'interfaceCategory' in block
+        ? encodeVESAVideoDisplayDeviceBlock(block as VESAVideoDisplayDeviceDataBlock)
+        : block.data;
+    case 0x03:
+      return 'payload' in block
+        ? encodeVESAVideoTimingBlockExtension(block as VESAVideoTimingBlockExtensionDataBlock)
+        : block.data;
     case 0x14:
       return encodeSpeakerLocationBlock(block as SpeakerLocationDataBlock);
     case 0x15:
@@ -912,6 +1189,86 @@ function encodeVendorSpecificAudioBlock(block: VendorSpecificAudioDataBlock): Ui
   ];
   for (const b of block.payload) bytes.push(b);
   return new Uint8Array(bytes);
+}
+
+/**
+ * Encode the VESA Video Display Device Data Block (ext tag 0x02).
+ * Reconstructs the 30 payload bytes from the parsed fields. The decode path
+ * only produces this type for length-30 payloads; a structurally-malformed
+ * block never enters this encoder (it stays as the raw `ExtendedDataBlock`
+ * fallback, whose `data` is returned by the default arm).
+ */
+function encodeVESAVideoDisplayDeviceBlock(block: VESAVideoDisplayDeviceDataBlock): Uint8Array {
+  const p = block;
+  // Re-pack the additional-primary 10-bit values: high 8 bits into their own
+  // bytes, low 2 bits collected into x[0x14] (P4/P5) and x[0x15] (P6 + count).
+  const byte14 =
+    ((p.primary4.x & 0x03) << 6) |
+    ((p.primary4.y & 0x03) << 4) |
+    ((p.primary5.x & 0x03) << 2) |
+    (p.primary5.y & 0x03);
+  const byte15 =
+    ((p.primary6.x & 0x03) << 6) |
+    ((p.primary6.y & 0x03) << 4) |
+    (p.additionalPrimaryCount & 0x03);
+
+  // Audio delay: sign in bit 7 (set = positive), magnitude/2 in bits 6:0.
+  const adMag = Math.round(p.audioDelayMs / 2) & 0x7f;
+  const audioDelayByte = (p.audioDelayPositive ? 0x80 : 0) | adMag;
+
+  const bytes = new Uint8Array(31 + p.trailing.length);
+  bytes[0] = 0x02;
+  bytes[1] = ((p.interfaceCategory & 0x0f) << 4) | (p.interfaceDetail & 0x0f);
+  bytes[2] = ((p.interfaceStandardMajor & 0x0f) << 4) | (p.interfaceStandardMinor & 0x0f);
+  bytes[3] = p.contentProtection & 0xff;
+  bytes[4] = (p.minClockMHz << 2) | ((p.maxClockMHz >> 8) & 0x03);
+  bytes[5] = p.maxClockMHz & 0xff;
+  bytes[6] = p.nativePixelWidth & 0xff;
+  bytes[7] = (p.nativePixelWidth >> 8) & 0xff;
+  bytes[8] = p.nativePixelHeight & 0xff;
+  bytes[9] = (p.nativePixelHeight >> 8) & 0xff;
+  bytes[10] = p.aspectRatio & 0xff;
+  bytes[11] =
+    ((p.orientation & 0x03) << 6) |
+    ((p.rotationCapability & 0x03) << 4) |
+    ((p.zeroPixelLocation & 0x03) << 2) |
+    (p.scanDirection & 0x03);
+  bytes[12] = p.subpixelInformation & 0xff;
+  bytes[13] = Math.round(p.horizontalPitchMm * 100) & 0xff;
+  bytes[14] = Math.round(p.verticalPitchMm * 100) & 0xff;
+  bytes[15] =
+    ((p.dithering & 0x03) << 6) |
+    (p.directDrive ? 0x20 : 0) |
+    (p.overdriveRecommended ? 0 : 0x10) |
+    (p.deinterlacing ? 0x08 : 0);
+  bytes[16] =
+    (p.audioSupport ? 0x80 : 0) |
+    (p.separateAudioInputs ? 0x40 : 0) |
+    (p.audioInputOverride ? 0x20 : 0);
+  bytes[17] = audioDelayByte;
+  bytes[18] = ((p.frameRateConversion & 0x03) << 6) | (p.frameRateRange & 0x3f);
+  bytes[19] = p.nominalFrameRate & 0xff;
+  bytes[20] = (((p.colorBitDepthInterface - 1) & 0x0f) << 4) | ((p.colorBitDepthDisplay - 1) & 0x0f);
+  bytes[21] = byte14;
+  bytes[22] = byte15;
+  bytes[23] = (p.primary4.x >> 2) & 0xff;
+  bytes[24] = (p.primary4.y >> 2) & 0xff;
+  bytes[25] = (p.primary5.x >> 2) & 0xff;
+  bytes[26] = (p.primary5.y >> 2) & 0xff;
+  bytes[27] = (p.primary6.x >> 2) & 0xff;
+  bytes[28] = (p.primary6.y >> 2) & 0xff;
+  bytes[29] = ((p.responseTimeDirection & 0x01) << 7) | (p.responseTimeMs & 0x7f);
+  bytes[30] = ((p.overscanHorizontal & 0x0f) << 4) | (p.overscanVertical & 0x0f);
+  bytes.set(p.trailing, 31);
+  return bytes;
+}
+
+/** Encode the VESA Video Timing Block Extension (ext tag 0x03) — opaque payload. */
+function encodeVESAVideoTimingBlockExtension(block: VESAVideoTimingBlockExtensionDataBlock): Uint8Array {
+  const bytes = new Uint8Array(1 + block.payload.length);
+  bytes[0] = 0x03;
+  bytes.set(block.payload, 1);
+  return bytes;
 }
 
 function encodeRoomConfigurationBlock(block: RoomConfigurationDataBlock): Uint8Array {

@@ -14,10 +14,13 @@ import {
   getSamplingRatesString,
   getBitDepthsString,
   VIC_TABLE,
+  VESA_INTERFACE_CATEGORIES,
   type VideoCapabilityDataBlock,
   type ColorimetryDataBlock,
   type HDRStaticMetadataDataBlock,
   type YCbCr420VideoDataBlock,
+  type VESAVideoDisplayDeviceDataBlock,
+  type VESAVideoTimingBlockExtensionDataBlock,
 } from '../src/cta';
 import { checksum8 } from '../src/common';
 
@@ -457,5 +460,118 @@ describe('CEA DTD shared model and native association (TASK-8)', () => {
     expect(out.flags.serrationOnVSync).toBe(true);
     // isNative is modelled even when the native count is 0.
     expect(out.isNative).toBe(false);
+  });
+});
+
+describe('VESA extended tag 0x02 (Video Display Device Data Block) — TASK-9', () => {
+  // 30-byte payload exercising a representative set of fields.
+  // x[0]=0x92 → DisplayPort (cat 9), 2 channels; x[1]=0x12 → std v1.2;
+  // x[2]=0x01 → HDCP; x[3]=0x22,x[4]=0x21 → min 8 MHz, max ((2)<<8)|0x21 = 545 MHz;
+  // x[5..8]=1920x1080; x[9]=0x06 → aspect 1.06; x[0x0a]=0x2f → orient0/rot2/zp3/sd3;
+  // x[0x0b]=0x07 → delta triad; x[0x0c]=0x19,x[0x0d]=0x23 → 0.25 x 0.35 mm;
+  // x[0x0e]=0xb8 → dither2, direct-drive, overdrive NOT rec (bit4=1→false), deinterlace;
+  // x[0x0f]=0xc0 → audio support + separate inputs; x[0x10]=0x83 → +6 ms;
+  // x[0x11]=0x45 → conv1, range 5; x[0x12]=0x3c → 60 fps; x[0x13]=0x57 → 6@intf, 8@disp;
+  // x[0x14]=0x1c, x[0x15]=0x83 → count3; primaries 10-bit packed (see expects);
+  // x[0x1c]=0x8a → White→Black, 10 ms; x[0x1d]=0x46 → 4% x 6% overscan.
+  const payload = new Uint8Array([
+    0x92, 0x12, 0x01, 0x22, 0x21, 0x80, 0x07, 0x38, 0x04, 0x06,
+    0x2f, 0x07, 0x19, 0x23, 0xb8, 0xc0, 0x83, 0x45, 0x3c, 0x57,
+    0x1c, 0x83, 0x64, 0xc8, 0x14, 0x28, 0x1a, 0x2c, 0x8a, 0x46,
+  ]);
+  if (payload.length !== 30) throw new Error(`payload must be 30 bytes, got ${payload.length}`);
+
+  it('decodes the structured 30-byte block and the label map resolves the interface', () => {
+    const blockData = new Uint8Array([0x02, ...payload]);
+    const block = decodeExtendedDataBlock(blockData) as VESAVideoDisplayDeviceDataBlock;
+    expect(block.extendedTag).toBe(0x02);
+    expect(block.interfaceCategory).toBe(9);
+    expect(block.interfaceDetail).toBe(2);
+    expect(VESA_INTERFACE_CATEGORIES.find((e) => e.id === block.interfaceCategory)?.label).toBe('DisplayPort');
+    expect(block.interfaceStandardMajor).toBe(1);
+    expect(block.interfaceStandardMinor).toBe(2);
+    expect(block.contentProtection).toBe(1);
+    expect(block.minClockMHz).toBe(8);
+    expect(block.maxClockMHz).toBe(0x221);
+    expect(block.nativePixelWidth).toBe(1920);
+    expect(block.nativePixelHeight).toBe(1080);
+    expect(block.aspectRatio).toBe(0x06);
+    expect(block.orientation).toBe(0);
+    expect(block.rotationCapability).toBe(2);
+    expect(block.zeroPixelLocation).toBe(3);
+    expect(block.scanDirection).toBe(3);
+    expect(block.subpixelInformation).toBe(0x07);
+    expect(block.horizontalPitchMm).toBeCloseTo(0.25, 5);
+    expect(block.verticalPitchMm).toBeCloseTo(0.35, 5);
+    expect(block.dithering).toBe(2);
+    expect(block.directDrive).toBe(true);
+    expect(block.overdriveRecommended).toBe(false);
+    expect(block.deinterlacing).toBe(true);
+    expect(block.audioSupport).toBe(true);
+    expect(block.separateAudioInputs).toBe(true);
+    expect(block.audioInputOverride).toBe(false);
+    expect(block.audioDelayMs).toBe(6);
+    expect(block.audioDelayPositive).toBe(true);
+    expect(block.frameRateConversion).toBe(1);
+    expect(block.frameRateRange).toBe(5);
+    expect(block.nominalFrameRate).toBe(60);
+    expect(block.colorBitDepthInterface).toBe(6);
+    expect(block.colorBitDepthDisplay).toBe(8);
+    expect(block.additionalPrimaryCount).toBe(3);
+    // P4: x=(0x64<<2)|(0x1c>>6)=0x190, y=(0xc8<<2)|((0x1c>>4)&3)=0x321
+    expect(block.primary4).toEqual({ x: 0x190, y: 0x321 });
+    // P5: x=(0x14<<2)|((0x1c>>2)&3)=0x53, y=(0x28<<2)|(0x1c&3)=0xa0
+    expect(block.primary5).toEqual({ x: 0x53, y: 0xa0 });
+    // P6: x=(0x1a<<2)|(0x83>>6)=0x6a, y=(0x2c<<2)|((0x83>>4)&3)=0xb0
+    expect(block.primary6).toEqual({ x: 0x6a, y: 0xb0 });
+    expect(block.responseTimeDirection).toBe(1);
+    expect(block.responseTimeMs).toBe(10);
+    expect(block.overscanHorizontal).toBe(4);
+    expect(block.overscanVertical).toBe(6);
+  });
+
+  it('round-trips byte-identically through decode → encode', () => {
+    const blockData = new Uint8Array([0x02, ...payload]);
+    const block = decodeExtendedDataBlock(blockData);
+    const reencoded = encodeExtendedDataBlock(block);
+    expect(Array.from(reencoded)).toEqual(Array.from(blockData));
+  });
+
+  it('round-trips the audio-delay sign for +0 (0x80) and −0 (0x00)', () => {
+    for (const raw of [0x80, 0x00]) {
+      const p = new Uint8Array(payload);
+      p[0x10] = raw;
+      const blockData = new Uint8Array([0x02, ...p]);
+      const reencoded = encodeExtendedDataBlock(decodeExtendedDataBlock(blockData));
+      expect(Array.from(reencoded)).toEqual(Array.from(blockData));
+    }
+  });
+
+  it('falls back to raw bytes for a malformed (non-30-byte) payload and still round-trips', () => {
+    const blockData = new Uint8Array([0x02, 0xaa, 0xbb, 0xcc]); // 3 payload bytes, not 30
+    const block = decodeExtendedDataBlock(blockData);
+    // Generic fallback: only tag/extendedTag/data, no structured fields.
+    expect((block as VESAVideoDisplayDeviceDataBlock).interfaceCategory).toBeUndefined();
+    const reencoded = encodeExtendedDataBlock(block);
+    expect(Array.from(reencoded)).toEqual(Array.from(blockData));
+  });
+});
+
+describe('VESA extended tag 0x03 (Video Timing Block Extension) — TASK-9', () => {
+  it('decodes as a structured opaque-payload block and round-trips verbatim', () => {
+    const blockData = new Uint8Array([0x03, 0x10, 0x20, 0x30, 0x40, 0x50]);
+    const block = decodeExtendedDataBlock(blockData) as VESAVideoTimingBlockExtensionDataBlock;
+    expect(block.extendedTag).toBe(0x03);
+    expect(Array.from(block.payload)).toEqual([0x10, 0x20, 0x30, 0x40, 0x50]);
+    const reencoded = encodeExtendedDataBlock(block);
+    expect(Array.from(reencoded)).toEqual(Array.from(blockData));
+  });
+
+  it('round-trips an empty payload (length-0 block data is still ≥ ext tag)', () => {
+    const blockData = new Uint8Array([0x03]);
+    const block = decodeExtendedDataBlock(blockData) as VESAVideoTimingBlockExtensionDataBlock;
+    expect(block.payload.length).toBe(0);
+    const reencoded = encodeExtendedDataBlock(block);
+    expect(Array.from(reencoded)).toEqual([0x03]);
   });
 });
