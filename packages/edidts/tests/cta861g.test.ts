@@ -59,7 +59,7 @@ describe('CTA and VTB detailed timing descriptors', () => {
     expect(decodedTiming.verticalImageSize).toBe(340);
     expect(decodedTiming.horizontalBorder).toBe(1);
     expect(decodedTiming.verticalBorder).toBe(2);
-    expect(decodedTiming.interlaced).toBe(true);
+    expect(decodedTiming.flags.interlaced).toBe(true);
     expect(decodedTiming.flags.syncType).toBe('digital-separate');
   });
 
@@ -384,5 +384,78 @@ describe('Audio Format Codes', () => {
     expect(str).toContain('20');
     expect(str).toContain('24');
     expect(str).toContain('bit');
+  });
+});
+
+describe('CEA DTD shared model and native association (TASK-8)', () => {
+  function ceaWithDtds(dtds: DetailedTimingDescriptor[], nativeFormats: number) {
+    return {
+      tag: 0x02 as const,
+      revision: 3,
+      checksum: 0,
+      data: new Uint8Array(),
+      dtdOffset: 4,
+      underscan: false,
+      basicAudio: false,
+      ycbcr444: false,
+      ycbcr422: false,
+      nativeFormats,
+      dataBlocks: [],
+      detailedTimings: dtds as unknown as ReturnType<typeof ExtensionBlockParser.decode> extends infer T
+        ? T extends { detailedTimings: infer D } ? D : never
+        : never,
+    };
+  }
+
+  it('associates the native DTD count with specific DTD objects (first N are native)', () => {
+    const dtd = () => new DetailedTimingDescriptor({
+      pixelClock: 74.25,
+      horizontalActive: 1280, horizontalBlanking: 370,
+      verticalActive: 720, verticalBlanking: 30,
+      horizontalSyncOffset: 110, horizontalSyncWidth: 40,
+      verticalSyncOffset: 5, verticalSyncWidth: 5,
+      horizontalImageSize: 520, verticalImageSize: 290,
+    });
+    const cea = ceaWithDtds([dtd(), dtd(), dtd()], 2);
+    const bytes = ExtensionBlockParser.encode(cea as any);
+    const decoded = ExtensionBlockParser.decode(bytes) as any;
+
+    expect(decoded.nativeFormats).toBe(2);
+    expect(decoded.detailedTimings.length).toBe(3);
+    expect(decoded.detailedTimings[0].isNative).toBe(true);
+    expect(decoded.detailedTimings[1].isNative).toBe(true);
+    expect(decoded.detailedTimings[2].isNative).toBe(false);
+  });
+
+  it('round-trips stereo mode, borders, and sync flags inside a CEA extension', () => {
+    const timing = new DetailedTimingDescriptor({
+      pixelClock: 148.5,
+      horizontalActive: 1920, horizontalBlanking: 280,
+      verticalActive: 1080, verticalBlanking: 45,
+      horizontalSyncOffset: 88, horizontalSyncWidth: 44,
+      verticalSyncOffset: 4, verticalSyncWidth: 5,
+      horizontalImageSize: 600, verticalImageSize: 340,
+      horizontalBorder: 3, verticalBorder: 4,
+      flags: {
+        interlaced: false,
+        stereoMode: 'side-by-side-interleaved',
+        syncType: 'digital-composite',
+        hSyncPolarity: 'negative',
+        serrationOnVSync: true,
+      },
+    });
+    const cea = ceaWithDtds([timing], 0);
+    const bytes = ExtensionBlockParser.encode(cea as any);
+    const decoded = ExtensionBlockParser.decode(bytes) as any;
+    const out = decoded.detailedTimings[0];
+
+    expect(out.horizontalBorder).toBe(3);
+    expect(out.verticalBorder).toBe(4);
+    expect(out.flags.stereoMode).toBe('side-by-side-interleaved');
+    expect(out.flags.syncType).toBe('digital-composite');
+    expect(out.flags.hSyncPolarity).toBe('negative');
+    expect(out.flags.serrationOnVSync).toBe(true);
+    // isNative is modelled even when the native count is 0.
+    expect(out.isNative).toBe(false);
   });
 });

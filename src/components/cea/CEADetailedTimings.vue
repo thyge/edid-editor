@@ -42,14 +42,14 @@ function refreshRate(t: CEADetailedTiming): string {
             <div>
               <p class="text-[11px] uppercase tracking-wide text-muted-foreground">Timing {{ i + 1 }}</p>
               <p class="text-lg font-semibold text-foreground">
-                {{ timing.horizontalActive }}×{{ timing.verticalActive }}{{ timing.interlaced ? 'i' : 'p' }} ·
+                {{ timing.horizontalActive }}×{{ timing.verticalActive }}{{ timing.flags.interlaced ? 'i' : 'p' }} ·
                 {{ refreshRate(timing) }} Hz
               </p>
               <p class="text-xs text-muted-foreground">{{ timing.pixelClock.toFixed(2) }} MHz pixel clock</p>
             </div>
             <div class="ml-auto flex items-center gap-3">
               <span class="rounded-full border border-border/60 bg-muted/30 px-3 py-1 text-xs font-semibold text-muted-foreground">
-                {{ timing.interlaced ? 'Interlaced' : 'Progressive' }}
+                {{ timing.flags.interlaced ? 'Interlaced' : 'Progressive' }}
               </span>
               <button
                 type="button"

@@ -19,7 +19,6 @@ import {
   encodeEdidCtaDetailedTiming,
   type DetailedTiming,
   type DetailedTimingInput,
-  type TimingFlags,
 } from '../common/detailed-timing-descriptor';
 import {
   decodeVideoTimingBlock,
@@ -182,22 +181,20 @@ export interface VESADisplayTransferCharacteristicBlock extends CEADataBlock {
   gammaValues: number[]; // Normalized gamma values (0-1)
 }
 
-export interface CEADetailedTiming {
-  pixelClock: number;
-  horizontalActive: number;
-  horizontalBlanking: number;
-  verticalActive: number;
-  verticalBlanking: number;
-  horizontalSyncOffset: number;
-  horizontalSyncWidth: number;
-  verticalSyncOffset: number;
-  verticalSyncWidth: number;
-  interlaced: boolean;
-  horizontalImageSize?: number;
-  verticalImageSize?: number;
-  horizontalBorder?: number;
-  verticalBorder?: number;
-  flags?: Partial<TimingFlags>;
+/**
+ * CEA Detailed Timing Descriptor.
+ *
+ * Routed through the shared 18-byte DTD codec (`decodeEdidCtaDetailedTiming` /
+ * `encodeEdidCtaDetailedTiming`), so it carries the full `DetailedTiming` field
+ * set (image size, borders, stereo mode, and sync flags via `flags`) rather than
+ * the simplified subset the CEA parser used to expose.
+ *
+ * `isNative` marks the DTDs the sink considers native: per CTA-861-G byte 3
+ * bits 3:0 ("Number of Native Detailed Timings"), the first N DTDs in the block
+ * are native, where N is `CEAExtensionBlock.nativeFormats`.
+ */
+export interface CEADetailedTiming extends DetailedTiming {
+  isNative: boolean;
 }
 
 /**
@@ -332,18 +329,23 @@ export class ExtensionBlockParser {
       }
     }
 
-    // Parse detailed timings (from dtdOffset to end, each 18 bytes)
+    // Parse detailed timings (from dtdOffset to end, each 18 bytes).
+    // CTA-861-G byte 3 bits 3:0 (nativeFormats) is the number of native DTDs;
+    // the first N DTDs in the block are native.
     if (dtdOffset > 0 && dtdOffset < 127) {
+      const nativeCount = flags & 0x0f;
       let offset = dtdOffset;
+      let dtdIndex = 0;
       while (offset + 18 <= 127) {
         const pixelClock = (data[offset + 1] << 8) | data[offset];
         if (pixelClock === 0) break; // No more timings
 
         const timing = decodeEdidCtaDetailedTiming(data.slice(offset, offset + 18));
         if (!timing) break;
-        cea.detailedTimings.push(this.toCEADetailedTiming(timing));
+        cea.detailedTimings.push({ ...timing, isNative: dtdIndex < nativeCount });
 
         offset += 18;
+        dtdIndex++;
       }
     }
 
@@ -724,37 +726,15 @@ export class ExtensionBlockParser {
     }
   }
 
-  private static toCEADetailedTiming(timing: DetailedTiming): CEADetailedTiming {
-    return Object.assign(timing, { interlaced: timing.flags.interlaced });
-  }
-
-  private static toDetailedTimingInput(timing: DetailedTimingDescriptor | CEADetailedTiming): DetailedTimingInput {
-    if (timing instanceof DetailedTimingDescriptor) {
-      if ('interlaced' in timing) {
-        timing.flags.interlaced = Boolean(timing.interlaced);
-      }
-      return timing;
-    }
-
-    return {
-      pixelClock: timing.pixelClock,
-      horizontalActive: timing.horizontalActive,
-      horizontalBlanking: timing.horizontalBlanking,
-      verticalActive: timing.verticalActive,
-      verticalBlanking: timing.verticalBlanking,
-      horizontalSyncOffset: timing.horizontalSyncOffset,
-      horizontalSyncWidth: timing.horizontalSyncWidth,
-      verticalSyncOffset: timing.verticalSyncOffset,
-      verticalSyncWidth: timing.verticalSyncWidth,
-      horizontalImageSize: timing.horizontalImageSize,
-      verticalImageSize: timing.verticalImageSize,
-      horizontalBorder: timing.horizontalBorder,
-      verticalBorder: timing.verticalBorder,
-      flags: {
-        ...timing.flags,
-        interlaced: timing.flags?.interlaced ?? timing.interlaced,
-      },
-    };
+  /**
+   * Coerce a CEA DTD (or a bare `DetailedTimingDescriptor`) into the input shape
+   * the shared 18-byte codec accepts. Both already carry the full `DetailedTiming`
+   * field set, so this is a type-level widening — no field copying is needed.
+   */
+  private static toDetailedTimingInput(
+    timing: DetailedTimingDescriptor | CEADetailedTiming,
+  ): DetailedTimingInput {
+    return timing;
   }
 }
 
