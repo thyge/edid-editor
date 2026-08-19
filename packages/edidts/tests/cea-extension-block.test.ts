@@ -423,6 +423,59 @@ describe('CEA extension block container', () => {
   });
 });
 
+describe('Audio SAD maxBitrate and format-extension round-trip (TASK-5)', () => {
+  /** All 7 sampling-rate bits set, for a stable byte 2 across cases. */
+  const allRates = {
+    sr32kHz: true, sr44_1kHz: true, sr48kHz: true, sr88_2kHz: true,
+    sr96kHz: true, sr176_4kHz: true, sr192kHz: true,
+  };
+
+  it.each([2, 3, 4, 5, 6, 7, 8])(
+    'compressed format code %i round-trips maxBitrate (Table 61: byte3 = maxBitrate/8)',
+    (format) => {
+      const maxBitrate = format * 64; // multiple of 8 → exact round-trip
+      const audio: AudioDataBlock = {
+        tag: 0x01,
+        data: new Uint8Array(0),
+        descriptors: [{ format, channels: 8, samplingRates: allRates, maxBitrate }],
+      };
+      const bytes = ExtensionBlockParser.encode(ceaWith([audio]));
+      // SAD lives at bytes 4..6 (header at 4, payload 5..7). byte3 of the SAD is byte 7.
+      expect(bytes[7]).toBe(maxBitrate / 8);
+
+      const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
+      const out = decoded.dataBlocks[0] as AudioDataBlock;
+      expect(out.descriptors[0].format).toBe(format);
+      expect(out.descriptors[0].maxBitrate).toBe(maxBitrate);
+
+      // Re-encode reproduces the same payload bytes.
+      const reencoded = ExtensionBlockParser.encode(decoded);
+      expect(reencoded[7]).toBe(maxBitrate / 8);
+    },
+  );
+
+  it.each([4, 6, 11, 12, 13])(
+    'format code 15 round-trips extended format %i (byte3 bits 7:3)',
+    (extendedFormat) => {
+      const audio: AudioDataBlock = {
+        tag: 0x01,
+        data: new Uint8Array(0),
+        descriptors: [{ format: 15, channels: 8, samplingRates: allRates, extendedFormat }],
+      };
+      const bytes = ExtensionBlockParser.encode(ceaWith([audio]));
+      expect(bytes[7]).toBe(extendedFormat << 3);
+
+      const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
+      const out = decoded.dataBlocks[0] as AudioDataBlock;
+      expect(out.descriptors[0].format).toBe(15);
+      expect(out.descriptors[0].extendedFormat).toBe(extendedFormat);
+
+      const reencoded = ExtensionBlockParser.encode(decoded);
+      expect(reencoded[7]).toBe(extendedFormat << 3);
+    },
+  );
+});
+
 describe('CEA tag-0x02 validation (TASK-2)', () => {
   /** Minimal valid 128-byte CEA block: tag 0x02, rev 3, dtdOffset 4, no blocks. */
   function validCeaBytes(): Uint8Array {

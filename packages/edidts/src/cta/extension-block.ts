@@ -375,6 +375,9 @@ export class ExtensionBlockParser {
           bd24: (data[i + 2] & 0x04) !== 0,
         };
       } else if (format >= 2 && format <= 8) {
+        // CTA-861-G Table 61 (codes 2-8): byte 3 = max bit rate ÷ 8 kHz.
+        // (Codes 9-13 Table 62 use a format-dependent value; code 14 Table 63
+        // uses a profile field — neither is a max bit rate, so not mapped here.)
         descriptor.maxBitrate = data[i + 2] * 8;
       } else if (format === 15) { // Audio Format Extension — byte 3 bits 7:3
         descriptor.extendedFormat = (data[i + 2] >> 3) & 0x1F;
