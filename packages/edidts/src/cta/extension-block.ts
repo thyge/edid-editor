@@ -10,6 +10,19 @@
 import { decodeExtendedDataBlock, encodeExtendedDataBlock, type CTAExtendedDataBlock } from './cta-extended-blocks';
 import { decodeVendorSpecificBlock, findVSDBByKind, VENDOR_ENCODERS, reassembleVsdbBlock } from './vsdb/registry';
 import type { VendorSpecificDataBlock } from './vsdb/types';
+// Side-effect imports: each VSDB codec module registers its decoder/encoder
+// with VENDOR_DECODERS/VENDOR_ENCODERS (vsdb/registry.ts) at load time. The
+// CTA decode path goes through this module (eedid/extension.ts imports it
+// directly, not via cta/index.ts), so importing them here guarantees every
+// VSDB OUI (HDMI 1.4, HDMI Forum 2.0, AMD FreeSync, Microsoft HMD) is
+// registered before decodeVendorSpecificBlock runs — otherwise VSDBs fall
+// back to 'unknown' even with a correct OUI. (registry.ts itself cannot
+// import these without a circular-import TDZ, since they register into the
+// VENDOR_DECODERS const it exports.) MHL is registered inside registry.ts.
+import './vsdb/hdmi14';
+import './vsdb/hdmi-forum';
+import './vsdb/amd';
+import './vsdb/microsoft-hmd';
 // Side-effect import: registers the Dolby VSVDB decoder/encoder with the
 // VSVDB registry so consumers can find it via VENDOR_VSVDB_DECODERS[OUI.DOLBY].
 import './vsvdb/dolby';
@@ -431,7 +444,22 @@ export class ExtensionBlockParser {
   }
 
   private static decodeVendorSpecificBlock(data: Uint8Array): VendorSpecificDataBlock {
-    return decodeVendorSpecificBlock(data);
+    // The CTA data-block walker (decodeCEA) passes each block's payload with
+    // the tag/length header byte already stripped — for a VSDB, `data` starts
+    // at the OUI (data[0..2]) followed by the post-OUI payload (data[3..]).
+    // The registry-level decodeVendorSpecificBlock (vsdb/registry.ts) expects
+    // the header byte present: it reads the OUI at data[1..3] and derives the
+    // payload length from data[0]. Reconstruct that header byte so the OUI and
+    // payload extraction aligns, then restore block.data to the header-stripped
+    // bytes the CTA level round-trips on — encodeCEA prepends its own header,
+    // and the unknown-VSDB encode path returns block.data verbatim.
+    const header = (0x03 << 5) | (data.length & 0x1F);
+    const full = new Uint8Array(data.length + 1);
+    full[0] = header;
+    full.set(data, 1);
+    const block = decodeVendorSpecificBlock(full);
+    block.data = data;
+    return block;
   }
 
   private static decodeSpeakerAllocationBlock(data: Uint8Array): SpeakerAllocationBlock {
@@ -643,10 +671,14 @@ export class ExtensionBlockParser {
     if (!block.vendor || block.vendor.kind === 'unknown') return block.data;
     const encoder = VENDOR_ENCODERS[block.vendor.kind];
     if (!encoder) return block.data;
+    // reassembleVsdbBlock returns the full VSDB bytes including the tag/length
+    // header byte. encodeCEA prepends its own header byte (and derives the
+    // length field from encoded.length), so strip the reassembled header to
+    // avoid a double header and a length field off by one.
     return reassembleVsdbBlock(
       block.ieeeOui,
-      encoder.encode(block.vendor.fields as Parameters<typeof encoder.encode>[0])
-    );
+      encoder.encode(block.vendor.fields as Parameters<typeof encoder.encode>[0]),
+    ).slice(1);
   }
 
   private static encodeSpeakerAllocationBlock(block: SpeakerAllocationBlock): Uint8Array {
