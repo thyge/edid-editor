@@ -4,6 +4,7 @@ import {
   decodeExtendedDataBlock,
   encodeExtendedDataBlock,
   type CEAExtensionBlock,
+  type CEADetailedTiming,
   type VideoDataBlock,
   type AudioDataBlock,
   type ExtendedDataBlock,
@@ -137,6 +138,86 @@ describe('CEA extension block container', () => {
       const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
       // The overrun block is dropped; decode must not throw and must report none.
       expect(decoded.dataBlocks.length).toBe(0);
+    });
+  });
+
+  describe('DTD offset edge cases (TASK-3)', () => {
+    // Encode rule (extension-block.ts): dtdOffset = (detailedTimings.length > 0
+    // || offset > 4) ? offset : 0 — i.e. 0 only when there are no data blocks and
+    // no DTDs; otherwise it points at the end of the data-block collection (the
+    // start of the DTD region). These boundary cases must round-trip.
+
+    it('dtdOffset=0x00 when there are no data blocks and no DTDs', () => {
+      const bytes = ExtensionBlockParser.encode(ceaWith([]));
+      expect(bytes[2]).toBe(0x00);
+
+      const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
+      expect(decoded.dtdOffset).toBe(0);
+      expect(decoded.dataBlocks.length).toBe(0);
+      expect(decoded.detailedTimings.length).toBe(0);
+
+      // Re-encode is stable.
+      const reencoded = ExtensionBlockParser.encode(decoded);
+      expect(reencoded[2]).toBe(0x00);
+    });
+
+    it('dtdOffset points at the end of data blocks with no DTDs', () => {
+      // One 4-VIC video block: header(1) + 4 payload = 5 bytes starting at byte 4
+      // → ends at byte 9, which becomes dtdOffset.
+      const bytes = ExtensionBlockParser.encode(ceaWith([videoBlock(4)]));
+      expect(bytes[2]).toBe(9);
+
+      const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
+      expect(decoded.dtdOffset).toBe(9);
+      expect(decoded.dataBlocks.length).toBe(1);
+      // No DTDs: the DTD loop reads pixelClock at byte 9 (= 0) and breaks.
+      expect(decoded.detailedTimings.length).toBe(0);
+
+      const reencoded = ExtensionBlockParser.encode(decoded);
+      expect(reencoded[2]).toBe(9);
+      const redecoded = ExtensionBlockParser.decode(reencoded) as CEAExtensionBlock;
+      expect(redecoded.dataBlocks.length).toBe(1);
+      expect(redecoded.detailedTimings.length).toBe(0);
+    });
+
+    it('dtdOffset points past the data block collection into the DTD region', () => {
+      // Data blocks end at byte 9; a DTD follows, so dtdOffset = 9 points past
+      // the data-block collection into the DTD region.
+      const dtd: CEADetailedTiming = {
+        pixelClock: 148.5,
+        horizontalActive: 1920,
+        horizontalBlanking: 280,
+        verticalActive: 1080,
+        verticalBlanking: 45,
+        horizontalSyncOffset: 88,
+        horizontalSyncWidth: 44,
+        verticalSyncOffset: 4,
+        verticalSyncWidth: 5,
+        interlaced: true,
+        horizontalImageSize: 600,
+        verticalImageSize: 340,
+        horizontalBorder: 0,
+        verticalBorder: 0,
+      };
+
+      const bytes = ExtensionBlockParser.encode(ceaWith([videoBlock(4)], { detailedTimings: [dtd] }));
+      expect(bytes[2]).toBe(9); // end of data blocks = start of DTDs
+
+      const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
+      expect(decoded.dtdOffset).toBe(9);
+      expect(decoded.dataBlocks.length).toBe(1);
+      expect(decoded.detailedTimings.length).toBe(1);
+      expect(decoded.detailedTimings[0].pixelClock).toBe(148.5);
+      expect(decoded.detailedTimings[0].horizontalActive).toBe(1920);
+
+      // Full round-trip preserves dtdOffset, block count, and the DTD.
+      const reencoded = ExtensionBlockParser.encode(decoded);
+      expect(reencoded[2]).toBe(9);
+      const redecoded = ExtensionBlockParser.decode(reencoded) as CEAExtensionBlock;
+      expect(redecoded.dtdOffset).toBe(9);
+      expect(redecoded.dataBlocks.length).toBe(1);
+      expect(redecoded.detailedTimings.length).toBe(1);
+      expect(redecoded.detailedTimings[0].pixelClock).toBe(148.5);
     });
   });
 

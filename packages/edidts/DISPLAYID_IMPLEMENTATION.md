@@ -65,16 +65,25 @@ Each section gets decode, encode, and round-trip tests. The first tests cover:
 - [x] Section 2: DisplayID section header, declared length, checksum, fixed-length fill handling.
 - [x] Section 3: Generic data block header parsing, unknown block preservation, reserved tag warnings.
 - [x] Section 4.1: Product Identification block.
-- [ ] Section 4.2: Display Parameters block.
-- [ ] Section 4.3: Video Timing Mode blocks, starting with Type VII Detailed Timing.
-- [ ] Section 4.4: Dynamic Video Timing Range Limits block.
-- [ ] Section 4.5: Display Interface Features block.
-- [ ] Section 4.6: Stereo Display Interface block.
-- [ ] Section 4.7: Tiled Display Topology block.
-- [ ] Section 4.8: ContainerID block.
-- [ ] Section 4.9: Vendor-specific block.
-- [ ] Section 4.10: CTA DisplayID data block.
-- [ ] E-EDID integration: route extension tag `0x70` to the DisplayID decoder once the section decoder is stable.
+- [x] Section 4.2: Display Parameters block.
+- [x] Section 4.3: Video Timing Mode blocks (Type VII, VIII, IX).
+- [x] Section 4.4: Dynamic Video Timing Range Limits block.
+- [x] Section 4.5: Display Interface Features block.
+- [x] Section 4.6: Stereo Display Interface block.
+- [x] Section 4.7: Tiled Display Topology block.
+- [x] Section 4.8: ContainerID block.
+- [x] Section 4.9: Vendor-specific block.
+- [x] Section 4.10: CTA DisplayID data block.
+- [x] E-EDID integration: route extension tag `0x70` to the DisplayID decoder.
+
+> All listed sections now have decode + encode support. Vue UI integration also
+> landed (editable components exist for every implemented block; CTA DisplayID
+> and Vendor Specific are edited as raw hex passthrough). See
+> [`SPEC_COVERAGE.md`](../../SPEC_COVERAGE.md) at the repo root for the current
+> per-section decode/encode/UI status across all three specs. Outstanding
+> DisplayID 2.0 gaps: Type X (`0x2A`), Adaptive Sync (`0x2B`), AR/VR HMD
+> (`0x2C`), AR/VR Layer (`0x2D`), Brightness Luminance Range (`0x2E`), and
+> multi-section chain-walk (`extensionCount`).
 
 ## Progress Log
 
