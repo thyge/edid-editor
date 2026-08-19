@@ -71,4 +71,49 @@ describe('common detailed timing model and EDID/CTA codec', () => {
     expect(decoded?.horizontalImageSize).toBe(520);
     expect(decoded?.verticalImageSize).toBe(290);
   });
+
+  it('round-trips every stereo mode and never emits the reserved 111 code', () => {
+    const baseFlags = {
+      interlaced: false,
+      syncType: 'digital-separate' as const,
+      hSyncPolarity: 'positive' as const,
+      vSyncPolarity: 'positive' as const,
+    };
+    const modes = [
+      'none',
+      'field-sequential-right',
+      '2-way-interleaved-right',
+      'field-sequential-left',
+      '2-way-interleaved-left',
+      '4-way-interleaved',
+      'side-by-side-interleaved',
+    ] as const;
+
+    for (const stereoMode of modes) {
+      const encoded = encodeEdidCtaDetailedTiming({
+        pixelClock: 74.25,
+        horizontalActive: 1280,
+        horizontalBlanking: 370,
+        verticalActive: 720,
+        verticalBlanking: 30,
+        horizontalSyncOffset: 110,
+        horizontalSyncWidth: 40,
+        verticalSyncOffset: 5,
+        verticalSyncWidth: 5,
+        horizontalImageSize: 520,
+        verticalImageSize: 290,
+        horizontalBorder: 0,
+        verticalBorder: 0,
+        flags: { ...baseFlags, stereoMode },
+      });
+      // byte 17 carries the flags
+      const flagByte = encoded[17];
+      // reserved stereo code 111 == 0x61 must never be produced
+      const stereoBits = ((flagByte >> 4) & 0x06) | (flagByte & 0x01);
+      expect(stereoBits, `reserved 111 for ${stereoMode}`).not.toBe(0x07);
+
+      const decoded = decodeEdidCtaDetailedTiming(encoded);
+      expect(decoded?.flags.stereoMode, `round-trip ${stereoMode}`).toBe(stereoMode);
+    }
+  });
 });

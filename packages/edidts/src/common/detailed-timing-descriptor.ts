@@ -93,21 +93,19 @@ export function normalizeDetailedTiming(data?: DetailedTimingInput): DetailedTim
 export function decodeEdidCtaDetailedTimingFlags(byte: number): TimingFlags {
   const interlaced = (byte & 0x80) !== 0;
 
-  // Stereo mode (bits 6-5 and bit 0)
+  // Stereo mode: 3-bit code formed from bits 6:5 (upper) and bit 0 (lower),
+  // per EDID 1.4 §3.10.3.6 / CTA-861. stereoBits = (bit6 << 2) | (bit5 << 1) | bit0.
   const stereoBits = ((byte >> 4) & 0x06) | (byte & 0x01);
-  let stereoMode: StereoMode = 'none';
-  if ((byte & 0x60) === 0x00) {
-    stereoMode = 'none';
-  } else {
-    switch (stereoBits) {
-      case 0x01: stereoMode = 'field-sequential-right'; break;
-      case 0x02: stereoMode = '2-way-interleaved-right'; break;
-      case 0x03: stereoMode = 'field-sequential-left'; break;
-      case 0x04: stereoMode = '2-way-interleaved-left'; break;
-      case 0x05: stereoMode = '4-way-interleaved'; break;
-      case 0x06: stereoMode = 'side-by-side-interleaved'; break;
-      default: stereoMode = 'none';
-    }
+  let stereoMode: StereoMode;
+  switch (stereoBits) {
+    case 0x00: stereoMode = 'none'; break;
+    case 0x01: stereoMode = 'field-sequential-right'; break;
+    case 0x02: stereoMode = '2-way-interleaved-right'; break;
+    case 0x03: stereoMode = 'field-sequential-left'; break;
+    case 0x04: stereoMode = '2-way-interleaved-left'; break;
+    case 0x05: stereoMode = '4-way-interleaved'; break;
+    case 0x06: stereoMode = 'side-by-side-interleaved'; break;
+    default: stereoMode = 'none'; break; // 0x07 (111) is reserved
   }
 
   let syncType: SyncType;
@@ -151,13 +149,18 @@ export function encodeEdidCtaDetailedTimingFlags(flagsInput?: Partial<TimingFlag
   if (flags.interlaced) byte |= 0x80;
 
   if (flags.stereoMode !== 'none') {
+    // Stereo bits are 6, 5, and 0 — they do not overlap the sync bits (4:1),
+    // so stereo and sync can be encoded independently. Each mode emits the
+    // exact bits whose stereoBits ((bit6<<2)|(bit5<<1)|bit0) match the decode
+    // code, making this the inverse of decodeEdidCtaDetailedTimingFlags.
+    // Reserved code 111 (0x61) is never emitted.
     switch (flags.stereoMode) {
-      case 'field-sequential-right': byte |= 0x21; break;
-      case '2-way-interleaved-right': byte |= 0x41; break;
-      case 'field-sequential-left': byte |= 0x60; break;
-      case '2-way-interleaved-left': byte |= 0x61; break;
-      case '4-way-interleaved': byte |= 0x40; break;
-      case 'side-by-side-interleaved': byte |= 0x20; break;
+      case 'field-sequential-right': byte |= 0x01; break;    // 001
+      case '2-way-interleaved-right': byte |= 0x20; break;    // 010
+      case 'field-sequential-left': byte |= 0x21; break;     // 011
+      case '2-way-interleaved-left': byte |= 0x40; break;     // 100
+      case '4-way-interleaved': byte |= 0x41; break;         // 101
+      case 'side-by-side-interleaved': byte |= 0x60; break;   // 110
     }
   }
 
