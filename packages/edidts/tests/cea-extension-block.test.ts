@@ -391,3 +391,43 @@ describe('CEA tag-0x02 validation (TASK-2)', () => {
     }
   });
 });
+
+describe('Video Data Block VIC validation (TASK-4)', () => {
+  /** CEA block carrying one Video Data Block (tag 0x02) with the given VIC bytes. */
+  function ceaWithVideoDataBlock(vicBytes: number[]): Uint8Array {
+    const bytes = new Uint8Array(128);
+    bytes[0] = 0x02;
+    bytes[1] = 3;
+    // Video Data Block at byte 4: header = (tag 0x02 << 5) | length
+    bytes[4] = (0x02 << 5) | vicBytes.length;
+    for (let i = 0; i < vicBytes.length; i++) bytes[5 + i] = vicBytes[i];
+    bytes[2] = 5 + vicBytes.length; // dtdOffset = end of data blocks
+    bytes[3] = 0;
+    bytes[127] = checksum8(bytes, 127);
+    return bytes;
+  }
+
+  it('flags in-range VICs as known and reserved VIC 0 as unknown', () => {
+    // VIC 16 (1080p60, known) + VIC 0 (reserved, unknown) + VIC 4 native (known)
+    const decoded = ExtensionBlockParser.decode(ceaWithVideoDataBlock([0x10, 0x00, 0x84])) as CEAExtensionBlock;
+    const video = decoded.dataBlocks[0] as VideoDataBlock;
+    expect(video.tag).toBe(0x02);
+    expect(video.vics.length).toBe(3);
+    expect(video.vics[0]).toEqual({ vic: 16, native: false, known: true });
+    expect(video.vics[1]).toEqual({ vic: 0, native: false, known: false });
+    expect(video.vics[2]).toEqual({ vic: 4, native: true, known: true });
+  });
+
+  it('round-trips unknown/reserved VIC values verbatim (known is decode-derived)', () => {
+    const original = ceaWithVideoDataBlock([0x10, 0x00, 0x84]);
+    const decoded = ExtensionBlockParser.decode(original) as CEAExtensionBlock;
+    const reencoded = ExtensionBlockParser.encode(decoded);
+    // The data-block area (header + 3 VIC bytes) must be unchanged.
+    expect(Array.from(reencoded.subarray(4, 8))).toEqual([0x43, 0x10, 0x00, 0x84]);
+    // Re-decode preserves the numeric VICs and known flags.
+    const redecoded = ExtensionBlockParser.decode(reencoded) as CEAExtensionBlock;
+    const video = redecoded.dataBlocks[0] as VideoDataBlock;
+    expect(video.vics.map((v) => v.vic)).toEqual([16, 0, 4]);
+    expect(video.vics[1].known).toBe(false);
+  });
+});

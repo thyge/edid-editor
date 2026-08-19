@@ -1,8 +1,9 @@
 // VIC (Video Identification Code) Table
-export { 
-  VIC_TABLE, 
-  getVICDefinition, 
-  getVICsForResolution, 
+export {
+  VIC_TABLE,
+  getVICDefinition,
+  isKnownVIC,
+  getVICsForResolution,
   getVICDescription,
   isVIC4K,
   isVIC8K,

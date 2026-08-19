@@ -6,6 +6,7 @@ import {
   encodeExtendedDataBlock,
   getVICDefinition,
   getVICDescription,
+  isKnownVIC,
   isVIC4K,
   isVIC8K,
   getAudioFormatName,
@@ -283,6 +284,26 @@ describe('VIC Table', () => {
     expect(getVICDefinition(16)).toBeDefined(); // 1080p60
     expect(getVICDefinition(97)).toBeDefined(); // 4K60
     expect(getVICDefinition(118)).toBeDefined(); // 4K120
+  });
+
+  describe('isKnownVIC (TASK-4)', () => {
+    it('returns true for in-range VICs in the table', () => {
+      expect(isKnownVIC(1)).toBe(true);
+      expect(isKnownVIC(16)).toBe(true);
+      expect(isKnownVIC(127)).toBe(true);
+    });
+
+    it('returns false for reserved VIC 0', () => {
+      expect(isKnownVIC(0)).toBe(false);
+    });
+
+    it('returns false for out-of-range / reserved-gap VICs', () => {
+      // 128-192 is the CTA-861 reserved gap; 220 is beyond the HDMI-VIC range
+      // (193-219). HDMI-VICs themselves (e.g. 200) ARE in the table.
+      expect(isKnownVIC(128)).toBe(false);
+      expect(isKnownVIC(192)).toBe(false);
+      expect(isKnownVIC(220)).toBe(false);
+    });
   });
 
   it('should return correct VIC details', () => {

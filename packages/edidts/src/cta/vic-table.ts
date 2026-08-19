@@ -268,6 +268,17 @@ export function getVICDefinition(vic: number): VICDefinition | undefined {
 }
 
 /**
+ * True iff `vic` has a definition in the CTA-861 VIC table. Used to flag
+ * unknown/reserved VIC values on decode (e.g. VIC 0, which is reserved, or
+ * values in the reserved 128-192 gap) while still preserving the numeric value
+ * for round-trip. The HDMI-VICs 193-219 are in the table but only ever carried
+ * in the HDMI VSDB, not the 7-bit CEA Video Data Block field.
+ */
+export function isKnownVIC(vic: number): boolean {
+  return VIC_MAP.has(vic);
+}
+
+/**
  * Get all VICs that match a resolution
  */
 export function getVICsForResolution(width: number, height: number): VICDefinition[] {

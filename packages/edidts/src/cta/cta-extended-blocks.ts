@@ -7,6 +7,7 @@
 
 import type { CEADataBlock } from './extension-block';
 import { decodeVSVDB } from './vsvdb/registry';
+import { isKnownVIC } from './vic-table';
 
 export type ExtendedTagCode =
   | 0x00  // Video Capability Data Block
@@ -108,6 +109,13 @@ export interface YCbCr420VideoDataBlock extends ExtendedDataBlock {
   vics: Array<{
     vic: number;
     native: boolean;
+    /**
+     * True iff `vic` has a definition in the CTA-861 VIC table. Populated on
+     * decode to flag unknown/reserved VIC values; encode ignores it so the
+     * numeric `vic` round-trips verbatim. Optional so programmatic literals
+     * type-check without supplying it.
+     */
+    known?: boolean;
   }>;
 }
 
@@ -376,9 +384,11 @@ function decodeYCbCr420VideoBlock(base: ExtendedDataBlock, payload: Uint8Array):
 
   for (let i = 0; i < payload.length; i++) {
     const byte = payload[i];
+    const vic = byte & 0x7F;
     vics.push({
-      vic: byte & 0x7F,
+      vic,
       native: (byte & 0x80) !== 0,
+      known: isKnownVIC(vic),
     });
   }
 

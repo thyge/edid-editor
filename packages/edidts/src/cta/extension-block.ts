@@ -29,6 +29,7 @@ import {
 } from './video-timing-block';
 import { checksum8, isChecksum8Valid } from '../common/checksum';
 import { decodeDisplayIdSection, encodeDisplayIdSection, type DisplayIdSection } from '../displayid';
+import { isKnownVIC } from './vic-table';
 
 export type { VTBExtensionBlock, VTBDetailedTiming };
 
@@ -115,6 +116,13 @@ export interface VideoDataBlock extends CEADataBlock {
   vics: Array<{
     vic: number;
     native: boolean;
+    /**
+     * True iff `vic` has a definition in the CTA-861 VIC table. Populated on
+     * decode to flag unknown/reserved VIC values (e.g. VIC 0); encode ignores
+     * it, so the numeric `vic` round-trips verbatim. Optional so programmatic
+     * literals type-check without supplying it.
+     */
+    known?: boolean;
   }>;
 }
 
@@ -380,12 +388,14 @@ export class ExtensionBlockParser {
 
   private static decodeVideoDataBlock(data: Uint8Array): VideoDataBlock {
     const vics: VideoDataBlock['vics'] = [];
-    
+
     for (let i = 0; i < data.length; i++) {
       const byte = data[i];
+      const vic = byte & 0x7F;
       vics.push({
-        vic: byte & 0x7F,
+        vic,
         native: (byte & 0x80) !== 0,
+        known: isKnownVIC(vic),
       });
     }
 
