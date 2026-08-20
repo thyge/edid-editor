@@ -40,6 +40,12 @@ import CEAVendorBlock from '@/components/cea/CEAVendorBlock.vue'
 import CEAHDRColorimetry from '@/components/cea/CEAHDRColorimetry.vue'
 import CEAVideoCapability from '@/components/cea/CEAVideoCapability.vue'
 import CEADetailedTimings from '@/components/cea/CEADetailedTimings.vue'
+import CEAVideoFormatPreference from '@/components/cea/CEAVideoFormatPreference.vue'
+import CEAVendorAudioBlock from '@/components/cea/CEAVendorAudioBlock.vue'
+import CEARoomConfiguration from '@/components/cea/CEARoomConfiguration.vue'
+import CEASpeakerLocation from '@/components/cea/CEASpeakerLocation.vue'
+import CEAInfoFrame from '@/components/cea/CEAInfoFrame.vue'
+import CEAVesaTransferCharacteristic from '@/components/cea/CEAVesaTransferCharacteristic.vue'
 import { useEDID } from '@/composables/useEDID'
 import { displayIdSectionIds } from '@/components/displayid/displayIdLabels'
 import DisplayIDOverview from '@/components/displayid/DisplayIDOverview.vue'
@@ -363,6 +369,43 @@ function addCEADataBlock(blockType: string) {
       } as unknown as import('edidts').CEADataBlock)
       activeSection.value = 'cea-hdr-color'
       break
+    case 'video-format-preference':
+      cea.dataBlocks.push({
+        tag: 0x07, extendedTag: 0x0D, data: empty, svrs: [],
+      } as unknown as import('edidts').CEADataBlock)
+      activeSection.value = 'cea-video-format-pref'
+      break
+    case 'vendor-audio':
+      cea.dataBlocks.push({
+        tag: 0x07, extendedTag: 0x11, data: empty, ieeeOui: 0, payload: new Uint8Array(),
+      } as unknown as import('edidts').CEADataBlock)
+      activeSection.value = 'cea-vendor-audio'
+      break
+    case 'room-config':
+      cea.dataBlocks.push({
+        tag: 0x07, extendedTag: 0x13, data: empty, speakerCount: 0, speakerPresenceDescriptor: 0,
+      } as unknown as import('edidts').CEADataBlock)
+      activeSection.value = 'cea-room-config'
+      break
+    case 'speaker-location':
+      cea.dataBlocks.push({
+        tag: 0x07, extendedTag: 0x14, data: empty, descriptors: [], trailing: new Uint8Array(),
+      } as unknown as import('edidts').CEADataBlock)
+      activeSection.value = 'cea-speaker-location'
+      break
+    case 'infoframe':
+      cea.dataBlocks.push({
+        tag: 0x07, extendedTag: 0x20, data: empty,
+        additionalVsifs: 0, processingPayload: new Uint8Array(), descriptors: [], trailing: new Uint8Array(),
+      } as unknown as import('edidts').CEADataBlock)
+      activeSection.value = 'cea-infoframe'
+      break
+    case 'vesa-transfer':
+      cea.dataBlocks.push({
+        tag: 0x05, data: new Uint8Array(1), transferType: 'white', numEntries: 8, gammaValues: new Array(8).fill(0),
+      } as unknown as import('edidts').CEADataBlock)
+      activeSection.value = 'cea-vesa-transfer'
+      break
   }
   syncEdid()
 }
@@ -583,6 +626,12 @@ function updateCEA(field: string, value: unknown) {
           <CEAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="updateVSDB" @update-vsvdb="updateVSVDB" />
           <CEAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" @update="updateExtendedBlock" />
           <CEAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
+          <CEAVideoFormatPreference v-else-if="activeSection === 'cea-video-format-pref' && ceaExtension" :cea="ceaExtension" @update="updateExtendedBlock" />
+          <CEAVendorAudioBlock v-else-if="activeSection === 'cea-vendor-audio' && ceaExtension" :cea="ceaExtension" @update="updateExtendedBlock" />
+          <CEARoomConfiguration v-else-if="activeSection === 'cea-room-config' && ceaExtension" :cea="ceaExtension" @update="updateExtendedBlock" />
+          <CEASpeakerLocation v-else-if="activeSection === 'cea-speaker-location' && ceaExtension" :cea="ceaExtension" @update="updateExtendedBlock" />
+          <CEAInfoFrame v-else-if="activeSection === 'cea-infoframe' && ceaExtension" :cea="ceaExtension" @update="updateExtendedBlock" />
+          <CEAVesaTransferCharacteristic v-else-if="activeSection === 'cea-vesa-transfer' && ceaExtension" :cea="ceaExtension" @update="updateExtendedBlock" />
           <CEADetailedTimings
             v-else-if="activeSection === 'cea-timings' && ceaExtension"
             :cea="ceaExtension"

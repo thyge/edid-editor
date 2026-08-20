@@ -86,6 +86,18 @@ const ceaChildren = computed(() => {
     b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x00
   )
   if (hasVideoCap) items.push({ id: 'cea-video-cap', label: 'Video Capability' })
+  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x0D))
+    items.push({ id: 'cea-video-format-pref', label: 'Video Format Preference' })
+  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x11))
+    items.push({ id: 'cea-vendor-audio', label: 'Vendor-Specific Audio' })
+  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x13))
+    items.push({ id: 'cea-room-config', label: 'Room Configuration' })
+  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x14))
+    items.push({ id: 'cea-speaker-location', label: 'Speaker Location' })
+  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x20))
+    items.push({ id: 'cea-infoframe', label: 'InfoFrame' })
+  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x05))
+    items.push({ id: 'cea-vesa-transfer', label: 'VESA Transfer Characteristic' })
   if (cea.detailedTimings.length > 0) items.push({ id: 'cea-timings', label: 'Detailed Timings' })
   return items
 })
@@ -104,6 +116,18 @@ const addableBlocks = computed(() => {
     options.push({ type: 'colorimetry', label: 'Colorimetry' })
   if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x06))
     options.push({ type: 'hdr-static', label: 'HDR Static Metadata' })
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x0D))
+    options.push({ type: 'video-format-preference', label: 'Video Format Preference' })
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x11))
+    options.push({ type: 'vendor-audio', label: 'Vendor-Specific Audio' })
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x13))
+    options.push({ type: 'room-config', label: 'Room Configuration' })
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x14))
+    options.push({ type: 'speaker-location', label: 'Speaker Location' })
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x20))
+    options.push({ type: 'infoframe', label: 'InfoFrame' })
+  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x05))
+    options.push({ type: 'vesa-transfer', label: 'VESA Transfer Characteristic' })
   return options
 })
 
@@ -139,6 +163,12 @@ const ceaChildRemoveMap: Record<string, [number, number?]> = {
   'cea-vendor': [0x03],
   'cea-hdr-color': [0x07, 0x05],
   'cea-video-cap': [0x07, 0x00],
+  'cea-video-format-pref': [0x07, 0x0D],
+  'cea-vendor-audio': [0x07, 0x11],
+  'cea-room-config': [0x07, 0x13],
+  'cea-speaker-location': [0x07, 0x14],
+  'cea-infoframe': [0x07, 0x20],
+  'cea-vesa-transfer': [0x05],
 }
 
 function removeCeaChild(id: string) {
