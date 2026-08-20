@@ -3,6 +3,9 @@ import {
   DetailedTimingDescriptor,
   decodeEdidCtaDetailedTiming,
   encodeEdidCtaDetailedTiming,
+  type DetailedTimingInput,
+  type StereoMode,
+  type TimingFlags,
 } from '../src/common/detailed-timing-descriptor';
 
 describe('common detailed timing model and EDID/CTA codec', () => {
@@ -115,5 +118,179 @@ describe('common detailed timing model and EDID/CTA codec', () => {
       const decoded = decodeEdidCtaDetailedTiming(encoded);
       expect(decoded?.flags.stereoMode, `round-trip ${stereoMode}`).toBe(stereoMode);
     }
+  });
+
+  // ---- Combinatorial stereo / sync / border coverage (TASK-23) ----
+  //
+  // byte[17] packs four independent fields: interlaced (bit 7), stereo mode
+  // (bits 6,5,0), and sync type + sub-flags (bits 4:1). Because the bit groups
+  // do not overlap, every stereo mode combines with every sync configuration
+  // losslessly. Borders (bytes 15-16) are independent 8-bit fields.
+
+  const baseTimingFields = {
+    pixelClock: 148.5,
+    horizontalActive: 1920,
+    horizontalBlanking: 280,
+    verticalActive: 1080,
+    verticalBlanking: 45,
+    horizontalSyncOffset: 88,
+    horizontalSyncWidth: 44,
+    verticalSyncOffset: 4,
+    verticalSyncWidth: 5,
+    horizontalImageSize: 530,
+    verticalImageSize: 300,
+  } as const;
+
+  function buildTiming(flags: TimingFlags, horizontalBorder = 0, verticalBorder = 0): DetailedTimingInput {
+    return { ...baseTimingFields, horizontalBorder, verticalBorder, flags };
+  }
+
+  // Every sync type with each of its encode-relevant sub-flag combinations.
+  // syncOnGreen is decode-derived (inverse of syncOnAllChannels) for analog
+  // composite types and is not read by encode, so it is not a "source" field.
+  const syncConfigs: TimingFlags[] = [
+    // analog-composite: serrationOnVSync × syncOnAllChannels
+    { interlaced: false, stereoMode: 'none', syncType: 'analog-composite', serrationOnVSync: false, syncOnAllChannels: false },
+    { interlaced: false, stereoMode: 'none', syncType: 'analog-composite', serrationOnVSync: false, syncOnAllChannels: true },
+    { interlaced: false, stereoMode: 'none', syncType: 'analog-composite', serrationOnVSync: true, syncOnAllChannels: false },
+    { interlaced: false, stereoMode: 'none', syncType: 'analog-composite', serrationOnVSync: true, syncOnAllChannels: true },
+    // bipolar-analog-composite: serrationOnVSync × syncOnAllChannels
+    { interlaced: false, stereoMode: 'none', syncType: 'bipolar-analog-composite', serrationOnVSync: false, syncOnAllChannels: false },
+    { interlaced: false, stereoMode: 'none', syncType: 'bipolar-analog-composite', serrationOnVSync: false, syncOnAllChannels: true },
+    { interlaced: false, stereoMode: 'none', syncType: 'bipolar-analog-composite', serrationOnVSync: true, syncOnAllChannels: false },
+    { interlaced: false, stereoMode: 'none', syncType: 'bipolar-analog-composite', serrationOnVSync: true, syncOnAllChannels: true },
+    // digital-composite: serrationOnVSync × hSyncPolarity
+    { interlaced: false, stereoMode: 'none', syncType: 'digital-composite', serrationOnVSync: false, hSyncPolarity: 'negative' },
+    { interlaced: false, stereoMode: 'none', syncType: 'digital-composite', serrationOnVSync: false, hSyncPolarity: 'positive' },
+    { interlaced: false, stereoMode: 'none', syncType: 'digital-composite', serrationOnVSync: true, hSyncPolarity: 'negative' },
+    { interlaced: false, stereoMode: 'none', syncType: 'digital-composite', serrationOnVSync: true, hSyncPolarity: 'positive' },
+    // digital-separate: vSyncPolarity × hSyncPolarity
+    { interlaced: false, stereoMode: 'none', syncType: 'digital-separate', vSyncPolarity: 'negative', hSyncPolarity: 'negative' },
+    { interlaced: false, stereoMode: 'none', syncType: 'digital-separate', vSyncPolarity: 'positive', hSyncPolarity: 'negative' },
+    { interlaced: false, stereoMode: 'none', syncType: 'digital-separate', vSyncPolarity: 'negative', hSyncPolarity: 'positive' },
+    { interlaced: false, stereoMode: 'none', syncType: 'digital-separate', vSyncPolarity: 'positive', hSyncPolarity: 'positive' },
+  ];
+
+  function expectFlagsRoundTrip(input: TimingFlags, label: string) {
+    const decoded = decodeEdidCtaDetailedTiming(encodeEdidCtaDetailedTiming(buildTiming(input)))!;
+    expect(decoded.flags.syncType, label).toBe(input.syncType);
+    expect(decoded.flags.interlaced, label).toBe(input.interlaced);
+    expect(decoded.flags.stereoMode, label).toBe(input.stereoMode);
+    switch (input.syncType) {
+      case 'analog-composite':
+      case 'bipolar-analog-composite':
+        expect(decoded.flags.serrationOnVSync, label).toBe(input.serrationOnVSync);
+        expect(decoded.flags.syncOnAllChannels, label).toBe(input.syncOnAllChannels);
+        // syncOnGreen is decode-derived (inverse of syncOnAllChannels), not stored.
+        expect(decoded.flags.syncOnGreen, label).toBe(!input.syncOnAllChannels);
+        break;
+      case 'digital-composite':
+        expect(decoded.flags.serrationOnVSync, label).toBe(input.serrationOnVSync);
+        expect(decoded.flags.hSyncPolarity, label).toBe(input.hSyncPolarity);
+        break;
+      case 'digital-separate':
+        expect(decoded.flags.vSyncPolarity, label).toBe(input.vSyncPolarity);
+        expect(decoded.flags.hSyncPolarity, label).toBe(input.hSyncPolarity);
+        break;
+    }
+  }
+
+  it('round-trips every sync type with each of its sub-flag combinations', () => {
+    for (const config of syncConfigs) {
+      expectFlagsRoundTrip(config, `sync=${config.syncType} serr=${config.serrationOnVSync} all=${config.syncOnAllChannels} vpol=${config.vSyncPolarity} hpol=${config.hSyncPolarity}`);
+    }
+  });
+
+  it('round-trips interlaced true and false for each sync type', () => {
+    for (const syncType of ['analog-composite', 'bipolar-analog-composite', 'digital-composite', 'digital-separate'] as const) {
+      for (const interlaced of [false, true]) {
+        const base = syncConfigs.find((c) => c.syncType === syncType)!;
+        expectFlagsRoundTrip({ ...base, interlaced }, `sync=${syncType} interlaced=${interlaced}`);
+      }
+    }
+  });
+
+  it('round-trips border combinations (including zero, asymmetric, and max 255)', () => {
+    const borderPairs: [number, number][] = [
+      [0, 0],
+      [8, 4],
+      [0, 12],
+      [200, 0],
+      [255, 255],
+    ];
+    const flags: TimingFlags = {
+      interlaced: false,
+      stereoMode: 'none',
+      syncType: 'digital-separate',
+      vSyncPolarity: 'positive',
+      hSyncPolarity: 'positive',
+    };
+    for (const [hBorder, vBorder] of borderPairs) {
+      const decoded = decodeEdidCtaDetailedTiming(encodeEdidCtaDetailedTiming(buildTiming(flags, hBorder, vBorder)))!;
+      expect(decoded.horizontalBorder, `hBorder=${hBorder}`).toBe(hBorder);
+      expect(decoded.verticalBorder, `vBorder=${vBorder}`).toBe(vBorder);
+    }
+  });
+
+  it('round-trips every stereo × sync × interlaced × border combination', () => {
+    const stereoModes: StereoMode[] = [
+      'none',
+      'field-sequential-right',
+      '2-way-interleaved-right',
+      'field-sequential-left',
+      '2-way-interleaved-left',
+      '4-way-interleaved',
+      'side-by-side-interleaved',
+    ];
+    const borderPairs: [number, number][] = [[0, 0], [8, 4], [255, 255]];
+    for (const stereoMode of stereoModes) {
+      for (const sync of syncConfigs) {
+        for (const interlaced of [false, true]) {
+          for (const [hBorder, vBorder] of borderPairs) {
+            const flags: TimingFlags = { ...sync, stereoMode, interlaced };
+            const label = `stereo=${stereoMode} sync=${sync.syncType} interlaced=${interlaced} border=${hBorder}x${vBorder}`;
+            const decoded = decodeEdidCtaDetailedTiming(encodeEdidCtaDetailedTiming(buildTiming(flags, hBorder, vBorder)))!;
+            // Base timing fields are constant; pin a few to catch packing regressions.
+            expect(decoded.pixelClock, label).toBe(148.5);
+            expect(decoded.horizontalActive, label).toBe(1920);
+            expect(decoded.verticalActive, label).toBe(1080);
+            expect(decoded.horizontalBorder, label).toBe(hBorder);
+            expect(decoded.verticalBorder, label).toBe(vBorder);
+            expectFlagsRoundTrip(flags, label);
+          }
+        }
+      }
+    }
+  });
+
+  it('collapses the reserved stereo code 111 (0x07) to none on decode and re-encodes without the reserved bits', () => {
+    // stereoBits = (bit6<<2)|(bit5<<1)|bit0 = 7 is reserved per EDID 1.4
+    // §3.10.3.6. Build a byte with stereoBits=7 plus a digital-separate sync
+    // (bits 4:1 = 0x1A: 0x10 | 0x08 | 0x02 -> vSync negative, hSync positive).
+    // 0x60 (stereo 110) would be side-by-side; to get 111 we need bit0 set too:
+    // 0x61 = 0b0110_0001. But 0x61 has bit4=0 -> analog-composite. To keep sync
+    // bits intact while forcing stereo 111, set bits 6,5,0 and leave sync as-is.
+    // Use 0x7B = 0b0111_1011: bit6,5=1,1, bit0=1 -> stereo 7; bit4=1,bit3=1 ->
+    // digital-separate; bit2=0 -> vSync negative; bit1=1 -> hSync positive.
+    const flagByte = 0x7b;
+    const encoded = encodeEdidCtaDetailedTiming(buildTiming({
+      interlaced: false,
+      stereoMode: 'none',
+      syncType: 'digital-separate',
+      vSyncPolarity: 'negative',
+      hSyncPolarity: 'positive',
+    }));
+    encoded[17] = flagByte; // inject the reserved stereo code
+    const decoded = decodeEdidCtaDetailedTiming(encoded)!;
+    expect(decoded.flags.stereoMode).toBe('none'); // reserved -> none
+    expect(decoded.flags.syncType).toBe('digital-separate');
+    expect(decoded.flags.vSyncPolarity).toBe('negative');
+    expect(decoded.flags.hSyncPolarity).toBe('positive');
+    // Re-encoding 'none' drops the reserved stereo bits; the byte must not keep
+    // bit0 set (the lossy collapse).
+    const reencoded = encodeEdidCtaDetailedTiming(buildTiming(decoded.flags));
+    const reStereoBits = ((reencoded[17] >> 4) & 0x06) | (reencoded[17] & 0x01);
+    expect(reStereoBits).not.toBe(0x07);
+    expect(reencoded[17] & 0x01).toBe(0);
   });
 });
