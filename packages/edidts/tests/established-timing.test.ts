@@ -59,18 +59,24 @@ describe('EstablishedTiming decode/encode (Section 3.8)', () => {
     expect(decoded[0].width).toBe(1152)
   })
 
-  it('skips reserved timing IDs (17..23) on encode', () => {
-    // Reserved IDs occupy byte 2 bits 6..0; encoding them must not set those bits.
-    // The encode guard `if (byte < 3)` allows them but the bits map to reserved
-    // IDs, so the encoded byte remains zero when only reserved IDs are given.
+  it('skips reserved timing IDs (17..23) on encode (TASK-46)', () => {
+    // Reserved IDs occupy byte 2 bits 6..0; EDID 1.4 §3.8 / Table 3.18 requires
+    // these bits to be written as 0, so the encoder must not set them even if a
+    // reserved id appears in the input.
     const reserved = new EstablishedTiming({ id: 17, name: 'Reserved 17', width: 0, height: 0, refreshRate: 0 })
     const encoded = EstablishedTiming.encode([reserved])
-    // Note: the current encoder doesn't refuse reserved IDs, it just sets
-    // the corresponding bit. For id 17, byte 2, bit 6 = 0x40. The test pins
-    // the current (technically permitted) behavior.
     expect(encoded[0]).toBe(0)
     expect(encoded[1]).toBe(0)
-    expect(encoded[2]).toBe(0x40)
+    expect(encoded[2]).toBe(0) // reserved bit 6 (id 17) forced to 0
+
+    // A mix of valid + reserved ids: only the valid bits are set.
+    const mixed = [
+      new EstablishedTiming({ id: 2, name: '640x480@60Hz', width: 640, height: 480, refreshRate: 60 }),
+      new EstablishedTiming({ id: 20, name: 'Reserved 20', width: 0, height: 0, refreshRate: 0 }),
+    ]
+    const enc = EstablishedTiming.encode(mixed)
+    expect(enc[0]).toBe(0x20) // id 2 → byte 0 bit 5
+    expect(enc[2]).toBe(0) // id 20 reserved → not set
   })
 
   it('decodes 0x80 0x00 0x00 to a single 720x400@70Hz timing', () => {

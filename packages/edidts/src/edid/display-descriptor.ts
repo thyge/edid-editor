@@ -115,7 +115,11 @@ export interface CVTTimingDescriptor extends BaseDisplayDescriptor {
   tag: 0xF8;
   timings: Array<{
     addressableLines: number;
-    aspectRatio: '4:3' | '16:9' | '16:10' | '5:4' | '15:9';
+    // CVT 3-byte code aspect ratio is a 2-bit field with only four values
+    // (VESA E-EDID A2 §3.10.3.6 / Table 3.35): 4:3, 16:9, 16:10, 5:4.
+    // 15:9 is NOT a CVT 3-byte value (it appears only in the separate Display
+    // Range Limits CVT support bitmap), so it is not part of this union.
+    aspectRatio: '4:3' | '16:9' | '16:10' | '5:4';
     preferredRefreshRate: number;
     refreshRates: {
       r50Hz: boolean;
@@ -597,8 +601,10 @@ export class DisplayDescriptorParser {
       if (lines === 0) continue;
 
       const arCode = (data[offset + 1] >> 2) & 0x03;
-      const arMap: Record<number, '4:3' | '16:9' | '16:10' | '5:4' | '15:9'> = {
-        0: '4:3', 1: '16:9', 2: '16:10', 3: '15:9',
+      // CVT 3-byte aspect ratio codes (VESA E-EDID A2 §3.10.3.6): 0=4:3,
+      // 1=16:9, 2=16:10, 3=5:4. Code 3 is 5:4 (not 15:9 — that was the bug).
+      const arMap: Record<number, '4:3' | '16:9' | '16:10' | '5:4'> = {
+        0: '4:3', 1: '16:9', 2: '16:10', 3: '5:4',
       };
 
       const prefRR = (data[offset + 2] >> 5) & 0x03;
@@ -707,7 +713,6 @@ export class DisplayDescriptorParser {
       case '4:3': return 0;
       case '16:9': return 1;
       case '16:10': return 2;
-      case '15:9': return 3;
       case '5:4': return 3;
     }
   }

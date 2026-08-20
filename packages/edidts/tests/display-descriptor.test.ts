@@ -183,3 +183,39 @@ describe('DisplayDescriptorParser unknown-tag opaque preservation', () => {
     expect(DisplayDescriptorParser.decode(productName)?.tag).toBe(0xFC)
   })
 })
+
+describe('CVT 3-byte aspect code 3 = 5:4 (not 15:9) — TASK-46', () => {
+  it('round-trips a CVT 3-byte timing with the 5:4 aspect', () => {
+    const descriptor: CVTTimingDescriptor = {
+      tag: 0xf8,
+      timings: [
+        {
+          addressableLines: 1024,
+          aspectRatio: '5:4',
+          preferredRefreshRate: 60,
+          refreshRates: { r50Hz: false, r60Hz: true, r75Hz: false, r85Hz: false, r60HzRB: false },
+        },
+      ],
+    }
+    const encoded = DisplayDescriptorParser.encode(descriptor)
+    const decoded = DisplayDescriptorParser.decode(encoded)
+    expect(decoded).toEqual(descriptor)
+    // The aspect code field (bits 4:3 of the second byte of each 3-byte entry)
+    // must be 3 for 5:4, distinct from any 15:9 mapping.
+    const entryByte1 = encoded[7] // bytes[5]=0x01 header, entry0 = bytes[6..8]
+    expect((entryByte1 >> 2) & 0x03).toBe(3)
+  })
+
+  it('decodes raw aspect code 3 as 5:4 (regression: was 15:9)', () => {
+    // Build raw bytes: header byte[5]=0x01, entry0 lines=1024 → lineCode=511=0x1FF,
+    // byte[6]=0xFF, byte[7]=((0x1)<<4)|(3<<2)=0x1C, byte[8]=0 (refresh).
+    const raw = new Uint8Array(18)
+    raw[3] = 0xf8
+    raw[5] = 0x01
+    raw[6] = 0xFF
+    raw[7] = (1 << 4) | (3 << 2)
+    raw[8] = 0
+    const decoded = DisplayDescriptorParser.decode(raw) as CVTTimingDescriptor
+    expect(decoded.timings[0].aspectRatio).toBe('5:4')
+  })
+})

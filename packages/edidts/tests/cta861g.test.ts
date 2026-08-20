@@ -12,6 +12,7 @@ import {
   isVIC8K,
   getAudioFormatName,
   getAudioFormatShortName,
+  getExtendedAudioFormatName,
   getSamplingRatesString,
   getBitDepthsString,
   VIC_TABLE,
@@ -389,6 +390,13 @@ describe('Audio Format Codes', () => {
     expect(str).toContain('20');
     expect(str).toContain('24');
     expect(str).toContain('bit');
+  });
+
+  it('extended audio format code 9 has a name (MPEG-4 HE AAC v2 + MPEG Surround)', () => {
+    expect(getExtendedAudioFormatName(9)).toBe('MPEG-4 HE AAC v2 + MPEG Surround');
+    // Surround-bearing codes form a contiguous run 8/9/10.
+    expect(getExtendedAudioFormatName(8)).toBe('MPEG-4 HE AAC + MPEG Surround');
+    expect(getExtendedAudioFormatName(10)).toBe('MPEG-4 AAC LC + MPEG Surround');
   });
 });
 

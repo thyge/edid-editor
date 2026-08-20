@@ -60,8 +60,11 @@ export class EstablishedTiming {
   static encode(timings: EstablishedTiming[]): Uint8Array {
     const result = new Uint8Array(3);
 
-    // Set bits for each supported timing
+    // Set bits for each supported timing. Bits 17–23 (the high seven bits of
+    // byte 2) are reserved per EDID 1.4 §3.8 / Table 3.18 and must be written
+    // as 0, so ids 17–23 are skipped even if present in the input.
     for (const timing of timings) {
+      if (timing.id >= 17) continue;
       const byte = Math.floor(timing.id / 8);
       const bit = 7 - (timing.id % 8);
       if (byte < 3) {

@@ -13,7 +13,14 @@ import {
 } from "./display-descriptor";
 import { ScreenSize, decodeScreenSize, encodeScreenSize } from "./screen-size";
 
-export { decodeScreenSize, encodeScreenSize } from "./screen-size";
+export {
+  decodeScreenSize,
+  encodeScreenSize,
+  decodeScreenAspectRatioLandscape,
+  encodeScreenAspectRatioLandscape,
+  decodeScreenAspectRatioPortrait,
+  encodeScreenAspectRatioPortrait,
+} from "./screen-size";
 export type { ScreenSize } from "./screen-size";
 
 /**

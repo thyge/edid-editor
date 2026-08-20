@@ -44,6 +44,7 @@ export const EXTENDED_AUDIO_FORMAT_CODES: AudioFormatDefinition[] = [
   { code: 6, name: 'MPEG-4 AAC LC', shortName: 'AAC-LC', description: 'MPEG-4 AAC Low Complexity' },
   { code: 7, name: 'DRA', shortName: 'DRA', description: 'Dynamic Resolution Adaptation' },
   { code: 8, name: 'MPEG-4 HE AAC + MPEG Surround', shortName: 'HE-AAC+MPS', description: 'HE-AAC with MPEG Surround' },
+  { code: 9, name: 'MPEG-4 HE AAC v2 + MPEG Surround', shortName: 'HE-AACv2+MPS', description: 'HE-AAC v2 with MPEG Surround' },
   { code: 10, name: 'MPEG-4 AAC LC + MPEG Surround', shortName: 'AAC-LC+MPS', description: 'AAC-LC with MPEG Surround' },
   { code: 11, name: 'MPEG-H 3D Audio', shortName: 'MPEG-H', description: 'MPEG-H 3D Audio' },
   { code: 12, name: 'AC-4', shortName: 'AC-4', description: 'Dolby AC-4' },
