@@ -59,6 +59,7 @@ export {
 export {
   decodeVendorSpecificBlock,
   encodeVendorSpecificBlock,
+  VESA_OUI,
 } from './vendor-specific';
 export {
   decodeCtaDisplayIdBlock,
@@ -121,6 +122,7 @@ export type {
   DisplayIdTypeIXFormulaBasedTiming,
   DisplayIdTypeIXFormulaBasedTimingBlock,
   DisplayIdVendorSpecificBlock,
+  DisplayIdVesaDisplayPortData,
   KnownDisplayIdDataBlock,
 } from './types';
 export type {

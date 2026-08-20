@@ -363,9 +363,37 @@ export interface DisplayIdContainerIdBlock extends DisplayIdDataBlock {
   containerId: Uint8Array;
 }
 
+/**
+ * VESA DisplayPort-specific vendor payload (DisplayID 2.0 Appendix B).
+ * Parsed only when the Vendor-specific block's OUI is the VESA OUI 0x3a0292.
+ * The vendor data after the 3-byte OUI is 2..4 bytes; fields beyond the two
+ * mandatory bytes (dscBitsPerPixel) are present only when the payload is
+ * long enough (payload length >= 7, i.e. 3 OUI + 4 vendor bytes).
+ *
+ * Cross-checked against edid-decode parse_displayid_vesa
+ * (parse-displayid-block.cpp:1427).
+ */
+export interface DisplayIdVesaDisplayPortData {
+  /** Data Structure Type: 0 = eDP, 1 = DP, 2-7 reserved (vendor[0] bits 2:0). */
+  structureType: number;
+  /** Default Colorspace/EOTF Handling: true = native per Display Parameters DB, false = sRGB (vendor[0] bit 7). */
+  nativeColorspaceEotf: boolean;
+  /** 0-15 — Number of Pixels in Hor Pix Cnt Overlapping an Adjacent Panel (vendor[1] bits 3:0). */
+  horizontalOverlapPixels: number;
+  /** Multi-SST Operation: 0 = Not Supported, 1 = Two Streams, 2 = Four Streams, 3 = Reserved (vendor[1] bits 6:5). */
+  multiSstOperation: number;
+  /** Pass-through timing target DSC bits per pixel (fractional). Present when payload length >= 7. */
+  dscBitsPerPixel?: number;
+  /** Vendor bytes beyond the modeled fields (preserved for lossless round-trip of unusual lengths). */
+  trailing?: Uint8Array;
+}
+
 export interface DisplayIdVendorSpecificBlock extends DisplayIdDataBlock {
   tag: DisplayIdDataBlockTag.VendorSpecific;
-  ieeeOui?: number;
+  /** 24-bit IEEE OUI (3 bytes, big-endian per DisplayID 2.0 §4.9). */
+  ieeeOui: number;
+  /** Parsed VESA DisplayPort payload; present only when ieeeOui === 0x3a0292 (VESA). */
+  vesaDisplayPort?: DisplayIdVesaDisplayPortData;
 }
 
 export interface DisplayIdCtaBlock extends DisplayIdDataBlock {
@@ -580,6 +608,7 @@ export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDi
       return {
         ...createDefaultBlock(tag, 0),
         tag,
+        ieeeOui: 0,
       };
     case DisplayIdDataBlockTag.CtaDisplayId:
       return {

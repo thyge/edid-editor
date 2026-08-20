@@ -590,7 +590,11 @@ function isTypedBrightnessLuminanceRangeBlock(
 }
 
 function isTypedVendorSpecificBlock(block: DisplayIdDataBlock): block is DisplayIdVendorSpecificBlock {
-  return block.tag === DisplayIdDataBlockTag.VendorSpecific;
+  const maybeBlock = block as Partial<DisplayIdVendorSpecificBlock>;
+  return (
+    block.tag === DisplayIdDataBlockTag.VendorSpecific &&
+    typeof maybeBlock.ieeeOui === 'number'
+  );
 }
 
 function isTypedCtaDisplayIdBlock(block: DisplayIdDataBlock): block is DisplayIdCtaBlock {

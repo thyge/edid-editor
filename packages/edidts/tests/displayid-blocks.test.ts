@@ -747,7 +747,9 @@ describe('remaining DisplayID semantic blocks', () => {
     ]));
     const block = section.blocks[0] as DisplayIdVendorSpecificBlock;
 
-    expect(block.ieeeOui).toBe(0x030201);
+    // OUI is big-endian per DisplayID 2.0 §4.9 (bytes 01-02-03 -> 0x010203).
+    expect(block.ieeeOui).toBe(0x010203);
+    expect(block.vesaDisplayPort).toBeUndefined();
     expect(Array.from(block.payload)).toEqual([0x01, 0x02, 0x03, 0xaa, 0xbb]);
 
     block.ieeeOui = 0x0c0b0a;
@@ -757,7 +759,106 @@ describe('remaining DisplayID semantic blocks', () => {
     const reparsedBlock = reparsed.blocks[0] as DisplayIdVendorSpecificBlock;
 
     expect(reparsedBlock.ieeeOui).toBe(0x0c0b0a);
-    expect(Array.from(reparsedBlock.payload)).toEqual([0x0a, 0x0b, 0x0c, 0xaa, 0xbb]);
+    expect(reparsedBlock.vesaDisplayPort).toBeUndefined();
+    expect(Array.from(reparsedBlock.payload)).toEqual([0x0c, 0x0b, 0x0a, 0xaa, 0xbb]);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('decodes and encodes the VESA DisplayPort Vendor-Specific subtype (OUI 0x3a0292)', () => {
+    // DisplayID 2.0 §4.9 / Appendix B. OUI 3A-02-92 (VESA), DP structure type,
+    // native colorspace/EOTF, 5 overlap pixels, Multi-SST Two Streams, DSC
+    // bpp = 12 + 8/16 = 12.5.
+    //   vendor[0] = 0x01 (DP) | 0x80 (native) = 0x81
+    //   vendor[1] = 0x05 (overlap) | 0x20 (multi-SST Two Streams) = 0x25
+    //   vendor[2] = 0x0c (DSC integer 12), vendor[3] = 0x08 (DSC fraction 8)
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x0a, 0x04, 0x00,
+      0x7e, 0x00, 0x07,
+      0x3a, 0x02, 0x92, 0x81, 0x25, 0x0c, 0x08,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdVendorSpecificBlock;
+
+    expect(block.ieeeOui).toBe(0x3a0292);
+    expect(block.vesaDisplayPort).toBeDefined();
+    expect(block.vesaDisplayPort!.structureType).toBe(1); // DP
+    expect(block.vesaDisplayPort!.nativeColorspaceEotf).toBe(true);
+    expect(block.vesaDisplayPort!.horizontalOverlapPixels).toBe(5);
+    expect(block.vesaDisplayPort!.multiSstOperation).toBe(1); // Two Streams
+    expect(block.vesaDisplayPort!.dscBitsPerPixel).toBeCloseTo(12.5, 5);
+    expect(block.vesaDisplayPort!.trailing).toBeUndefined();
+
+    // Edit several fields and re-encode.
+    block.vesaDisplayPort!.structureType = 0; // eDP
+    block.vesaDisplayPort!.nativeColorspaceEotf = false; // sRGB
+    block.vesaDisplayPort!.horizontalOverlapPixels = 10;
+    block.vesaDisplayPort!.multiSstOperation = 2; // Four Streams
+    block.vesaDisplayPort!.dscBitsPerPixel = 15.25; // 15 + 4/16
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsed = decodeDisplayIdSection(encoded);
+    const reparsedBlock = reparsed.blocks[0] as DisplayIdVendorSpecificBlock;
+
+    expect(reparsedBlock.ieeeOui).toBe(0x3a0292);
+    expect(reparsedBlock.vesaDisplayPort!.structureType).toBe(0);
+    expect(reparsedBlock.vesaDisplayPort!.nativeColorspaceEotf).toBe(false);
+    expect(reparsedBlock.vesaDisplayPort!.horizontalOverlapPixels).toBe(10);
+    expect(reparsedBlock.vesaDisplayPort!.multiSstOperation).toBe(2);
+    expect(reparsedBlock.vesaDisplayPort!.dscBitsPerPixel).toBeCloseTo(15.25, 5);
+    // Byte-exact vendor bytes: eDP(0x00)|sRGB(0x00)=0x00; overlap 10(0x0a)|Four Streams(0x40)=0x4a;
+    // DSC integer 15=0x0f, fraction 4=0x04.
+    expect(Array.from(reparsedBlock.payload)).toEqual([0x3a, 0x02, 0x92, 0x00, 0x4a, 0x0f, 0x04]);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('parses the VESA DisplayPort subtype without DSC bpp (payload length 5)', () => {
+    // Two mandatory vendor bytes only; no DSC. eDP, sRGB, 0 overlap, Multi-SST
+    // Not Supported. vendor[0]=0x00, vendor[1]=0x00.
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x08, 0x04, 0x00,
+      0x7e, 0x00, 0x05,
+      0x3a, 0x02, 0x92, 0x00, 0x00,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdVendorSpecificBlock;
+
+    expect(block.ieeeOui).toBe(0x3a0292);
+    expect(block.vesaDisplayPort!.structureType).toBe(0); // eDP
+    expect(block.vesaDisplayPort!.nativeColorspaceEotf).toBe(false);
+    expect(block.vesaDisplayPort!.horizontalOverlapPixels).toBe(0);
+    expect(block.vesaDisplayPort!.multiSstOperation).toBe(0);
+    expect(block.vesaDisplayPort!.dscBitsPerPixel).toBeUndefined();
+
+    // Round-trips unchanged.
+    const encoded = encodeDisplayIdSection(section);
+    const reparsed = decodeDisplayIdSection(encoded);
+    const reparsedBlock = reparsed.blocks[0] as DisplayIdVendorSpecificBlock;
+    expect(Array.from(reparsedBlock.payload)).toEqual([0x3a, 0x02, 0x92, 0x00, 0x00]);
+    expect(reparsedBlock.vesaDisplayPort!.dscBitsPerPixel).toBeUndefined();
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('preserves unknown-OUI Vendor-Specific payloads opaquely (raw fallback)', () => {
+    // OUI 0x112233 (not VESA) with arbitrary vendor bytes that must round-trip.
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x0b, 0x04, 0x00,
+      0x7e, 0x00, 0x08,
+      0x11, 0x22, 0x33, 0xde, 0xad, 0xbe, 0xef, 0x42,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdVendorSpecificBlock;
+
+    expect(block.ieeeOui).toBe(0x112233);
+    expect(block.vesaDisplayPort).toBeUndefined();
+    expect(Array.from(block.payload)).toEqual([0x11, 0x22, 0x33, 0xde, 0xad, 0xbe, 0xef, 0x42]);
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsed = decodeDisplayIdSection(encoded);
+    const reparsedBlock = reparsed.blocks[0] as DisplayIdVendorSpecificBlock;
+
+    expect(reparsedBlock.ieeeOui).toBe(0x112233);
+    expect(reparsedBlock.vesaDisplayPort).toBeUndefined();
+    expect(Array.from(reparsedBlock.payload)).toEqual([0x11, 0x22, 0x33, 0xde, 0xad, 0xbe, 0xef, 0x42]);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
