@@ -91,6 +91,22 @@ export class EDID {
 
     const header = EDIDHeader.decode(bytes);
 
+    // EDID 2.0 is a deprecated 256-byte base block with a completely different
+    // layout from EDID 1.x (VESA EDID Standard v3, 1997). Its byte-level
+    // structure is not covered by the local VESA-EEDID-A2 spec and is not
+    // freely available, so we do not attempt to parse it — a wrong parse would
+    // be worse than an honest refusal. This matches libdisplay-info, which
+    // rejects EDID version 2 with ENOTSUP. A true 2.0 block also carries a
+    // different 8-byte signature and is caught earlier by EDIDHeader.decode;
+    // this check covers the malformed case where a 1.x-magic block declares
+    // version 2, which would otherwise be silently misread as a 128-byte 1.x
+    // block. Full 2.0 support is tracked as a follow-up.
+    if (header.edidVersion === 2) {
+      throw new Error(
+        'EDID 2.0 (256-byte) base blocks are not supported: version 2 is a deprecated format with a different layout that is not implemented. See the EDID 2.0 follow-up task.',
+      );
+    }
+
     const { detailedTimings, displayDescriptors } = decodeDescriptorBlocks(
       bytes,
       header.edidVersion,

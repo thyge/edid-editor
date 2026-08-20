@@ -486,3 +486,30 @@ describe('EDID extension count encoding (byte 126)', () => {
     expect(encoded[126]).toBe(0xff)
   })
 })
+
+describe('EDID 2.0 (256-byte) base block rejection', () => {
+  it('rejects a 1.x-magic block declaring version 2 with a clear error', () => {
+    const edid = EDID.blank()
+    edid.header.edidVersion = 2
+    edid.header.edidRevision = 0
+    const encoded = EDID.encode(edid)
+    // The 1.x signature is still present, so this is the "misdeclared" case
+    // that would otherwise be silently misread as a 128-byte 1.x block.
+    expect(() => EDID.decode(encoded)).toThrow(/EDID 2\.0 .*not supported/)
+  })
+
+  it('still decodes a normal EDID 1.4 block', () => {
+    const edid = EDID.blank()
+    edid.header.edidVersion = 1
+    edid.header.edidRevision = 4
+    expect(() => EDID.decode(EDID.encode(edid))).not.toThrow()
+  })
+
+  it('rejects via EEDID.decode too (base-block decode runs first)', () => {
+    const edid = EDID.blank()
+    edid.header.edidVersion = 2
+    edid.header.edidRevision = 0
+    const encoded = EDID.encode(edid)
+    expect(() => EEDID.decode(encoded)).toThrow(/EDID 2\.0 .*not supported/)
+  })
+})
