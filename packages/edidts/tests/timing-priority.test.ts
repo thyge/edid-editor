@@ -5,49 +5,9 @@ import {
   TIMING_PRIORITY_RANK,
   type TimingEntry,
 } from '../src/eedid';
-import { EDID, EstablishedTiming, StandardTiming, DetailedTimingDescriptor } from '../src/edid';
+import { EDID, EstablishedTiming, StandardTiming } from '../src/edid';
 import { normalizeDetailedTiming } from '../src/common';
-import type { CEAExtensionBlock, CEADetailedTiming, VideoDataBlock } from '../src/cta';
-
-/**
- * Build a minimal CEA extension block carrying the given DTDs and video
- * data block. Mirrors the `ceaWith` helper in cea-extension-block.test.ts.
- */
-function ceaWith(
-  detailedTimings: CEADetailedTiming[],
-  vdb?: VideoDataBlock,
-): CEAExtensionBlock {
-  return {
-    tag: 0x02,
-    revision: 3,
-    checksum: 0,
-    data: new Uint8Array(0),
-    dtdOffset: 0,
-    underscan: false,
-    basicAudio: false,
-    ycbcr444: false,
-    ycbcr422: false,
-    nativeFormats: 0,
-    dataBlocks: vdb ? [vdb] : [],
-    detailedTimings,
-  };
-}
-
-/** A Video Data Block with the given VICs (data is unused by the priority helper). */
-function vdb(vics: Array<{ vic: number; native: boolean }>): VideoDataBlock {
-  return { tag: 0x02, vics } as VideoDataBlock;
-}
-
-/** A base DTD with enough fields to compute a refresh rate. */
-function dtd(horizontalActive: number, verticalActive: number, pixelClock: number): DetailedTimingDescriptor {
-  return new DetailedTimingDescriptor({
-    pixelClock,
-    horizontalActive,
-    horizontalBlanking: 280,
-    verticalActive,
-    verticalBlanking: 45,
-  });
-}
+import { buildCeaExtension, videoDataBlock, makeDtd } from './cea-utils';
 
 describe('collectTimingsByPriority (VESA E-EDID A2 §5)', () => {
   it('returns an empty array for an EEDID with no timings', () => {
@@ -63,8 +23,8 @@ describe('collectTimingsByPriority (VESA E-EDID A2 §5)', () => {
     // global order is unambiguous.
     const base = new EDID({
       detailedTimings: [
-        dtd(1920, 1080, 148.5), // rank 1 — Preferred Timing Mode (PTM)
-        dtd(1680, 1050, 119.0), // rank 2 — other base DTD
+        makeDtd(1920, 1080, 148.5), // rank 1 — Preferred Timing Mode (PTM)
+        makeDtd(1680, 1050, 119.0), // rank 2 — other base DTD
       ],
       standardTimings: [
         new StandardTiming({ width: 1600, height: 900, refreshRate: 60 }), // rank 5
@@ -90,14 +50,14 @@ describe('collectTimingsByPriority (VESA E-EDID A2 §5)', () => {
       ],
     });
 
-    const cea = ceaWith(
-      [
+    const cea = buildCeaExtension({
+      detailedTimings: [
         // rank 3 — extension DTD (native).
         { ...normalizeDetailedTiming({ pixelClock: 74.25, horizontalActive: 1280, horizontalBlanking: 370, verticalActive: 720, verticalBlanking: 30 }), isNative: true },
       ],
       // rank 7 — CTA Video Data Block VIC 16 (1920×1080p@60).
-      vdb([{ vic: 16, native: true }]),
-    );
+      dataBlocks: [videoDataBlock([{ vic: 16, native: true }])],
+    });
 
     const eedid = new EEDID({ base, extensions: [cea] });
     const entries = collectTimingsByPriority(eedid);
@@ -125,7 +85,7 @@ describe('collectTimingsByPriority (VESA E-EDID A2 §5)', () => {
 
   it('marks the first base DTD as preferred and only that one', () => {
     const base = new EDID({
-      detailedTimings: [dtd(1920, 1080, 148.5), dtd(1680, 1050, 119.0)],
+      detailedTimings: [makeDtd(1920, 1080, 148.5), makeDtd(1680, 1050, 119.0)],
     });
     const entries = collectTimingsByPriority(new EEDID({ base, extensions: [] }));
     expect(entries[0].source).toBe('preferred');
@@ -150,9 +110,11 @@ describe('collectTimingsByPriority (VESA E-EDID A2 §5)', () => {
         },
       ],
     });
-    const cea = ceaWith([
-      { ...normalizeDetailedTiming({ pixelClock: 74.25, horizontalActive: 1280, horizontalBlanking: 370, verticalActive: 720, verticalBlanking: 30 }), isNative: false },
-    ]);
+    const cea = buildCeaExtension({
+      detailedTimings: [
+        { ...normalizeDetailedTiming({ pixelClock: 74.25, horizontalActive: 1280, horizontalBlanking: 370, verticalActive: 720, verticalBlanking: 30 }), isNative: false },
+      ],
+    });
     const entries = collectTimingsByPriority(new EEDID({ base, extensions: [cea] }));
     const extIdx = entries.findIndex((e) => e.source === 'detailedExtension');
     const cvtIdx = entries.findIndex((e) => e.source === 'cvt');
@@ -180,7 +142,7 @@ describe('collectTimingsByPriority (VESA E-EDID A2 §5)', () => {
         new EstablishedTiming({ id: 2, name: '640×480@60Hz', width: 640, height: 480, refreshRate: 60 }),
       ],
     });
-    const cea = ceaWith([], vdb([{ vic: 16, native: true }]));
+    const cea = buildCeaExtension({ dataBlocks: [videoDataBlock([{ vic: 16, native: true }])] });
     const entries = collectTimingsByPriority(new EEDID({ base, extensions: [cea] }));
     const last = entries[entries.length - 1];
     expect(last.source).toBe('ctaVic');
@@ -189,7 +151,7 @@ describe('collectTimingsByPriority (VESA E-EDID A2 §5)', () => {
   });
 
   it('resolves CTA VIC resolution/refresh from the VIC table', () => {
-    const cea = ceaWith([], vdb([{ vic: 16, native: true }]));
+    const cea = buildCeaExtension({ dataBlocks: [videoDataBlock([{ vic: 16, native: true }])] });
     const entries = collectTimingsByPriority(new EEDID({ base: EDID.blank(), extensions: [cea] }));
     const vic = entries.find((e) => e.source === 'ctaVic') as TimingEntry | undefined;
     expect(vic).toBeDefined();
@@ -201,7 +163,7 @@ describe('collectTimingsByPriority (VESA E-EDID A2 §5)', () => {
 
   it('preserves in-order listing within a rank (§5 Note 1, stable)', () => {
     const base = new EDID({
-      detailedTimings: [dtd(1920, 1080, 148.5), dtd(1680, 1050, 119.0), dtd(1280, 720, 74.25)],
+      detailedTimings: [makeDtd(1920, 1080, 148.5), makeDtd(1680, 1050, 119.0), makeDtd(1280, 720, 74.25)],
     });
     const entries = collectTimingsByPriority(new EEDID({ base, extensions: [] }));
     // rank 1 = first DTD; ranks 2,3 = remaining base DTDs in slot order.

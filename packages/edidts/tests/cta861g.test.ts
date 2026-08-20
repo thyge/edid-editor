@@ -4,6 +4,7 @@ import {
   ExtensionBlockParser,
   decodeExtendedDataBlock,
   encodeExtendedDataBlock,
+  type CEADetailedTiming,
   getVICDefinition,
   getVICDescription,
   isKnownVIC,
@@ -23,6 +24,7 @@ import {
   type VESAVideoTimingBlockExtensionDataBlock,
 } from '../src/cta';
 import { checksum8 } from '../src/common';
+import { buildCeaExtension } from './cea-utils';
 
 describe('CTA and VTB detailed timing descriptors', () => {
   it('decodes CTA detailed timings with the common 18-byte DTD fields', () => {
@@ -391,25 +393,6 @@ describe('Audio Format Codes', () => {
 });
 
 describe('CEA DTD shared model and native association (TASK-8)', () => {
-  function ceaWithDtds(dtds: DetailedTimingDescriptor[], nativeFormats: number) {
-    return {
-      tag: 0x02 as const,
-      revision: 3,
-      checksum: 0,
-      data: new Uint8Array(),
-      dtdOffset: 4,
-      underscan: false,
-      basicAudio: false,
-      ycbcr444: false,
-      ycbcr422: false,
-      nativeFormats,
-      dataBlocks: [],
-      detailedTimings: dtds as unknown as ReturnType<typeof ExtensionBlockParser.decode> extends infer T
-        ? T extends { detailedTimings: infer D } ? D : never
-        : never,
-    };
-  }
-
   it('associates the native DTD count with specific DTD objects (first N are native)', () => {
     const dtd = () => new DetailedTimingDescriptor({
       pixelClock: 74.25,
@@ -419,7 +402,10 @@ describe('CEA DTD shared model and native association (TASK-8)', () => {
       verticalSyncOffset: 5, verticalSyncWidth: 5,
       horizontalImageSize: 520, verticalImageSize: 290,
     });
-    const cea = ceaWithDtds([dtd(), dtd(), dtd()], 2);
+    const cea = buildCeaExtension({
+      detailedTimings: [dtd(), dtd(), dtd()] as unknown as CEADetailedTiming[],
+      partial: { nativeFormats: 2, dtdOffset: 4 },
+    });
     const bytes = ExtensionBlockParser.encode(cea as any);
     const decoded = ExtensionBlockParser.decode(bytes) as any;
 
@@ -447,7 +433,10 @@ describe('CEA DTD shared model and native association (TASK-8)', () => {
         serrationOnVSync: true,
       },
     });
-    const cea = ceaWithDtds([timing], 0);
+    const cea = buildCeaExtension({
+      detailedTimings: [timing] as unknown as CEADetailedTiming[],
+      partial: { nativeFormats: 0, dtdOffset: 4 },
+    });
     const bytes = ExtensionBlockParser.encode(cea as any);
     const decoded = ExtensionBlockParser.decode(bytes) as any;
     const out = decoded.detailedTimings[0];

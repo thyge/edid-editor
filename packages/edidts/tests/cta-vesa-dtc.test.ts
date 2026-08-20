@@ -5,6 +5,7 @@ import {
   type VESADisplayTransferCharacteristicBlock,
 } from '../src/cta';
 import { checksum8 } from '../src/common';
+import { buildCeaExtension } from './cea-utils';
 
 /**
  * Build a 128-byte CEA extension block carrying a single data block whose
@@ -22,24 +23,6 @@ function ceaWithSingleDataBlockPayload(tag: number, payload: Uint8Array): Uint8A
   bytes.set(payload, 5);
   bytes[127] = checksum8(bytes, 127);
   return bytes;
-}
-
-/** Minimal CEA shell with the given data blocks and no DTDs. */
-function ceaShell(dataBlocks: CEAExtensionBlock['dataBlocks']): CEAExtensionBlock {
-  return {
-    tag: 0x02,
-    revision: 3,
-    checksum: 0,
-    data: new Uint8Array(0),
-    dtdOffset: 0,
-    underscan: false,
-    basicAudio: false,
-    ycbcr444: false,
-    ycbcr422: false,
-    nativeFormats: 0,
-    dataBlocks,
-    detailedTimings: [],
-  };
 }
 
 describe('VESA Display Transfer Characteristic data block (CTA tag 0x05)', () => {
@@ -95,7 +78,7 @@ describe('VESA Display Transfer Characteristic data block (CTA tag 0x05)', () =>
         numEntries: block.numEntries,
         gammaValues: block.gammaValues,
       };
-      const reencoded = ExtensionBlockParser.encode(ceaShell([rebuilt]));
+      const reencoded = ExtensionBlockParser.encode(buildCeaExtension({ dataBlocks: [rebuilt] }));
       const payloadOut = reencoded.slice(5, 5 + original.length);
       expect(Array.from(payloadOut)).toEqual(Array.from(original));
     });

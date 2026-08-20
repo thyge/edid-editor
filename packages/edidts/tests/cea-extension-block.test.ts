@@ -20,40 +20,14 @@ import {
 } from '../src/cta';
 import { isChecksum8Valid, checksum8 } from '../src/common';
 import { decodeExtension, isCEAExtension, isOpaqueExtension } from '../src/eedid';
-
-/** Build a Video Data Block with `count` non-native VICs. */
-function videoBlock(count: number): VideoDataBlock {
-  return {
-    tag: 0x02,
-    vics: Array.from({ length: count }, (_, i) => ({ vic: (i % 127) + 1, native: false })),
-  };
-}
-
-/** Minimal CEA extension shell with the given data blocks and no DTDs. */
-function ceaWith(dataBlocks: CEAExtensionBlock['dataBlocks'], partial: Partial<CEAExtensionBlock> = {}): CEAExtensionBlock {
-  return {
-    tag: 0x02,
-    revision: 3,
-    checksum: 0,
-    data: new Uint8Array(0),
-    dtdOffset: 0,
-    underscan: false,
-    basicAudio: false,
-    ycbcr444: false,
-    ycbcr422: false,
-    nativeFormats: 0,
-    dataBlocks,
-    detailedTimings: [],
-    ...partial,
-  };
-}
+import { buildCeaExtension, videoBlock } from './cea-utils';
 
 describe('CEA extension block container', () => {
   describe('data-block area overflow guard', () => {
     it('throws a descriptive error when data blocks exceed the 127-byte payload area', () => {
       // Usable data-block area is bytes 4..126 = 123 bytes.
       // Four 31-VIC video blocks = 4 * (1 header + 31 payload) = 128 bytes > 123.
-      const block = ceaWith([videoBlock(31), videoBlock(31), videoBlock(31), videoBlock(31)]);
+      const block = buildCeaExtension({ dataBlocks: [videoBlock(31), videoBlock(31), videoBlock(31), videoBlock(31)] });
 
       expect(() => ExtensionBlockParser.encode(block)).toThrow(/exceeds|overflow|127/i);
     });
@@ -77,11 +51,9 @@ describe('CEA extension block container', () => {
         ],
       };
 
-      const original = ceaWith([videoBlock(4), audio], {
-        underscan: true,
-        basicAudio: true,
-        ycbcr444: true,
-        nativeFormats: 2,
+      const original = buildCeaExtension({
+        dataBlocks: [videoBlock(4), audio],
+        partial: { underscan: true, basicAudio: true, ycbcr444: true, nativeFormats: 2 },
       });
 
       const bytes = ExtensionBlockParser.encode(original);
@@ -114,7 +86,7 @@ describe('CEA extension block container', () => {
     });
 
     it('round-trips a maximum-length 31-byte data block payload', () => {
-      const original = ceaWith([videoBlock(31)]);
+      const original = buildCeaExtension({ dataBlocks: [videoBlock(31)] });
       const bytes = ExtensionBlockParser.encode(original);
       // Header (1) + 31 payload = 32 bytes, starting at byte 4 → ends at byte 35.
       expect(bytes[4] & 0x1f).toBe(31);
@@ -150,7 +122,7 @@ describe('CEA extension block container', () => {
     // start of the DTD region). These boundary cases must round-trip.
 
     it('dtdOffset=0x00 when there are no data blocks and no DTDs', () => {
-      const bytes = ExtensionBlockParser.encode(ceaWith([]));
+      const bytes = ExtensionBlockParser.encode(buildCeaExtension({ dataBlocks: [] }));
       expect(bytes[2]).toBe(0x00);
 
       const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
@@ -166,7 +138,7 @@ describe('CEA extension block container', () => {
     it('dtdOffset points at the end of data blocks with no DTDs', () => {
       // One 4-VIC video block: header(1) + 4 payload = 5 bytes starting at byte 4
       // → ends at byte 9, which becomes dtdOffset.
-      const bytes = ExtensionBlockParser.encode(ceaWith([videoBlock(4)]));
+      const bytes = ExtensionBlockParser.encode(buildCeaExtension({ dataBlocks: [videoBlock(4)] }));
       expect(bytes[2]).toBe(9);
 
       const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
@@ -202,7 +174,7 @@ describe('CEA extension block container', () => {
         verticalBorder: 0,
       };
 
-      const bytes = ExtensionBlockParser.encode(ceaWith([videoBlock(4)], { detailedTimings: [dtd] }));
+      const bytes = ExtensionBlockParser.encode(buildCeaExtension({ dataBlocks: [videoBlock(4)], partial: { detailedTimings: [dtd] } }));
       expect(bytes[2]).toBe(9); // end of data blocks = start of DTDs
 
       const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
@@ -234,7 +206,7 @@ describe('CEA extension block container', () => {
         data: raw,
       };
 
-      const original = ceaWith([unsupported]);
+      const original = buildCeaExtension({ dataBlocks: [unsupported] });
       const bytes = ExtensionBlockParser.encode(original);
       const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
 
@@ -267,7 +239,7 @@ describe('CEA extension block container', () => {
         ],
       };
 
-      const bytes = ExtensionBlockParser.encode(ceaWith([audio]));
+      const bytes = ExtensionBlockParser.encode(buildCeaExtension({ dataBlocks: [audio] }));
       // Data-block header sits at byte 4; the 3-byte SAD payload occupies bytes
       // 5..7. SAD byte 3 (extendedFormat in bits 7:3) is therefore at byte 7,
       // and equals (12 << 3) = 0x60.
@@ -485,7 +457,7 @@ describe('Audio SAD maxBitrate and format-extension round-trip (TASK-5)', () => 
         data: new Uint8Array(0),
         descriptors: [{ format, channels: 8, samplingRates: allRates, maxBitrate }],
       };
-      const bytes = ExtensionBlockParser.encode(ceaWith([audio]));
+      const bytes = ExtensionBlockParser.encode(buildCeaExtension({ dataBlocks: [audio] }));
       // SAD lives at bytes 4..6 (header at 4, payload 5..7). byte3 of the SAD is byte 7.
       expect(bytes[7]).toBe(maxBitrate / 8);
 
@@ -508,7 +480,7 @@ describe('Audio SAD maxBitrate and format-extension round-trip (TASK-5)', () => 
         data: new Uint8Array(0),
         descriptors: [{ format: 15, channels: 8, samplingRates: allRates, extendedFormat }],
       };
-      const bytes = ExtensionBlockParser.encode(ceaWith([audio]));
+      const bytes = ExtensionBlockParser.encode(buildCeaExtension({ dataBlocks: [audio] }));
       expect(bytes[7]).toBe(extendedFormat << 3);
 
       const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
@@ -638,7 +610,7 @@ describe('CEA speaker allocation full bit model (TASK-6)', () => {
       sideLeftRight: true, topSideLeftRight: true, topBackLeftRight: true,
       bottomFrontCenter: true, bottomFrontLeftRight: true, topLeftRightSurround: true,
     });
-    const original = ceaWith([all]);
+    const original = buildCeaExtension({ dataBlocks: [all] });
     const bytes = ExtensionBlockParser.encode(original);
     const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
     const s = decoded.dataBlocks[0] as SpeakerAllocationBlock;
@@ -660,7 +632,7 @@ describe('CEA speaker allocation full bit model (TASK-6)', () => {
   it('preserves trailing payload bytes beyond the 3-byte SADB mask', () => {
     const block = speakerBlock({ frontLeftRight: true });
     block.trailing = new Uint8Array([0xab, 0xcd]);
-    const original = ceaWith([block]);
+    const original = buildCeaExtension({ dataBlocks: [block] });
     const bytes = ExtensionBlockParser.encode(original);
     const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
     const s = decoded.dataBlocks[0] as SpeakerAllocationBlock;
