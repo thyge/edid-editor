@@ -18,6 +18,7 @@ import {
 } from 'edidts'
 import TopNav from '@/components/layout/TopNav.vue'
 import LeftNav from '@/components/layout/LeftNav.vue'
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import HexViewer from '@/components/layout/HexViewer.vue'
 import EDIDUpload from '@/components/edid/EDIDUpload.vue'
 import OverviewSummary from '@/components/edid/OverviewSummary.vue'
@@ -419,7 +420,7 @@ function updateCEA(field: string, value: unknown) {
       @load-hex="loadFromHex"
       @new-edid="createBlankEdid"
     />
-    <div class="flex flex-1 overflow-hidden">
+    <SidebarProvider class="flex-1 min-h-0 overflow-hidden">
       <LeftNav
         :edid="edidRef"
         v-model:active-section="activeSection"
@@ -433,7 +434,7 @@ function updateCEA(field: string, value: unknown) {
         @remove-display-id-block="removeDisplayIdBlock"
         @move-display-id-block="moveDisplayIdBlock"
       />
-      <main class="flex-1 p-4 overflow-auto">
+      <SidebarInset class="p-4 overflow-auto">
         <div v-if="error" class="mb-4 p-4 bg-destructive/10 border border-destructive rounded-lg text-destructive">
           {{ error }}
         </div>
@@ -549,10 +550,10 @@ function updateCEA(field: string, value: unknown) {
             @update-block="updateDisplayIdBlock"
           />
         </div>
-      </main>
+      </SidebarInset>
       <section id="hex-viewer" class="h-full scroll-mt-24">
         <HexViewer :data="edidData" />
       </section>
-    </div>
+    </SidebarProvider>
   </div>
 </template>
