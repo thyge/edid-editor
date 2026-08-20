@@ -22,6 +22,7 @@ import {
   type DisplayIdTypeIXFormulaBasedTimingBlock,
   type DisplayIdVendorSpecificBlock,
 } from '../src/displayid';
+import { type VideoDataBlock, type SpeakerAllocationBlock } from '../src/cta';
 
 function withChecksum(bytes: number[]): Uint8Array {
   const data = new Uint8Array(bytes);
@@ -862,25 +863,98 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
-  it('decodes, edits, and encodes CTA DisplayID from ctaPayload', () => {
+  it('decodes, edits, and encodes CTA DisplayID embedded short data blocks (§4.10)', () => {
+    // Embedded CTA short-block stream: a Video Data Block (tag 0x02, VICs
+    // 4/5/16/31, non-native) followed by a Speaker Allocation Block (tag 0x04,
+    // front L/R + LFE + center). Decode delegates to the CTA short-block
+    // parsers; encode rebuilds the stream from the parsed blocks.
+    //   VDB header = (0x02<<5)|4 = 0x44, payload [0x04,0x05,0x10,0x1f]
+    //   Speaker header = (0x04<<5)|3 = 0x83, payload [0x07,0x00,0x00]
     const section = decodeDisplayIdSection(withChecksum([
-      0x20, 0x07, 0x04, 0x00,
-      0x81, 0x00, 0x04,
-      0x11, 0x22, 0x33, 0x44,
+      0x20, 0x0c, 0x04, 0x00,
+      0x81, 0x00, 0x09,
+      0x44, 0x04, 0x05, 0x10, 0x1f, 0x83, 0x07, 0x00, 0x00,
       0x00,
     ]));
     const block = section.blocks[0] as DisplayIdCtaBlock;
 
-    expect(Array.from(block.payload)).toEqual([0x11, 0x22, 0x33, 0x44]);
-    expect(Array.from(block.ctaPayload)).toEqual([0x11, 0x22, 0x33, 0x44]);
+    expect(Array.from(block.ctaPayload)).toEqual([0x44, 0x04, 0x05, 0x10, 0x1f, 0x83, 0x07, 0x00, 0x00]);
+    expect(block.dataBlocks.length).toBe(2);
+    expect(block.trailing.length).toBe(0);
 
-    block.ctaPayload = new Uint8Array([0x55, 0x66]);
+    const vdb = block.dataBlocks[0] as VideoDataBlock;
+    expect(vdb.tag).toBe(0x02);
+    expect(vdb.vics.length).toBe(4);
+    expect(vdb.vics.map((v) => v.vic)).toEqual([4, 5, 16, 31]);
+    expect(vdb.vics[2].native).toBe(false);
+
+    const speaker = block.dataBlocks[1] as SpeakerAllocationBlock;
+    expect(speaker.tag).toBe(0x04);
+    expect(speaker.speakers.frontLeftRight).toBe(true);
+    expect(speaker.speakers.lfe).toBe(true);
+    expect(speaker.speakers.frontCenter).toBe(true);
+
+    // Edit: make VIC 16 native. encodeVideoDataBlock sets the native bit 0x80,
+    // so the VDB payload byte for VIC 16 becomes 0x10 | 0x80 = 0x90.
+    vdb.vics[2] = { vic: 16, native: true, known: vdb.vics[2].known };
 
     const encoded = encodeDisplayIdSection(section);
     const reparsed = decodeDisplayIdSection(encoded);
     const reparsedBlock = reparsed.blocks[0] as DisplayIdCtaBlock;
 
-    expect(Array.from(reparsedBlock.ctaPayload)).toEqual([0x55, 0x66]);
+    expect(reparsedBlock.dataBlocks.length).toBe(2);
+    const reparsedVdb = reparsedBlock.dataBlocks[0] as VideoDataBlock;
+    expect(reparsedVdb.vics[2].vic).toBe(16);
+    expect(reparsedVdb.vics[2].native).toBe(true);
+    // Byte-exact re-encode: only the VIC-16 byte changed (0x10 -> 0x90).
+    expect(Array.from(reparsedBlock.ctaPayload)).toEqual([0x44, 0x04, 0x05, 0x90, 0x1f, 0x83, 0x07, 0x00, 0x00]);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('preserves unknown CTA short-block tags opaquely inside CTA DisplayID', () => {
+    // Tag 0x06 is not decoded by the per-block parser (only 1-5 and 7 are), so
+    // it falls through to the opaque { tag, data } default and round-trips.
+    //   header = (0x06<<5)|2 = 0xc2, payload [0xaa, 0xbb]
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x06, 0x04, 0x00,
+      0x81, 0x00, 0x03,
+      0xc2, 0xaa, 0xbb,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdCtaBlock;
+
+    expect(block.dataBlocks.length).toBe(1);
+    expect(block.dataBlocks[0].tag).toBe(0x06);
+    expect(Array.from(block.dataBlocks[0].data)).toEqual([0xaa, 0xbb]);
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsed = decodeDisplayIdSection(encoded);
+    const reparsedBlock = reparsed.blocks[0] as DisplayIdCtaBlock;
+    expect(Array.from(reparsedBlock.ctaPayload)).toEqual([0xc2, 0xaa, 0xbb]);
+    expect(Array.from(reparsedBlock.dataBlocks[0].data)).toEqual([0xaa, 0xbb]);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('preserves a truncated CTA short-block stream as trailing (lossless)', () => {
+    // A VDB header (0x44 = tag 2, length 4) with only 2 payload bytes following
+    // is truncated; the walker keeps the whole remainder in `trailing` and
+    // encode re-appends it, so the bytes round-trip exactly.
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x06, 0x04, 0x00,
+      0x81, 0x00, 0x03,
+      0x44, 0x04, 0x05,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdCtaBlock;
+
+    expect(block.dataBlocks.length).toBe(0);
+    expect(Array.from(block.trailing)).toEqual([0x44, 0x04, 0x05]);
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsed = decodeDisplayIdSection(encoded);
+    const reparsedBlock = reparsed.blocks[0] as DisplayIdCtaBlock;
+    expect(Array.from(reparsedBlock.ctaPayload)).toEqual([0x44, 0x04, 0x05]);
+    expect(Array.from(reparsedBlock.trailing)).toEqual([0x44, 0x04, 0x05]);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 

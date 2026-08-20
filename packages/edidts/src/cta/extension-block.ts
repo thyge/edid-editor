@@ -384,6 +384,42 @@ export class ExtensionBlockParser {
     }
   }
 
+  /**
+   * Decode a stream of CTA-861 short data blocks (DisplayID 2.0 §4.10 CTA
+   * DisplayID Data Block, tag 0x81). Each block is 1 header byte (bits 7:5 =
+   * tag, bits 4:0 = length) followed by `length` payload bytes; tag 0x07 is an
+   * extended-tag block whose first payload byte is the extended tag code.
+   *
+   * Reuses `decodeCEADataBlock` (the same per-block parser the CEA extension
+   * block uses), so VSDBs, audio/video/speaker/VESA-transfer blocks, and
+   * extended-tag blocks all decode identically here. Mirrors edid-decode
+   * parse_displayid_cta_data_block (parse-displayid-block.cpp:1459), which
+   * walks `for (i = 0; i < len; i += (x[i] & 0x1f) + 1)`.
+   *
+   * A truncated final block (header claims more bytes than remain) is
+   * preserved losslessly in `trailing` rather than dropped.
+   */
+  public static decodeCtaDataBlockStream(
+    buffer: Uint8Array,
+  ): { dataBlocks: (CEADataBlock | CTAExtendedDataBlock)[]; trailing: Uint8Array } {
+    const dataBlocks: (CEADataBlock | CTAExtendedDataBlock)[] = [];
+    let offset = 0;
+    while (offset < buffer.length) {
+      const header = buffer[offset];
+      const blockTag = ((header >> 5) & 0x07) as CEADataBlockTag;
+      const blockLength = header & 0x1f;
+      if (offset + 1 + blockLength > buffer.length) {
+        // Truncated block: keep the remainder verbatim for a lossless round-trip.
+        return { dataBlocks, trailing: buffer.slice(offset) };
+      }
+      const blockData = buffer.slice(offset + 1, offset + 1 + blockLength);
+      const block = this.decodeCEADataBlock(blockTag, blockData);
+      if (block) dataBlocks.push(block);
+      offset += 1 + blockLength;
+    }
+    return { dataBlocks, trailing: new Uint8Array(0) };
+  }
+
   private static decodeAudioDataBlock(data: Uint8Array): AudioDataBlock {
     const descriptors: AudioDataBlock['descriptors'] = [];
     
@@ -620,6 +656,38 @@ export class ExtensionBlockParser {
       default:
         return block.data;
     }
+  }
+
+  /**
+   * Encode a stream of CTA-861 short data blocks back into the flat byte
+   * layout that `decodeCtaDataBlockStream` consumes (DisplayID 2.0 §4.10).
+   * Reuses `encodeCEADataBlock` per block (the inverse of the CEA extension
+   * block's per-block encoder), so the embedded blocks round-trip exactly.
+   * `trailing` (a preserved truncated/malformed remainder) is appended verbatim.
+   */
+  public static encodeCtaDataBlockStream(
+    blocks: (CEADataBlock | CTAExtendedDataBlock)[],
+    trailing: Uint8Array = new Uint8Array(0),
+  ): Uint8Array {
+    const parts: Uint8Array[] = [];
+    let total = 0;
+    for (const block of blocks) {
+      const encoded = this.encodeCEADataBlock(block as CEADataBlock);
+      const header = ((block.tag & 0x07) << 5) | (encoded.length & 0x1f);
+      parts.push(new Uint8Array([header]), encoded);
+      total += 1 + encoded.length;
+    }
+    if (trailing.length > 0) {
+      parts.push(trailing);
+      total += trailing.length;
+    }
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const part of parts) {
+      out.set(part, offset);
+      offset += part.length;
+    }
+    return out;
   }
 
   private static encodeDisplayId(bytes: Uint8Array, block: DisplayIdExtensionBlock): void {

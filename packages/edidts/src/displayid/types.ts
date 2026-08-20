@@ -2,6 +2,10 @@ import type { DisplayIdTypeXTimingBlock } from './type-x-timing';
 import type { DisplayIdAdaptiveSyncBlock } from './adaptive-sync';
 import type { DisplayIdArvrHmdBlock, DisplayIdArvrLayerBlock } from './ar-vr';
 import type { DisplayIdBrightnessLuminanceRangeBlock } from './brightness-luminance';
+// CTA-861 short data block types (DisplayID 2.0 §4.10 CTA DisplayID embeds a
+// stream of these). Type-only import: erased at runtime, so this does not
+// create a runtime dependency cycle with the cta module.
+import type { CEADataBlock } from '../cta';
 
 export enum DisplayIdDataBlockTag {
   ProductIdentification = 0x20,
@@ -398,7 +402,12 @@ export interface DisplayIdVendorSpecificBlock extends DisplayIdDataBlock {
 
 export interface DisplayIdCtaBlock extends DisplayIdDataBlock {
   tag: DisplayIdDataBlockTag.CtaDisplayId;
+  /** Raw embedded CTA short-block stream (the bytes as decoded; kept for the UI hex editor). */
   ctaPayload: Uint8Array;
+  /** Parsed embedded CTA-861 short data blocks (DisplayID 2.0 §4.10). */
+  dataBlocks: CEADataBlock[];
+  /** Unparsed remainder of a truncated/malformed stream (preserved for a lossless round-trip). */
+  trailing: Uint8Array;
 }
 
 export type KnownDisplayIdDataBlock =
@@ -615,6 +624,8 @@ export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDi
         ...createDefaultBlock(tag, 0),
         tag,
         ctaPayload: new Uint8Array(0),
+        dataBlocks: [],
+        trailing: new Uint8Array(0),
       };
   }
 }

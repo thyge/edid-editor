@@ -602,6 +602,8 @@ function isTypedCtaDisplayIdBlock(block: DisplayIdDataBlock): block is DisplayId
 
   return (
     block.tag === DisplayIdDataBlockTag.CtaDisplayId &&
-    maybeBlock.ctaPayload instanceof Uint8Array
+    maybeBlock.ctaPayload instanceof Uint8Array &&
+    Array.isArray(maybeBlock.dataBlocks) &&
+    maybeBlock.trailing instanceof Uint8Array
   );
 }
