@@ -16,3 +16,8 @@ export type {
   OpaqueExtension,
   ExtensionDispatch,
 } from './extension';
+export {
+  collectTimingsByPriority,
+  TIMING_PRIORITY_RANK,
+} from './timing-priority';
+export type { TimingEntry, TimingSource } from './timing-priority';
