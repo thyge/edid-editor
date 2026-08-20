@@ -141,7 +141,18 @@ export interface ManufacturerDescriptor extends BaseDisplayDescriptor {
   data: Uint8Array;
 }
 
-export type DisplayDescriptor = 
+/**
+ * Opaque descriptor for unknown/reserved tags (0x11-0xEF, 0xF6, etc.).
+ * Preserves the raw payload bytes 5..18 so the descriptor survives
+ * decode/encode round-trip byte-for-byte, mirroring the manufacturer-range
+ * handling but for the reserved-tag space outside the structured set.
+ */
+export interface OpaqueDisplayDescriptor extends BaseDisplayDescriptor {
+  tag: number; // unknown/reserved tag (not 0x00-0x0F and not a structured tag)
+  data: Uint8Array;
+}
+
+export type DisplayDescriptor =
   | ProductSerialDescriptor
   | AlphanumericDataDescriptor
   | DisplayRangeLimitsDescriptor
@@ -152,7 +163,8 @@ export type DisplayDescriptor =
   | CVTTimingDescriptor
   | EstablishedTimingsIIIDescriptor
   | DummyDescriptor
-  | ManufacturerDescriptor;
+  | ManufacturerDescriptor
+  | OpaqueDisplayDescriptor;
 
 export class DisplayDescriptorParser {
   /**
@@ -199,7 +211,12 @@ export class DisplayDescriptorParser {
             data: data.slice(5, 18),
           } as ManufacturerDescriptor;
         }
-        return null;
+        // Unknown/reserved tags (0x11-0xEF, 0xF6, etc.): preserve opaquely
+        // so they survive decode/encode round-trip instead of being dropped.
+        return {
+          tag,
+          data: data.slice(5, 18),
+        } as OpaqueDisplayDescriptor;
     }
   }
 
@@ -249,6 +266,10 @@ export class DisplayDescriptorParser {
         if (descriptor.tag >= 0x00 && descriptor.tag <= 0x0F) {
           const mfg = descriptor as ManufacturerDescriptor;
           bytes.set(mfg.data.slice(0, 13), 5);
+        } else {
+          // Unknown/reserved tag: replay the preserved payload bytes.
+          const opaque = descriptor as OpaqueDisplayDescriptor;
+          bytes.set(opaque.data.slice(0, 13), 5);
         }
     }
 

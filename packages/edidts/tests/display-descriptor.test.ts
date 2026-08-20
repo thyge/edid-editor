@@ -5,6 +5,7 @@ import {
   type DCMDescriptor,
   type DisplayRangeLimitsDescriptor,
   type EstablishedTimingsIIIDescriptor,
+  type OpaqueDisplayDescriptor,
 } from '../src/edid/display-descriptor'
 
 describe('DisplayDescriptorParser encode symmetry', () => {
@@ -133,5 +134,52 @@ describe('DisplayDescriptorParser encode symmetry', () => {
     const decoded = DisplayDescriptorParser.decode(encoded)
 
     expect(decoded).toEqual(descriptor)
+  })
+})
+
+describe('DisplayDescriptorParser unknown-tag opaque preservation', () => {
+  it('decodes a reserved-tag (0xF6) descriptor to an opaque descriptor, not null', () => {
+    const raw = new Uint8Array(18)
+    raw[0] = 0x00
+    raw[1] = 0x00
+    raw[2] = 0x00
+    raw[3] = 0xF6 // reserved/unknown tag
+    raw[4] = 0x00
+    for (let i = 5; i < 18; i++) raw[i] = 0xA0 + i // arbitrary payload
+
+    const decoded = DisplayDescriptorParser.decode(raw)
+    expect(decoded).not.toBeNull()
+    expect(decoded?.tag).toBe(0xF6)
+    expect((decoded as OpaqueDisplayDescriptor).data).toEqual(raw.slice(5, 18))
+  })
+
+  it('round-trips an unknown-tag descriptor byte-for-byte through encode', () => {
+    const raw = new Uint8Array(18)
+    raw[0] = 0x00
+    raw[1] = 0x00
+    raw[2] = 0x00
+    raw[3] = 0x11 // unknown tag in the 0x11-0xEF range
+    raw[4] = 0x00
+    for (let i = 5; i < 18; i++) raw[i] = (i * 7) & 0xFF
+
+    const decoded = DisplayDescriptorParser.decode(raw) as OpaqueDisplayDescriptor
+    expect(decoded.tag).toBe(0x11)
+
+    const reencoded = DisplayDescriptorParser.encode(decoded)
+    // Header bytes 0-4 are reconstructed; payload bytes 5-17 must match exactly.
+    expect(reencoded.slice(5, 18)).toEqual(raw.slice(5, 18))
+    expect(reencoded[3]).toBe(0x11)
+
+    // Re-decode yields the same opaque descriptor.
+    const redecoded = DisplayDescriptorParser.decode(reencoded) as OpaqueDisplayDescriptor
+    expect(redecoded).toEqual(decoded)
+  })
+
+  it('still decodes structured descriptors correctly alongside opaque ones', () => {
+    const productName = DisplayDescriptorParser.encode({
+      tag: 0xFC,
+      productName: 'Test',
+    })
+    expect(DisplayDescriptorParser.decode(productName)?.tag).toBe(0xFC)
   })
 })
