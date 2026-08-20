@@ -220,6 +220,19 @@ function updateVSVDB(block: VendorSpecificVideoDataBlock, field: string, value: 
   syncEdid()
 }
 
+/** Edit a structured CTA-861 extended data block (tag 0x07: colorimetry 0x05,
+ *  HDR static 0x06, HDR dynamic 0x07, YCbCr 4:2:0 0x0E, ...). These re-encode
+ *  from their structured fields via encodeExtendedDataBlock, so mutating the
+ *  block's fields and reassigning dataBlocks is enough. */
+function updateExtendedBlock(block: object | undefined, field: string, value: unknown) {
+  if (!edidRef.value || !block) return
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
+  setByPath(block as unknown as Record<string, unknown>, field, value)
+  cea.dataBlocks = [...cea.dataBlocks]
+  syncEdid()
+}
+
 function syncEdid() {
   if (!edidRef.value) return
   const encoded = EEDID.encode(edidRef.value)
@@ -568,7 +581,7 @@ function updateCEA(field: string, value: unknown) {
           <CEAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEASpeakerBlock v-else-if="activeSection === 'cea-speakers' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="updateVSDB" @update-vsvdb="updateVSVDB" />
-          <CEAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" />
+          <CEAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" @update="updateExtendedBlock" />
           <CEAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEADetailedTimings
             v-else-if="activeSection === 'cea-timings' && ceaExtension"
