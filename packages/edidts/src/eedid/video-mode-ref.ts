@@ -68,12 +68,20 @@ function isStandardTimingIdDescriptor(d: { tag: number }): d is StandardTimingId
  * Compute the EDID 1.4 Standard Timing 2-byte code (byte0 = (width/8 − 31),
  * byte1 = (aspectCode << 6) | (refresh − 60)) packed big-endian, mirroring
  * `StandardTiming.encode`. Returns `undefined` for invalid/placeholder timings.
+ * The EDID version is threaded through so code 0 resolves to 1:1 (EDID 1.0–1.3)
+ * or 16:10 (EDID 1.4+) on encode.
  */
-function standardTimingCode(width: number, height: number, refreshRate: number): number | undefined {
+function standardTimingCode(
+  width: number,
+  height: number,
+  refreshRate: number,
+  edidVersion?: number,
+  edidRevision?: number,
+): number | undefined {
   if (width <= 0 || height <= 0 || refreshRate <= 0) return undefined;
   const t1 = Math.round(width / 8) - 31;
   if (t1 < 0 || t1 > 255) return undefined;
-  const aspectCode = standardTimingAspectCodeFor(width, height);
+  const aspectCode = standardTimingAspectCodeFor(width, height, edidVersion, edidRevision);
   const t2 = ((aspectCode & 0x03) << 6) | ((refreshRate - 60) & 0x3f);
   return ((t1 & 0xff) << 8) | (t2 & 0xff);
 }
@@ -95,15 +103,16 @@ export function collectVideoModeRefs(eedid: EEDID): VideoModeRef[] {
   }
 
   // 2. Base EDID Standard Timings (2-byte codes) + the 0xFA descriptor.
+  const { edidVersion, edidRevision } = eedid.base.header;
   for (const s of eedid.base.standardTimings) {
-    const code = standardTimingCode(s.width, s.height, s.refreshRate);
+    const code = standardTimingCode(s.width, s.height, s.refreshRate, edidVersion, edidRevision);
     if (code === undefined) continue;
     refs.push(standardRef(code));
   }
   for (const desc of eedid.base.displayDescriptors) {
     if (!isStandardTimingIdDescriptor(desc)) continue;
     for (const s of desc.timings) {
-      const code = standardTimingCode(s.width, s.height, s.refreshRate);
+      const code = standardTimingCode(s.width, s.height, s.refreshRate, edidVersion, edidRevision);
       if (code === undefined) continue;
       refs.push(standardRef(code));
     }

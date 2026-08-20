@@ -89,7 +89,13 @@ export class EDID {
       throw new Error(`Invalid EDID: minimum 128 bytes required - current length: ${bytes.length}`);
     }
 
-    const { detailedTimings, displayDescriptors } = decodeDescriptorBlocks(bytes);
+    const header = EDIDHeader.decode(bytes);
+
+    const { detailedTimings, displayDescriptors } = decodeDescriptorBlocks(
+      bytes,
+      header.edidVersion,
+      header.edidRevision,
+    );
 
     const videoInput = VideoInputDefinition.decode(bytes[20]);
     const featureSupport = FeatureSupportFlags.decode(bytes[24], videoInput.isDigital);
@@ -123,14 +129,14 @@ export class EDID {
     }
 
     return new EDID({
-      header: EDIDHeader.decode(bytes),
+      header,
       videoInput,
       screenSize: decodeScreenSize(bytes[21], bytes[22]),
       gamma: bytes[23] === 0xFF ? 0 : (bytes[23] + 100) / 100,
       featureSupport,
       colorCharacteristics: ColorCharacteristics.decode(bytes.subarray(25, 35)),
       establishedTimings: EstablishedTiming.decode(bytes.slice(35, 38)),
-      standardTimings: StandardTiming.decode(bytes),
+      standardTimings: StandardTiming.decode(bytes, header.edidVersion, header.edidRevision),
       detailedTimings,
       displayDescriptors,
       isBaseValid,
@@ -153,7 +159,10 @@ export class EDID {
     out[24] = edid.featureSupport.encode(edid.videoInput.isDigital);
     out.set(edid.colorCharacteristics.encode(), 25);
     out.set(EstablishedTiming.encode(edid.establishedTimings), 35);
-    out.set(StandardTiming.encode(edid.standardTimings), 38);
+    out.set(
+      StandardTiming.encode(edid.standardTimings, edid.header.edidVersion, edid.header.edidRevision),
+      38,
+    );
 
     let blockIndex = 0;
     for (const timing of edid.detailedTimings) {
@@ -164,7 +173,10 @@ export class EDID {
     for (const descriptor of edid.displayDescriptors) {
       if (blockIndex >= 4) break;
       if (descriptor.tag === 0x10) continue;
-      out.set(DisplayDescriptorParser.encode(descriptor), 54 + blockIndex * 18);
+      out.set(
+        DisplayDescriptorParser.encode(descriptor, edid.header.edidVersion, edid.header.edidRevision),
+        54 + blockIndex * 18,
+      );
       blockIndex++;
     }
     while (blockIndex < 4) {
@@ -184,7 +196,11 @@ export class EDID {
   }
 }
 
-function decodeDescriptorBlocks(bytes: Uint8Array): {
+function decodeDescriptorBlocks(
+  bytes: Uint8Array,
+  edidVersion?: number,
+  edidRevision?: number,
+): {
   detailedTimings: DetailedTimingDescriptor[];
   displayDescriptors: DisplayDescriptor[];
 } {
@@ -196,7 +212,7 @@ function decodeDescriptorBlocks(bytes: Uint8Array): {
     const blockData = bytes.slice(offset, offset + 18);
 
     if (DisplayDescriptorParser.isDisplayDescriptor(blockData)) {
-      const descriptor = DisplayDescriptorParser.decode(blockData);
+      const descriptor = DisplayDescriptorParser.decode(blockData, edidVersion, edidRevision);
       if (descriptor) displayDescriptors.push(descriptor);
     } else {
       const timing = DetailedTimingDescriptor.decode(blockData);

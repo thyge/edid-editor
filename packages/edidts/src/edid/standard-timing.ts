@@ -54,9 +54,15 @@ export class StandardTiming {
   /**
    * Decode standard timings from EDID data
    * @param data The EDID data bytes
+   * @param edidVersion Declared EDID version (1.x); gates the aspect-ratio code-0 table
+   * @param edidRevision Declared EDID revision; used with `edidVersion`
    * @returns Array of StandardTiming instances
    */
-  static decode(data: Uint8Array): StandardTiming[] {
+  static decode(
+    data: Uint8Array,
+    edidVersion?: number,
+    edidRevision?: number,
+  ): StandardTiming[] {
     const timings: StandardTiming[] = [];
 
     // Standard timings at offset 38-53 (8 × 2 bytes)
@@ -72,7 +78,7 @@ export class StandardTiming {
 
       const width = (timing1 + 31) * 8;
       const aspectCode = decodeStandardTimingAspectCode(timing2);
-      const height = heightFromStandardTimingAspect(width, aspectCode);
+      const height = heightFromStandardTimingAspect(width, aspectCode, edidVersion, edidRevision);
       const refreshRate = (timing2 & 0x3f) + 60;
 
       timings.push(new StandardTiming({ width, height, refreshRate }));
@@ -84,9 +90,15 @@ export class StandardTiming {
   /**
    * Encode standard timings to EDID bytes
    * @param timings Array of StandardTiming instances
+   * @param edidVersion Declared EDID version (1.x); gates the aspect-ratio code-0 table
+   * @param edidRevision Declared EDID revision; used with `edidVersion`
    * @returns 16 bytes for standard timing section
    */
-  static encode(timings: StandardTiming[]): Uint8Array {
+  static encode(
+    timings: StandardTiming[],
+    edidVersion?: number,
+    edidRevision?: number,
+  ): Uint8Array {
     const bytes = new Uint8Array(16); // 8 × 2 bytes
 
     for (let i = 0; i < 8; i++) {
@@ -95,7 +107,12 @@ export class StandardTiming {
       if (i < timings.length && timings[i].isValid) {
         const timing = timings[i];
         const timing1 = Math.round(timing.width / 8) - 31;
-        const aspectCode = standardTimingAspectCodeFor(timing.width, timing.height);
+        const aspectCode = standardTimingAspectCodeFor(
+          timing.width,
+          timing.height,
+          edidVersion,
+          edidRevision,
+        );
         const timing2 = (aspectCode << 6) | ((timing.refreshRate - 60) & 0x3f);
 
         bytes[offset] = Math.max(1, Math.min(255, timing1));

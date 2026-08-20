@@ -171,3 +171,82 @@ describe('StandardTiming placeholder detection and quantization edges', () => {
     expect(StandardTiming.encode([]).length).toBe(16)
   })
 })
+
+describe('StandardTiming aspect code 0: EDID 1.3 (1:1) vs 1.4 (16:10)', () => {
+  it('decodes aspect code 0 as 1:1 under EDID 1.3 and 16:10 under EDID 1.4', () => {
+    // Slot 0 at offset 38: width 640, aspect code 0, 60 Hz.
+    // 640/8 - 31 = 49 = 0x31; code 0 << 6 = 0x00; refresh 60 -> 0x00.
+    const buf = new Uint8Array(54)
+    buf[38] = 0x31
+    buf[39] = 0x00
+    const v13 = StandardTiming.decode(buf, 1, 3)
+    const v14 = StandardTiming.decode(buf, 1, 4)
+    expect(v13[0].height).toBe(640) // 1:1 -> height = width
+    expect(v14[0].height).toBe(400) // 16:10 -> 640 * 10/16 = 400
+  })
+
+  it('encodes a square timing as aspect code 0 under EDID 1.3 but not under 1.4', () => {
+    const square = [new StandardTiming({ width: 640, height: 640, refreshRate: 60 })]
+    const v13 = StandardTiming.encode(square, 1, 3)
+    const v14 = StandardTiming.encode(square, 1, 4)
+    expect((v13[1] >> 6) & 0x03).toBe(0) // 1:1 -> code 0 in 1.3
+    // Under 1.4, 640x640 (ratio 1.0) is closest to 5:4 (code 2), not 16:10 (code 0).
+    expect((v14[1] >> 6) & 0x03).not.toBe(0)
+  })
+
+  it('round-trips a 1.3 EDID with a code-0 (1:1) standard timing', () => {
+    const edid = blankEdidWithHeader(1, 3)
+    edid.standardTimings = [new StandardTiming({ width: 640, height: 640, refreshRate: 60 })]
+    const encoded = EDID.encode(edid)
+    expect(encoded[18]).toBe(1) // header declares EDID 1.3
+    expect(encoded[19]).toBe(3)
+    expect((encoded[39] >> 6) & 0x03).toBe(0) // code 0
+    const decoded = EDID.decode(encoded)
+    expect(decoded.header.edidRevision).toBe(3)
+    expect(decoded.standardTimings[0].width).toBe(640)
+    expect(decoded.standardTimings[0].height).toBe(640) // 1:1 preserved
+  })
+
+  it('round-trips a 1.4 EDID with a code-0 (16:10) standard timing', () => {
+    const edid = blankEdidWithHeader(1, 4)
+    edid.standardTimings = [new StandardTiming({ width: 640, height: 400, refreshRate: 60 })]
+    const encoded = EDID.encode(edid)
+    expect((encoded[39] >> 6) & 0x03).toBe(0) // 16:10 -> code 0
+    const decoded = EDID.decode(encoded)
+    expect(decoded.standardTimings[0].height).toBe(400) // 16:10 preserved
+  })
+
+  it('decoding the same 1.3-encoded bytes as 1.4 misreads code 0 as 16:10 (regression guard)', () => {
+    const edid = blankEdidWithHeader(1, 3)
+    edid.standardTimings = [new StandardTiming({ width: 640, height: 640, refreshRate: 60 })]
+    const encoded = EDID.encode(edid)
+    // Decode the full block under each version (decode reads offset 38 absolutely).
+    const as13 = StandardTiming.decode(encoded, 1, 3)
+    const as14 = StandardTiming.decode(encoded, 1, 4)
+    expect(as13[0].height).toBe(640) // correct under 1.3
+    expect(as14[0].height).toBe(400) // misread as 16:10 under 1.4
+  })
+
+  it('the 0xFA Standard Timing ID descriptor also resolves code 0 by EDID version', () => {
+    const edid13 = blankEdidWithHeader(1, 3)
+    edid13.displayDescriptors = [
+      { tag: 0xFA, timings: [{ width: 640, height: 640, refreshRate: 60 }] },
+    ] as never
+    const encoded13 = EDID.encode(edid13)
+    const decoded13 = EDID.decode(encoded13)
+    const fa13 = decoded13.displayDescriptors.find((d) => d.tag === 0xFA) as
+      | { tag: 0xFA; timings: { width: number; height: number; refreshRate: number }[] }
+      | undefined
+    expect(fa13?.timings[0].height).toBe(640) // 1:1 under 1.3
+
+    const edid14 = blankEdidWithHeader(1, 4)
+    edid14.displayDescriptors = [
+      { tag: 0xFA, timings: [{ width: 640, height: 400, refreshRate: 60 }] },
+    ] as never
+    const decoded14 = EDID.decode(EDID.encode(edid14))
+    const fa14 = decoded14.displayDescriptors.find((d) => d.tag === 0xFA) as
+      | { tag: 0xFA; timings: { width: number; height: number; refreshRate: number }[] }
+      | undefined
+    expect(fa14?.timings[0].height).toBe(400) // 16:10 under 1.4
+  })
+})

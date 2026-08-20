@@ -177,7 +177,11 @@ export class DisplayDescriptorParser {
   /**
    * Decode a display descriptor from 18 bytes
    */
-  static decode(data: Uint8Array): DisplayDescriptor | null {
+  static decode(
+    data: Uint8Array,
+    edidVersion?: number,
+    edidRevision?: number,
+  ): DisplayDescriptor | null {
     if (data.length < 18) return null;
     if (!this.isDisplayDescriptor(data)) return null;
 
@@ -195,7 +199,7 @@ export class DisplayDescriptorParser {
       case 0xFB:
         return this.decodeColorPoint(data);
       case 0xFA:
-        return this.decodeStandardTimingId(data);
+        return this.decodeStandardTimingId(data, edidVersion, edidRevision);
       case 0xF9:
         return this.decodeDCM(data);
       case 0xF8:
@@ -223,7 +227,11 @@ export class DisplayDescriptorParser {
   /**
    * Encode a display descriptor to 18 bytes
    */
-  static encode(descriptor: DisplayDescriptor): Uint8Array {
+  static encode(
+    descriptor: DisplayDescriptor,
+    edidVersion?: number,
+    edidRevision?: number,
+  ): Uint8Array {
     const bytes = new Uint8Array(18);
     bytes[0] = 0x00;
     bytes[1] = 0x00;
@@ -248,7 +256,7 @@ export class DisplayDescriptorParser {
         this.encodeColorPoint(bytes, descriptor as ColorPointDescriptor);
         break;
       case 0xFA:
-        this.encodeStandardTimingId(bytes, descriptor as StandardTimingIdDescriptor);
+        this.encodeStandardTimingId(bytes, descriptor as StandardTimingIdDescriptor, edidVersion, edidRevision);
         break;
       case 0xF9:
         this.encodeDCM(bytes, descriptor as DCMDescriptor);
@@ -505,7 +513,11 @@ export class DisplayDescriptorParser {
     return Math.max(0, Math.min(0xFE, encoded));
   }
 
-  private static decodeStandardTimingId(data: Uint8Array): StandardTimingIdDescriptor {
+  private static decodeStandardTimingId(
+    data: Uint8Array,
+    edidVersion?: number,
+    edidRevision?: number,
+  ): StandardTimingIdDescriptor {
     const timings: StandardTimingIdDescriptor['timings'] = [];
 
     for (let i = 0; i < 6; i++) {
@@ -517,7 +529,7 @@ export class DisplayDescriptorParser {
 
       const width = (byte1 + 31) * 8;
       const aspectCode = decodeStandardTimingAspectCode(byte2);
-      const height = heightFromStandardTimingAspect(width, aspectCode);
+      const height = heightFromStandardTimingAspect(width, aspectCode, edidVersion, edidRevision);
       const refreshRate = (byte2 & 0x3F) + 60;
 
       timings.push({ width, height, refreshRate });
@@ -526,7 +538,12 @@ export class DisplayDescriptorParser {
     return { tag: 0xFA, timings };
   }
 
-  private static encodeStandardTimingId(bytes: Uint8Array, descriptor: StandardTimingIdDescriptor): void {
+  private static encodeStandardTimingId(
+    bytes: Uint8Array,
+    descriptor: StandardTimingIdDescriptor,
+    edidVersion?: number,
+    edidRevision?: number,
+  ): void {
     for (let i = 0; i < 6; i++) {
       const offset = 5 + i * 2;
       const timing = descriptor.timings?.[i];
@@ -540,7 +557,7 @@ export class DisplayDescriptorParser {
       const roundedWidth = Math.round(timing.width / 8) * 8;
       const clampedWidth = Math.min(2288, Math.max(256, roundedWidth));
       const widthByte = Math.max(1, Math.min(255, Math.round(clampedWidth / 8) - 31));
-      const aspectCode = standardTimingAspectCodeFor(clampedWidth, timing.height);
+      const aspectCode = standardTimingAspectCodeFor(clampedWidth, timing.height, edidVersion, edidRevision);
       const refresh = Math.min(123, Math.max(60, Math.round(timing.refreshRate))) - 60;
 
       bytes[offset] = widthByte & 0xFF;

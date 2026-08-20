@@ -2,9 +2,12 @@ export { readUint16LE, readUint16BE, readUint32LE, readIeeeOui, writeIeeeOui } f
 export { checksum8, isChecksum8Valid } from './checksum';
 export {
   STANDARD_TIMING_ASPECTS,
+  STANDARD_TIMING_ASPECTS_PRE_1_4,
   decodeStandardTimingAspectCode,
   heightFromStandardTimingAspect,
   standardTimingAspectCodeFor,
+  standardTimingAspectTable,
+  isEdid14OrLater,
 } from './aspect-ratios';
 export type { StandardTimingAspect } from './aspect-ratios';
 export {
