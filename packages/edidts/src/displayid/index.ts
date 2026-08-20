@@ -113,6 +113,7 @@ export type {
   DisplayIdProductIdentificationBlock,
   DisplayIdSection,
   DisplayIdStereoDisplayInterfaceBlock,
+  DisplayIdStereoTimingCodeDescriptor,
   DisplayIdTiledDisplayTopologyBlock,
   DisplayIdTypeVIIDetailedTiming,
   DisplayIdTypeVIIDetailedTimingBlock,

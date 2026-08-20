@@ -501,9 +501,14 @@ function isTypedStereoDisplayInterfaceBlock(block: DisplayIdDataBlock): block is
   return (
     block.tag === DisplayIdDataBlockTag.StereoDisplayInterface &&
     isStereoDisplayInterfacePayloadLengthValid(block.payloadLength) &&
-    typeof maybeBlock.stereoSupported === 'boolean' &&
-    Array.isArray(maybeBlock.stereoTypes) &&
-    maybeBlock.stereoTypes.every((stereoType) => typeof stereoType === 'number')
+    typeof maybeBlock.timingSupport === 'number' &&
+    typeof maybeBlock.methodCode === 'number' &&
+    maybeBlock.methodParameters instanceof Uint8Array &&
+    Array.isArray(maybeBlock.stereoTimingCodeDescriptors) &&
+    maybeBlock.stereoTimingCodeDescriptors.every(
+      (d) => typeof d?.type === 'number' && Array.isArray(d?.timingCodes) && d.timingCodes.every((c) => typeof c === 'number'),
+    ) &&
+    maybeBlock.trailing instanceof Uint8Array
   );
 }
 

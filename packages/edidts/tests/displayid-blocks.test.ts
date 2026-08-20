@@ -554,28 +554,93 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
-  it('decodes, edits, and encodes Stereo Display Interface while preserving trailing bytes', () => {
+  it('decodes, edits, and encodes Stereo Display Interface method codes and parameters (§4.6)', () => {
+    // Frame/Field Sequential (method 0x00, 1 param byte = polarity), then
+    // Side-by-side (0x01, 1 param), Pixel-interleaved (0x02, 8 param bytes),
+    // Multi-view (0x04, 2 params), and Proprietary (0xff, 0 params) in separate
+    // sections. Here: Pixel-interleaved with an 8x8 L/R pattern + a trailing byte.
     const section = decodeDisplayIdSection(withChecksum([
-      0x20, 0x06, 0x04, 0x00,
-      0x27, 0x00, 0x03,
-      0x00, 0x05, 0xcc,
+      0x20, 0x0e, 0x04, 0x00,
+      0x27, 0x00, 0x0b,
+      0x09, 0x02, 0xaa, 0x55, 0xf0, 0x0f, 0xcc, 0x33, 0x81, 0x7e, 0xdd,
       0x00,
     ]));
     const block = section.blocks[0] as DisplayIdStereoDisplayInterfaceBlock;
 
-    expect(block.stereoSupported).toBe(false);
-    expect(block.stereoTypes).toEqual([0, 2]);
+    expect(block.methodCode).toBe(0x02);
+    expect(block.timingSupport).toBe(0);
+    expect(Array.from(block.methodParameters)).toEqual([0xaa, 0x55, 0xf0, 0x0f, 0xcc, 0x33, 0x81, 0x7e]);
+    expect(Array.from(block.trailing)).toEqual([0xdd]);
+    expect(block.stereoTimingCodeDescriptors).toEqual([]);
 
-    block.stereoSupported = true;
-    block.stereoTypes = [1, 7];
+    // Edit: switch to Multi-view (0x04, 2 param bytes: views + interleaving code).
+    block.methodCode = 0x04;
+    block.methodParameters = new Uint8Array([0x03, 0x01]);
 
     const encoded = encodeDisplayIdSection(section);
     const reparsed = decodeDisplayIdSection(encoded);
     const reparsedBlock = reparsed.blocks[0] as DisplayIdStereoDisplayInterfaceBlock;
 
-    expect(reparsedBlock.stereoSupported).toBe(true);
-    expect(reparsedBlock.stereoTypes).toEqual([1, 7]);
-    expect(reparsedBlock.payload[2]).toBe(0xcc);
+    expect(reparsedBlock.methodCode).toBe(0x04);
+    expect(reparsedBlock.payload[0]).toBe(0x03); // N+1 = 2+1
+    expect(Array.from(reparsedBlock.methodParameters)).toEqual([0x03, 0x01]);
+    expect(Array.from(reparsedBlock.trailing)).toEqual([0xdd]);
+    expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+
+  it('decodes, edits, and encodes Stereo Display Interface 3D Timing Code descriptors (§4.6)', () => {
+    // timingSupport 0x01 (explicit-3D + codes listed) => header byte 01h bits 7:6 = 01b.
+    // flags = byte >> 3, so byte 01h = 0x40 => flags = 0x08. Method: Proprietary
+    // (0xff, 0 params). Then two 3D Timing Descriptor entries:
+    //   - DMT (type 0): codes [0x20, 0x21]  (header 0x02, 2 codes)
+    //   - HDMI VIC (type 2): codes [0x01]  (header 0x81, 1 code)
+    const section = decodeDisplayIdSection(withChecksum([
+      0x20, 0x0a, 0x04, 0x00,
+      0x27, 0x40, 0x07,
+      0x01, 0xff,
+      0x02, 0x20, 0x21,
+      0x81, 0x01,
+      0x00,
+    ]));
+    const block = section.blocks[0] as DisplayIdStereoDisplayInterfaceBlock;
+
+    expect(block.timingSupport).toBe(0x01);
+    expect(block.methodCode).toBe(0xff);
+    expect(Array.from(block.methodParameters)).toEqual([]);
+    expect(block.stereoTimingCodeDescriptors).toEqual([
+      { type: 0x00, timingCodes: [0x20, 0x21] },
+      { type: 0x02, timingCodes: [0x01] },
+    ]);
+
+    // Edit: replace the HDMI VIC descriptor with a CTA VIC (type 1) of [16, 31].
+    block.stereoTimingCodeDescriptors = [
+      { type: 0x00, timingCodes: [0x20, 0x21] },
+      { type: 0x01, timingCodes: [16, 31] },
+    ];
+
+    const encoded = encodeDisplayIdSection(section);
+    const reparsed = decodeDisplayIdSection(encoded);
+    const reparsedBlock = reparsed.blocks[0] as DisplayIdStereoDisplayInterfaceBlock;
+
+    expect(reparsedBlock.timingSupport).toBe(0x01);
+    expect(reparsedBlock.methodCode).toBe(0xff);
+    expect(reparsedBlock.stereoTimingCodeDescriptors).toEqual([
+      { type: 0x00, timingCodes: [0x20, 0x21] },
+      { type: 0x01, timingCodes: [16, 31] },
+    ]);
+    // header byte 01h (flags<<3 | revision) preserved at 0x40, payload[0]=1, payload[1]=0xff.
+    expect(reparsedBlock.payload[0]).toBe(0x01);
+    expect(reparsedBlock.payload[1]).toBe(0xff);
+    // Edited payload = [0x01,0xff, 0x02,0x20,0x21, 0x42,0x10,0x1f] (8 bytes);
+    // CTA VIC descriptor header = (1<<6)|2 = 0x42. Block region = 3+8 = 11 = 0x0b.
+    expect(Array.from(encoded)).toEqual(Array.from(withChecksum([
+      0x20, 0x0b, 0x04, 0x00,
+      0x27, 0x40, 0x08,
+      0x01, 0xff,
+      0x02, 0x20, 0x21,
+      0x42, 0x10, 0x1f,
+      0x00,
+    ])));
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
@@ -769,11 +834,11 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(block.tag).toBe(DisplayIdDataBlockTag.StereoDisplayInterface);
     expect(block.payloadLength).toBe(1);
     expect(Array.from(block.payload)).toEqual([0xcc]);
-    expect('stereoSupported' in block).toBe(false);
+    expect('methodCode' in block).toBe(false);
 
     Object.assign(block, {
-      stereoSupported: true,
-      stereoTypes: [0, 1],
+      methodCode: 0xff,
+      methodParameters: new Uint8Array(),
     });
 
     const encoded = encodeDisplayIdSection(section);
@@ -782,7 +847,7 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(Array.from(encoded)).toEqual(Array.from(source));
     expect(reparsedBlock.payloadLength).toBe(1);
     expect(Array.from(reparsedBlock.payload)).toEqual([0xcc]);
-    expect('stereoSupported' in reparsedBlock).toBe(false);
+    expect('methodCode' in reparsedBlock).toBe(false);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 

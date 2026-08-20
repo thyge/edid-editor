@@ -260,10 +260,49 @@ export interface DisplayIdDisplayInterfaceFeaturesBlock extends DisplayIdDataBlo
   trailing: Uint8Array;
 }
 
+/**
+ * One 3D Timing Descriptor entry inside a Stereo Display Interface block
+ * (DisplayID 2.0 §4.6, Table 4-28 "3D Timing Descriptor"). Present only when
+ * the block's 3D Stereo Timing Support field lists timing codes.
+ */
+export interface DisplayIdStereoTimingCodeDescriptor {
+  /** Header bits 7:6 — 0=DMT, 1=CTA VIC, 2=HDMI VIC, 3=reserved. */
+  type: number;
+  /** 1-byte timing codes (M entries, 0-31). */
+  timingCodes: number[];
+}
+
+/**
+ * DisplayID 2.0 §4.6 Stereo Display Interface Data Block (tag 0x27).
+ *
+ * Payload layout (offsets relative to the payload, i.e. spec offset + 03h):
+ * - payload[0] = Number of Bytes in Stereo Interface Method (N+1, where N is
+ *   the number of method-specific parameter bytes).
+ * - payload[1] = Stereo Interface Method Code (0x00 Frame/Field Sequential,
+ *   0x01 Side-by-side, 0x02 Pixel-interleaved, 0x03 Dual Interface,
+ *   0x04 Multi-view, 0x05 Stacked Frame, 0xFF Proprietary; 0x06-0xFE reserved).
+ * - payload[2..2+N-1] = method-specific parameters (raw bytes).
+ * - When the 3D Stereo Timing Support field (header byte 01h bits 7:6) is 01b
+ *   or 11b, a sequence of 3D Timing Descriptor entries follows the method
+ *   region (see DisplayIdStereoTimingCodeDescriptor).
+ *
+ * The 3D Stereo Timing Support field lives in the block header revision/flags
+ * byte (offset 01h), which the generic decoder exposes as `flags`
+ * (flags = byte >> 3). `timingSupport` is derived from it for convenience:
+ * (flags >> 3) & 0x03.
+ */
 export interface DisplayIdStereoDisplayInterfaceBlock extends DisplayIdDataBlock {
   tag: DisplayIdDataBlockTag.StereoDisplayInterface;
-  stereoSupported: boolean;
-  stereoTypes: number[];
+  /** Header byte 01h bits 7:6 — 3D Stereo Timing Support (0-3). */
+  timingSupport: number;
+  /** payload[1] — Stereo Interface Method Code. */
+  methodCode: number;
+  /** payload[2..] — method-specific parameter bytes (N = payload[0] - 1). */
+  methodParameters: Uint8Array;
+  /** 3D Timing Descriptor entries (present when timingSupport lists codes). */
+  stereoTimingCodeDescriptors: DisplayIdStereoTimingCodeDescriptor[];
+  /** Bytes past the method region and last full timing descriptor, preserved. */
+  trailing: Uint8Array;
 }
 
 export interface DisplayIdTiledDisplayTopologyBlock extends DisplayIdDataBlock {
@@ -430,8 +469,12 @@ export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDi
       return {
         ...createDefaultBlock(tag, 2),
         tag,
-        stereoSupported: false,
-        stereoTypes: [],
+        payload: new Uint8Array([0x01, 0xff]),
+        timingSupport: 0,
+        methodCode: 0xff,
+        methodParameters: new Uint8Array(),
+        stereoTimingCodeDescriptors: [],
+        trailing: new Uint8Array(),
       };
     case DisplayIdDataBlockTag.TiledDisplayTopology:
       return {
