@@ -19,6 +19,7 @@ const props = defineProps<{ cea: CEAExtensionBlock }>()
 
 const emit = defineEmits<{
   update: [block: VendorSpecificDataBlock, field: string, value: unknown]
+  'update-vsvdb': [block: VendorSpecificVideoDataBlock, field: string, value: unknown]
 }>()
 
 // Tag 0x03 VSDBs (HDMI 1.4, HDMI Forum, Microsoft HMD, AMD)
@@ -52,7 +53,7 @@ const dolbyRenderables = computed<DolbyRenderable[]>(() => {
     </template>
 
     <template v-for="(item, i) in dolbyRenderables" :key="`vsvdb-${i}`">
-      <CEAVendorDolby :fields="item.fields" />
+      <CEAVendorDolby :fields="item.fields" @update="(f: string, v: unknown) => emit('update-vsvdb', item.block, f, v)" />
     </template>
   </div>
 </template>

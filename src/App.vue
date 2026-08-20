@@ -16,6 +16,9 @@ import {
   type DisplayIdDataBlock,
   type DisplayIdExtension,
   type VendorSpecificDataBlock,
+  type VendorSpecificVideoDataBlock,
+  VENDOR_VSVDB_DECODERS,
+  VENDOR_VSVDB_ENCODERS,
 } from 'edidts'
 import TopNav from '@/components/layout/TopNav.vue'
 import LeftNav from '@/components/layout/LeftNav.vue'
@@ -187,6 +190,32 @@ function updateVSDB(block: VendorSpecificDataBlock, field: string, value: unknow
   // Replace the fields object reference so the child component re-renders and
   // the CEA encoder reads the updated values.
   vendor.fields = { ...(vendor.fields as object) } as typeof vendor.fields
+  cea.dataBlocks = [...cea.dataBlocks]
+  syncEdid()
+}
+
+/** Edit a VSVDB (tag 0x07 ext 0x01, e.g. Dolby Vision). Unlike tag-0x03 VSDBs,
+ *  the VSVDB carrier re-encodes from raw `block.payload`, not a structured
+ *  fields object, so we re-encode the post-OUI body and preserve any trailing
+ *  vendor-reserved bytes the codec doesn't model. */
+function updateVSVDB(block: VendorSpecificVideoDataBlock, field: string, value: unknown) {
+  if (!edidRef.value) return
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
+  const decoder = VENDOR_VSVDB_DECODERS[block.ieeeOui]
+  if (!decoder) return
+  const encoder = VENDOR_VSVDB_ENCODERS[decoder.kind]
+  if (!encoder) return
+  // Re-decode the current fields, apply the edit, re-encode the modeled head.
+  const fields = { ...(decoder.decode(block.payload) as object) }
+  setByPath(fields as Record<string, unknown>, field, value)
+  const encoded = encoder.encode(fields)
+  // Preserve trailing bytes the codec doesn't model (after the encoded head).
+  const trailing = block.payload.slice(encoded.length)
+  const newPayload = new Uint8Array(encoded.length + trailing.length)
+  newPayload.set(encoded, 0)
+  newPayload.set(trailing, encoded.length)
+  block.payload = newPayload
   cea.dataBlocks = [...cea.dataBlocks]
   syncEdid()
 }
@@ -538,7 +567,7 @@ function updateCEA(field: string, value: unknown) {
           <CEAVideoBlock v-else-if="activeSection === 'cea-video' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEASpeakerBlock v-else-if="activeSection === 'cea-speakers' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CEAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="updateVSDB" />
+          <CEAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="updateVSDB" @update-vsvdb="updateVSVDB" />
           <CEAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" />
           <CEAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEADetailedTimings
