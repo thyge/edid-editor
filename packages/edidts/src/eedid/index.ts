@@ -21,3 +21,4 @@ export {
   TIMING_PRIORITY_RANK,
 } from './timing-priority';
 export type { TimingEntry, TimingSource } from './timing-priority';
+export { collectVideoModeRefs } from './video-mode-ref';

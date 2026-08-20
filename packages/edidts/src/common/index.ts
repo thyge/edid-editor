@@ -34,8 +34,16 @@ export type {
   CVTComparisonResult,
   CVTModeLabel,
 } from './cvt-timing-generator';
-export { 
-  getManufacturerInfo, 
-  getManufacturerName, 
-  PNP_REGISTRY_ENTRIES 
+export {
+  getManufacturerInfo,
+  getManufacturerName,
+  PNP_REGISTRY_ENTRIES
 } from './pnp-registry';
+export {
+  ctaVicRef,
+  displayIdEnumeratedRef,
+  dtdRef,
+  standardRef,
+  cvtRef,
+} from './video-mode-ref';
+export type { VideoModeRef, VideoModeSource } from './video-mode-ref';
