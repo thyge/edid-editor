@@ -2,9 +2,14 @@
 import { computed, ref } from 'vue'
 import type { CEAExtensionBlock, CEADetailedTiming } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import DetailedTimingFields from '../edid/DetailedTimingFields.vue'
 
 const props = defineProps<{
   cea: CEAExtensionBlock
+}>()
+
+const emit = defineEmits<{
+  update: [index: number, field: string, value: unknown]
 }>()
 
 const timings = computed(() => props.cea.detailedTimings)
@@ -65,6 +70,13 @@ function refreshRate(t: CEADetailedTiming): string {
             v-if="expandedTimings.has(i)"
             class="border-t border-border/40 p-4 text-xs text-muted-foreground"
           >
+            <div class="mb-4">
+              <p class="text-[11px] uppercase tracking-wide mb-2 text-foreground/80">Edit Fields</p>
+              <DetailedTimingFields
+                :timing="timing"
+                @update="(field: string, value: unknown) => emit('update', i, field, value)"
+              />
+            </div>
             <div class="grid gap-3 md:grid-cols-2">
               <div class="rounded-lg border border-border/40 p-3">
                 <p class="text-[11px] uppercase tracking-wide mb-2">Horizontal</p>

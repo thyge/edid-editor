@@ -11,6 +11,7 @@ import type {
 } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import DisplayDescriptors from './DisplayDescriptors.vue'
+import DetailedTimingFields from './DetailedTimingFields.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
@@ -24,6 +25,7 @@ const emit = defineEmits<{
   addDescriptor: [tag: number]
   removeDescriptor: [index: number]
   updateDescriptor: [index: number, descriptor: DisplayDescriptor]
+  updateTiming: [index: number, field: string, value: unknown]
 }>()
 
 const detailedTimings = computed(() => props.edid.base.detailedTimings)
@@ -183,6 +185,13 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
             v-if="isTimingExpanded(i)"
             class="border-t border-border/40 p-4 text-xs text-muted-foreground"
           >
+            <div class="mb-4">
+              <p class="text-[11px] uppercase tracking-wide mb-2 text-foreground/80">Edit Fields</p>
+              <DetailedTimingFields
+                :timing="timing"
+                @update="(field: string, value: unknown) => emit('updateTiming', i, field, value)"
+              />
+            </div>
             <div class="grid gap-3 md:grid-cols-2">
               <div class="rounded-lg border border-border/40 p-3">
                 <p class="text-[11px] uppercase tracking-wide mb-2">Horizontal</p>

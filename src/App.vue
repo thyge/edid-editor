@@ -94,6 +94,23 @@ function removeTiming(index: number) {
   syncEdid()
 }
 
+function updateDetailedTiming(index: number, field: string, value: unknown) {
+  if (!edidRef.value) return
+  const timings = edidRef.value.base.detailedTimings
+  const timing = timings[index]
+  if (!timing) return
+  if (field.startsWith('flags.')) {
+    const key = field.slice(6)
+    ;(timing.flags as unknown as Record<string, unknown>)[key] = value
+  } else {
+    ;(timing as unknown as Record<string, unknown>)[field] = value
+  }
+  // Reassign the array so Vue re-evaluates the detailedTimings computed and
+  // the HexViewer reflects the re-encoded bytes.
+  edidRef.value.base.detailedTimings = [...timings]
+  syncEdid()
+}
+
 function createDefaultDescriptor(tag: number): DisplayDescriptor {
   switch (tag) {
     case 0xFC: return { tag: 0xFC, productName: '' }
@@ -407,6 +424,23 @@ function updateCEA(field: string, value: unknown) {
       const key = field.slice('videoCapability.'.length)
       ;(vcdb as unknown as Record<string, unknown>)[key] = value
     }
+  } else if (field.startsWith('detailedTiming.')) {
+    // "detailedTiming.<index>.<subfield>" — subfield is a dotted path such as
+    // "pixelClock" or "flags.interlaced".
+    const rest = field.slice('detailedTiming.'.length)
+    const sep = rest.indexOf('.')
+    const idx = Number(rest.slice(0, sep))
+    const subfield = rest.slice(sep + 1)
+    const timing = cea.detailedTimings[idx]
+    if (timing) {
+      if (subfield.startsWith('flags.')) {
+        const key = subfield.slice(6)
+        ;(timing.flags as unknown as Record<string, unknown>)[key] = value
+      } else {
+        ;(timing as unknown as Record<string, unknown>)[subfield] = value
+      }
+      cea.detailedTimings = [...cea.detailedTimings]
+    }
   }
 
   syncEdid()
@@ -465,6 +499,7 @@ function updateCEA(field: string, value: unknown) {
             @add-descriptor="addDescriptor"
             @remove-descriptor="removeDescriptor"
             @update-descriptor="updateDescriptor"
+            @update-timing="updateDetailedTiming"
           />
 
           <!-- CEA sections -->
@@ -476,7 +511,11 @@ function updateCEA(field: string, value: unknown) {
           <CEAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" />
           <CEAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" />
           <CEAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CEADetailedTimings v-else-if="activeSection === 'cea-timings' && ceaExtension" :cea="ceaExtension" />
+          <CEADetailedTimings
+            v-else-if="activeSection === 'cea-timings' && ceaExtension"
+            :cea="ceaExtension"
+            @update="(i: number, f: string, v: unknown) => updateCEA(`detailedTiming.${i}.${f}`, v)"
+          />
 
           <DisplayIDOverview
             v-else-if="activeSection === displayIdSectionIds.overview && displayIdExtension"
