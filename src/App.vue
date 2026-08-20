@@ -618,7 +618,7 @@ function updateCEA(field: string, value: unknown) {
           />
 
           <!-- CEA sections -->
-          <CEAOverview v-else-if="activeSection === 'cea-overview' && ceaExtension" :cea="ceaExtension" />
+          <CEAOverview v-else-if="activeSection === 'cea-overview' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEAHeaderFlags v-else-if="activeSection === 'cea-header' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEAVideoBlock v-else-if="activeSection === 'cea-video' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />

@@ -2,10 +2,36 @@
 import { computed } from 'vue'
 import type { CEAExtensionBlock, AudioDataBlock, VideoDataBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
 const props = defineProps<{
   cea: CEAExtensionBlock
 }>()
+
+const emit = defineEmits<{
+  update: [field: string, value: unknown]
+}>()
+
+// dtdOffset (byte 2) and the DTD count are not stored fields the encoder reads —
+// the CEA encoder recomputes dtdOffset from the live data-block layout and
+// appends detailedTimings after it (see ExtensionBlockParser.encodeCEA). So
+// both are displayed as derived values rather than user-editable.
+const derivedDtdOffset = computed(() => {
+  const cea = props.cea
+  let offset = 4
+  for (const block of cea.dataBlocks) {
+    // Mirror the encoder's per-block sizing (1 header + payload ≤ 31).
+    offset += 1 + (((block as { data?: Uint8Array }).data?.length ?? 0) & 0x1f)
+  }
+  return (cea.detailedTimings.length > 0 || offset > 4) ? offset : 0
+})
+
+function onNativeFormats(v: string | number) {
+  const n = typeof v === 'number' ? v : Number(v)
+  const max = props.cea.detailedTimings.length
+  const clamped = Number.isFinite(n) ? Math.max(0, Math.min(15, Math.min(max, Math.round(n)))) : 0
+  emit('update', 'nativeFormats', clamped)
+}
 
 const blockSummary = computed(() => {
   const blocks = props.cea.dataBlocks
@@ -49,19 +75,23 @@ const switchRowClass = 'flex items-center justify-between gap-2 rounded-md borde
     <CardContent class="space-y-6 text-sm">
       <section>
         <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Header</h4>
-        <div class="grid grid-cols-3 gap-x-6 gap-y-2">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2">
           <div :class="switchRowClass">
             <span class="text-muted-foreground">Revision</span>
             <span class="font-mono">{{ cea.revision }}</span>
           </div>
-          <div :class="switchRowClass">
-            <span class="text-muted-foreground">DTD Offset</span>
-            <span class="font-mono">{{ cea.dtdOffset }}</span>
+          <div :class="switchRowClass" title="Auto-derived from the data-block layout on encode">
+            <span class="text-muted-foreground">DTD Offset <span class="text-[10px]">(derived)</span></span>
+            <span class="font-mono text-muted-foreground">{{ derivedDtdOffset }}</span>
           </div>
-          <div :class="switchRowClass">
-            <span class="text-muted-foreground">Native Formats</span>
-            <span class="font-mono">{{ cea.nativeFormats }}</span>
+          <div :class="switchRowClass" title="Number of CEA Detailed Timing Descriptors">
+            <span class="text-muted-foreground">DTD Count <span class="text-[10px]">(derived)</span></span>
+            <span class="font-mono text-muted-foreground">{{ cea.detailedTimings.length }}</span>
           </div>
+          <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground" title="Byte 3 bits 3:0 — number of native DTDs (first N DTDs are native)">
+            Native DTDs (0–{{ Math.min(15, cea.detailedTimings.length) }})
+            <Input type="number" :min="0" :max="Math.min(15, cea.detailedTimings.length)" :step="1" :model-value="cea.nativeFormats" @update:model-value="(v) => onNativeFormats(v)" />
+          </label>
         </div>
       </section>
 

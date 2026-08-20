@@ -32,6 +32,7 @@ const switchRowClass = 'flex items-center justify-between gap-2 rounded-md borde
             <option :value="1">Version 1</option>
             <option :value="2">Version 2</option>
             <option :value="3">Version 3</option>
+            <option :value="4">Version 4</option>
           </select>
         </div>
       </section>
