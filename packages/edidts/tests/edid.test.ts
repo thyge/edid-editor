@@ -513,3 +513,60 @@ describe('EDID 2.0 (256-byte) base block rejection', () => {
     expect(() => EEDID.decode(encoded)).toThrow(/EDID 2\.0 .*not supported/)
   })
 })
+
+describe('EDIDHeader week-of-manufacture special values (VESA E-EDID A2 §3.4.4)', () => {
+  function roundTrip(week: number, year: number) {
+    const edid = EDID.blank()
+    edid.header.weekOfManufacture = week
+    edid.header.yearOfManufacture = year
+    return EDID.decode(EDID.encode(edid))
+  }
+
+  it('0x00 decodes as week-not-specified (no week; year is manufacture year)', () => {
+    const h = roundTrip(0x00, 2020).header
+    expect(h.weekOfManufacture).toBe(0x00)
+    expect(h.weekNotSpecified).toBe(true)
+    expect(h.weekSpecified).toBe(false)
+    expect(h.isModelYear).toBe(false)
+    expect(h.yearOfManufacture).toBe(2020)
+  })
+
+  it('0xFF decodes as the Model Year flag (year is model year)', () => {
+    const h = roundTrip(0xff, 2006).header
+    expect(h.weekOfManufacture).toBe(0xff)
+    expect(h.isModelYear).toBe(true)
+    expect(h.weekSpecified).toBe(false)
+    expect(h.weekNotSpecified).toBe(false)
+    expect(h.yearOfManufacture).toBe(2006)
+  })
+
+  it('a normal week (1..0x36) decodes as week-specified, not model year', () => {
+    const h = roundTrip(15, 2020).header
+    expect(h.weekSpecified).toBe(true)
+    expect(h.isModelYear).toBe(false)
+    expect(h.weekNotSpecified).toBe(false)
+  })
+
+  it('reserved week range 0x37..0xFE is flagged', () => {
+    const h = roundTrip(0x40, 2020).header
+    expect(h.isWeekReserved).toBe(true)
+    expect(h.weekSpecified).toBe(false)
+    expect(h.isModelYear).toBe(false)
+  })
+
+  it('encode reverses both special values byte-for-byte', () => {
+    const edid00 = EDID.blank()
+    edid00.header.weekOfManufacture = 0x00
+    edid00.header.yearOfManufacture = 2020
+    const enc00 = EDID.encode(edid00)
+    expect(enc00[16]).toBe(0x00)
+    expect(enc00[17]).toBe(2020 - 1990)
+
+    const edidFf = EDID.blank()
+    edidFf.header.weekOfManufacture = 0xff
+    edidFf.header.yearOfManufacture = 2006
+    const encFf = EDID.encode(edidFf)
+    expect(encFf[16]).toBe(0xff)
+    expect(encFf[17]).toBe(2006 - 1990)
+  })
+})

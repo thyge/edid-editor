@@ -146,6 +146,45 @@ export class EDIDHeader {
   }
 
   /**
+   * Structured week-of-manufacture semantics per VESA E-EDID A2 §3.4.4
+   * (Table 3.8). The raw `weekOfManufacture` byte is preserved as-is for
+   * round-trip; these getters let a caller distinguish the special values
+   * instead of treating the byte as an ordinary 1–54 week number.
+   */
+
+  /**
+   * True when byte 16 = 0x00: week of manufacture is not specified. The
+   * `yearOfManufacture` is still the year of manufacture (not a model year).
+   */
+  get weekNotSpecified(): boolean {
+    return this.weekOfManufacture === 0x00;
+  }
+
+  /**
+   * True when byte 16 is in 1..0x36: a real week of manufacture (1–54) is
+   * given, and `yearOfManufacture` is the year of manufacture.
+   */
+  get weekSpecified(): boolean {
+    return this.weekOfManufacture >= 0x01 && this.weekOfManufacture <= 0x36;
+  }
+
+  /**
+   * True when byte 16 = 0xFF: the Model Year Flag. `yearOfManufacture` then
+   * holds the model year, not the year of manufacture.
+   */
+  get isModelYear(): boolean {
+    return this.weekOfManufacture === 0xff;
+  }
+
+  /**
+   * True when byte 16 is in the reserved range 0x37..0xFE (do not use per
+   * spec). Surfaced so the UI can flag a non-conformant block.
+   */
+  get isWeekReserved(): boolean {
+    return this.weekOfManufacture >= 0x37 && this.weekOfManufacture <= 0xfe;
+  }
+
+  /**
    * Check if signature is valid
    */
   get isValidSignature(): boolean {
