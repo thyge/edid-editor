@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { EEDID, decodeExtension, encodeExtension, isCEAExtension, isDisplayIdExtension, isOpaqueExtension } from '../src/eedid'
+import { EEDID, decodeExtension, encodeExtension, isCEAExtension, isDisplayIdExtension, isOpaqueExtension, type OpaqueExtension } from '../src/eedid'
 import { EDID } from '../src/edid'
 import { ExtensionBlockParser } from '../src/cta'
 import { decodeDisplayIdSection, DisplayIdDataBlockTag, encodeDisplayIdSection, type DisplayIdProductIdentificationBlock } from '../src/displayid'
@@ -430,5 +430,102 @@ describe('EEDID per-block checksum validity + diagnostics (TASK-1)', () => {
     )
     // Base diagnostic must NOT be present — only the extension is bad.
     expect(eedid.checksumDiagnostics).not.toContain('Base EDID block checksum is invalid')
+  })
+})
+
+describe('EEDID extension count and opaque preservation (TASK-24)', () => {
+  // Base block + one opaque (unknown-tag) extension. byte 126 (the declared
+  // extension count) is set to `declaredCount`, which may exceed the number of
+  // 128-byte blocks actually present. The base checksum is re-fixed afterward
+  // because byte 126 is inside the base block's checksummed range.
+  function buildBlobWithOneOpaque(declaredCount: number): { blob: Uint8Array; opaque: Uint8Array } {
+    const base = EDID.encode(EDID.blank())
+    const opaque = new Uint8Array(128)
+    opaque[0] = 0x33 // unknown extension tag
+    opaque[1] = 0x02 // revision
+    opaque.set([0xaa, 0xbb, 0xcc], 10) // distinctive payload
+    opaque[127] = checksum8(opaque, 127)
+    const blob = new Uint8Array(base.length + opaque.length)
+    blob.set(base, 0)
+    blob.set(opaque, 128)
+    blob[126] = declaredCount
+    blob[127] = checksum8(blob, 127) // re-fix base checksum after editing byte 126
+    return { blob, opaque }
+  }
+
+  it('tolerates a declared extension count greater than the supplied blocks (partial parse)', () => {
+    // Declares 4 extensions in byte 126 but only 1 block is present. Decode
+    // must parse only the present block (actualCount) and not throw.
+    const { blob } = buildBlobWithOneOpaque(4)
+    const eedid = EEDID.decode(blob)
+    expect(eedid.extensions.length).toBe(1)
+    expect(eedid.extensions[0].tag).toBe(0x33)
+    expect(eedid.isValid).toBe(true)
+  })
+
+  it('normalizes the declared count to the actual extension count on re-encode', () => {
+    const { blob } = buildBlobWithOneOpaque(4)
+    const eedid = EEDID.decode(blob)
+    const reencoded = EEDID.encode(eedid)
+    // byte 126 is rewritten from the real extension list length, not the
+    // original over-declared value.
+    expect(reencoded[126]).toBe(1)
+    expect(reencoded.length).toBe(256) // base + the one actual extension
+    expect(isChecksum8Valid(reencoded.subarray(0, 128))).toBe(true)
+  })
+
+  it('preserves an unknown-tag extension byte-identically through decode + re-encode', () => {
+    const opaque = new Uint8Array(128)
+    opaque[0] = 0x20 // unknown extension tag
+    opaque[1] = 0x05 // revision
+    for (let i = 2; i < 127; i++) opaque[i] = (i * 7) & 0xff // distinctive non-zero payload
+    opaque[127] = checksum8(opaque, 127)
+    const ext = decodeExtension(opaque)
+    expect(isOpaqueExtension(ext)).toBe(true)
+    if (isOpaqueExtension(ext)) {
+      expect(ext.tag).toBe(0x20)
+      expect(ext.revision).toBe(0x05)
+      expect(ext.checksumValid).toBe(true)
+      // The raw 128 bytes are preserved verbatim.
+      expect(Array.from(ext.bytes)).toEqual(Array.from(opaque))
+    }
+    const reencoded = encodeExtension(ext)
+    expect(Array.from(reencoded)).toEqual(Array.from(opaque))
+  })
+
+  it('preserves several distinct unknown tags as opaque', () => {
+    for (const tag of [0x50, 0x80, 0xfe]) {
+      const raw = new Uint8Array(128)
+      raw[0] = tag
+      raw[3] = 0x77
+      raw[127] = checksum8(raw, 127)
+      const ext = decodeExtension(raw)
+      expect(isOpaqueExtension(ext), `tag 0x${tag.toString(16)}`).toBe(true)
+      expect(ext.tag, `tag 0x${tag.toString(16)}`).toBe(tag)
+      const reencoded = encodeExtension(ext)
+      expect(Array.from(reencoded), `tag 0x${tag.toString(16)}`).toEqual(Array.from(raw))
+    }
+  })
+
+  it('re-encodes a short opaque extension literal to 128 bytes with zero padding and a valid checksum', () => {
+    // A programmatically-built opaque extension with fewer than 128 bytes
+    // (e.g. a truncated manufacturer blob) must zero-pad to a full block and
+    // recompute the byte-127 checksum on encode.
+    const ext: OpaqueExtension = {
+      kind: 'opaque',
+      tag: 0x50,
+      revision: 0x01,
+      bytes: new Uint8Array([0x50, 0x01, 0xde, 0xad]),
+      checksum: 0,
+    }
+    const encoded = encodeExtension(ext)
+    expect(encoded.length).toBe(128)
+    expect(encoded[0]).toBe(0x50)
+    expect(encoded[1]).toBe(0x01)
+    expect(encoded[2]).toBe(0xde)
+    expect(encoded[3]).toBe(0xad)
+    expect(encoded[4]).toBe(0) // zero-padded tail
+    expect(encoded[126]).toBe(0)
+    expect(isChecksum8Valid(encoded)).toBe(true)
   })
 })
