@@ -15,6 +15,7 @@ import {
   type CEAExtension,
   type DisplayIdDataBlock,
   type DisplayIdExtension,
+  type VendorSpecificDataBlock,
 } from 'edidts'
 import TopNav from '@/components/layout/TopNav.vue'
 import LeftNav from '@/components/layout/LeftNav.vue'
@@ -158,6 +159,35 @@ function updateDescriptor(index: number, descriptor: DisplayDescriptor) {
   if (index < 0 || index >= descriptors.length) return
   descriptors[index] = descriptor
   edidRef.value.base.displayDescriptors = descriptors
+  syncEdid()
+}
+
+/** Set a (possibly dotted) path on a plain object, mutating in place. */
+function setByPath(obj: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split('.')
+  let cur: Record<string, unknown> = obj
+  for (let i = 0; i < parts.length - 1; i++) {
+    const next = cur[parts[i]]
+    if (next == null || typeof next !== 'object') return
+    cur = next as Record<string, unknown>
+  }
+  cur[parts[parts.length - 1]] = value
+}
+
+/** Edit a structured VSDB (HDMI 1.4, HDMI Forum, Microsoft HMD, ...). The CEA
+ *  encoder re-encodes from block.vendor.fields automatically, so we only mutate
+ *  the fields object and reassign dataBlocks to trigger reactivity. */
+function updateVSDB(block: VendorSpecificDataBlock, field: string, value: unknown) {
+  if (!edidRef.value) return
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
+  const vendor = block.vendor
+  if (!vendor || vendor.kind === 'unknown') return
+  setByPath(vendor.fields as unknown as Record<string, unknown>, field, value)
+  // Replace the fields object reference so the child component re-renders and
+  // the CEA encoder reads the updated values.
+  vendor.fields = { ...(vendor.fields as object) } as typeof vendor.fields
+  cea.dataBlocks = [...cea.dataBlocks]
   syncEdid()
 }
 
@@ -508,7 +538,7 @@ function updateCEA(field: string, value: unknown) {
           <CEAVideoBlock v-else-if="activeSection === 'cea-video' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEASpeakerBlock v-else-if="activeSection === 'cea-speakers' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CEAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" />
+          <CEAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="updateVSDB" />
           <CEAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" />
           <CEAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEADetailedTimings

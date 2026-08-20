@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { CEAExtensionBlock, DolbyVSDB, VendorSpecificVideoDataBlock } from 'edidts'
+import type { CEAExtensionBlock, DolbyVSDB, VendorSpecificDataBlock, VendorSpecificVideoDataBlock } from 'edidts'
 import { findVSDBs, findVSVDBs, VENDOR_VSVDB_DECODERS, OUI } from 'edidts'
 
 import CEAVendorHDMI14 from './vsdb/CEAVendorHDMI14.vue'
@@ -16,6 +16,10 @@ interface DolbyRenderable {
 }
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
+
+const emit = defineEmits<{
+  update: [block: VendorSpecificDataBlock, field: string, value: unknown]
+}>()
 
 // Tag 0x03 VSDBs (HDMI 1.4, HDMI Forum, Microsoft HMD, AMD)
 const vsdbs = computed(() => findVSDBs(props.cea))
@@ -40,9 +44,9 @@ const dolbyRenderables = computed<DolbyRenderable[]>(() => {
     <p v-if="!vsdbs.length && !dolbyRenderables.length" class="text-muted-foreground">No Vendor Specific Data Blocks present.</p>
 
     <template v-for="(block, i) in vsdbs" :key="`vsdb-${i}`">
-      <CEAVendorHDMI14          v-if="block.vendor?.kind === 'hdmi14'"           :fields="block.vendor.fields" />
-      <CEAVendorHDMIForum       v-else-if="block.vendor?.kind === 'hdmiForum'"   :fields="block.vendor.fields" />
-      <CEAVendorMicrosoftHMD    v-else-if="block.vendor?.kind === 'microsoftHmd'" :fields="block.vendor.fields" />
+      <CEAVendorHDMI14          v-if="block.vendor?.kind === 'hdmi14'"           :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
+      <CEAVendorHDMIForum       v-else-if="block.vendor?.kind === 'hdmiForum'"   :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
+      <CEAVendorMicrosoftHMD    v-else-if="block.vendor?.kind === 'microsoftHmd'" :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
       <CEAVendorAMD             v-else-if="block.vendor?.kind === 'amdFreeSync'" :fields="block.vendor.fields" />
       <CEAVendorUnknown         v-else                                            :block="block" />
     </template>
