@@ -1,9 +1,36 @@
 import { describe, it, expect } from 'vitest'
-import { EEDID } from '../src/eedid'
+import { EEDID, getCEAExtension } from '../src/eedid'
 import { EstablishedTiming } from '../src/edid'
+import { DetailedTimingDescriptor } from '../src/common'
+import { checksum8 } from '../src/common'
+import { decodeDisplayIdSection, DisplayIdDataBlockTag } from '../src/displayid'
+import { VENDOR_DECODERS } from '../src/cta/vsdb/registry'
 import { loadEdidFixtures } from './fixture-loader'
 
 const edidFixtures = await loadEdidFixtures()
+
+/**
+ * OUI integer values that have a registered VSDB decoder. A tag-0x03 VSDB
+ * whose on-wire OUI (block.data[0..2], little-endian) is in this set MUST
+ * decode to a structured vendor kind — never the 'unknown' fallback. This
+ * guards the TASK-56 regression where an OUI byte-shift made every known
+ * VSDB decode as opaque/unknown.
+ */
+const KNOWN_VSDB_OUIS = new Set(Object.keys(VENDOR_DECODERS).map(Number))
+
+/** Base field set every DisplayID data block carries (incl. opaque fallback). */
+const DISPLAYID_BASE_KEYS = ['tag', 'revision', 'flags', 'payloadLength', 'payload']
+
+function isStructuredDisplayIdBlock(block: { tag: number }): boolean {
+  // A structured (known) block carries typed fields beyond the base 5; an
+  // opaque fallback carries only the base set.
+  return Object.keys(block).some((k) => !DISPLAYID_BASE_KEYS.includes(k))
+}
+
+function ouiFromVsdbData(data: Uint8Array): number {
+  // VSDB block.data is header-stripped: OUI occupies bytes 0..2 little-endian.
+  return data[0] | (data[1] << 8) | (data[2] << 16)
+}
 
 describe('Test EDID compatibility', () => {
   it.each(edidFixtures)('should parse $source/$name without throwing', ({ data }) => {
@@ -111,5 +138,137 @@ describe('Test EDID content extraction', () => {
     expect(edid.base.header.edidVersion).toBeGreaterThanOrEqual(1)
     expect(edid.base.header.edidRevision).toBeGreaterThanOrEqual(0)
     expect(typeof edid.base.gamma).toBe('number')
+  })
+})
+
+/**
+ * Structured-field regression guards (TASK-47).
+ *
+ * The byte-level round-trip suite above passes even when a structured decoder
+ * silently falls back to opaque (the opaque path preserves bytes), so it
+ * cannot catch classes of regressions like the VSDB OUI-shift (TASK-56) or the
+ * DTD stereo bug (TASK-32). These assertions inspect decoded *structure*, not
+ * bytes, so a structured→opaque regression or a field-misdecode fails here.
+ */
+describe('Structured-field regression guards', () => {
+  it('CEA Video/Audio/Speaker/VSDB blocks decode to structured types (not opaque) where present', () => {
+    const violations: string[] = []
+
+    for (const { source, name, data } of edidFixtures) {
+      const edid = EEDID.decode(data)
+      const cea = getCEAExtension(edid)
+      if (!cea) continue
+
+      for (const block of cea.dataBlocks) {
+        const label = `${source}/${name} tag=0x${block.tag.toString(16)}`
+        switch (block.tag) {
+          case 0x01: // Audio Data Block — must carry structured `descriptors`
+            if (!Array.isArray((block as { descriptors?: unknown }).descriptors)) {
+              violations.push(`${label} (audio) missing structured descriptors`)
+            }
+            break
+          case 0x02: // Video Data Block — must carry structured `vics`
+            if (!Array.isArray((block as { vics?: unknown }).vics)) {
+              violations.push(`${label} (video) missing structured vics`)
+            }
+            break
+          case 0x04: { // Speaker Allocation — must carry structured `speakers`
+            const speakers = (block as { speakers?: unknown }).speakers
+            if (typeof speakers !== 'object' || speakers === null) {
+              violations.push(`${label} (speaker) missing structured speakers`)
+            }
+            break
+          }
+          case 0x03: { // VSDB — must carry a structured `vendor` descriptor
+            const vendor = (block as { vendor?: { kind: string } }).vendor
+            if (!vendor) {
+              violations.push(`${label} (vsdb) missing structured vendor`)
+              break
+            }
+            // Known OUIs must decode to their vendor kind, not the 'unknown'
+            // fallback — guards the TASK-56 OUI-shift regression.
+            if (KNOWN_VSDB_OUIS.has(ouiFromVsdbData(block.data)) && vendor.kind === 'unknown') {
+              violations.push(`${label} (vsdb) known OUI decoded as unknown kind`)
+            }
+            break
+          }
+          default:
+            break
+        }
+      }
+    }
+
+    expect(violations, violations.join('\n')).toEqual([])
+  })
+
+  it('DisplayID 2.0 section blocks decode to structured types where present', () => {
+    // The in-module corpus carries only DisplayID 1.3 (preserved opaque, which
+    // is correct), so construct a v2.0 section with a Product Identification
+    // block and assert it decodes to structured fields, not an opaque block.
+    // Payload mirrors displayid.test.ts §Product Identification.
+    const sectionBytes = new Uint8Array([
+      0x20, 0x14, 0x04, 0x00, // v2.0, 20 bytes-in-section, desktop use, 0 extensions
+      0x20, 0x00, 0x11, 0x00, // Product Identification tag 0x20, rev 0, len 17
+      0x1a, 0x2b, 0x34, 0x12, // OUI 0x2b1a00, product id 0x1234
+      0x78, 0x56, 0x34, 0x12, // serial 0x12345678
+      0x16, 0x19, 0x05,       // week 22, year 2025, name len 5
+      0x50, 0x61, 0x6e, 0x65, 0x6c, // "Panel"
+      0x00,                   // checksum placeholder
+    ])
+    sectionBytes[sectionBytes.length - 1] = checksum8(sectionBytes)
+
+    const section = decodeDisplayIdSection(sectionBytes)
+    expect(section.blocks).toHaveLength(1)
+
+    const block = section.blocks[0]
+    expect(block.tag).toBe(DisplayIdDataBlockTag.ProductIdentification)
+    // Structured-field checks (not byte round-trip): the known block carries
+    // typed product-identification fields an opaque fallback would not have.
+    expect(isStructuredDisplayIdBlock(block)).toBe(true)
+    expect((block as { ieeeOui?: number }).ieeeOui).toBe(0x2b1a00)
+    expect((block as { productName?: string }).productName).toBe('Panel')
+  })
+
+  it('a constructed stereo DTD round-trips its stereo mode (guards TASK-32 fix)', () => {
+    // The TASK-32 broken decode short-circuited field-sequential-right (code
+    // 001) to 'none', and the broken encode emitted scrambled bits. A DTD
+    // constructed with that mode MUST round-trip to the same mode — under the
+    // broken maps this assertion fails.
+    const dtd = new DetailedTimingDescriptor({
+      pixelClock: 148.5,
+      horizontalActive: 1920,
+      horizontalBlanking: 280,
+      verticalActive: 1080,
+      verticalBlanking: 45,
+      horizontalSyncWidth: 44,
+      verticalSyncWidth: 5,
+      flags: { stereoMode: 'field-sequential-right', syncType: 'digital-separate' },
+    })
+
+    const encoded = dtd.encode()
+    const decoded = DetailedTimingDescriptor.decode(encoded)
+
+    expect(decoded).not.toBeNull()
+    expect(decoded!.flags.stereoMode).toBe('field-sequential-right')
+
+    // Exercise every non-`none` mode so any future stereo-bit scramble fails.
+    for (const mode of [
+      'field-sequential-left',
+      '2-way-interleaved-right',
+      '2-way-interleaved-left',
+      '4-way-interleaved',
+      'side-by-side-interleaved',
+    ] as const) {
+      const built = new DetailedTimingDescriptor({
+        pixelClock: 74.25,
+        horizontalActive: 1280,
+        horizontalBlanking: 200,
+        verticalActive: 720,
+        verticalBlanking: 30,
+        flags: { stereoMode: mode },
+      })
+      const roundTrip = DetailedTimingDescriptor.decode(built.encode())
+      expect(roundTrip!.flags.stereoMode).toBe(mode)
+    }
   })
 })
