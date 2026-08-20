@@ -644,33 +644,68 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
-  it('decodes, edits, and encodes Tiled Display Topology while preserving reserved and trailing bytes', () => {
+  it('decodes, edits, and encodes the full 22-byte Tiled Display Topology (§4.7)', () => {
+    // Capabilities 0xC9: singleTileBehavior=1, subsetTileBehavior=1, bezel present, single enclosure.
+    // 6-bit packed topology (payload[1..3]): hCount=50, vCount=18, hLoc=49, vLoc=34
+    //   (exercises all four high-bit fields of payload[3] = 0xDE).
+    // Tile size 1920x1080 (stored -1). Multiplier 5, bezel 10/20/30/40.
+    // Topology ID: OUI 0x001234, product 0xBEEF, serial 0xDEADBEEF.
     const section = decodeDisplayIdSection(withChecksum([
-      0x20, 0x0d, 0x04, 0x00,
-      0x28, 0x00, 0x0a,
-      0x02, 0x03, 0x01, 0x02, 0x80, 0x07, 0x38, 0x04, 0xdd, 0xee,
+      0x20, 0x19, 0x04, 0x00,
+      0x28, 0x00, 0x16,
+      0xc9, 0x11, 0x01, 0xde,
+      0x7f, 0x07, 0x37, 0x04,
+      0x05, 0x0a, 0x14, 0x1e, 0x28,
+      0x00, 0x12, 0x34, 0xef, 0xbe, 0xef, 0xbe, 0xad, 0xde,
       0x00,
     ]));
     const block = section.blocks[0] as DisplayIdTiledDisplayTopologyBlock;
 
-    expect(block.tileCountHorizontal).toBe(2);
-    expect(block.tileCountVertical).toBe(3);
-    expect(block.tileLocationHorizontal).toBe(1);
-    expect(block.tileLocationVertical).toBe(2);
+    expect(block.singleTileBehavior).toBe(1);
+    expect(block.subsetTileBehavior).toBe(1);
+    expect(block.bezelInfoPresent).toBe(true);
+    expect(block.singleEnclosure).toBe(true);
+    expect(block.tileCountHorizontal).toBe(50);
+    expect(block.tileCountVertical).toBe(18);
+    expect(block.tileLocationHorizontal).toBe(49);
+    expect(block.tileLocationVertical).toBe(34);
     expect(block.tileWidthPixels).toBe(1920);
     expect(block.tileHeightPixels).toBe(1080);
+    expect(block.pixelMultiplier).toBe(5);
+    expect(block.topBezelSize).toBe(10);
+    expect(block.bottomBezelSize).toBe(20);
+    expect(block.rightBezelSize).toBe(30);
+    expect(block.leftBezelSize).toBe(40);
+    expect(block.vendorOui).toBe(0x001234);
+    expect(block.productId).toBe(0xbeef);
+    expect(block.serialNumber).toBe(0xdeadbeef);
 
-    block.tileLocationHorizontal = 0;
-    block.tileWidthPixels = 2560;
+    // Edit: max 64 horizontal tiles, drop bezel info (and its multiplier), serial = 1.
+    block.tileCountHorizontal = 64;
+    block.bezelInfoPresent = false;
+    block.pixelMultiplier = 0;
+    block.serialNumber = 1;
 
     const encoded = encodeDisplayIdSection(section);
     const reparsed = decodeDisplayIdSection(encoded);
     const reparsedBlock = reparsed.blocks[0] as DisplayIdTiledDisplayTopologyBlock;
 
-    expect(reparsedBlock.tileLocationHorizontal).toBe(0);
-    expect(reparsedBlock.tileWidthPixels).toBe(2560);
-    expect(reparsedBlock.payload[8]).toBe(0xdd);
-    expect(reparsedBlock.payload[9]).toBe(0xee);
+    expect(reparsedBlock.tileCountHorizontal).toBe(64);
+    expect(reparsedBlock.tileCountVertical).toBe(18);
+    expect(reparsedBlock.tileLocationHorizontal).toBe(49);
+    expect(reparsedBlock.tileLocationVertical).toBe(34);
+    expect(reparsedBlock.bezelInfoPresent).toBe(false);
+    expect(reparsedBlock.singleEnclosure).toBe(true);
+    expect(reparsedBlock.pixelMultiplier).toBe(0);
+    expect(reparsedBlock.vendorOui).toBe(0x001234);
+    expect(reparsedBlock.productId).toBe(0xbeef);
+    expect(reparsedBlock.serialNumber).toBe(1);
+    // Capabilities byte: bezel bit (0x40) cleared, enclosure bit (0x80) kept.
+    expect(reparsedBlock.payload[0]).toBe(0x89);
+    // 64 tiles => stored 63 = 0x3F; payload[1] low nibble of hCount = 0xf << 4.
+    expect(reparsedBlock.payload[1]).toBe(0xf1);
+    // hCount high bits (0x30) still land in payload[3] bits 7:6 => 0xC0 portion.
+    expect(reparsedBlock.payload[3] & 0xc0).toBe(0xc0);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
@@ -864,15 +899,12 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(block.tag).toBe(DisplayIdDataBlockTag.TiledDisplayTopology);
     expect(block.payloadLength).toBe(5);
     expect(Array.from(block.payload)).toEqual([0x02, 0x03, 0x01, 0x02, 0xdd]);
-    expect('tileCountHorizontal' in block).toBe(false);
+    expect('singleTileBehavior' in block).toBe(false);
 
     Object.assign(block, {
+      singleTileBehavior: 1,
       tileCountHorizontal: 4,
-      tileCountVertical: 4,
-      tileLocationHorizontal: 1,
-      tileLocationVertical: 1,
       tileWidthPixels: 1920,
-      tileHeightPixels: 1080,
     });
 
     const encoded = encodeDisplayIdSection(section);
@@ -881,7 +913,7 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(Array.from(encoded)).toEqual(Array.from(source));
     expect(reparsedBlock.payloadLength).toBe(5);
     expect(Array.from(reparsedBlock.payload)).toEqual([0x02, 0x03, 0x01, 0x02, 0xdd]);
-    expect('tileCountHorizontal' in reparsedBlock).toBe(false);
+    expect('singleTileBehavior' in reparsedBlock).toBe(false);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 

@@ -305,14 +305,57 @@ export interface DisplayIdStereoDisplayInterfaceBlock extends DisplayIdDataBlock
   trailing: Uint8Array;
 }
 
+/**
+ * DisplayID 2.0 §4.7 Tiled Display Topology Data Block (tag 0x28).
+ *
+ * Fixed 22-byte payload (Table 4-37). The four topology/location fields are
+ * 6-bit values (0-63) packed across payload[1..3]; the model exposes them as
+ * human 1-based values (1-64), storing value-1 on encode. Tile sizes are
+ * 16-bit values exposed as human pixel counts (1-65536), storing value-1.
+ */
 export interface DisplayIdTiledDisplayTopologyBlock extends DisplayIdDataBlock {
   tag: DisplayIdDataBlockTag.TiledDisplayTopology;
+  // payload[0] — Tiled Display and Tile Capabilities (Table 4-38)
+  /** bits 2:0 — single-tile behavior (0=undefined, 1=at location, 2=scaled to fit, 3=cloned). */
+  singleTileBehavior: number;
+  /** bits 4:3 — subset-tile behavior (0=undefined, 1=at location). */
+  subsetTileBehavior: number;
+  /** bit 6 — bezel information descriptor present. */
+  bezelInfoPresent: boolean;
+  /** bit 7 — single physical display enclosure (else multiple). */
+  singleEnclosure: boolean;
+  // payload[1..3] — Tiled Display Topology & Tile Location (Table 4-39), human 1-64
+  /** 1-64 (stored as 6-bit value-1). */
   tileCountHorizontal: number;
+  /** 1-64 (stored as 6-bit value-1). */
   tileCountVertical: number;
+  /** 1-64 (stored as 6-bit value-1). */
   tileLocationHorizontal: number;
+  /** 1-64 (stored as 6-bit value-1). */
   tileLocationVertical: number;
+  // payload[4..7] — Tile Size (Table 4-40), human 1-65536
+  /** 1-65536 pixels (stored as 16-bit value-1). */
   tileWidthPixels: number;
+  /** 1-65536 lines (stored as 16-bit value-1). */
   tileHeightPixels: number;
+  // payload[8..12] — Tile Pixel Multiplier & Bezel (Table 4-41)
+  /** 0-255. Must be non-zero when bezelInfoPresent is true. */
+  pixelMultiplier: number;
+  /** 0-255 — top bezel size. */
+  topBezelSize: number;
+  /** 0-255 — bottom bezel size. */
+  bottomBezelSize: number;
+  /** 0-255 — right bezel size. */
+  rightBezelSize: number;
+  /** 0-255 — left bezel size. */
+  leftBezelSize: number;
+  // payload[13..21] — Tiled Display Topology ID (Table 4-42)
+  /** 24-bit Manufacturer/Vendor ID (3 bytes, big-endian). */
+  vendorOui: number;
+  /** 16-bit Product ID Code (little-endian). */
+  productId: number;
+  /** 32-bit Serial Number (little-endian). 0 is reserved. */
+  serialNumber: number;
 }
 
 export interface DisplayIdContainerIdBlock extends DisplayIdDataBlock {
@@ -478,14 +521,26 @@ export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDi
       };
     case DisplayIdDataBlockTag.TiledDisplayTopology:
       return {
-        ...createDefaultBlock(tag, 9),
+        ...createDefaultBlock(tag, 22),
         tag,
+        singleTileBehavior: 0,
+        subsetTileBehavior: 0,
+        bezelInfoPresent: false,
+        singleEnclosure: true,
         tileCountHorizontal: 1,
         tileCountVertical: 1,
-        tileLocationHorizontal: 0,
-        tileLocationVertical: 0,
-        tileWidthPixels: 0,
-        tileHeightPixels: 0,
+        tileLocationHorizontal: 1,
+        tileLocationVertical: 1,
+        tileWidthPixels: 1920,
+        tileHeightPixels: 1080,
+        pixelMultiplier: 0,
+        topBezelSize: 0,
+        bottomBezelSize: 0,
+        rightBezelSize: 0,
+        leftBezelSize: 0,
+        vendorOui: 0,
+        productId: 0,
+        serialNumber: 0,
       };
     case DisplayIdDataBlockTag.ContainerId:
       return {

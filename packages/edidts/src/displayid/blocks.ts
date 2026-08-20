@@ -518,12 +518,24 @@ function isTypedTiledDisplayTopologyBlock(block: DisplayIdDataBlock): block is D
   return (
     block.tag === DisplayIdDataBlockTag.TiledDisplayTopology &&
     isTiledDisplayTopologyPayloadLengthValid(block.payloadLength) &&
+    typeof maybeBlock.singleTileBehavior === 'number' &&
+    typeof maybeBlock.subsetTileBehavior === 'number' &&
+    typeof maybeBlock.bezelInfoPresent === 'boolean' &&
+    typeof maybeBlock.singleEnclosure === 'boolean' &&
     typeof maybeBlock.tileCountHorizontal === 'number' &&
     typeof maybeBlock.tileCountVertical === 'number' &&
     typeof maybeBlock.tileLocationHorizontal === 'number' &&
     typeof maybeBlock.tileLocationVertical === 'number' &&
     typeof maybeBlock.tileWidthPixels === 'number' &&
-    typeof maybeBlock.tileHeightPixels === 'number'
+    typeof maybeBlock.tileHeightPixels === 'number' &&
+    typeof maybeBlock.pixelMultiplier === 'number' &&
+    typeof maybeBlock.topBezelSize === 'number' &&
+    typeof maybeBlock.bottomBezelSize === 'number' &&
+    typeof maybeBlock.rightBezelSize === 'number' &&
+    typeof maybeBlock.leftBezelSize === 'number' &&
+    typeof maybeBlock.vendorOui === 'number' &&
+    typeof maybeBlock.productId === 'number' &&
+    typeof maybeBlock.serialNumber === 'number'
   );
 }
 
