@@ -9,6 +9,15 @@ export interface EdidFixtureCase {
   name: string
   data: Uint8Array
   source: 'fixtures' | 'fixtures_proprietary' | 'linuxhw'
+  /**
+   * The edid-decode human-readable text portion of a linuxhw corpus file (the
+   * decoded text after the `edid-decode (hex):` block), retained only when the
+   * loader is asked for it via `includeText`. Undefined for in-module fixtures
+   * (which are raw bytes, not edid-decode dumps) and when `includeText` is
+   * false. Used by the cross-parser oracle (TASK-58) to assert decoded field
+   * values match edid-decode.
+   */
+  text?: string
 }
 
 type FixtureModule = Record<string, unknown>
@@ -17,7 +26,14 @@ const currentDir = dirname(fileURLToPath(import.meta.url))
 const proprietaryFixturePath = join(currentDir, 'fixtures_proprietary.ts')
 const edidSignature = [0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00]
 
-/** Default location of the linuxhw/EDID submodule clone, relative to this file. */
+/**
+ * Default location of the linuxhw/EDID clone (per CLAUDE.md): this package's
+ * `tests/fixtures-linuxhw`. Gitignored; absent in CI/worktrees, in which case
+ * the loader silently returns no linuxhw fixtures. The cross-parser oracle
+ * (corpus-field-oracle.test.ts / corpus-field-oracle.ts) resolves the corpus
+ * dir itself with a canonical→repo-root fallback, so it works even when the
+ * clone lives at the repo-root `tests/fixtures-linuxhw` instead.
+ */
 export const LINUXHW_FIXTURE_DIR = join(currentDir, 'fixtures-linuxhw')
 
 /** env var: positive number = sample size, 0/unset = no limit. */
@@ -58,9 +74,24 @@ export function extractEdidBytesFromText(text: string): Uint8Array | null {
   return isFullEdid(bytes) ? bytes : null
 }
 
+/**
+ * Extract the edid-decode human-readable text portion of a corpus dump — the
+ * content AFTER the `edid-decode (hex):` hex block (everything from the first
+ * `---` separator onward: decoded fields, warnings, failures, conformity).
+ * Returns the empty string if there is no text portion (e.g. a bare hex dump).
+ * The hex extraction in `extractEdidBytesFromText` is unchanged.
+ */
+export function extractEdidText(text: string): string {
+  const header = text.match(/^edid-decode\s*\(hex\)\s*:\s*\n/i)
+  const afterHeader = header ? text.slice(header[0].length) : text
+  const sepIdx = afterHeader.indexOf('\n---')
+  return sepIdx >= 0 ? afterHeader.slice(sepIdx + 1) : ''
+}
+
 export async function collectEdidFixturesFromFile(
   filePath: string,
   baseDir: string,
+  includeText = false,
 ): Promise<EdidFixtureCase | null> {
   const text = await readFile(filePath, 'utf8')
   const data = extractEdidBytesFromText(text)
@@ -71,11 +102,13 @@ export async function collectEdidFixturesFromFile(
     name: relativePath,
     data,
     source: 'linuxhw',
+    ...(includeText ? { text: extractEdidText(text) } : {}),
   }
 }
 
 export async function collectEdidFixturesFromDirectory(
   dir: string = LINUXHW_FIXTURE_DIR,
+  includeText = false,
 ): Promise<EdidFixtureCase[]> {
   let info: import('node:fs').Stats
   try { info = await stat(dir) } catch { return [] }
@@ -90,7 +123,7 @@ export async function collectEdidFixturesFromDirectory(
     .map(e => join(e.parentPath ?? e.path, e.name))
 
   const cases = (await Promise.all(
-    files.map(file => collectEdidFixturesFromFile(file, dir)),
+    files.map(file => collectEdidFixturesFromFile(file, dir, includeText)),
   )).filter((c): c is EdidFixtureCase => c !== null)
 
   cases.sort((a, b) => a.name.localeCompare(b.name))
@@ -160,6 +193,12 @@ export interface LoadFixturesOptions {
   linuxhwDir?: string
   /** Override the EDID_FIXTURE_LIMIT env var. 0 = no limit. */
   limit?: number
+  /**
+   * When true, retain the edid-decode text portion on linuxhw fixture cases
+   * (populates `EdidFixtureCase.text`). In-module fixtures never carry text.
+   * Used by the cross-parser oracle (TASK-58).
+   */
+  includeText?: boolean
 }
 
 export async function loadEdidFixtures(
@@ -168,6 +207,7 @@ export async function loadEdidFixtures(
   const inModule = await loadInModuleFixtures()
   const linuxhw = await collectEdidFixturesFromDirectory(
     options.linuxhwDir ?? LINUXHW_FIXTURE_DIR,
+    options.includeText ?? false,
   )
   return applyFixtureLimit(
     [...inModule, ...linuxhw],
