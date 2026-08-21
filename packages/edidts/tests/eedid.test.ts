@@ -126,10 +126,27 @@ describe('EEDID extension dispatch', () => {
     expect(isDisplayIdExtension(ext)).toBe(true)
   })
 
-  it('falls back to opaque for a non-2.0 DisplayID section (e.g. version byte 0x70)', () => {
+  it('decodes a DisplayID 1.x section (version byte 0x10) into a structured DisplayIdExtension', () => {
     const v1Bytes = new Uint8Array(128)
-    v1Bytes[0] = 0x70
-    v1Bytes[1] = 0x10
+    v1Bytes[0] = 0x70 // EDID extension tag
+    v1Bytes[1] = 0x10 // DisplayID section version byte (v1.x)
+    v1Bytes[127] = checksum8(v1Bytes, 127)
+    const ext = decodeExtension(v1Bytes)
+    // A v1.x section (version byte 0x10–0x1F) now decodes structured instead of
+    // falling back to opaque — the v1.x section model is first-class.
+    expect(isDisplayIdExtension(ext)).toBe(true)
+    if (isDisplayIdExtension(ext)) {
+      expect(ext.tag).toBe(0x70)
+      expect(ext.section.version).toBe(1)
+      expect(ext.section.versionByte).toBe(0x10)
+      expect(ext.section.blocks).toHaveLength(0)
+    }
+  })
+
+  it('falls back to opaque for a non-DisplayID version byte (e.g. version byte 0x30)', () => {
+    const v1Bytes = new Uint8Array(128)
+    v1Bytes[0] = 0x70 // EDID extension tag
+    v1Bytes[1] = 0x30 // Not a recognized DisplayID version byte
     v1Bytes[127] = checksum8(v1Bytes, 127)
     const ext = decodeExtension(v1Bytes)
     expect(isOpaqueExtension(ext)).toBe(true)

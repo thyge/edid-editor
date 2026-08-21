@@ -101,6 +101,7 @@ import {
   isBrightnessLuminanceRangePayloadLengthValid,
   type DisplayIdBrightnessLuminanceRangeBlock,
 } from './brightness-luminance';
+import { encodeV1KnownPayload } from './v1-blocks';
 
 export interface DecodeBlocksResult {
   blocks: DisplayIdDataBlock[];
@@ -358,6 +359,12 @@ function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
 
   if (isTypedCtaDisplayIdBlock(block)) {
     return encodeCtaDisplayIdBlock(block);
+  }
+
+  // DisplayID 1.x blocks (structured fields → re-encode; raw fallback → null).
+  const v1Payload = encodeV1KnownPayload(block);
+  if (v1Payload !== null) {
+    return v1Payload;
   }
 
   return block.payload;

@@ -44,6 +44,18 @@ export interface DisplayIdExtension {
    * when this is absent; `decodeDisplayId` always populates it.
    */
   sections?: DisplayIdSection[];
+  /**
+   * Verbatim bytes occupying the `0x70` block payload AFTER the last decoded
+   * section (bytes `1 + sectionsTotalLength .. 126`; byte 127 is the EDID block
+   * checksum and is not part of this). Real-world fixtures sometimes carry
+   * non-zero trailing bytes here (stray padding, an un-walked second section
+   * the version-byte walk stopped before, etc.). The structured decode path
+   * preserves them verbatim so the block round-trips byte-exactly — matching
+   * the opaque fallback's byte preservation and avoiding a regression when a
+   * v1.x/v2.0 section does not fill the whole 126-byte payload. Empty when the
+   * sections fill the payload exactly.
+   */
+  trailingBytes?: Uint8Array;
   checksum: number;
   /**
    * True iff this 0x70 extension block's byte-127 EDID block checksum is valid.
@@ -150,17 +162,28 @@ function decodeDisplayId(bytes: Uint8Array): DisplayIdExtension | OpaqueExtensio
     // 1..126; byte 127 is the EDID block checksum and is NOT part of any
     // section. Walk every concatenated section in that payload so multi-
     // section chains (base section extensionCount > 0) are preserved.
-    const sections = decodeDisplayIdSections(bytes.subarray(1, 127));
+    const payload = bytes.subarray(1, 127);
+    const sections = decodeDisplayIdSections(payload);
     if (sections.length === 0) {
       return decodeOpaque(bytes);
     }
     const section = sections[0];
+    // Capture any bytes after the last decoded section verbatim. The version-
+    // byte walk stops when the next byte is not a section version, so whatever
+    // remains here (zero padding, stray non-zero bytes, an un-walked tail) is
+    // outside the structured section model. Preserve it so the block round-
+    // trips byte-exactly, matching the opaque fallback.
+    const sectionsTotalLength = sections.reduce((sum, s) => sum + s.totalLength, 0);
+    const trailingBytes = sectionsTotalLength < payload.length
+      ? payload.slice(sectionsTotalLength)
+      : new Uint8Array();
     return {
       kind: 'displayid',
       tag: 0x70,
       revision: section.revision,
       section,
       sections,
+      trailingBytes,
       checksum: bytes[127],
       checksumValid: isChecksum8Valid(bytes),
     };
@@ -191,6 +214,17 @@ function encodeDisplayId(ext: DisplayIdExtension): Uint8Array {
     out.set(encoded.subarray(0, take), offset);
     offset += take;
     remaining -= take;
+  }
+  // Re-write any verbatim trailing bytes that followed the last decoded section
+  // (bytes after the section content, up to byte 126) so a block that does not
+  // fill the 126-byte payload round-trips byte-exactly.
+  if (ext.trailingBytes && ext.trailingBytes.length > 0) {
+    const trailingStart = 1 + Math.min(totalLength, 127);
+    const capacity = 127 - trailingStart;
+    if (capacity > 0) {
+      const take = Math.min(ext.trailingBytes.length, capacity);
+      out.set(ext.trailingBytes.subarray(0, take), trailingStart);
+    }
   }
   out[127] = checksum8(out, 127);
   return out;

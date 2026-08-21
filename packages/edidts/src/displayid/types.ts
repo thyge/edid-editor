@@ -429,6 +429,174 @@ export type KnownDisplayIdDataBlock =
   | DisplayIdVendorSpecificBlock
   | DisplayIdCtaBlock;
 
+// ---------------------------------------------------------------------------
+// DisplayID 1.x data blocks.
+//
+// DisplayID 1.x (VESA DisplayID v1.0–v1.3) reuses the same section header and
+// 3-byte block framing as 2.0, but uses a different block-tag space (0x00–0x13
+// + 0x7f vendor) and different per-block field layouts. edid-decode parses both
+// versions in one walker (`parse_displayid_block`, parse-displayid-block.cpp);
+// these types mirror the v1.x arm. A v1.x section carries v1.x blocks in
+// `DisplayIdSection.blocks` (the base `DisplayIdDataBlock` type covers both).
+// Only the four most common v1.x blocks are modeled in this first increment;
+// every other v1.x tag falls through to the raw generic carrier (byte-exact).
+// ---------------------------------------------------------------------------
+
+/** DisplayID 1.x data block tags (edid-decode parse-displayid-block.cpp:1615). */
+export const DISPLAY_ID_V1_BLOCK_TAGS = {
+  /** Product Identification Data Block. */
+  ProductIdentification: 0x00,
+  /** Display Parameters Data Block (fixed 12-byte payload). */
+  DisplayParameters: 0x01,
+  /** Video Timing Modes Type 1 — Detailed Timings (20-byte DTD descriptors). */
+  TypeIDetailedTiming: 0x03,
+  /** Tiled Display Topology Data Block (fixed 22-byte payload). */
+  TiledDisplayTopology: 0x12,
+  /** Vendor-Specific Data Block (3-byte OUI + vendor payload). */
+  VendorSpecific: 0x7f,
+} as const;
+
+/**
+ * DisplayID 1.x Product Identification Data Block (tag 0x00).
+ *
+ * Variable payload: 12 fixed bytes + an ASCII product-name string. Unlike the
+ * v2.0 block (tag 0x20), v1.x carries a 3-character ASCII vendor ID (not an
+ * IEEE OUI). Field layout per edid-decode parse_displayid_product_id
+ * (parse-displayid-block.cpp:79), `version < 0x20` arm:
+ *   payload[0..2]  Vendor ID (3 ASCII chars)
+ *   payload[3..4]  Product Code (LE 16-bit)
+ *   payload[5..8]  Serial Number (LE 32-bit; 0 = not specified)
+ *   payload[9]     Week of manufacture (0xff = model year; 0 = not specified)
+ *   payload[10]    Year of manufacture (2000 + byte; 0 = not specified)
+ *   payload[11]    Product-name string length N
+ *   payload[12..]  Product name (N ASCII bytes)
+ */
+export interface DisplayIdV1ProductIdentificationBlock extends DisplayIdDataBlock {
+  tag: typeof DISPLAY_ID_V1_BLOCK_TAGS.ProductIdentification;
+  /** 3-character ASCII vendor ID (payload[0..2]). */
+  vendorId: string;
+  /** payload[3..4] LE — manufacturer product code. */
+  productCode: number;
+  /** payload[5..8] LE 32-bit — serial number (0 = not specified). */
+  serialNumber: number;
+  /** payload[9] — week of manufacture; omitted when 0 (not specified) or 0xff (model year). */
+  manufactureWeek?: number;
+  /** 2000 + payload[10]; omitted when payload[10] === 0 (not specified). */
+  year?: number;
+  /** True when payload[9] === 0xff (the byte encodes a model year, not a manufacture date). */
+  isModelYear: boolean;
+  /** payload[11] — product-name string length N. */
+  productNameLength: number;
+  /** payload[12..12+N-1] — product name (ASCII, preserved verbatim). */
+  productNameBytes: Uint8Array;
+  /** Decoded ASCII product name. */
+  productName: string;
+}
+
+/**
+ * DisplayID 1.x Display Parameters Data Block (tag 0x01, fixed 12-byte payload).
+ *
+ * Field layout per edid-decode parse_displayid_parameters
+ * (parse-displayid-block.cpp:139). Raw wire values are stored; the UI derives
+ * display units (image size / 10 mm, gamma/aspect = (100 + byte) / 100,
+ * color depth = nibble + 1).
+ *   payload[0..1]  Horizontal image size (LE 16-bit, 0.1 mm units)
+ *   payload[2..3]  Vertical image size (LE 16-bit, 0.1 mm units)
+ *   payload[4..5]  Horizontal native pixel count (LE 16-bit)
+ *   payload[6..7]  Vertical native pixel count (LE 16-bit)
+ *   payload[8]     Feature support flags (8-bit bitfield)
+ *   payload[9]     Gamma (0xff = not defined, else (100 + byte) / 100)
+ *   payload[10]    Aspect ratio ((100 + byte) / 100)
+ *   payload[11]    bits 3:0 = native dynamic color depth - 1; bits 7:4 = overall - 1
+ */
+export interface DisplayIdV1DisplayParametersBlock extends DisplayIdDataBlock {
+  tag: typeof DISPLAY_ID_V1_BLOCK_TAGS.DisplayParameters;
+  horizontalImageSizeTenthsMm: number;
+  verticalImageSizeTenthsMm: number;
+  horizontalPixelCount: number;
+  verticalPixelCount: number;
+  featureSupportFlags: number;
+  gamma: number;
+  aspectRatio: number;
+  /** payload[11] bits 3:0 — native color depth code (depth = code + 1). */
+  nativeColorDepthCode: number;
+  /** payload[11] bits 7:4 — overall color depth code (depth = code + 1). */
+  overallColorDepthCode: number;
+}
+
+/**
+ * DisplayID 1.x Type 1 Detailed Timings Data Block (tag 0x03).
+ *
+ * A stream of 20-byte Detailed Timing descriptors. The descriptor layout is
+ * identical to the v2.0 Type VII block (tag 0x22) — both are the standard
+ * 20-byte DTD — so the descriptor reuses `DisplayIdTypeVIIDetailedTiming`. The
+ * only difference is the pixel-clock resolution: Type 1 is 10 kHz
+ * (`pixelClockKHz = 10 * (1 + raw24)`) whereas Type VII is 1 kHz
+ * (`1 + raw24`). The codec applies the 10× scaling on decode and reverses it
+ * on encode, so `pixelClockKHz` always holds the physical pixel clock in kHz.
+ * edid-decode parse_displayid_type_1_7_timing (parse-displayid-block.cpp:224).
+ */
+export interface DisplayIdV1TypeIDetailedTimingBlock extends DisplayIdDataBlock {
+  tag: typeof DISPLAY_ID_V1_BLOCK_TAGS.TypeIDetailedTiming;
+  timings: DisplayIdTypeVIIDetailedTiming[];
+}
+
+/**
+ * DisplayID 1.x Tiled Display Topology Data Block (tag 0x12, fixed 22 bytes).
+ *
+ * Bit-packing is identical to the v2.0 block (tag 0x28); the only field
+ * difference is the topology ID: v1.x carries a 3-character ASCII vendor ID
+ * (payload[13..15]) where v2.0 carries a big-endian IEEE OUI. Tile counts and
+ * locations are modeled as human 1-based values (1-64) storing value-1, and
+ * tile sizes as human pixel counts (1-65536) storing value-1 — matching the
+ * v2.0 codec convention so the two versions share one model shape.
+ * edid-decode parse_displayid_tiled_display_topology(x, is_v2=false).
+ */
+export interface DisplayIdV1TiledDisplayTopologyBlock extends DisplayIdDataBlock {
+  tag: typeof DISPLAY_ID_V1_BLOCK_TAGS.TiledDisplayTopology;
+  singleTileBehavior: number;
+  subsetTileBehavior: number;
+  bezelInfoPresent: boolean;
+  singleEnclosure: boolean;
+  /** 1-64 (stored as 6-bit value-1). */
+  tileCountHorizontal: number;
+  /** 1-64 (stored as 6-bit value-1). */
+  tileCountVertical: number;
+  /** 1-64 (stored as 6-bit value-1). */
+  tileLocationHorizontal: number;
+  /** 1-64 (stored as 6-bit value-1). */
+  tileLocationVertical: number;
+  /** 1-65536 pixels (stored as 16-bit value-1). */
+  tileWidthPixels: number;
+  /** 1-65536 lines (stored as 16-bit value-1). */
+  tileHeightPixels: number;
+  pixelMultiplier: number;
+  topBezelSize: number;
+  bottomBezelSize: number;
+  rightBezelSize: number;
+  leftBezelSize: number;
+  /** 3-character ASCII vendor ID (payload[13..15]). */
+  vendorId: string;
+  /** payload[16..17] LE 16-bit. */
+  productId: number;
+  /** payload[18..21] LE 32-bit. */
+  serialNumber: number;
+}
+
+export type KnownDisplayIdV1DataBlock =
+  | DisplayIdV1ProductIdentificationBlock
+  | DisplayIdV1DisplayParametersBlock
+  | DisplayIdV1TypeIDetailedTimingBlock
+  | DisplayIdV1TiledDisplayTopologyBlock;
+
+export const DISPLAY_ID_V1_BLOCK_LABELS: Record<number, string> = {
+  [DISPLAY_ID_V1_BLOCK_TAGS.ProductIdentification]: 'Product Identification',
+  [DISPLAY_ID_V1_BLOCK_TAGS.DisplayParameters]: 'Display Parameters',
+  [DISPLAY_ID_V1_BLOCK_TAGS.TypeIDetailedTiming]: 'Type 1 Detailed Timings',
+  [DISPLAY_ID_V1_BLOCK_TAGS.TiledDisplayTopology]: 'Tiled Display Topology',
+  [DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific]: 'Vendor-Specific',
+};
+
 export const DISPLAY_ID_BLOCK_LABELS: Record<DisplayIdDataBlockTag, string> = {
   [DisplayIdDataBlockTag.ProductIdentification]: 'Product Identification',
   [DisplayIdDataBlockTag.DisplayParameters]: 'Display Parameters',
@@ -639,7 +807,21 @@ export interface DisplayIdSection {
   primaryUseCase: number;
   extensionCount: number;
   blocks: DisplayIdDataBlock[];
+  /**
+   * Count of trailing 0x00 fill bytes after the last block. Used by the v2.0
+   * codec, where any 0x00 byte inside the data-block area is the fill marker.
+   */
   fillBytes: number;
+  /**
+   * Verbatim trailing bytes after the last decoded block (v1.x). The v1.x
+   * walker stops at a `tag===0 && len===0` end-marker or at a truncated/over-
+   * running block; the bytes from there to the section end (including the
+   * marker and any non-zero leftover) are preserved here so the section
+   * round-trips byte-identically regardless of fill content. When present,
+   * `encodeDisplayIdSection` writes these bytes verbatim; otherwise the v2.0
+   * `fillBytes` count of 0x00 is written.
+   */
+  fillBytesRaw?: Uint8Array;
   checksum: number;
   isChecksumValid: boolean;
 }

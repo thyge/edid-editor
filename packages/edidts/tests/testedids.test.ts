@@ -1,9 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { EEDID, getCEAExtension } from '../src/eedid'
+import { EEDID, getCEAExtension, getDisplayIdExtension, isDisplayIdExtension } from '../src/eedid'
 import { EstablishedTiming } from '../src/edid'
 import { DetailedTimingDescriptor } from '../src/common'
 import { checksum8 } from '../src/common'
-import { decodeDisplayIdSection, DisplayIdDataBlockTag } from '../src/displayid'
+import {
+  DISPLAY_ID_V1_BLOCK_TAGS,
+  decodeDisplayIdSection,
+  encodeDisplayIdSection,
+  DisplayIdDataBlockTag,
+  type DisplayIdV1TypeIDetailedTimingBlock,
+} from '../src/displayid'
 import { VENDOR_DECODERS } from '../src/cta/vsdb/registry'
 import { loadEdidFixtures } from './fixture-loader'
 
@@ -202,10 +208,11 @@ describe('Structured-field regression guards', () => {
   })
 
   it('DisplayID 2.0 section blocks decode to structured types where present', () => {
-    // The in-module corpus carries only DisplayID 1.3 (preserved opaque, which
-    // is correct), so construct a v2.0 section with a Product Identification
-    // block and assert it decodes to structured fields, not an opaque block.
-    // Payload mirrors displayid.test.ts §Product Identification.
+    // The in-module committed corpus carries no v2.0 DisplayID fixtures
+    // (v1.x is now decoded structured too — see the v1.x guard below), so
+    // construct a v2.0 section with a Product Identification block and assert
+    // it decodes to structured fields, not an opaque block. Payload mirrors
+    // displayid.test.ts §Product Identification.
     const sectionBytes = new Uint8Array([
       0x20, 0x14, 0x04, 0x00, // v2.0, 20 bytes-in-section, desktop use, 0 extensions
       0x20, 0x00, 0x11, 0x00, // Product Identification tag 0x20, rev 0, len 17
@@ -227,6 +234,94 @@ describe('Structured-field regression guards', () => {
     expect(isStructuredDisplayIdBlock(block)).toBe(true)
     expect((block as { ieeeOui?: number }).ieeeOui).toBe(0x2b1a00)
     expect((block as { productName?: string }).productName).toBe('Panel')
+  })
+
+  it('DisplayID 1.x sections decode to structured v1.x section blocks (TASK-57)', () => {
+    // The in-module committed corpus has no v1.x DisplayID fixture (the v1.x
+    // samples live in the gitignored proprietary fixtures), so construct a v1.x
+    // section carrying a Type I Detailed Timing block (tag 0x03) and assert it
+    // decodes to structured DTDs, not an opaque/raw block. This guards the
+    // TASK-57 change that routes v1.x sections through the v1.x codec instead
+    // of the opaque fallback.
+    //
+    // The 20-byte Type I descriptor encodes a 1920x1080@60 timing:
+    //   pixelClockKHz = 10 * (1 + raw24)  →  raw24 = 148500/10 - 1 = 14849
+    //   options byte 0x80  → preferred, aspect 0, progressive, stereo none
+    const typeIDescriptor = new Uint8Array([
+      0x01, 0x3a, 0x00, // pixel clock raw24 (14849 → 148500 kHz)
+      0x80,            // options: preferred
+      0x7f, 0x07,      // hactive 1919 → 1920
+      0x17, 0x01,      // hblank 279 → 280
+      0x57, 0x00,      // hsync offset 87 → 88, polarity positive
+      0x2b, 0x00,      // hsync width 43 → 44
+      0x37, 0x04,      // vactive 1079 → 1080
+      0x2c, 0x00,      // vblank 44 → 45
+      0x03, 0x00,      // vsync offset 3 → 4, polarity positive
+      0x04, 0x00,      // vsync width 4 → 5
+    ])
+
+    const sectionBytes = new Uint8Array([
+      0x10, 0x17, 0x02, 0x00, // v1.x (version 1, rev 0), 23 bytes-in-section, desktop, 0 extensions
+      0x03, 0x00, 0x14,       // Type I Detailed Timing tag 0x03, rev 0, len 20
+      ...typeIDescriptor,     // 20-byte timing descriptor
+      0x00,                   // checksum placeholder
+    ])
+    sectionBytes[sectionBytes.length - 1] = checksum8(sectionBytes)
+
+    const section = decodeDisplayIdSection(sectionBytes)
+    expect(section.version).toBe(1)
+    expect(section.versionByte).toBe(0x10)
+    expect(section.blocks).toHaveLength(1)
+
+    const block = section.blocks[0] as DisplayIdV1TypeIDetailedTimingBlock
+    expect(block.tag).toBe(DISPLAY_ID_V1_BLOCK_TAGS.TypeIDetailedTiming)
+    // Structured-field check (not byte round-trip): the known block carries a
+    // typed `timings` array an opaque/raw fallback would not have.
+    expect(isStructuredDisplayIdBlock(block)).toBe(true)
+    expect(block.timings).toHaveLength(1)
+
+    const timing = block.timings[0]
+    // Type 1 pixel clock is 10 kHz resolution (Type VII is 1 kHz).
+    expect(timing.pixelClockKHz).toBe(148500)
+    expect(timing.horizontalActive).toBe(1920)
+    expect(timing.verticalActive).toBe(1080)
+    expect(timing.horizontalSyncWidth).toBe(44)
+    expect(timing.verticalSyncWidth).toBe(5)
+    expect(timing.preferred).toBe(true)
+    expect(timing.interlaced).toBe(false)
+
+    // Byte-exact round-trip: re-encoding the decoded section reproduces the
+    // original bytes (incl. checksum), proving the v1.x codec is lossless.
+    const reencoded = encodeDisplayIdSection(section)
+    expect(Array.from(reencoded)).toEqual(Array.from(sectionBytes))
+  })
+
+  it('corpus DisplayID 1.x sections are not opaque (TASK-57)', () => {
+    // Walk every loaded fixture; any DisplayID extension whose carried section
+    // is v1.x (version byte 0x10–0x1F) MUST decode to a structured
+    // DisplayIdExtension, not fall back to OpaqueExtension. On a checkout
+    // without the proprietary/corpus fixtures this is a no-op (no v1.x sections
+    // are found) and passes vacuously — the constructed-section guard above
+    // carries the always-runs assertion.
+    const violations: string[] = []
+
+    for (const { source, name, data } of edidFixtures) {
+      const edid = EEDID.decode(data)
+      const ext = getDisplayIdExtension(edid)
+      if (!ext) continue
+
+      const versionByte = ext.section.versionByte
+      if (versionByte >= 0x10 && versionByte < 0x20) {
+        // v1.x section: must be a structured DisplayIdExtension (it is, by
+        // construction of getDisplayIdExtension, but assert the kind and that
+        // the section is not the opaque fallback shape).
+        if (!isDisplayIdExtension(ext)) {
+          violations.push(`${source}/${name} v1.x section (0x${versionByte.toString(16)}) is opaque`)
+        }
+      }
+    }
+
+    expect(violations, violations.join('\n')).toEqual([])
   })
 
   it('a constructed stereo DTD round-trips its stereo mode (guards TASK-32 fix)', () => {

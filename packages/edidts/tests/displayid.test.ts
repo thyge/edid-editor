@@ -150,9 +150,43 @@ describe('DisplayID v2.0 sections', () => {
     )
   })
 
-  it('throws when the DisplayID section version is not v2.0', () => {
+  it('decodes a DisplayID 1.x section (version byte 0x10) into a structured v1.x section', () => {
     const sectionBytes = withChecksum([
-      0x10,
+      0x10, // DisplayID v1.x (version 1, revision 0)
+      0x03, // Three bytes between header and checksum
+      0x02, // Primary use case
+      0x00, // No extension sections
+      0x7e, // Unknown v1.x block tag (not a known v1.x tag → raw carrier)
+      0x00, // Revision / flags
+      0x00, // Payload length 0
+      0x00, // Checksum placeholder
+    ])
+
+    const section = decodeDisplayIdSection(sectionBytes)
+
+    expect(section.version).toBe(1)
+    expect(section.revision).toBe(0)
+    expect(section.versionByte).toBe(0x10)
+    expect(section.bytesInSection).toBe(3)
+    expect(section.totalLength).toBe(8)
+    expect(section.primaryUseCase).toBe(0x02)
+    expect(section.extensionCount).toBe(0)
+    expect(section.isChecksumValid).toBe(true)
+    expect(section.blocks).toHaveLength(1)
+    // 0x7e is not a known v1.x tag, so it is preserved as the raw generic carrier.
+    expect(section.blocks[0]).toMatchObject({
+      tag: 0x7e,
+      revision: 0,
+      payloadLength: 0,
+    })
+    expect(section.fillBytes).toBe(0)
+    expect(section.fillBytesRaw).toBeInstanceOf(Uint8Array)
+    expect(section.fillBytesRaw?.length).toBe(0)
+  })
+
+  it('throws when the DisplayID section version is unrecognized (e.g. version byte 0x30)', () => {
+    const sectionBytes = withChecksum([
+      0x30, // Not a recognized DisplayID version (not v1.x 0x10–0x1F, not v2.0 0x20)
       0x03,
       0x02,
       0x00,
@@ -163,7 +197,7 @@ describe('DisplayID v2.0 sections', () => {
     ])
 
     expect(() => decodeDisplayIdSection(sectionBytes)).toThrow(
-      'DisplayID section version byte 0x10 is not v2.0',
+      'DisplayID section version byte 0x30 is not a recognized DisplayID version',
     )
   })
 

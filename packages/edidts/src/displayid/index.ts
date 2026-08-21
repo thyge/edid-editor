@@ -97,7 +97,18 @@ export {
   encodeDisplayIdSection,
 } from './section';
 export {
+  decodeDisplayIdBlocksV1,
+  decodeKnownV1Block,
+  encodeV1KnownPayload,
+  isV1ProductIdentificationPayloadLengthValid,
+  isV1DisplayParametersPayloadLengthValid,
+  isV1TypeITimingPayloadLengthValid,
+  isV1TiledDisplayTopologyPayloadLengthValid,
+} from './v1-blocks';
+export {
   DISPLAY_ID_BLOCK_LABELS,
+  DISPLAY_ID_V1_BLOCK_LABELS,
+  DISPLAY_ID_V1_BLOCK_TAGS,
   DisplayIdDataBlockTag,
   DisplayIdDecodeError,
   createDefaultDisplayIdBlock,
@@ -124,6 +135,13 @@ export type {
   DisplayIdVendorSpecificBlock,
   DisplayIdVesaDisplayPortData,
   KnownDisplayIdDataBlock,
+} from './types';
+export type {
+  DisplayIdV1ProductIdentificationBlock,
+  DisplayIdV1DisplayParametersBlock,
+  DisplayIdV1TypeIDetailedTimingBlock,
+  DisplayIdV1TiledDisplayTopologyBlock,
+  KnownDisplayIdV1DataBlock,
 } from './types';
 export type {
   DisplayIdTypeXTimingBlock,
