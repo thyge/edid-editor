@@ -9,6 +9,11 @@ import {
   decodeVSVDB,
   reassembleVsvdbBlock,
 } from '../../src/cta/vsvdb/registry';
+import {
+  decodeExtendedDataBlock,
+  encodeExtendedDataBlock,
+  type VendorSpecificVideoDataBlock,
+} from '../../src/cta';
 import { OUI } from '../../src/cta/vsdb/types';
 
 describe('HDR10PlusVsvdbDecoder', () => {
@@ -106,5 +111,41 @@ describe('HDR10+ VSVDB end-to-end carrier', () => {
     };
     expect(fields.applicationVersion).toBe(0x02);
     expect(Array.from(fields.payload)).toEqual([0xaa, 0xbb]);
+  });
+});
+
+// Carrier-level behaviour through the CTA extended-block decode/encode path
+// (TASK-59): the registered HDR10+ decoder's structured shape must be surfaced
+// on the carrier and re-encoded from it, byte-identically.
+describe('HDR10+ VSVDB carrier (CTA extended tag 0x01)', () => {
+  // HDR10+ OUI 90-84-8B; on-wire (LE) the three OUI bytes are 8B 84 90.
+  const hdr10Wire = (postOui: number[]) =>
+    new Uint8Array([0x01, 0x8b, 0x84, 0x90, ...postOui]);
+
+  it('decode attaches a structured hdr10PlusVsvdb vendor shape to the carrier', () => {
+    const wire = hdr10Wire([0x02, 0xaa, 0xbb]);
+    const block = decodeExtendedDataBlock(wire) as VendorSpecificVideoDataBlock;
+    expect(block.extendedTag).toBe(0x01);
+    expect(block.ieeeOui).toBe(OUI.HDR10_PLUS);
+    expect(block.vendor?.kind).toBe('hdr10PlusVsvdb');
+    expect(block.vendor!.fields.applicationVersion).toBe(0x02);
+    expect(Array.from(block.vendor!.fields.payload)).toEqual([0xaa, 0xbb]);
+  });
+
+  it('round-trips byte-identically through the carrier', () => {
+    const wire = hdr10Wire([0x02, 0xaa, 0xbb]);
+    const block = decodeExtendedDataBlock(wire) as VendorSpecificVideoDataBlock;
+    expect(encodeExtendedDataBlock(block)).toEqual(wire);
+  });
+
+  it('re-encodes from edited vendor.fields and preserves the opaque payload', () => {
+    const wire = hdr10Wire([0x02, 0xaa, 0xbb]);
+    const block = decodeExtendedDataBlock(wire) as VendorSpecificVideoDataBlock;
+    block.vendor!.fields.applicationVersion = 0x05;
+    const encoded = encodeExtendedDataBlock(block);
+    expect(encoded).toEqual(hdr10Wire([0x05, 0xaa, 0xbb]));
+    const redecoded = decodeExtendedDataBlock(encoded) as VendorSpecificVideoDataBlock;
+    expect(redecoded.vendor!.fields.applicationVersion).toBe(0x05);
+    expect(Array.from(redecoded.vendor!.fields.payload)).toEqual([0xaa, 0xbb]);
   });
 });

@@ -6,7 +6,8 @@
  */
 
 import type { CEADataBlock, SpeakerAllocationBlock } from './extension-block';
-import { decodeVSVDB } from './vsvdb/registry';
+import { decodeVSVDB, reassembleVsvdbBlock, VENDOR_VSVDB_ENCODERS } from './vsvdb/registry';
+import type { VSVDBVendorDecoded } from './vsvdb/types';
 import { isKnownVIC } from './vic-table';
 
 export type ExtendedTagCode =
@@ -144,15 +145,18 @@ export interface YCbCr420CapabilityMapDataBlock extends ExtendedDataBlock {
 /**
  * Vendor-Specific Video Data Block (Extended Tag 1)
  *
- * The decoded per-vendor shape (Dolby Vision, HDR10+, ...) is no longer
- * surfaced on this carrier; see `./vsvdb/` for the registry of decoders
- * keyed by OUI. Callers needing the decoded form should look up the
- * decoder directly via `VENDOR_VSVDB_DECODERS[block.ieeeOui]`.
+ * The decoded per-vendor shape (Dolby Vision, HDR10+, ...) is surfaced on the
+ * carrier as `vendor`, mirroring the tag-0x03 VSDB. `payload` retains the raw
+ * post-OUI bytes; `vendor.fields` holds the structured, editable form. The CTA
+ * encoder re-encodes from `vendor.fields` when a registered encoder exists
+ * (see `encodeVendorSpecificVideoBlock`), falling back to the raw `payload`
+ * for unknown OUIs.
  */
 export interface VendorSpecificVideoDataBlock extends ExtendedDataBlock {
   extendedTag: 0x01;
   ieeeOui: number;
   payload: Uint8Array;
+  vendor?: VSVDBVendorDecoded;
 }
 
 /**
@@ -1107,6 +1111,21 @@ export function encodeExtendedDataBlock(block: CTAExtendedDataBlock): Uint8Array
 }
 
 function encodeVendorSpecificVideoBlock(block: VendorSpecificVideoDataBlock): Uint8Array {
+  // Re-encode from the structured `vendor.fields` when a registered encoder
+  // exists (parallel to `encodeVendorSpecificDataBlock` for tag-0x03 VSDBs).
+  // `reassembleVsvdbBlock` emits the extended-tag byte + LE OUI + post-OUI
+  // body, which is exactly the post-header bytes `encodeExtendedDataBlock`
+  // must return. Falls back to the raw `payload` for unknown/unregistered OUIs
+  // so the carrier round-trips byte-identically regardless of registration.
+  if (block.vendor && block.vendor.kind !== 'unknown') {
+    const encoder = VENDOR_VSVDB_ENCODERS[block.vendor.kind];
+    if (encoder) {
+      return reassembleVsvdbBlock(
+        block.ieeeOui,
+        encoder.encode(block.vendor.fields),
+      );
+    }
+  }
   const bytes = [0x01, block.ieeeOui & 0xff, (block.ieeeOui >> 8) & 0xff, (block.ieeeOui >> 16) & 0xff];
   for (const b of block.payload) bytes.push(b);
   return new Uint8Array(bytes);

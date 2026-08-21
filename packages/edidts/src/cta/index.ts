@@ -141,7 +141,7 @@ export {
 export type { VendorDecoder, VendorEncoder } from './vsdb/registry';
 
 // Vendor-Specific Video Data Blocks (tag 0x07 ext 0x01, e.g., Dolby Vision)
-export type { DolbyVSDB, HDR10PlusVSDB } from './vsvdb/types';
+export type { DolbyVSDB, HDR10PlusVSDB, VSVDBVendorDecoded } from './vsvdb/types';
 export {
   decodeVSVDB,
   reassembleVsvdbBlock,

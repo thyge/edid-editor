@@ -3,7 +3,7 @@
 import type { ExtendedDataBlock, VendorSpecificVideoDataBlock } from '../cta-extended-blocks';
 import type { CEAExtensionBlock, CEADataBlock } from '../extension-block';
 import { OUI } from '../vsdb/types';
-import type { HDR10PlusVSDB } from './types';
+import type { HDR10PlusVSDB, VSVDBVendorDecoded } from './types';
 
 // The VSVDB (Vendor-Specific Video Data Block) is the CTA-861-G extended tag
 // 0x01, distinct from the regular VSDB at tag 0x03. Only Dolby Vision is
@@ -35,10 +35,12 @@ export const VENDOR_VSVDB_ENCODERS: Record<string, VendorEncoder<string>> = {};
  *
  * The `payload` argument is the post-extended-tag bytes: a 3-byte little-
  * endian IEEE OUI followed by the vendor-specific body. The first 3 bytes
- * are split into the integer OUI on the carrier; everything after is the
- * `payload`. No per-vendor decoded shape is set on the carrier (see
- * VSDB's `vendor?` for the parallel pattern; this refactor leaves that
- * work for a follow-up).
+ * are split into the integer OUI on the carrier; everything after is the raw
+ * `payload`. A registered per-vendor decoder (keyed by OUI) is then invoked
+ * and its structured shape attached as `vendor`, mirroring the tag-0x03 VSDB
+ * carrier in `vsdb/registry.ts`. Unregistered OUIs get a `vendor` of kind
+ * `'unknown'` carrying the raw payload, so the carrier still round-trips
+ * byte-identically via the raw fallback in `encodeVendorSpecificVideoBlock`.
  */
 export function decodeVSVDB(base: ExtendedDataBlock, payload: Uint8Array): VendorSpecificVideoDataBlock {
   if (payload.length < 3) {
@@ -47,18 +49,33 @@ export function decodeVSVDB(base: ExtendedDataBlock, payload: Uint8Array): Vendo
       extendedTag: 0x01,
       ieeeOui: 0,
       payload: new Uint8Array(),
+      vendor: { kind: 'unknown', ieeeOui: 0, raw: new Uint8Array() },
     };
   }
 
   const ieeeOui = (payload[0] | (payload[1] << 8) | (payload[2] << 16)) >>> 0;
   const data = payload.slice(3);
 
-  return {
+  const block: VendorSpecificVideoDataBlock = {
     ...base,
     extendedTag: 0x01,
     ieeeOui,
     payload: data,
   };
+
+  const decoder = VENDOR_VSVDB_DECODERS[ieeeOui];
+  // Only attach the structured vendor shape when the post-OUI body is long
+  // enough for the vendor's format (decoder.minLength). A shorter body is not a
+  // valid instance of that vendor's block (e.g. a Dolby VSVDB with zero post-
+  // OUI bytes has no byte0 to decode), so it falls through to the raw 'unknown'
+  // shape and round-trips byte-identically via the raw encode fallback rather
+  // than being expanded by a default-valued structured encode.
+  if (decoder && data.length >= decoder.minLength) {
+    block.vendor = { kind: decoder.kind, fields: decoder.decode(data) } as VSVDBVendorDecoded;
+  } else {
+    block.vendor = { kind: 'unknown', ieeeOui, raw: data };
+  }
+  return block;
 }
 
 /**

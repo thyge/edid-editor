@@ -48,6 +48,10 @@ describe('VSVDB registry', () => {
     const decoded = decodeVSVDB(base, payload);
     expect(decoded.ieeeOui).toBe(0x332211);
     expect(decoded.payload).toEqual(new Uint8Array([0xAA, 0xBB]));
+    // Unknown OUIs get an opaque `vendor` so the carrier still round-trips via
+    // the raw-payload encode fallback (AC #4).
+    expect(decoded.vendor?.kind).toBe('unknown');
+    expect(decoded.vendor?.kind === 'unknown' && Array.from(decoded.vendor.raw)).toEqual([0xAA, 0xBB]);
   });
 
   it('decodeVSVDB returns a stub when payload is shorter than 3 bytes', () => {
@@ -121,6 +125,8 @@ describe('DolbyVSDBEncoder paired with the registry', () => {
       supportsYUV422_12bit: true,
       supports2160p60: true,
       supportsGlobalDimming: false,
+      byte0Reserved: 0,
+      payload: new Uint8Array(),
     };
     const decoder = VENDOR_VSVDB_DECODERS[OUI.DOLBY]!;
     const encoder = VENDOR_VSVDB_ENCODERS['dolbyVsdb']!;

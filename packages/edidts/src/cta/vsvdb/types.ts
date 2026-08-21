@@ -12,9 +12,25 @@ export interface DolbyVSDB {
   supportsYUV422_12bit: boolean;
   supports2160p60: boolean;
   supportsGlobalDimming: boolean;
+  /** Byte 0 bits 4:3 — not field-modeled (version occupies 7:5, the capability
+   *  flags 2:0), but real Dolby Vision v1/v2 blocks set them. Preserved so the
+   *  codec is byte-complete and round-trips identically regardless of version. */
+  byte0Reserved: number;
+  /** Post-OUI bytes 1.. — vendor-reserved, preserved verbatim for byte-exact round-trip. */
+  payload: Uint8Array;
 }
 
 export interface HDR10PlusVSDB {
   applicationVersion: number;  // post-OUI byte 0 (full byte)
   payload: Uint8Array;         // post-OUI bytes 1.. — vendor-specific, preserved verbatim
 }
+
+/**
+ * Per-vendor decoded shape attached to the VSVDB carrier, parallel to
+ * `VendorSpecificDecoded` for the tag-0x03 VSDB. `unknown` is the fallback for
+ * unregistered OUIs and is never paired with a decoder/encoder.
+ */
+export type VSVDBVendorDecoded =
+  | { kind: 'dolbyVsdb'; fields: DolbyVSDB }
+  | { kind: 'hdr10PlusVsvdb'; fields: HDR10PlusVSDB }
+  | { kind: 'unknown'; ieeeOui: number; raw: Uint8Array };

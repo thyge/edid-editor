@@ -1,6 +1,6 @@
 // packages/edidts/src/cta/vsvdb/index.ts
 
-export type { DolbyVSDB, HDR10PlusVSDB } from './types';
+export type { DolbyVSDB, HDR10PlusVSDB, VSVDBVendorDecoded } from './types';
 
 export { DolbyVSDBDecoder, DolbyVSDBEncoder, DOLBY_VSDB_DEFAULT } from './dolby';
 

@@ -17,8 +17,6 @@ import {
   type DisplayIdExtension,
   type VendorSpecificDataBlock,
   type VendorSpecificVideoDataBlock,
-  VENDOR_VSVDB_DECODERS,
-  VENDOR_VSVDB_ENCODERS,
 } from 'edidts'
 import TopNav from '@/components/layout/TopNav.vue'
 import LeftNav from '@/components/layout/LeftNav.vue'
@@ -200,28 +198,21 @@ function updateVSDB(block: VendorSpecificDataBlock, field: string, value: unknow
   syncEdid()
 }
 
-/** Edit a VSVDB (tag 0x07 ext 0x01, e.g. Dolby Vision). Unlike tag-0x03 VSDBs,
- *  the VSVDB carrier re-encodes from raw `block.payload`, not a structured
- *  fields object, so we re-encode the post-OUI body and preserve any trailing
- *  vendor-reserved bytes the codec doesn't model. */
+/** Edit a VSVDB (tag 0x07 ext 0x01, e.g. Dolby Vision). The carrier re-encodes
+ *  from block.vendor.fields (parallel to tag-0x03 VSDBs), so we mutate the
+ *  fields object and reassign dataBlocks to trigger reactivity. Trailing
+ *  vendor-reserved bytes live inside the structured `payload` field of the
+ *  decoded shape and are preserved by the byte-complete vendor encoder. */
 function updateVSVDB(block: VendorSpecificVideoDataBlock, field: string, value: unknown) {
   if (!edidRef.value) return
   const cea = getCEAExtension(edidRef.value)
   if (!cea) return
-  const decoder = VENDOR_VSVDB_DECODERS[block.ieeeOui]
-  if (!decoder) return
-  const encoder = VENDOR_VSVDB_ENCODERS[decoder.kind]
-  if (!encoder) return
-  // Re-decode the current fields, apply the edit, re-encode the modeled head.
-  const fields = { ...(decoder.decode(block.payload) as object) }
-  setByPath(fields as Record<string, unknown>, field, value)
-  const encoded = encoder.encode(fields)
-  // Preserve trailing bytes the codec doesn't model (after the encoded head).
-  const trailing = block.payload.slice(encoded.length)
-  const newPayload = new Uint8Array(encoded.length + trailing.length)
-  newPayload.set(encoded, 0)
-  newPayload.set(trailing, encoded.length)
-  block.payload = newPayload
+  const vendor = block.vendor
+  if (!vendor || vendor.kind === 'unknown') return
+  setByPath(vendor.fields as unknown as Record<string, unknown>, field, value)
+  // Replace the fields object reference so the child component re-renders and
+  // the CEA encoder reads the updated values.
+  vendor.fields = { ...(vendor.fields as object) } as typeof vendor.fields
   cea.dataBlocks = [...cea.dataBlocks]
   syncEdid()
 }

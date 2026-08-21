@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { CEAExtensionBlock, DolbyVSDB, VendorSpecificDataBlock, VendorSpecificVideoDataBlock } from 'edidts'
-import { findVSDBs, findVSVDBs, VENDOR_VSVDB_DECODERS, OUI } from 'edidts'
+import type { CEAExtensionBlock, DolbyVSDB, VendorSpecificDataBlock, VendorSpecificVideoDataBlock, VSVDBVendorDecoded } from 'edidts'
+import { findVSDBs, findVSVDBs } from 'edidts'
+
+type DolbyVSVDB = VendorSpecificVideoDataBlock & { vendor: Extract<VSVDBVendorDecoded, { kind: 'dolbyVsdb' }> }
+const isDolbyVSVDB = (b: VendorSpecificVideoDataBlock): b is DolbyVSVDB => b.vendor?.kind === 'dolbyVsdb'
 
 import CEAVendorHDMI14 from './vsdb/CEAVendorHDMI14.vue'
 import CEAVendorHDMIForum from './vsdb/CEAVendorHDMIForum.vue'
@@ -25,19 +28,17 @@ const emit = defineEmits<{
 // Tag 0x03 VSDBs (HDMI 1.4, HDMI Forum, Microsoft HMD, AMD)
 const vsdbs = computed(() => findVSDBs(props.cea))
 
-// Tag 0x07 ext 0x01 VSVDBs. Only Dolby is currently registered in the VSVDB
-// registry; the rest fall through to the unknown OUI card. We decode Dolby
-// blocks up-front in a computed so the template can dispatch cleanly.
-const dolbyRenderables = computed<DolbyRenderable[]>(() => {
-  const decoder = VENDOR_VSVDB_DECODERS[OUI.DOLBY]
-  if (!decoder) return []
-  return findVSVDBs(props.cea)
-    .filter((block) => block.ieeeOui === OUI.DOLBY)
-    .map((block) => ({
-      block,
-      fields: decoder.decode(block.payload) as DolbyVSDB,
-    }))
-})
+// Tag 0x07 ext 0x01 VSVDBs. The carrier now carries the structured decoded
+// shape as `block.vendor` (parallel to tag-0x03 VSDBs), so we read the live
+// fields directly — this keeps the rendered values in sync after an edit,
+// since updateVSVDB mutates `block.vendor.fields` rather than re-encoding the
+// raw payload. Only Dolby is rendered today; other registered/unknown VSVDBs
+// fall through to the unknown card.
+const dolbyRenderables = computed<DolbyRenderable[]>(() =>
+  findVSVDBs(props.cea)
+    .filter(isDolbyVSVDB)
+    .map((block) => ({ block, fields: block.vendor.fields as DolbyVSDB }))
+)
 </script>
 
 <template>
