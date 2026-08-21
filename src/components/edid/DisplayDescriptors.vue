@@ -180,9 +180,21 @@ function getDescriptorLabel(tag: number): string {
             :descriptor="(entry.descriptor as any)"
             @update="(updated) => handleDescriptorUpdate(entry.sourceIndex, updated)"
           />
-          <DCMDescriptorView v-else-if="entry.descriptor.tag === 0xF9" :descriptor="(entry.descriptor as any)" />
-          <CVTTimingDescriptorView v-else-if="entry.descriptor.tag === 0xF8" :descriptor="(entry.descriptor as any)" />
-          <EstablishedTimingsIIIDescriptorView v-else-if="entry.descriptor.tag === 0xF7" :descriptor="(entry.descriptor as any)" />
+          <DCMDescriptorView
+            v-else-if="entry.descriptor.tag === 0xF9"
+            :descriptor="(entry.descriptor as any)"
+            @update="(updated) => handleDescriptorUpdate(entry.sourceIndex, updated)"
+          />
+          <CVTTimingDescriptorView
+            v-else-if="entry.descriptor.tag === 0xF8"
+            :descriptor="(entry.descriptor as any)"
+            @update="(updated) => handleDescriptorUpdate(entry.sourceIndex, updated)"
+          />
+          <EstablishedTimingsIIIDescriptorView
+            v-else-if="entry.descriptor.tag === 0xF7"
+            :descriptor="(entry.descriptor as any)"
+            @update="(updated) => handleDescriptorUpdate(entry.sourceIndex, updated)"
+          />
           <ManufacturerDescriptorView v-else-if="entry.descriptor.tag >= 0x00 && entry.descriptor.tag <= 0x0F" :descriptor="(entry.descriptor as any)" />
           <span v-else class="text-muted-foreground">Descriptor type not yet supported</span>
         </div>
