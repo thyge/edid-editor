@@ -87,6 +87,28 @@ describe('DisplayID Adaptive Sync (0x2B) codec', () => {
     expect(Array.from(encoded)).toEqual(original);
   });
 
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+    // The corpus has zero Adaptive-Sync fixtures, so this synthetic mutation
+    // test is the only safety net for the encode path.
+    const block = makeBlock([
+      0x3b, 0x40, 0x30, 0x90, 0x01, 0x20,
+      0x04, 0x10, 0x3c, 0xe2, 0x02, 0x0a,
+    ]);
+    const decoded = decodeAdaptiveSyncBlock(block);
+    expect(decoded.descriptors[0].minRefreshRate).toBe(0x30);
+    expect(decoded.descriptors[0].maxSingleFrameInc).toBe(0x40);
+    expect(decoded.descriptors[1].minRefreshRate).toBe(0x3c);
+
+    // Edit minRefreshRate of descriptor 0; leave maxSingleFrameInc and descriptor 1 untouched.
+    decoded.descriptors[0].minRefreshRate = 0x48;
+    const encoded = encodeAdaptiveSyncBlock(decoded);
+    const redecoded = decodeAdaptiveSyncBlock({ ...block, payload: encoded });
+
+    expect(redecoded.descriptors[0].minRefreshRate).toBe(0x48);
+    expect(redecoded.descriptors[0].maxSingleFrameInc).toBe(0x40);
+    expect(redecoded.descriptors[1].minRefreshRate).toBe(0x3c);
+  });
+
   it('round-trips decode -> encode -> re-decode with stable fields and identical bytes', () => {
     const originalPayload = [
       0x3b, 0x40, 0x30, 0x90, 0x01, 0x20,

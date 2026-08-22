@@ -144,6 +144,28 @@ describe('DisplayID Type X Timing (tag 0x2A)', () => {
     expect(Array.from(encoded)).toEqual(Array.from(originalPayload));
   });
 
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+    // The corpus has zero Type X Timing fixtures, so this synthetic mutation
+    // test is the only safety net for the encode path.
+    const block = buildBlock(0, [
+      0xdb, 0x80, 0x07, 0x38, 0x04, 0x3c,
+      0x00, 0x00, 0x05, 0xd0, 0x02, 0x32,
+    ]);
+    const decoded = decodeTypeXTimingBlock(block);
+    expect(decoded.timings[0].horizontalActivePixels).toBe(1920);
+    expect(decoded.timings[0].verticalActiveLines).toBe(1080);
+    expect(decoded.timings[1].horizontalActivePixels).toBe(1280);
+
+    // Edit horizontalActivePixels of timing 0; leave verticalActiveLines and timing 1 untouched.
+    decoded.timings[0].horizontalActivePixels = 2048;
+    const encoded = encodeTypeXTimingBlock(decoded);
+    const redecoded = decodeTypeXTimingBlock({ ...block, payload: encoded });
+
+    expect(redecoded.timings[0].horizontalActivePixels).toBe(2048);
+    expect(redecoded.timings[0].verticalActiveLines).toBe(1080);
+    expect(redecoded.timings[1].horizontalActivePixels).toBe(1280);
+  });
+
   it('round-trips decode -> encode -> re-decode with stable fields (8-byte)', () => {
     const originalPayload = new Uint8Array([
       0x2b, 0x80, 0x07, 0x38, 0x04, 0x3c, 0x07, 0xfe,

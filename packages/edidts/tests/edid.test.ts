@@ -408,6 +408,41 @@ describe('Color point descriptors', () => {
     expect(descriptor?.colorPoints[1].whiteY).toBeCloseTo(0.358, 3)
     expect(descriptor?.colorPoints[1].gamma).toBe(0)
   })
+
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+    // The corpus has zero supplemental color-point descriptors surfaced as
+    // editable structures, so this synthetic mutation test is the only safety
+    // net for the encode path.
+    const edid = EEDID.blank()
+    edid.base.displayDescriptors = [
+      {
+        tag: 0xFB,
+        colorPoints: [
+          { index: 1, whiteX: 0.3127, whiteY: 0.329, gamma: 2.2 },
+          { index: 2, whiteX: 0.345, whiteY: 0.358, gamma: 0 },
+        ],
+      },
+    ]
+
+    const decoded = EEDID.decode(EEDID.encode(edid))
+    const descriptor = decoded.base.displayDescriptors.find((d) => d.tag === 0xFB) as ColorPointDescriptor
+    expect(descriptor.colorPoints[0].whiteX).toBeCloseTo(0.3127, 3)
+    expect(descriptor.colorPoints[0].whiteY).toBeCloseTo(0.329, 3)
+
+    // Edit whiteX of color point 0; leave whiteY and color point 1 untouched.
+    descriptor.colorPoints[0].whiteX = 0.5
+    decoded.base.displayDescriptors = [
+      ...decoded.base.displayDescriptors.filter((d) => d.tag !== 0xFB),
+      descriptor,
+    ]
+    const redecoded = EEDID.decode(EEDID.encode(decoded))
+    const reDescriptor = redecoded.base.displayDescriptors.find((d) => d.tag === 0xFB) as ColorPointDescriptor
+
+    expect(reDescriptor.colorPoints[0].whiteX).toBeCloseTo(0.5, 3)
+    expect(reDescriptor.colorPoints[0].whiteY).toBeCloseTo(0.329, 3)
+    expect(reDescriptor.colorPoints[1].whiteX).toBeCloseTo(0.345, 3)
+    expect(reDescriptor.colorPoints[0].index).toBe(1)
+  })
 })
 
 describe('Standard timing descriptors', () => {

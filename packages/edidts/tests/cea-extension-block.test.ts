@@ -347,6 +347,23 @@ describe('CEA extension block container', () => {
       );
     });
 
+    it('0x13 Room Configuration mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+      // The corpus has zero Room Configuration fixtures, so this synthetic
+      // mutation test is the only safety net for the encode path.
+      const original = new Uint8Array([0x13, 0x05, 0x03]);
+      const decoded = decodeExtendedDataBlock(original) as RoomConfigurationDataBlock;
+      expect(decoded.speakerCount).toBe(5);
+      expect(decoded.speakerPresenceDescriptor).toBe(0x03);
+
+      // Edit speakerCount (byte 1); leave speakerPresenceDescriptor (byte 2) untouched.
+      decoded.speakerCount = 7;
+      const reencoded = encodeExtendedDataBlock(decoded);
+      const redecoded = decodeExtendedDataBlock(reencoded) as RoomConfigurationDataBlock;
+
+      expect(redecoded.speakerCount).toBe(7);
+      expect(redecoded.speakerPresenceDescriptor).toBe(0x03);
+    });
+
     it('0x01 Vendor-Specific Video encodes OUI (little-endian) + payload', () => {
       const block: VendorSpecificVideoDataBlock = {
         tag: 0x07,
@@ -394,6 +411,25 @@ describe('CEA extension block container', () => {
       expect(decoded.descriptors[1].active).toBe(true);
       expect(decoded.descriptors[1].coordinates).toEqual({ x: 0.5, y: -0.25, z: 0 });
       expect(Array.from(encodeExtendedDataBlock(decoded))).toEqual(Array.from(original));
+    });
+
+    it('0x14 Speaker Location mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+      // The corpus has zero Speaker Location fixtures, so this synthetic mutation
+      // test is the only safety net for the encode path.
+      const original = new Uint8Array([0x14, 0x21, 0x02, 0x60, 0x03, 0x20, 0xf0, 0x00]);
+      const decoded = decodeExtendedDataBlock(original) as SpeakerLocationDataBlock;
+      expect(decoded.descriptors[0].speakerId).toBe(2);
+      expect(decoded.descriptors[0].channelIndex).toBe(1);
+
+      // Edit speakerId (byte 1 of descriptor 0); leave channelIndex (byte 0 low bits) untouched.
+      decoded.descriptors[0].speakerId = 5;
+      const reencoded = encodeExtendedDataBlock(decoded);
+      const redecoded = decodeExtendedDataBlock(reencoded) as SpeakerLocationDataBlock;
+
+      expect(redecoded.descriptors[0].speakerId).toBe(5);
+      expect(redecoded.descriptors[0].channelIndex).toBe(1);
+      expect(redecoded.descriptors[0].active).toBe(true);
+      expect(redecoded.descriptors[1].speakerId).toBe(3);
     });
 
     it('0x14 Speaker Location preserves a trailing partial descriptor', () => {

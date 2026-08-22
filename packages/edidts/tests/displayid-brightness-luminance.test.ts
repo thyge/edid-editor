@@ -84,6 +84,26 @@ describe('encodeBrightnessLuminanceRangeBlock', () => {
   });
 });
 
+describe('Brightness Luminance Range field mutation (TASK-61)', () => {
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
+    // The corpus has zero Brightness Luminance Range fixtures, so this synthetic
+    // mutation test is the only safety net for the encode path.
+    const original = new Uint8Array([0x64, 0x00, 0xf4, 0x01, 0xbc, 0x02]);
+    const decoded = decodeBrightnessLuminanceRangeBlock(makeBlock(original));
+    expect(decoded.minSdrLuminance).toBe(0x0064);
+    expect(decoded.maxSdrLuminance).toBe(0x01f4);
+
+    // Edit minSdrLuminance; leave maxSdrLuminance and maxBoostSdrLuminance untouched.
+    decoded.minSdrLuminance = 0x1234;
+    const encoded = encodeBrightnessLuminanceRangeBlock(decoded);
+    const redecoded = decodeBrightnessLuminanceRangeBlock({ ...makeBlock(encoded), payload: encoded });
+
+    expect(redecoded.minSdrLuminance).toBe(0x1234);
+    expect(redecoded.maxSdrLuminance).toBe(0x01f4);
+    expect(redecoded.maxBoostSdrLuminance).toBe(0x02bc);
+  });
+});
+
 describe('Brightness Luminance Range round-trip', () => {
   it('decode -> encode reproduces the original payload and keeps fields stable', () => {
     const original = new Uint8Array([0x64, 0x00, 0xf4, 0x01, 0xbc, 0x02]);

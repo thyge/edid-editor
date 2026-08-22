@@ -53,6 +53,26 @@ describe('Room Environment Data Block (Extended Tag 0x15) — EXPERIMENTAL', () 
     expect(encoded).toEqual(data);
   });
 
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
+    // Field-level decode → edit → encode → re-decode (TASK-61): the corpus has
+    // zero Room Environment fixtures, so this synthetic mutation test is the
+    // only safety net for the encode path.
+    const data = new Uint8Array([0x15, 0x00, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD]);
+    const block = decodeExtendedDataBlock(data) as RoomEnvironmentDataBlock;
+    expect(block.ambientIlluminance).toBe(0x00012345);
+    expect(block.ambientLightY).toBe(0xABCD);
+
+    // Edit one field; leave another untouched.
+    block.ambientIlluminance = 0xFFFFFFFF;
+    const reencoded = encodeExtendedDataBlock(block);
+    const redecoded = decodeExtendedDataBlock(reencoded) as RoomEnvironmentDataBlock;
+
+    expect(redecoded.ambientIlluminance).toBe(0xFFFFFFFF);
+    expect(redecoded.ambientLightY).toBe(0xABCD);
+    // X is adjacent to the mutated field and must not be disturbed.
+    expect(redecoded.ambientLightX).toBe(0x6789);
+  });
+
   it('preserves trailing bytes past the modeled 8-byte payload on round-trip', () => {
     // 8 modeled payload bytes + 2 trailing reserved bytes
     const data = new Uint8Array([

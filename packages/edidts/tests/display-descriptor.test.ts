@@ -27,6 +27,33 @@ describe('DisplayDescriptorParser encode symmetry', () => {
     expect(decoded).toEqual(descriptor)
   })
 
+  it('DCM (0xF9) mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+    // The corpus has zero DCM descriptors in active use, so this synthetic
+    // mutation test is the only safety net for the encode path.
+    const descriptor: DCMDescriptor = {
+      tag: 0xf9,
+      version: 3,
+      redA3: 0xabcd,
+      redA2: 0x1234,
+      greenA3: 0x4567,
+      greenA2: 0x789a,
+      blueA3: 0xdef0,
+      blueA2: 0x2345,
+    }
+
+    const decoded = DisplayDescriptorParser.decode(DisplayDescriptorParser.encode(descriptor))
+    expect(decoded.redA3).toBe(0xabcd)
+    expect(decoded.greenA3).toBe(0x4567)
+
+    // Edit redA3; leave greenA3 untouched.
+    decoded.redA3 = 0xffff
+    const redecoded = DisplayDescriptorParser.decode(DisplayDescriptorParser.encode(decoded))
+
+    expect(redecoded.redA3).toBe(0xffff)
+    expect(redecoded.greenA3).toBe(0x4567)
+    expect(redecoded.version).toBe(3)
+  })
+
   it('encodes and decodes CVT 3-byte timing code descriptors', () => {
     const descriptor: CVTTimingDescriptor = {
       tag: 0xf8,
@@ -62,6 +89,52 @@ describe('DisplayDescriptorParser encode symmetry', () => {
     const decoded = DisplayDescriptorParser.decode(encoded)
 
     expect(decoded).toEqual(descriptor)
+  })
+
+  it('CVT (0xF8) mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+    // The corpus has zero CVT 3-byte timing descriptors, so this synthetic
+    // mutation test is the only safety net for the encode path.
+    const descriptor: CVTTimingDescriptor = {
+      tag: 0xf8,
+      timings: [
+        {
+          addressableLines: 1200,
+          aspectRatio: '16:10',
+          preferredRefreshRate: 75,
+          refreshRates: {
+            r50Hz: true,
+            r60Hz: true,
+            r75Hz: true,
+            r85Hz: false,
+            r60HzRB: true,
+          },
+        },
+        {
+          addressableLines: 1080,
+          aspectRatio: '16:9',
+          preferredRefreshRate: 60,
+          refreshRates: {
+            r50Hz: false,
+            r60Hz: true,
+            r75Hz: false,
+            r85Hz: true,
+            r60HzRB: false,
+          },
+        },
+      ],
+    }
+
+    const decoded = DisplayDescriptorParser.decode(DisplayDescriptorParser.encode(descriptor))
+    expect(decoded.timings[0].addressableLines).toBe(1200)
+    expect(decoded.timings[0].preferredRefreshRate).toBe(75)
+
+    // Edit addressableLines of timing 0; leave preferredRefreshRate and timing 1 untouched.
+    decoded.timings[0].addressableLines = 1440
+    const redecoded = DisplayDescriptorParser.decode(DisplayDescriptorParser.encode(decoded))
+
+    expect(redecoded.timings[0].addressableLines).toBe(1440)
+    expect(redecoded.timings[0].preferredRefreshRate).toBe(75)
+    expect(redecoded.timings[1].addressableLines).toBe(1080)
   })
 
   it('encodes and decodes Established Timings III descriptors', () => {

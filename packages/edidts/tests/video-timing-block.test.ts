@@ -106,6 +106,57 @@ describe('common Video Timing Block codec', () => {
     expect(bytes.reduce((sum, byte) => sum + byte, 0) & 0xff).toBe(0);
   });
 
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+    // The corpus has zero standalone VTB (0x10) extension fixtures, so this
+    // synthetic mutation test is the only safety net for the encode path.
+    const detailedTiming = new DetailedTimingDescriptor({
+      pixelClock: 74.25,
+      horizontalActive: 1280,
+      horizontalBlanking: 370,
+      verticalActive: 720,
+      verticalBlanking: 30,
+      horizontalSyncOffset: 110,
+      horizontalSyncWidth: 40,
+      verticalSyncOffset: 5,
+      verticalSyncWidth: 5,
+      horizontalImageSize: 520,
+      verticalImageSize: 290,
+    });
+    const bytes = new Uint8Array(128);
+    bytes[0] = 0x10;
+    bytes[1] = 0x01;
+    bytes[2] = 1;
+    bytes[3] = 1;
+    bytes[4] = 1;
+    bytes.set(detailedTiming.encode(), 5);
+    bytes[23] = 0x67;
+    bytes[24] = 0x14;
+    bytes[25] = 0x2d;
+    bytes[26] = 0xd1;
+    bytes[27] = 0xc0;
+
+    const block = decodeVideoTimingBlock(bytes, {
+      revision: 1,
+      checksum: 0,
+      data: bytes.slice(2, 127),
+    });
+    expect(block.detailedTimings[0].horizontalSyncOffset).toBe(110);
+    expect(block.cvtTimings[0].preferredRefreshRate).toBe(60);
+
+    // Edit horizontalSyncOffset (within the DTD); leave CVT preferredRefreshRate untouched.
+    block.detailedTimings[0].horizontalSyncOffset = 220;
+    const reencoded = encodeVideoTimingBlock(block);
+    const redecoded = decodeVideoTimingBlock(reencoded, {
+      revision: 1,
+      checksum: reencoded[127],
+      data: reencoded.slice(2, 127),
+    });
+
+    expect(redecoded.detailedTimings[0].horizontalSyncOffset).toBe(220);
+    expect(redecoded.detailedTimings[0].horizontalImageSize).toBe(520);
+    expect(redecoded.cvtTimings[0].preferredRefreshRate).toBe(60);
+  });
+
   it('keeps VTB descriptor counts aligned with bytes that fit', () => {
     const cvtTimings = Array.from({ length: 45 }, (_, index) => ({
       lines: 480 + index * 2,

@@ -534,6 +534,24 @@ describe('VESA extended tag 0x02 (Video Display Device Data Block) — TASK-9', 
     expect(Array.from(reencoded)).toEqual(Array.from(blockData));
   });
 
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+    // The corpus has zero VDDB fixtures, so this synthetic mutation test is the
+    // only safety net for the field-driven encode path.
+    const blockData = new Uint8Array([0x02, ...payload]);
+    const block = decodeExtendedDataBlock(blockData) as VESAVideoDisplayDeviceDataBlock;
+    expect(block.maxClockMHz).toBe(0x221);
+    expect(block.nativePixelHeight).toBe(1080);
+
+    // Edit maxClockMHz; leave nativePixelHeight (packed across x[5..8]) untouched.
+    block.maxClockMHz = 0x300;
+    const reencoded = encodeExtendedDataBlock(block);
+    const redecoded = decodeExtendedDataBlock(reencoded) as VESAVideoDisplayDeviceDataBlock;
+
+    expect(redecoded.maxClockMHz).toBe(0x300);
+    expect(redecoded.nativePixelHeight).toBe(1080);
+    expect(redecoded.minClockMHz).toBe(8);
+  });
+
   it('round-trips the audio-delay sign for +0 (0x80) and −0 (0x00)', () => {
     for (const raw of [0x80, 0x00]) {
       const p = new Uint8Array(payload);
@@ -562,6 +580,22 @@ describe('VESA extended tag 0x03 (Video Timing Block Extension) — TASK-9', () 
     expect(Array.from(block.payload)).toEqual([0x10, 0x20, 0x30, 0x40, 0x50]);
     const reencoded = encodeExtendedDataBlock(block);
     expect(Array.from(reencoded)).toEqual(Array.from(blockData));
+  });
+
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+    // The corpus has zero VTB-Extension fixtures, so this synthetic mutation
+    // test is the only safety net for the encode path. The block is an opaque
+    // payload wrapper, so the modeled "field" is the payload bytes themselves.
+    const blockData = new Uint8Array([0x03, 0x10, 0x20, 0x30, 0x40, 0x50]);
+    const block = decodeExtendedDataBlock(blockData) as VESAVideoTimingBlockExtensionDataBlock;
+    expect(block.extendedTag).toBe(0x03);
+
+    block.payload = new Uint8Array([0xaa, 0xbb, 0xcc]);
+    const reencoded = encodeExtendedDataBlock(block);
+    const redecoded = decodeExtendedDataBlock(reencoded) as VESAVideoTimingBlockExtensionDataBlock;
+
+    expect(redecoded.extendedTag).toBe(0x03);
+    expect(Array.from(redecoded.payload)).toEqual([0xaa, 0xbb, 0xcc]);
   });
 
   it('round-trips an empty payload (length-0 block data is still ≥ ext tag)', () => {
