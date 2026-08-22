@@ -98,14 +98,13 @@ const cases = await loadCases(sampleLimit)
  * Update this map only after re-running the full corpus
  * (npx tsx tests/corpus-field-oracle.ts <corpus> 0) and confirming the counts.
  *
- * `base.dtds`: 275 — all SPWG Notebook Panel EDIDs (mostly AU Optronics /
- * HannStar laptop panels). Our decoder does not implement the SPWG sub-format,
- * which relocates DTD 2's sync-flags byte, so we read analog-composite (polarity
- * dropped) where edid-decode reads digital-separate (N/N). Filed as TASK-63.
+ * Empty as of TASK-63: the previous `base.dtds`: 275 entry (all SPWG Notebook
+ * Panel EDIDs — AU Optronics / HannStar laptop panels) was resolved by
+ * implementing SPWG detection and DTD 2 sync-flags relocation
+ * (edid-decode parse-base-block.cpp:973). A full-corpus run now reports 0 hard
+ * mismatches across 174759 compared fixtures.
  */
-const BASELINE: Record<string, number> = {
-  'base.dtds': 275,
-}
+const BASELINE: Record<string, number> = {}
 
 describe('Cross-parser field oracle (TASK-58)', () => {
   // Vacuous pass when no corpus is available (no linuxhw clone present).

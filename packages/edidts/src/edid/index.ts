@@ -1,4 +1,4 @@
-import { DetailedTimingDescriptor } from "../common/detailed-timing-descriptor";
+import { DetailedTimingDescriptor, decodeEdidCtaDetailedTimingFlags } from "../common/detailed-timing-descriptor";
 import { generateCVTDetailedTiming } from "../common/cvt-timing-generator";
 import { checksum8, isChecksum8Valid } from "../common/checksum";
 import { ColorCharacteristics } from "./color-characteristics";
@@ -118,6 +118,7 @@ export class EDID {
       bytes,
       header.edidVersion,
       header.edidRevision,
+      detectSPWG(bytes),
     );
 
     const videoInput = VideoInputDefinition.decode(bytes[20]);
@@ -223,6 +224,7 @@ function decodeDescriptorBlocks(
   bytes: Uint8Array,
   edidVersion?: number,
   edidRevision?: number,
+  isSpwg = false,
 ): {
   detailedTimings: DetailedTimingDescriptor[];
   displayDescriptors: DisplayDescriptor[];
@@ -239,11 +241,53 @@ function decodeDescriptorBlocks(
       if (descriptor) displayDescriptors.push(descriptor);
     } else {
       const timing = DetailedTimingDescriptor.decode(blockData);
-      if (timing) detailedTimings.push(timing);
+      if (timing) {
+        // SPWG Notebook Panel EDID relocates DTD 2's sync-flags byte to the byte
+        // immediately preceding its descriptor slot (0x47, shared with DTD 1),
+        // and repurposes DTD 2's own byte 17 (0x59) as the SPWG module revision.
+        // edid-decode parse-base-block.cpp:973:
+        //   if (base.has_spwg && base.detailed_block_cnt == 2) flags = *(x - 1);
+        // detailed_block_cnt is 1-based over all four slots, so cnt==2 is the
+        // second slot (i===1, offset 0x48). Without this, byte 17 (the module
+        // revision, typically 0x00) is read as analog-composite with no
+        // polarity — the dominant base.dtds mismatch in the cross-parser oracle.
+        //
+        // Decode-only fix: encode is intentionally NOT SPWG-aware. Re-encoding
+        // overwrites 0x59 with the flags value (losing the module revision) and
+        // does not preserve the SPWG Descriptor #4 fields, so re-encoded SPWG
+        // bytes are not guaranteed to re-trigger detectSPWG. The decoded DTD
+        // sync-flags FIELD stays stable across decode→encode→re-decode because
+        // both 0x47 and 0x59 hold the flags value after encode. No test asserts
+        // byte-identical SPWG base-block round-trip; full SPWG encode fidelity
+        // is a follow-up.
+        if (isSpwg && i === 1 && offset >= 1) {
+          timing.flags = decodeEdidCtaDetailedTimingFlags(bytes[offset - 1]);
+        }
+        detailedTimings.push(timing);
+      }
     }
   }
 
   return { detailedTimings, displayDescriptors };
+}
+
+/**
+ * Detect the SPWG (Standard Panel Working Group) Notebook Panel EDID sub-format.
+ *
+ * Matches edid-decode parse-base-block.cpp:1589 exactly: the base block is SPWG
+ * when the first two 18-byte descriptor slots (0x36, 0x48) are non-zero DTDs and
+ * the last two slots (0x5a, 0x6c) carry SPWG display descriptors (tag 0xfe at
+ * byte 3), with the SPWG Descriptor #4 sanity checks at 0x79/0x7a. SPWG relocates
+ * DTD 2's sync-flags byte to 0x47 (see decodeDescriptorBlocks).
+ */
+export function detectSPWG(bytes: Uint8Array): boolean {
+  return (
+    (bytes[0x36] !== 0 || bytes[0x37] !== 0) &&
+    (bytes[0x48] !== 0 || bytes[0x49] !== 0) &&
+    bytes[0x5a] === 0 && bytes[0x5b] === 0 && bytes[0x5d] === 0xfe &&
+    bytes[0x6c] === 0 && bytes[0x6d] === 0 && bytes[0x6f] === 0xfe &&
+    (bytes[0x79] === 1 || bytes[0x79] === 2) && bytes[0x7a] <= 1
+  );
 }
 
 export {
