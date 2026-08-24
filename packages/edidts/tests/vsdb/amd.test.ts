@@ -17,7 +17,7 @@ describe('AMDFreeSyncDecoder', () => {
     expect(result.minRefreshHz).toBe(48);
     expect(result.maxRefreshHz).toBe(144);
     expect(result.flags1).toBe(0x00);
-    expect(result.payload.length).toBe(0);
+    expect(result.trailing.length).toBe(0);
   });
 
   it('preserves the 2.x extension verbatim when length >= 10', () => {
@@ -28,7 +28,7 @@ describe('AMDFreeSyncDecoder', () => {
     expect(result.versionMajor).toBe(2);
     expect(result.minRefreshHz).toBe(48);
     expect(result.maxRefreshHz).toBe(144);
-    expect(Array.from(result.payload)).toEqual(Array.from(tail));
+    expect(Array.from(result.trailing)).toEqual(Array.from(tail));
   });
 
   it('returns defaults for a truncated payload (< 5 bytes) without throwing', () => {
@@ -36,7 +36,7 @@ describe('AMDFreeSyncDecoder', () => {
     expect(result.versionMajor).toBe(0);
     expect(result.minRefreshHz).toBe(0);
     expect(result.maxRefreshHz).toBe(0);
-    expect(result.payload.length).toBe(0);
+    expect(result.trailing.length).toBe(0);
   });
 });
 
@@ -62,7 +62,7 @@ describe('AMDFreeSyncEncoder', () => {
       minRefreshHz: 40,
       maxRefreshHz: 240,
       flags1: 0xe6,
-      payload: new Uint8Array(0),
+      trailing: new Uint8Array(0),
     });
     expect(Array.from(encoded)).toEqual([0x01, 0x02, 40, 240, 0xe6]);
   });

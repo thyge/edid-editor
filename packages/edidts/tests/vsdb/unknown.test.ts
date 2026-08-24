@@ -15,11 +15,11 @@ describe('Unknown VSDB handling', () => {
     }
   });
 
-  it('preserves raw bytes for unknown VSDBs during round-trip via data', () => {
+  it('preserves raw bytes for unknown VSDBs during round-trip via payload', () => {
     const payload = new Uint8Array([0xAA, 0xBB, 0xCC, 0xDD]);
     const block = reassembleVsdbBlock(0x112233, payload);
     const decoded = decodeVendorSpecificBlock(block);
-    // The original block bytes are preserved in decoded.data
-    expect(Array.from(decoded.data)).toEqual(Array.from(block));
+    // The post-header body (OUI + vendor bytes) is preserved in decoded.payload.
+    expect(Array.from(decoded.payload)).toEqual(Array.from(block.slice(1)));
   });
 });

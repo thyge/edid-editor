@@ -577,7 +577,7 @@ describe('VESA extended tag 0x03 (Video Timing Block Extension) — TASK-9', () 
     const blockData = new Uint8Array([0x03, 0x10, 0x20, 0x30, 0x40, 0x50]);
     const block = decodeExtendedDataBlock(blockData) as VESAVideoTimingBlockExtensionDataBlock;
     expect(block.extendedTag).toBe(0x03);
-    expect(Array.from(block.payload)).toEqual([0x10, 0x20, 0x30, 0x40, 0x50]);
+    expect(Array.from(block.trailing)).toEqual([0x10, 0x20, 0x30, 0x40, 0x50]);
     const reencoded = encodeExtendedDataBlock(block);
     expect(Array.from(reencoded)).toEqual(Array.from(blockData));
   });
@@ -590,18 +590,18 @@ describe('VESA extended tag 0x03 (Video Timing Block Extension) — TASK-9', () 
     const block = decodeExtendedDataBlock(blockData) as VESAVideoTimingBlockExtensionDataBlock;
     expect(block.extendedTag).toBe(0x03);
 
-    block.payload = new Uint8Array([0xaa, 0xbb, 0xcc]);
+    block.trailing = new Uint8Array([0xaa, 0xbb, 0xcc]);
     const reencoded = encodeExtendedDataBlock(block);
     const redecoded = decodeExtendedDataBlock(reencoded) as VESAVideoTimingBlockExtensionDataBlock;
 
     expect(redecoded.extendedTag).toBe(0x03);
-    expect(Array.from(redecoded.payload)).toEqual([0xaa, 0xbb, 0xcc]);
+    expect(Array.from(redecoded.trailing)).toEqual([0xaa, 0xbb, 0xcc]);
   });
 
   it('round-trips an empty payload (length-0 block data is still ≥ ext tag)', () => {
     const blockData = new Uint8Array([0x03]);
     const block = decodeExtendedDataBlock(blockData) as VESAVideoTimingBlockExtensionDataBlock;
-    expect(block.payload.length).toBe(0);
+    expect(block.trailing.length).toBe(0);
     const reencoded = encodeExtendedDataBlock(block);
     expect(Array.from(reencoded)).toEqual([0x03]);
   });

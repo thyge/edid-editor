@@ -155,16 +155,16 @@ export interface YCbCr420CapabilityMapDataBlock extends ExtendedDataBlock {
  * Vendor-Specific Video Data Block (Extended Tag 1)
  *
  * The decoded per-vendor shape (Dolby Vision, HDR10+, ...) is surfaced on the
- * carrier as `vendor`, mirroring the tag-0x03 VSDB. `payload` retains the raw
- * post-OUI bytes; `vendor.fields` holds the structured, editable form. The CTA
- * encoder re-encodes from `vendor.fields` when a registered encoder exists
- * (see `encodeVendorSpecificVideoBlock`), falling back to the raw `payload`
- * for unknown OUIs.
+ * carrier as `vendor`, mirroring the tag-0x03 VSDB. `vendorPayload` retains the
+ * raw post-OUI bytes; `vendor.fields` holds the structured, editable form. The
+ * CTA encoder re-encodes from `vendor.fields` when a registered encoder exists
+ * (see `encodeVendorSpecificVideoBlock`), falling back to the raw
+ * `vendorPayload` for unknown OUIs.
  */
 export interface VendorSpecificVideoDataBlock extends ExtendedDataBlock {
   extendedTag: 0x01;
   ieeeOui: number;
-  payload: Uint8Array;
+  vendorPayload: Uint8Array;
   vendor?: VSVDBVendorDecoded;
 }
 
@@ -174,7 +174,7 @@ export interface VendorSpecificVideoDataBlock extends ExtendedDataBlock {
 export interface VendorSpecificAudioDataBlock extends ExtendedDataBlock {
   extendedTag: 0x11;
   ieeeOui: number;
-  payload: Uint8Array;
+  vendorPayload: Uint8Array;
 }
 
 /**
@@ -547,8 +547,8 @@ export interface VESAChromaticity {
  */
 export interface VESAVideoTimingBlockExtensionDataBlock extends ExtendedDataBlock {
   extendedTag: 0x03;
-  /** VESA-defined timing payload, preserved verbatim. */
-  payload: Uint8Array;
+  /** VESA-defined timing payload (post-ext-tag), preserved verbatim. */
+  trailing: Uint8Array;
 }
 
 /** Label maps for VESA VDDB enumerated sub-fields (UI helpers). */
@@ -640,7 +640,7 @@ export type CTAExtendedDataBlock =
  */
 export function decodeExtendedDataBlock(blockData: Uint8Array): CTAExtendedDataBlock {
   if (blockData.length < 1) {
-    return { tag: 0x07, extendedTag: 0, data: blockData };
+    return { tag: 0x07, extendedTag: 0, payload: blockData };
   }
 
   const extendedTag = blockData[0] as ExtendedTagCode;
@@ -649,7 +649,7 @@ export function decodeExtendedDataBlock(blockData: Uint8Array): CTAExtendedDataB
   const base: ExtendedDataBlock = {
     tag: 0x07,
     extendedTag,
-    data: blockData,
+    payload: blockData,
   };
 
   switch (extendedTag) {
@@ -848,7 +848,7 @@ function decodeVendorSpecificAudioBlock(base: ExtendedDataBlock, payload: Uint8A
       ...base,
       extendedTag: 0x11,
       ieeeOui: 0,
-      payload: new Uint8Array(),
+      vendorPayload: new Uint8Array(),
     };
   }
 
@@ -858,7 +858,7 @@ function decodeVendorSpecificAudioBlock(base: ExtendedDataBlock, payload: Uint8A
     ...base,
     extendedTag: 0x11,
     ieeeOui,
-    payload: payload.slice(3),
+    vendorPayload: payload.slice(3),
   };
 }
 
@@ -936,7 +936,7 @@ function decodeVESAVideoTimingBlockExtension(base: ExtendedDataBlock, payload: U
   return {
     ...base,
     extendedTag: 0x03,
-    payload: payload.slice(),
+    trailing: payload.slice(),
   };
 }
 
@@ -1102,11 +1102,15 @@ export function encodeExtendedDataBlock(block: CTAExtendedDataBlock): Uint8Array
       // fallback; only the structured VDDB carries `interfaceCategory`.
       return 'interfaceCategory' in block
         ? encodeVESAVideoDisplayDeviceBlock(block as VESAVideoDisplayDeviceDataBlock)
-        : block.data;
+        : block.payload;
     case 0x03:
-      return 'payload' in block
+      // The structured VESA VTB extension carries the opaque timing bytes as
+      // `trailing`; the generic fallback (no `trailing`) returns its carrier
+      // `payload` verbatim. (Decode always produces the structured type for
+      // ext-tag 0x03; the fallback arm is defensive.)
+      return 'trailing' in block
         ? encodeVESAVideoTimingBlockExtension(block as VESAVideoTimingBlockExtensionDataBlock)
-        : block.data;
+        : block.payload;
     case 0x14:
       return encodeSpeakerLocationBlock(block as SpeakerLocationDataBlock);
     case 0x15:
@@ -1114,8 +1118,8 @@ export function encodeExtendedDataBlock(block: CTAExtendedDataBlock): Uint8Array
     case 0x20:
       return encodeInfoFrameBlock(block as InfoFrameDataBlock);
     default:
-      // Return original data for unhandled types
-      return block.data;
+      // Return original payload for unhandled types
+      return block.payload;
   }
 }
 
@@ -1137,7 +1141,7 @@ function encodeVendorSpecificVideoBlock(block: VendorSpecificVideoDataBlock): Ui
   }
   const bytes = [0x01];
   pushOuiLE(bytes, block.ieeeOui);
-  for (const b of block.payload) bytes.push(b);
+  for (const b of block.vendorPayload) bytes.push(b);
   return new Uint8Array(bytes);
 }
 
@@ -1212,7 +1216,7 @@ function encodeVideoFormatPreferenceBlock(block: VideoFormatPreferenceDataBlock)
 function encodeVendorSpecificAudioBlock(block: VendorSpecificAudioDataBlock): Uint8Array {
   const bytes = [0x11];
   pushOuiLE(bytes, block.ieeeOui);
-  for (const b of block.payload) bytes.push(b);
+  for (const b of block.vendorPayload) bytes.push(b);
   return new Uint8Array(bytes);
 }
 
@@ -1290,9 +1294,9 @@ function encodeVESAVideoDisplayDeviceBlock(block: VESAVideoDisplayDeviceDataBloc
 
 /** Encode the VESA Video Timing Block Extension (ext tag 0x03) — opaque payload. */
 function encodeVESAVideoTimingBlockExtension(block: VESAVideoTimingBlockExtensionDataBlock): Uint8Array {
-  const bytes = new Uint8Array(1 + block.payload.length);
+  const bytes = new Uint8Array(1 + block.trailing.length);
   bytes[0] = 0x03;
-  bytes.set(block.payload, 1);
+  bytes.set(block.trailing, 1);
   return bytes;
 }
 
@@ -1304,9 +1308,9 @@ function encodeRoomEnvironmentBlock(block: RoomEnvironmentDataBlock): Uint8Array
   // EXPERIMENTAL — CTA-861-H §7.5.17 Room Environment Data Block;
   // field semantics per ITU-T H.265 Ambient Viewing Environment SEI;
   // layout not verified against a parser — byte-identical round-trip is the correctness gate.
-  // Slice-and-overwrite: start from block.data (which includes the ext-tag byte at index 0);
+  // Slice-and-overwrite: start from block.payload (which includes the ext-tag byte at index 0);
   // payload starts at index 1. Reserved/trailing bytes are preserved.
-  const out = block.data.slice();
+  const out = block.payload.slice();
   if (block.ambientIlluminance !== undefined && out.length >= 5) {
     const v = block.ambientIlluminance >>> 0;
     out[1] = (v >>> 24) & 0xff;

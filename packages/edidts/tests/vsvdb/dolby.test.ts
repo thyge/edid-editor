@@ -17,7 +17,7 @@ describe('DolbyVSDBEncoder', () => {
       supports2160p60: true,
       supportsGlobalDimming: false,
       byte0Reserved: 0,
-      payload: new Uint8Array(),
+      trailing: new Uint8Array(),
     };
     const encoded = new DolbyVSDBEncoder().encode(fields);
     const decoded = new DolbyVSDBDecoder().decode(encoded);
@@ -28,14 +28,14 @@ describe('DolbyVSDBEncoder', () => {
     // version=0, all flags off => 0x00
     const encoded = new DolbyVSDBEncoder().encode({
       version: 0, supportsYUV422_12bit: false, supports2160p60: false, supportsGlobalDimming: false,
-      byte0Reserved: 0, payload: new Uint8Array(),
+      byte0Reserved: 0, trailing: new Uint8Array(),
     });
     expect(encoded).toEqual(new Uint8Array([0x00]));
 
     // version=2 (010), YUV422=1, 2160p60=0, dimming=1 => 0b01000101 = 0x45
     const encoded2 = new DolbyVSDBEncoder().encode({
       version: 2, supportsYUV422_12bit: true, supports2160p60: false, supportsGlobalDimming: true,
-      byte0Reserved: 0, payload: new Uint8Array(),
+      byte0Reserved: 0, trailing: new Uint8Array(),
     });
     expect(encoded2).toEqual(new Uint8Array([0x45]));
   });
@@ -46,12 +46,12 @@ describe('DolbyVSDBEncoder', () => {
     const trailing = new Uint8Array([0x11, 0x22, 0x33]);
     const encoded = new DolbyVSDBEncoder().encode({
       version: 1, supportsYUV422_12bit: true, supports2160p60: false, supportsGlobalDimming: true,
-      byte0Reserved: 0, payload: trailing,
+      byte0Reserved: 0, trailing: trailing,
     });
     // byte0 = (1<<5) | 0b101 = 0x25, then the trailing bytes.
     expect(encoded).toEqual(new Uint8Array([0x25, 0x11, 0x22, 0x33]));
     const decoded = new DolbyVSDBDecoder().decode(encoded);
-    expect(Array.from(decoded.payload)).toEqual([0x11, 0x22, 0x33]);
+    expect(Array.from(decoded.trailing)).toEqual([0x11, 0x22, 0x33]);
   });
 
   it('preserves byte0 bits 4:3 (byte0Reserved) so real v2 blocks round-trip', () => {
@@ -67,7 +67,7 @@ describe('DolbyVSDBEncoder', () => {
   it('rejects out-of-range versions', () => {
     expect(() => new DolbyVSDBEncoder().encode({
       version: 8, supportsYUV422_12bit: false, supports2160p60: false, supportsGlobalDimming: false,
-      byte0Reserved: 0, payload: new Uint8Array(),
+      byte0Reserved: 0, trailing: new Uint8Array(),
     })).toThrow(RangeError);
   });
 });
@@ -84,7 +84,7 @@ describe('DolbyVSDBDecoder', () => {
     expect(result.supportsGlobalDimming).toBe(true);
     // 0x4D = 0x40 (v2) | 0x08 (bit3) | 0x05 (flags) => bits 4:3 = 0b01.
     expect(result.byte0Reserved).toBe(1);
-    expect(result.payload).toEqual(new Uint8Array(0));
+    expect(result.trailing).toEqual(new Uint8Array(0));
   });
 
   it('returns defaults for empty payload', () => {
@@ -94,7 +94,7 @@ describe('DolbyVSDBDecoder', () => {
     expect(result.supports2160p60).toBe(false);
     expect(result.supportsGlobalDimming).toBe(false);
     expect(result.byte0Reserved).toBe(0);
-    expect(result.payload).toEqual(new Uint8Array(0));
+    expect(result.trailing).toEqual(new Uint8Array(0));
   });
 });
 
@@ -125,7 +125,7 @@ describe('Dolby VSVDB carrier (CTA extended tag 0x01)', () => {
     expect(fields.supportsYUV422_12bit).toBe(true);
     expect(fields.supports2160p60).toBe(true);
     expect(fields.supportsGlobalDimming).toBe(false);
-    expect(Array.from(fields.payload)).toEqual([0xaa, 0xbb]);
+    expect(Array.from(fields.trailing)).toEqual([0xaa, 0xbb]);
   });
 
   it('round-trips byte-identically through the carrier, including trailing bytes', () => {
@@ -149,6 +149,6 @@ describe('Dolby VSVDB carrier (CTA extended tag 0x01)', () => {
     const redecoded = decodeExtendedDataBlock(encoded) as VendorSpecificVideoDataBlock;
     expect(redecoded.vendor!.fields.version).toBe(2);
     expect(redecoded.vendor!.fields.supportsGlobalDimming).toBe(true);
-    expect(Array.from(redecoded.vendor!.fields.payload)).toEqual([0xaa, 0xbb]);
+    expect(Array.from(redecoded.vendor!.fields.trailing)).toEqual([0xaa, 0xbb]);
   });
 });

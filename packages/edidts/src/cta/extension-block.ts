@@ -96,7 +96,8 @@ export type CEADataBlockTag =
 
 export interface CEADataBlock {
   tag: CEADataBlockTag;
-  data: Uint8Array;
+  /** Post-header body (the tag/length header byte is stripped by the walker). */
+  payload: Uint8Array;
 }
 
 export interface AudioDataBlock extends CEADataBlock {
@@ -380,7 +381,7 @@ export class ExtensionBlockParser {
       case 0x07: // Extended Tag Block (CTA-861-G)
         return decodeExtendedDataBlock(data);
       default:
-        return { tag, data };
+        return { tag, payload: data };
     }
   }
 
@@ -460,7 +461,7 @@ export class ExtensionBlockParser {
       descriptors.push(descriptor);
     }
 
-    return { tag: 0x01, data, descriptors };
+    return { tag: 0x01, payload: data, descriptors };
   }
 
   private static decodeVideoDataBlock(data: Uint8Array): VideoDataBlock {
@@ -476,26 +477,25 @@ export class ExtensionBlockParser {
       });
     }
 
-    return { tag: 0x02, data, vics };
+    return { tag: 0x02, payload: data, vics };
   }
 
   private static decodeVendorSpecificBlock(data: Uint8Array): VendorSpecificDataBlock {
-    // The CTA data-block walker (decodeCEA) passes each block's payload with
-    // the tag/length header byte already stripped — for a VSDB, `data` starts
-    // at the OUI (data[0..2]) followed by the post-OUI payload (data[3..]).
-    // The registry-level decodeVendorSpecificBlock (vsdb/registry.ts) expects
-    // the header byte present: it reads the OUI at data[1..3] and derives the
-    // payload length from data[0]. Reconstruct that header byte so the OUI and
-    // payload extraction aligns, then restore block.data to the header-stripped
-    // bytes the CTA level round-trips on — encodeCEA prepends its own header,
-    // and the unknown-VSDB encode path returns block.data verbatim.
+    // The CTA data-block walker (decodeCEA) passes each block's body with the
+    // tag/length header byte already stripped — for a VSDB, `data` starts at the
+    // OUI (data[0..2]) followed by the post-OUI vendor body (data[3..]). The
+    // registry-level decodeVendorSpecificBlock (vsdb/registry.ts) expects the
+    // header byte present (it reads the OUI at data[1..3] and derives the body
+    // length from data[0]). Reconstruct that header byte so the OUI and
+    // vendor-body extraction align. The registry sets the carrier `payload` to
+    // the post-header body (full.slice(1) === this `data`), which is exactly
+    // what the CTA level round-trips on — encodeCEA prepends its own header and
+    // the unknown-VSDB encode path returns block.payload verbatim.
     const header = (0x03 << 5) | (data.length & 0x1F);
     const full = new Uint8Array(data.length + 1);
     full[0] = header;
     full.set(data, 1);
-    const block = decodeVendorSpecificBlock(full);
-    block.data = data;
-    return block;
+    return decodeVendorSpecificBlock(full);
   }
 
   private static decodeSpeakerAllocationBlock(data: Uint8Array): SpeakerAllocationBlock {
@@ -505,7 +505,7 @@ export class ExtensionBlockParser {
 
     return {
       tag: 0x04,
-      data,
+      payload: data,
       speakers: {
         // byte 1
         frontLeftRight: (byte1 & 0x01) !== 0,
@@ -537,7 +537,7 @@ export class ExtensionBlockParser {
 
   private static decodeVESADisplayTransferBlock(data: Uint8Array): VESADisplayTransferCharacteristicBlock {
     if (data.length < 1) {
-      return { tag: 0x05, data, transferType: 'white', numEntries: 0, gammaValues: [] };
+      return { tag: 0x05, payload: data, transferType: 'white', numEntries: 0, gammaValues: [] };
     }
 
     const header = data[0];
@@ -568,7 +568,7 @@ export class ExtensionBlockParser {
     
     return {
       tag: 0x05,
-      data,
+      payload: data,
       transferType,
       numEntries,
       gammaValues,
@@ -654,7 +654,7 @@ export class ExtensionBlockParser {
       case 0x07:
         return encodeExtendedDataBlock(block as CTAExtendedDataBlock);
       default:
-        return block.data;
+        return block.payload;
     }
   }
 
@@ -736,9 +736,9 @@ export class ExtensionBlockParser {
   }
 
   private static encodeVendorSpecificDataBlock(block: VendorSpecificDataBlock): Uint8Array {
-    if (!block.vendor || block.vendor.kind === 'unknown') return block.data;
+    if (!block.vendor || block.vendor.kind === 'unknown') return block.payload;
     const encoder = VENDOR_ENCODERS[block.vendor.kind];
-    if (!encoder) return block.data;
+    if (!encoder) return block.payload;
     // reassembleVsdbBlock returns the full VSDB bytes including the tag/length
     // header byte. encodeCEA prepends its own header byte (and derives the
     // length field from encoded.length), so strip the reassembled header to
@@ -799,7 +799,7 @@ export class ExtensionBlockParser {
    * bits 4:3, so the encoder writes back to those same bit positions.
    */
   private static encodeVESADisplayTransferBlock(block: VESADisplayTransferCharacteristicBlock): Uint8Array {
-    const out = block.data.slice();
+    const out = block.payload.slice();
     if (out.length < 1) return out;
 
     // Same maps as the decoder (see decodeVESADisplayTransferBlock).

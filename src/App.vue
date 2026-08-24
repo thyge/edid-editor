@@ -181,29 +181,16 @@ function setByPath(obj: Record<string, unknown>, path: string, value: unknown): 
   cur[parts[parts.length - 1]] = value
 }
 
-/** Edit a structured VSDB (HDMI 1.4, HDMI Forum, Microsoft HMD, ...). The CEA
- *  encoder re-encodes from block.vendor.fields automatically, so we only mutate
- *  the fields object and reassign dataBlocks to trigger reactivity. */
-function updateVSDB(block: VendorSpecificDataBlock, field: string, value: unknown) {
-  if (!edidRef.value) return
-  const cea = getCEAExtension(edidRef.value)
-  if (!cea) return
-  const vendor = block.vendor
-  if (!vendor || vendor.kind === 'unknown') return
-  setByPath(vendor.fields as unknown as Record<string, unknown>, field, value)
-  // Replace the fields object reference so the child component re-renders and
-  // the CEA encoder reads the updated values.
-  vendor.fields = { ...(vendor.fields as object) } as typeof vendor.fields
-  cea.dataBlocks = [...cea.dataBlocks]
-  syncEdid()
-}
-
-/** Edit a VSVDB (tag 0x07 ext 0x01, e.g. Dolby Vision). The carrier re-encodes
- *  from block.vendor.fields (parallel to tag-0x03 VSDBs), so we mutate the
- *  fields object and reassign dataBlocks to trigger reactivity. Trailing
- *  vendor-reserved bytes live inside the structured `payload` field of the
- *  decoded shape and are preserved by the byte-complete vendor encoder. */
-function updateVSVDB(block: VendorSpecificVideoDataBlock, field: string, value: unknown) {
+/** Edit a structured vendor data block — tag-0x03 VSDBs (HDMI 1.4, HDMI
+ *  Forum, Microsoft HMD, AMD) and tag-0x07 ext-0x01 VSVDBs (Dolby Vision).
+ *  Both carrier families now re-encode from block.vendor.fields, so a single
+ *  handler covers them: mutate the fields object and reassign dataBlocks to
+ *  trigger reactivity. The separate VSDB/VSVDB split existed only because the
+ *  two carriers stored their structured shape differently; that is no longer
+ *  true (TASK-67), so the split is collapsed here. Trailing vendor-reserved
+ *  bytes live in the decoded shape's `trailing` field and survive the
+ *  byte-complete vendor encoder. */
+function updateVendorBlock(block: VendorSpecificDataBlock | VendorSpecificVideoDataBlock, field: string, value: unknown) {
   if (!edidRef.value) return
   const cea = getCEAExtension(edidRef.value)
   if (!cea) return
@@ -309,16 +296,16 @@ function addCEADataBlock(blockType: string) {
 
   switch (blockType) {
     case 'video':
-      cea.dataBlocks.push({ tag: 0x02, data: empty, vics: [] } as unknown as import('edidts').CEADataBlock)
+      cea.dataBlocks.push({ tag: 0x02, payload: empty, vics: [] } as unknown as import('edidts').CEADataBlock)
       activeSection.value = 'cea-video'
       break
     case 'audio':
-      cea.dataBlocks.push({ tag: 0x01, data: empty, descriptors: [] } as unknown as import('edidts').CEADataBlock)
+      cea.dataBlocks.push({ tag: 0x01, payload: empty, descriptors: [] } as unknown as import('edidts').CEADataBlock)
       activeSection.value = 'cea-audio'
       break
     case 'speakers':
       cea.dataBlocks.push({
-        tag: 0x04, data: empty,
+        tag: 0x04, payload: empty,
         speakers: {
           frontLeftRight: true, lfe: false, frontCenter: false,
           rearLeftRight: false, rearCenter: false, frontLeftRightCenter: false,
@@ -335,7 +322,7 @@ function addCEADataBlock(blockType: string) {
       break
     case 'video-capability':
       cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x00, data: empty,
+        tag: 0x07, extendedTag: 0x00, payload: empty,
         ceVideoScanBehavior: 'not_supported',
         itVideoScanBehavior: 'not_supported',
         ptVideoScanBehavior: 'not_supported',
@@ -346,7 +333,7 @@ function addCEADataBlock(blockType: string) {
       break
     case 'colorimetry':
       cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x05, data: empty,
+        tag: 0x07, extendedTag: 0x05, payload: empty,
         xvYCC601: false, xvYCC709: false, sYCC601: false, opYCC601: false,
         opRGB: false, bt2020cYCC: false, bt2020YCC: false, bt2020RGB: false, dciP3: false,
       } as unknown as import('edidts').CEADataBlock)
@@ -354,7 +341,7 @@ function addCEADataBlock(blockType: string) {
       break
     case 'hdr-static':
       cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x06, data: empty,
+        tag: 0x07, extendedTag: 0x06, payload: empty,
         eotf: { traditionalGammaSDR: false, traditionalGammaHDR: false, smpte2084: false, hlg: false },
         staticMetadataType1: false,
       } as unknown as import('edidts').CEADataBlock)
@@ -362,38 +349,38 @@ function addCEADataBlock(blockType: string) {
       break
     case 'video-format-preference':
       cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x0D, data: empty, svrs: [],
+        tag: 0x07, extendedTag: 0x0D, payload: empty, svrs: [],
       } as unknown as import('edidts').CEADataBlock)
       activeSection.value = 'cea-video-format-pref'
       break
     case 'vendor-audio':
       cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x11, data: empty, ieeeOui: 0, payload: new Uint8Array(),
+        tag: 0x07, extendedTag: 0x11, payload: empty, ieeeOui: 0, vendorPayload: new Uint8Array(),
       } as unknown as import('edidts').CEADataBlock)
       activeSection.value = 'cea-vendor-audio'
       break
     case 'room-config':
       cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x13, data: empty, speakerCount: 0, speakerPresenceDescriptor: 0,
+        tag: 0x07, extendedTag: 0x13, payload: empty, speakerCount: 0, speakerPresenceDescriptor: 0,
       } as unknown as import('edidts').CEADataBlock)
       activeSection.value = 'cea-room-config'
       break
     case 'speaker-location':
       cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x14, data: empty, descriptors: [], trailing: new Uint8Array(),
+        tag: 0x07, extendedTag: 0x14, payload: empty, descriptors: [], trailing: new Uint8Array(),
       } as unknown as import('edidts').CEADataBlock)
       activeSection.value = 'cea-speaker-location'
       break
     case 'infoframe':
       cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x20, data: empty,
+        tag: 0x07, extendedTag: 0x20, payload: empty,
         additionalVsifs: 0, processingPayload: new Uint8Array(), descriptors: [], trailing: new Uint8Array(),
       } as unknown as import('edidts').CEADataBlock)
       activeSection.value = 'cea-infoframe'
       break
     case 'vesa-transfer':
       cea.dataBlocks.push({
-        tag: 0x05, data: new Uint8Array(1), transferType: 'white', numEntries: 8, gammaValues: new Array(8).fill(0),
+        tag: 0x05, payload: new Uint8Array(1), transferType: 'white', numEntries: 8, gammaValues: new Array(8).fill(0),
       } as unknown as import('edidts').CEADataBlock)
       activeSection.value = 'cea-vesa-transfer'
       break
@@ -614,7 +601,7 @@ function updateCEA(field: string, value: unknown) {
           <CEAVideoBlock v-else-if="activeSection === 'cea-video' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEASpeakerBlock v-else-if="activeSection === 'cea-speakers' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CEAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="updateVSDB" @update-vsvdb="updateVSVDB" />
+          <CEAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="updateVendorBlock" @update-vsvdb="updateVendorBlock" />
           <CEAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" @update="updateExtendedBlock" />
           <CEAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
           <CEAVideoFormatPreference v-else-if="activeSection === 'cea-video-format-pref' && ceaExtension" :cea="ceaExtension" @update="updateExtendedBlock" />

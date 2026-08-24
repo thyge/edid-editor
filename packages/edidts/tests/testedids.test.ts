@@ -34,7 +34,8 @@ function isStructuredDisplayIdBlock(block: { tag: number }): boolean {
 }
 
 function ouiFromVsdbData(data: Uint8Array): number {
-  // VSDB block.data is header-stripped: OUI occupies bytes 0..2 little-endian.
+  // VSDB block.payload is the header-stripped body: OUI occupies bytes 0..2
+  // little-endian (CTA OUIs are wire/little-endian, unlike DisplayID §4.9).
   return data[0] | (data[1] << 8) | (data[2] << 16)
 }
 
@@ -193,7 +194,7 @@ describe('Structured-field regression guards', () => {
             }
             // Known OUIs must decode to their vendor kind, not the 'unknown'
             // fallback — guards the TASK-56 OUI-shift regression.
-            if (KNOWN_VSDB_OUIS.has(ouiFromVsdbData(block.data)) && vendor.kind === 'unknown') {
+            if (KNOWN_VSDB_OUIS.has(ouiFromVsdbData(block.payload)) && vendor.kind === 'unknown') {
               violations.push(`${label} (vsdb) known OUI decoded as unknown kind`)
             }
             break

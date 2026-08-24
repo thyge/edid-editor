@@ -19,7 +19,7 @@ describe('MHLDecoder', () => {
     expect(result.version).toBe(2);
     expect(result.revision).toBe(0);
     expect(result.deviceCapability).toBe(0x40);
-    expect(Array.from(result.payload)).toEqual([0xAA, 0xBB]);
+    expect(Array.from(result.trailing)).toEqual([0xAA, 0xBB]);
   });
 
   it('byte-identical round-trip for a well-formed payload', () => {
@@ -27,7 +27,7 @@ describe('MHLDecoder', () => {
       version: 2,
       revision: 0,
       deviceCapability: 0x40,
-      payload: new Uint8Array([0xAA, 0xBB]),
+      trailing: new Uint8Array([0xAA, 0xBB]),
     };
     const encoded = new MHLEncoder().encode(fields);
     expect(encoded).toEqual(new Uint8Array([0x20, 0x40, 0xAA, 0xBB]));
@@ -38,7 +38,7 @@ describe('MHLDecoder', () => {
     expect(result.version).toBe(0);
     expect(result.revision).toBe(0);
     expect(result.deviceCapability).toBe(0);
-    expect(result.payload.length).toBe(0);
+    expect(result.trailing.length).toBe(0);
   });
 });
 
@@ -54,7 +54,7 @@ describe('MHL VSDB registry', () => {
     // net for the MHL encode path.
     const block = reassembleVsdbBlock(OUI.MHL, new Uint8Array([0x20, 0x40, 0xAA, 0xBB]));
     const decoded = decodeVendorSpecificBlock(block);
-    const fields = decoded.vendor!.fields as { version: number; revision: number; deviceCapability: number; payload: Uint8Array };
+    const fields = decoded.vendor!.fields as { version: number; revision: number; deviceCapability: number; trailing: Uint8Array };
     expect(fields.version).toBe(2);
     expect(fields.deviceCapability).toBe(0x40);
 
@@ -62,12 +62,12 @@ describe('MHL VSDB registry', () => {
     fields.version = 3;
     const reencoded = reassembleVsdbBlock(OUI.MHL, VENDOR_ENCODERS['mhl'].encode(fields));
     const redecoded = decodeVendorSpecificBlock(reencoded);
-    const reFields = redecoded.vendor!.fields as { version: number; revision: number; deviceCapability: number; payload: Uint8Array };
+    const reFields = redecoded.vendor!.fields as { version: number; revision: number; deviceCapability: number; trailing: Uint8Array };
 
     expect(reFields.version).toBe(3);
     expect(reFields.revision).toBe(0);
     expect(reFields.deviceCapability).toBe(0x40);
-    expect(Array.from(reFields.payload)).toEqual([0xAA, 0xBB]);
+    expect(Array.from(reFields.trailing)).toEqual([0xAA, 0xBB]);
   });
 
   it('end-to-end decodes an MHL block and re-encodes byte-identically', () => {
@@ -75,11 +75,11 @@ describe('MHL VSDB registry', () => {
     const decoded = decodeVendorSpecificBlock(block);
     expect(decoded.ieeeOui).toBe(OUI.MHL);
     expect(decoded.vendor?.kind).toBe('mhl');
-    const fields = decoded.vendor!.fields as { version: number; revision: number; deviceCapability: number; payload: Uint8Array };
+    const fields = decoded.vendor!.fields as { version: number; revision: number; deviceCapability: number; trailing: Uint8Array };
     expect(fields.version).toBe(2);
     expect(fields.revision).toBe(0);
     expect(fields.deviceCapability).toBe(0x40);
-    expect(Array.from(fields.payload)).toEqual([0xAA, 0xBB]);
+    expect(Array.from(fields.trailing)).toEqual([0xAA, 0xBB]);
 
     const reencoded = reassembleVsdbBlock(OUI.MHL, VENDOR_ENCODERS['mhl'].encode(fields));
     expect(reencoded).toEqual(block);

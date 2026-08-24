@@ -21,13 +21,13 @@ describe('HDR10PlusVsvdbDecoder', () => {
     const payload = new Uint8Array([0x02, 0xaa, 0xbb]);
     const result = new HDR10PlusVsvdbDecoder().decode(payload);
     expect(result.applicationVersion).toBe(2);
-    expect(Array.from(result.payload)).toEqual([0xaa, 0xbb]);
+    expect(Array.from(result.trailing)).toEqual([0xaa, 0xbb]);
   });
 
   it('returns defaults for empty payload without throwing', () => {
     const result = new HDR10PlusVsvdbDecoder().decode(new Uint8Array(0));
     expect(result.applicationVersion).toBe(0);
-    expect(result.payload).toEqual(new Uint8Array(0));
+    expect(result.trailing).toEqual(new Uint8Array(0));
   });
 });
 
@@ -35,7 +35,7 @@ describe('HDR10PlusVsvdbEncoder', () => {
   it('reconstructs the post-OUI payload byte-identically', () => {
     const encoded = new HDR10PlusVsvdbEncoder().encode({
       applicationVersion: 2,
-      payload: new Uint8Array([0xaa, 0xbb]),
+      trailing: new Uint8Array([0xaa, 0xbb]),
     });
     expect(encoded).toEqual(new Uint8Array([0x02, 0xaa, 0xbb]));
   });
@@ -61,11 +61,11 @@ describe('VSVDB registry — HDR10+', () => {
     const decoder = VENDOR_VSVDB_DECODERS[OUI.HDR10_PLUS]!;
     const encoder = VENDOR_VSVDB_ENCODERS['hdr10PlusVsvdb']!;
     const payload = new Uint8Array([0x02, 0xaa, 0xbb]);
-    const decoded = decoder.decode(payload) as { applicationVersion: number; payload: Uint8Array };
+    const decoded = decoder.decode(payload) as { applicationVersion: number; trailing: Uint8Array };
     const encoded = encoder.encode(decoded);
     expect(encoded).toEqual(payload);
     expect(decoded.applicationVersion).toBe(2);
-    expect(Array.from(decoded.payload)).toEqual([0xaa, 0xbb]);
+    expect(Array.from(decoded.trailing)).toEqual([0xaa, 0xbb]);
   });
 });
 
@@ -77,15 +77,15 @@ describe('HDR10+ VSVDB end-to-end carrier', () => {
     // post-extended-tag slice, so drop the leading extended-tag byte.
     const block = reassembleVsvdbBlock(OUI.HDR10_PLUS, postOui);
     const decoded = decodeVSVDB(
-      { tag: 0x07, extendedTag: 0x01, data: new Uint8Array(0) },
+      { tag: 0x07, extendedTag: 0x01, payload: new Uint8Array(0) },
       block.slice(1),
     );
     expect(decoded.ieeeOui).toBe(OUI.HDR10_PLUS);
-    expect(Array.from(decoded.payload)).toEqual([0x02, 0xaa, 0xbb]);
+    expect(Array.from(decoded.vendorPayload)).toEqual([0x02, 0xaa, 0xbb]);
 
     const decoder = VENDOR_VSVDB_DECODERS[OUI.HDR10_PLUS]!;
     const encoder = VENDOR_VSVDB_ENCODERS['hdr10PlusVsvdb']!;
-    const fields = decoder.decode(decoded.payload) as { applicationVersion: number; payload: Uint8Array };
+    const fields = decoder.decode(decoded.vendorPayload) as { applicationVersion: number; trailing: Uint8Array };
     const encoded = encoder.encode(fields);
     expect(encoded).toEqual(postOui);
   });
@@ -100,17 +100,17 @@ describe('HDR10+ VSVDB end-to-end carrier', () => {
     // extended-tag byte (0x01) + LE OUI 8B 84 90 + post-OUI body (version, ...)
     const wire = new Uint8Array([0x01, 0x8b, 0x84, 0x90, 0x02, 0xaa, 0xbb]);
     const decoded = decodeVSVDB(
-      { tag: 0x07, extendedTag: 0x01, data: new Uint8Array(0) },
+      { tag: 0x07, extendedTag: 0x01, payload: new Uint8Array(0) },
       wire.slice(1), // drop extended-tag byte
     );
     expect(decoded.ieeeOui).toBe(0x90848b);
     expect(VENDOR_VSVDB_DECODERS[decoded.ieeeOui]).toBeDefined();
-    const fields = VENDOR_VSVDB_DECODERS[decoded.ieeeOui]!.decode(decoded.payload) as {
+    const fields = VENDOR_VSVDB_DECODERS[decoded.ieeeOui]!.decode(decoded.vendorPayload) as {
       applicationVersion: number;
-      payload: Uint8Array;
+      trailing: Uint8Array;
     };
     expect(fields.applicationVersion).toBe(0x02);
-    expect(Array.from(fields.payload)).toEqual([0xaa, 0xbb]);
+    expect(Array.from(fields.trailing)).toEqual([0xaa, 0xbb]);
   });
 });
 
@@ -129,7 +129,7 @@ describe('HDR10+ VSVDB carrier (CTA extended tag 0x01)', () => {
     expect(block.ieeeOui).toBe(OUI.HDR10_PLUS);
     expect(block.vendor?.kind).toBe('hdr10PlusVsvdb');
     expect(block.vendor!.fields.applicationVersion).toBe(0x02);
-    expect(Array.from(block.vendor!.fields.payload)).toEqual([0xaa, 0xbb]);
+    expect(Array.from(block.vendor!.fields.trailing)).toEqual([0xaa, 0xbb]);
   });
 
   it('round-trips byte-identically through the carrier', () => {
@@ -146,6 +146,6 @@ describe('HDR10+ VSVDB carrier (CTA extended tag 0x01)', () => {
     expect(encoded).toEqual(hdr10Wire([0x05, 0xaa, 0xbb]));
     const redecoded = decodeExtendedDataBlock(encoded) as VendorSpecificVideoDataBlock;
     expect(redecoded.vendor!.fields.applicationVersion).toBe(0x05);
-    expect(Array.from(redecoded.vendor!.fields.payload)).toEqual([0xaa, 0xbb]);
+    expect(Array.from(redecoded.vendor!.fields.trailing)).toEqual([0xaa, 0xbb]);
   });
 });

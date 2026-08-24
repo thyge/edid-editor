@@ -116,7 +116,7 @@ export interface MicrosoftHMDVSDB {
  *   byte 2  minRefreshHz      — minimum refresh rate (Hz)
  *   byte 3  maxRefreshHz      — maximum refresh rate (Hz)
  *   byte 4  flags1            — FreeSync 1.x flags (raw); bits in 0xE6 ⇒ MCCS
- *   bytes 5.. payload         — FreeSync 2.x extension, preserved verbatim.
+ *   bytes 5.. trailing        — FreeSync 2.x extension, preserved verbatim.
  *                  edid-decode parses byte 5 as flags 2.x and bytes 6-9 as
  *                  max/min luminance (with and without local dimming) when
  *                  length >= 10, but marks those semantics as speculative, so
@@ -128,14 +128,14 @@ export interface AMDFreeSyncVSDB {
   minRefreshHz: number;
   maxRefreshHz: number;
   flags1: number;
-  payload: Uint8Array;      // bytes 5.. — FreeSync 2.x extension, preserved verbatim
+  trailing: Uint8Array;     // bytes 5.. — FreeSync 2.x extension, preserved verbatim
 }
 
 export interface MHLVSDB {
   version: number;          // byte 0 bits 7:4 — MHL major version
   revision: number;         // byte 0 bits 3:0 — MHL minor revision
   deviceCapability: number; // byte 1 — capability flags (raw byte; per-bit semantics unverified)
-  payload: Uint8Array;      // bytes 2.. — reserved/vendor-specific, preserved verbatim
+  trailing: Uint8Array;     // bytes 2.. — reserved/vendor-specific, preserved verbatim
 }
 
 export type VendorSpecificDecoded =
@@ -149,7 +149,8 @@ export type VendorSpecificDecoded =
 export interface VendorSpecificDataBlock extends CEADataBlock {
   tag: 0x03;
   ieeeOui: number;
-  payload: Uint8Array;
+  /** Post-OUI vendor body (the codec input / raw-fallback source for unknown OUIs). */
+  vendorPayload: Uint8Array;
   vendor?: VendorSpecificDecoded;
 }
 

@@ -39,24 +39,29 @@ export function reassembleVsdbBlock(ieeeOui: number, payload: Uint8Array): Uint8
 }
 
 export function decodeVendorSpecificBlock(data: Uint8Array): VendorSpecificDataBlock {
-  // data[0] is the header byte: high 3 bits = tag (3), low 5 bits = length of bytes after header
+  // `data` is the full on-wire block: data[0] is the header byte (high 3 bits =
+  // tag 3, low 5 bits = length of the post-header body), data[1..3] the LE OUI,
+  // data[4..] the post-OUI vendor body.
   const ieeeOui = data.length >= 4 ? readIeeeOuiLE(data, 1) : 0;
   const declaredLength = data[0] & 0x1F;
-  // The payload (post-OUI) starts at data[4] and is 3 bytes shorter than declaredLength
-  const payloadLen = Math.max(0, Math.min(declaredLength - 3, data.length - 4));
-  const payload = data.slice(4, 4 + payloadLen);
+  // Carrier `payload` = post-header body (OUI + vendor body), header-stripped.
+  const payload = data.slice(1);
+  // `vendorPayload` = post-OUI vendor body (the codec input / raw-fallback
+  // source for unknown OUIs), 3 bytes shorter than the declared body length.
+  const vendorPayloadLen = Math.max(0, Math.min(declaredLength - 3, data.length - 4));
+  const vendorPayload = data.slice(4, 4 + vendorPayloadLen);
   const block: VendorSpecificDataBlock = {
     tag: 0x03,
-    data,
-    ieeeOui,
     payload,
+    ieeeOui,
+    vendorPayload,
   };
 
   const decoder = VENDOR_DECODERS[ieeeOui];
   if (decoder) {
-    block.vendor = { kind: decoder.kind, fields: decoder.decode(payload) } as VendorSpecificDecoded;
+    block.vendor = { kind: decoder.kind, fields: decoder.decode(vendorPayload) } as VendorSpecificDecoded;
   } else {
-    block.vendor = { kind: 'unknown', ieeeOui, raw: payload };
+    block.vendor = { kind: 'unknown', ieeeOui, raw: vendorPayload };
   }
   return block;
 }
@@ -84,19 +89,19 @@ export function findVSDBByKind(
  *           (e.g. 0x10=v1.0, 0x20=v2.0, 0x30=v3.0).
  *   byte 1: Device Capability — capability bit flags per MHL spec; per-bit
  *           semantics not publicly verified, kept as a RAW byte.
- *   bytes 2..: reserved / vendor-specific — preserved verbatim as `payload`.
+ *   bytes 2..: reserved / vendor-specific — preserved verbatim as `trailing`.
  */
 export class MHLDecoder implements VendorDecoder<'mhl'> {
   readonly kind = 'mhl' as const;
   readonly minLength = 1;
 
   decode(payload: Uint8Array): MHLVSDB {
-    if (payload.length < 1) return { version: 0, revision: 0, deviceCapability: 0, payload: new Uint8Array() };
+    if (payload.length < 1) return { version: 0, revision: 0, deviceCapability: 0, trailing: new Uint8Array() };
     return {
       version: (payload[0] >> 4) & 0x0F,
       revision: payload[0] & 0x0F,
       deviceCapability: payload.length >= 2 ? payload[1] : 0,
-      payload: payload.slice(2),
+      trailing: payload.slice(2),
     };
   }
 }
@@ -105,10 +110,10 @@ export class MHLEncoder implements VendorEncoder<'mhl'> {
   readonly kind = 'mhl' as const;
 
   encode(fields: MHLVSDB): Uint8Array {
-    const out = new Uint8Array(2 + fields.payload.length);
+    const out = new Uint8Array(2 + fields.trailing.length);
     out[0] = ((fields.version & 0x0F) << 4) | (fields.revision & 0x0F);
     out[1] = fields.deviceCapability & 0xFF;
-    out.set(fields.payload, 2);
+    out.set(fields.trailing, 2);
     return out;
   }
 }

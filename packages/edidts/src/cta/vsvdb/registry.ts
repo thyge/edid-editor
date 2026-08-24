@@ -49,7 +49,7 @@ export function decodeVSVDB(base: ExtendedDataBlock, payload: Uint8Array): Vendo
       ...base,
       extendedTag: 0x01,
       ieeeOui: 0,
-      payload: new Uint8Array(),
+      vendorPayload: new Uint8Array(),
       vendor: { kind: 'unknown', ieeeOui: 0, raw: new Uint8Array() },
     };
   }
@@ -61,7 +61,7 @@ export function decodeVSVDB(base: ExtendedDataBlock, payload: Uint8Array): Vendo
     ...base,
     extendedTag: 0x01,
     ieeeOui,
-    payload: data,
+    vendorPayload: data,
   };
 
   const decoder = VENDOR_VSVDB_DECODERS[ieeeOui];
@@ -131,7 +131,7 @@ export function findVSVDBs(cea: CEAExtensionBlock): VendorSpecificVideoDataBlock
 
 export const HDR10_PLUS_VSVDB_DEFAULT: HDR10PlusVSDB = {
   applicationVersion: 0,
-  payload: new Uint8Array(),
+  trailing: new Uint8Array(),
 };
 
 export class HDR10PlusVsvdbDecoder implements VendorDecoder<'hdr10PlusVsvdb'> {
@@ -142,7 +142,7 @@ export class HDR10PlusVsvdbDecoder implements VendorDecoder<'hdr10PlusVsvdb'> {
     if (payload.length < 1) return { ...HDR10_PLUS_VSVDB_DEFAULT };
     return {
       applicationVersion: payload[0],
-      payload: payload.slice(1),
+      trailing: payload.slice(1),
     };
   }
 }
@@ -151,9 +151,9 @@ export class HDR10PlusVsvdbEncoder implements VendorEncoder<'hdr10PlusVsvdb'> {
   readonly kind = 'hdr10PlusVsvdb' as const;
 
   encode(fields: HDR10PlusVSDB): Uint8Array {
-    const out = new Uint8Array(1 + fields.payload.length);
+    const out = new Uint8Array(1 + fields.trailing.length);
     out[0] = fields.applicationVersion & 0xff;
-    out.set(fields.payload, 1);
+    out.set(fields.trailing, 1);
     return out;
   }
 }

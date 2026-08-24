@@ -44,7 +44,7 @@ const tagLabel: Record<number, string> = {
           <h4 class="text-xs font-medium text-muted-foreground">Embedded CTA short data blocks ({{ block.dataBlocks.length }})</h4>
           <div v-for="(dataBlock, dbIndex) in block.dataBlocks" :key="dbIndex" class="flex items-center justify-between rounded-md border border-border px-3 py-1.5">
             <span class="text-xs">Tag 0x{{ dataBlock.tag.toString(16).padStart(2, '0') }} — {{ tagLabel[dataBlock.tag] ?? 'Unknown' }}</span>
-            <span class="font-mono text-xs text-muted-foreground">{{ bytesToHex(dataBlock.data) }}</span>
+            <span class="font-mono text-xs text-muted-foreground">{{ bytesToHex(dataBlock.payload) }}</span>
           </div>
         </div>
         <div v-if="block.trailing.length > 0" class="space-y-1">

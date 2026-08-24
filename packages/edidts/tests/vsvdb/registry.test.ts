@@ -10,7 +10,7 @@ import type { CEAExtensionBlock } from '../../src/cta/extension-block';
 const base: ExtendedDataBlock = {
   tag: 0x07,
   extendedTag: 0x01,
-  data: new Uint8Array(0),
+  payload: new Uint8Array(0),
 };
 
 describe('VSVDB registry', () => {
@@ -39,7 +39,7 @@ describe('VSVDB registry', () => {
     const payload = new Uint8Array([0x46, 0xD0, 0x00, 0x25]);
     const decoded = decodeVSVDB(base, payload);
     expect(decoded.ieeeOui).toBe(OUI.DOLBY);
-    expect(decoded.payload).toEqual(new Uint8Array([0x25]));
+    expect(decoded.vendorPayload).toEqual(new Uint8Array([0x25]));
   });
 
   it('decodeVSVDB leaves unknown OUIs with raw post-OUI payload', () => {
@@ -47,7 +47,7 @@ describe('VSVDB registry', () => {
     const payload = new Uint8Array([0x11, 0x22, 0x33, 0xAA, 0xBB]);
     const decoded = decodeVSVDB(base, payload);
     expect(decoded.ieeeOui).toBe(0x332211);
-    expect(decoded.payload).toEqual(new Uint8Array([0xAA, 0xBB]));
+    expect(decoded.vendorPayload).toEqual(new Uint8Array([0xAA, 0xBB]));
     // Unknown OUIs get an opaque `vendor` so the carrier still round-trips via
     // the raw-payload encode fallback (AC #4).
     expect(decoded.vendor?.kind).toBe('unknown');
@@ -57,7 +57,7 @@ describe('VSVDB registry', () => {
   it('decodeVSVDB returns a stub when payload is shorter than 3 bytes', () => {
     const decoded = decodeVSVDB(base, new Uint8Array([0x01, 0x02]));
     expect(decoded.ieeeOui).toBe(0);
-    expect(decoded.payload.length).toBe(0);
+    expect(decoded.vendorPayload.length).toBe(0);
   });
 });
 
@@ -80,7 +80,7 @@ describe('findVSVDBs', () => {
 
   it('returns only blocks with tag 0x07 and extendedTag 0x01', () => {
     const dolbyBlock = decodeVSVDB(
-      { tag: 0x07, extendedTag: 0x01, data: new Uint8Array(0) },
+      { tag: 0x07, extendedTag: 0x01, payload: new Uint8Array(0) },
       new Uint8Array([0x46, 0xD0, 0x00, 0x25]),
     );
     const cea: CEAExtensionBlock = {
@@ -98,13 +98,13 @@ describe('findVSVDBs', () => {
           tag: 0x03,
           ieeeOui: OUI.HDMI_1_4,
           payload: new Uint8Array(0),
-          data: new Uint8Array(0),
+          vendorPayload: new Uint8Array(0),
         },
         // An extended tag block with a different extended tag (0x05 colorimetry)
         {
           tag: 0x07,
           extendedTag: 0x05,
-          data: new Uint8Array(0),
+          payload: new Uint8Array(0),
         },
         // The Dolby VSVDB we want
         dolbyBlock,
@@ -126,7 +126,7 @@ describe('DolbyVSDBEncoder paired with the registry', () => {
       supports2160p60: true,
       supportsGlobalDimming: false,
       byte0Reserved: 0,
-      payload: new Uint8Array(),
+      trailing: new Uint8Array(),
     };
     const decoder = VENDOR_VSVDB_DECODERS[OUI.DOLBY]!;
     const encoder = VENDOR_VSVDB_ENCODERS['dolbyVsdb']!;

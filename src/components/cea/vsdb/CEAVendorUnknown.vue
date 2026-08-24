@@ -20,7 +20,7 @@ function hexDump(bytes: Uint8Array): string {
     </CardHeader>
     <CardContent class="space-y-2 text-sm">
       <p class="text-muted-foreground">No decoder registered for this OUI. Raw bytes preserved for round-trip.</p>
-      <pre class="rounded-md bg-muted p-3 text-xs font-mono overflow-x-auto">{{ hexDump(block.payload) }}</pre>
+      <pre class="rounded-md bg-muted p-3 text-xs font-mono overflow-x-auto">{{ hexDump(block.vendorPayload) }}</pre>
     </CardContent>
   </Card>
 </template>

@@ -925,13 +925,13 @@ describe('remaining DisplayID semantic blocks', () => {
 
     expect(block.dataBlocks.length).toBe(1);
     expect(block.dataBlocks[0].tag).toBe(0x06);
-    expect(Array.from(block.dataBlocks[0].data)).toEqual([0xaa, 0xbb]);
+    expect(Array.from(block.dataBlocks[0].payload)).toEqual([0xaa, 0xbb]);
 
     const encoded = encodeDisplayIdSection(section);
     const reparsed = decodeDisplayIdSection(encoded);
     const reparsedBlock = reparsed.blocks[0] as DisplayIdCtaBlock;
     expect(Array.from(reparsedBlock.ctaPayload)).toEqual([0xc2, 0xaa, 0xbb]);
-    expect(Array.from(reparsedBlock.dataBlocks[0].data)).toEqual([0xaa, 0xbb]);
+    expect(Array.from(reparsedBlock.dataBlocks[0].payload)).toEqual([0xaa, 0xbb]);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 

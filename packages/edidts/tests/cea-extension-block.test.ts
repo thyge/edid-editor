@@ -37,7 +37,7 @@ describe('CEA extension block container', () => {
     it('round-trips a CEA extension with mixed data blocks and header flags', () => {
       const audio: AudioDataBlock = {
         tag: 0x01,
-        data: new Uint8Array(0),
+        payload: new Uint8Array(0),
         descriptors: [
           {
             format: 1, // LPCM
@@ -203,7 +203,7 @@ describe('CEA extension block container', () => {
       const unsupported: ExtendedDataBlock = {
         tag: 0x07,
         extendedTag: 0x02,
-        data: raw,
+        payload: raw,
       };
 
       const original = buildCeaExtension({ dataBlocks: [unsupported] });
@@ -214,7 +214,7 @@ describe('CEA extension block container', () => {
       const out = decoded.dataBlocks[0] as ExtendedDataBlock;
       expect(out.tag).toBe(0x07);
       expect(out.extendedTag).toBe(0x02);
-      expect(Array.from(out.data)).toEqual([0x02, 0xaa, 0xbb, 0xcc]);
+      expect(Array.from(out.payload)).toEqual([0x02, 0xaa, 0xbb, 0xcc]);
     });
   });
 
@@ -225,7 +225,7 @@ describe('CEA extension block container', () => {
       // it and the encoder must write it back.
       const audio: AudioDataBlock = {
         tag: 0x01,
-        data: new Uint8Array(0),
+        payload: new Uint8Array(0),
         descriptors: [
           {
             format: 15,
@@ -262,7 +262,7 @@ describe('CEA extension block container', () => {
       const block: HDRDynamicMetadataDataBlock = {
         tag: 0x07,
         extendedTag: 0x07,
-        data: new Uint8Array([0x07, 0xff]), // sentinel: must not survive
+        payload: new Uint8Array([0x07, 0xff]), // sentinel: must not survive
         entries: [{ type: 0x0001, supportFlags: 0x01, optionalFields: new Uint8Array() }],
         trailing: new Uint8Array(),
       };
@@ -297,7 +297,7 @@ describe('CEA extension block container', () => {
       const block: VideoFormatPreferenceDataBlock = {
         tag: 0x07,
         extendedTag: 0x0d,
-        data: new Uint8Array([0x0d, 0xff]), // sentinel
+        payload: new Uint8Array([0x0d, 0xff]), // sentinel
         svrs: [{ vic: 16 }, { dtdIndex: 3 }],
       };
       // VIC 16 → 0x10; DTD index 3 → 128 + 3 = 0x83.
@@ -315,9 +315,9 @@ describe('CEA extension block container', () => {
       const block: VendorSpecificAudioDataBlock = {
         tag: 0x07,
         extendedTag: 0x11,
-        data: new Uint8Array([0x11, 0xff]), // sentinel
+        payload: new Uint8Array([0x11, 0xff]), // sentinel
         ieeeOui: 0x1a0b,
-        payload: new Uint8Array([0xaa, 0xbb]),
+        vendorPayload: new Uint8Array([0xaa, 0xbb]),
       };
       expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x11, 0x0b, 0x1a, 0x00, 0xaa, 0xbb]);
     });
@@ -333,7 +333,7 @@ describe('CEA extension block container', () => {
       const block: RoomConfigurationDataBlock = {
         tag: 0x07,
         extendedTag: 0x13,
-        data: new Uint8Array([0x13, 0xff]), // sentinel
+        payload: new Uint8Array([0x13, 0xff]), // sentinel
         speakerCount: 5,
         speakerPresenceDescriptor: 0x03,
       };
@@ -368,9 +368,9 @@ describe('CEA extension block container', () => {
       const block: VendorSpecificVideoDataBlock = {
         tag: 0x07,
         extendedTag: 0x01,
-        data: new Uint8Array([0x01, 0xff]), // sentinel
+        payload: new Uint8Array([0x01, 0xff]), // sentinel
         ieeeOui: 0x1a0b,
-        payload: new Uint8Array([0xaa, 0xbb]),
+        vendorPayload: new Uint8Array([0xaa, 0xbb]),
       };
       expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x01, 0x0b, 0x1a, 0x00, 0xaa, 0xbb]);
     });
@@ -386,7 +386,7 @@ describe('CEA extension block container', () => {
       const block: SpeakerLocationDataBlock = {
         tag: 0x07,
         extendedTag: 0x14,
-        data: new Uint8Array([0x14, 0xff]), // sentinel
+        payload: new Uint8Array([0x14, 0xff]), // sentinel
         descriptors: [
           { channelIndex: 1, speakerId: 2, active: true }, // 2 bytes, no coords
           { channelIndex: 0, speakerId: 3, active: true, coordinates: { x: 0.5, y: -0.25, z: 0 } },
@@ -446,7 +446,7 @@ describe('CEA extension block container', () => {
       const block: InfoFrameDataBlock = {
         tag: 0x07,
         extendedTag: 0x20,
-        data: new Uint8Array([0x20, 0xff]), // sentinel
+        payload: new Uint8Array([0x20, 0xff]), // sentinel
         additionalVsifs: 2,
         processingPayload: new Uint8Array(),
         descriptors: [{ kind: 'short', infoFrameType: 4, payload: new Uint8Array() }],
@@ -490,7 +490,7 @@ describe('Audio SAD maxBitrate and format-extension round-trip (TASK-5)', () => 
       const maxBitrate = format * 64; // multiple of 8 → exact round-trip
       const audio: AudioDataBlock = {
         tag: 0x01,
-        data: new Uint8Array(0),
+        payload: new Uint8Array(0),
         descriptors: [{ format, channels: 8, samplingRates: allRates, maxBitrate }],
       };
       const bytes = ExtensionBlockParser.encode(buildCeaExtension({ dataBlocks: [audio] }));
@@ -513,7 +513,7 @@ describe('Audio SAD maxBitrate and format-extension round-trip (TASK-5)', () => 
     (extendedFormat) => {
       const audio: AudioDataBlock = {
         tag: 0x01,
-        data: new Uint8Array(0),
+        payload: new Uint8Array(0),
         descriptors: [{ format: 15, channels: 8, samplingRates: allRates, extendedFormat }],
       };
       const bytes = ExtensionBlockParser.encode(buildCeaExtension({ dataBlocks: [audio] }));
@@ -634,7 +634,7 @@ describe('CEA speaker allocation full bit model (TASK-6)', () => {
       bottomFrontLeftRight: false, topLeftRightSurround: false,
       ...overrides,
     };
-    return { tag: 0x04, data: new Uint8Array(), speakers, trailing: new Uint8Array() };
+    return { tag: 0x04, payload: new Uint8Array(), speakers, trailing: new Uint8Array() };
   }
 
   it('round-trips all 20 SADB speaker bits set (byte1=0xff, byte2=0xff, byte3=0x0f)', () => {
@@ -656,9 +656,9 @@ describe('CEA speaker allocation full bit model (TASK-6)', () => {
       expect(s.speakers[key], `bit ${key}`).toBe(true);
     }
     // byte3 reserved bits 7:4 stay 0 → 0x0f, not 0xff.
-    expect(s.data[0]).toBe(0xff);
-    expect(s.data[1]).toBe(0xff);
-    expect(s.data[2]).toBe(0x0f);
+    expect(s.payload[0]).toBe(0xff);
+    expect(s.payload[1]).toBe(0xff);
+    expect(s.payload[2]).toBe(0x0f);
 
     // Re-encoding is byte-identical.
     const reencoded = ExtensionBlockParser.encode(decoded);
@@ -682,7 +682,7 @@ describe('unifySpeakerLayout: SADB + Speaker Location (TASK-6)', () => {
     return {
       tag: 0x07,
       extendedTag: 0x14,
-      data: new Uint8Array(),
+      payload: new Uint8Array(),
       descriptors,
       trailing: new Uint8Array(),
     };
@@ -700,7 +700,7 @@ describe('unifySpeakerLayout: SADB + Speaker Location (TASK-6)', () => {
       bottomFrontLeftRight: false, topLeftRightSurround: false,
       ...set,
     };
-    return { tag: 0x04, data: new Uint8Array(), speakers, trailing: new Uint8Array() };
+    return { tag: 0x04, payload: new Uint8Array(), speakers, trailing: new Uint8Array() };
   }
 
   it('returns 20 SADB entries with present flags when only a SADB is given', () => {

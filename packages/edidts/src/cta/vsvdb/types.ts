@@ -17,12 +17,12 @@ export interface DolbyVSDB {
    *  codec is byte-complete and round-trips identically regardless of version. */
   byte0Reserved: number;
   /** Post-OUI bytes 1.. — vendor-reserved, preserved verbatim for byte-exact round-trip. */
-  payload: Uint8Array;
+  trailing: Uint8Array;
 }
 
 export interface HDR10PlusVSDB {
   applicationVersion: number;  // post-OUI byte 0 (full byte)
-  payload: Uint8Array;         // post-OUI bytes 1.. — vendor-specific, preserved verbatim
+  trailing: Uint8Array;        // post-OUI bytes 1.. — vendor-specific, preserved verbatim
 }
 
 /**

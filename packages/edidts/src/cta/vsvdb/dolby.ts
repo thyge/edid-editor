@@ -13,7 +13,7 @@ import type { DolbyVSDB } from './types';
 //   bit 0    = supportsYUV422_12bit
 // Bits 4:3 and the remaining payload bytes (v1/v2 carry further reserved
 // fields) are not modeled field-by-field, but are preserved verbatim (in
-// `byte0Reserved` and `payload`) so the codec is byte-complete and round-trips
+// `byte0Reserved` and `trailing`) so the codec is byte-complete and round-trips
 // identically regardless of version.
 
 export const DOLBY_VSDB_DEFAULT: DolbyVSDB = {
@@ -22,7 +22,7 @@ export const DOLBY_VSDB_DEFAULT: DolbyVSDB = {
   supports2160p60: false,
   supportsGlobalDimming: false,
   byte0Reserved: 0,
-  payload: new Uint8Array(),
+  trailing: new Uint8Array(),
 };
 
 export class DolbyVSDBDecoder implements VendorDecoder<'dolbyVsdb'> {
@@ -38,7 +38,7 @@ export class DolbyVSDBDecoder implements VendorDecoder<'dolbyVsdb'> {
       supports2160p60: (byte0 & 0x02) !== 0,
       supportsGlobalDimming: (byte0 & 0x04) !== 0,
       byte0Reserved: (byte0 & 0x18) >> 3,
-      payload: payload.slice(1),
+      trailing: payload.slice(1),
     };
   }
 }
@@ -56,10 +56,10 @@ export class DolbyVSDBEncoder implements VendorEncoder<'dolbyVsdb'> {
       (fields.supportsYUV422_12bit ? 0x01 : 0) |
       (fields.supports2160p60 ? 0x02 : 0) |
       (fields.supportsGlobalDimming ? 0x04 : 0);
-    // `payload` carries the post-byte-0 vendor-reserved bytes verbatim. Tolerate
-    // callers passing the legacy shape (no `payload`) so existing field-only
+    // `trailing` carries the post-byte-0 vendor-reserved bytes verbatim. Tolerate
+    // callers passing the legacy shape (no `trailing`) so existing field-only
     // constructions still encode to a single byte.
-    const trailing = fields.payload ?? new Uint8Array();
+    const trailing = fields.trailing ?? new Uint8Array();
     const out = new Uint8Array(1 + trailing.length);
     out[0] = byte0;
     out.set(trailing, 1);

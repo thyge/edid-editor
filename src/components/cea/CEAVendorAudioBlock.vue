@@ -21,12 +21,12 @@ function ouiHex(oui: number): string {
 }
 function payloadHex(): string {
   if (!block.value) return ''
-  return Array.from(block.value.payload).map(b => b.toString(16).padStart(2, '0')).join(' ')
+  return Array.from(block.value.vendorPayload).map(b => b.toString(16).padStart(2, '0')).join(' ')
 }
 function onPayload(text: string) {
   if (!block.value) return
   const bytes = text.trim().split(/\s+/).map(s => parseInt(s, 16) & 0xff).filter(n => !Number.isNaN(n))
-  emit('update', block.value, 'payload', new Uint8Array(bytes))
+  emit('update', block.value, 'vendorPayload', new Uint8Array(bytes))
 }
 const rowClass = 'flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground'
 </script>
@@ -46,7 +46,7 @@ const rowClass = 'flex flex-col gap-1 text-xs font-semibold uppercase tracking-w
           </label>
           <label :class="rowClass">
             Payload length
-            <Input :model-value="block.payload.length" readonly />
+            <Input :model-value="block.vendorPayload.length" readonly />
           </label>
         </div>
         <label :class="rowClass">

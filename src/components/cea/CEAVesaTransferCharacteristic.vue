@@ -56,7 +56,7 @@ function setGamma(i: number, v: string | number) {
           <!--
             numEntries (8/16/32/48) is displayed read-only: the CTA data-block
             length field is 5 bits (max 31 bytes), so only 8 and 16 entries fit a
-            single block; 32/48 are not CTA-encodable. Resizing block.data on a
+            single block; 32/48 are not CTA-encodable. Resizing block.payload on a
             count change would risk overflow, so the count is left as decoded.
           -->
           <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

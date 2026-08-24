@@ -21,7 +21,7 @@ const derivedDtdOffset = computed(() => {
   let offset = 4
   for (const block of cea.dataBlocks) {
     // Mirror the encoder's per-block sizing (1 header + payload ≤ 31).
-    offset += 1 + (((block as { data?: Uint8Array }).data?.length ?? 0) & 0x1f)
+    offset += 1 + (((block as { payload?: Uint8Array }).payload?.length ?? 0) & 0x1f)
   }
   return (cea.detailedTimings.length > 0 || offset > 4) ? offset : 0
 })

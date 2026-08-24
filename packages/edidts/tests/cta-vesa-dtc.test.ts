@@ -70,10 +70,10 @@ describe('VESA Display Transfer Characteristic data block (CTA tag 0x05)', () =>
       const block = decoded.dataBlocks[0] as VESADisplayTransferCharacteristicBlock;
 
       // Rebuild a CEA extension from the structured block (with a zeroed
-      // `data` sentinel of the right length so the encoder must rewrite it).
+      // `payload` sentinel of the right length so the encoder must rewrite it).
       const rebuilt: VESADisplayTransferCharacteristicBlock = {
         tag: 0x05,
-        data: new Uint8Array(original.length), // all zero; encoder overwrites modeled bits
+        payload: new Uint8Array(original.length), // all zero; encoder overwrites modeled bits
         transferType: block.transferType,
         numEntries: block.numEntries,
         gammaValues: block.gammaValues,
