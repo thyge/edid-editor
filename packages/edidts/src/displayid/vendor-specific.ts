@@ -6,6 +6,7 @@ import {
   type DisplayIdVendorSpecificBlock,
   type DisplayIdVesaDisplayPortData,
 } from './types';
+import { readIeeeOui, writeIeeeOui } from '../common/bintools';
 
 /**
  * DisplayID 2.0 §4.9 Vendor-specific Data Block (tag 0x7e).
@@ -30,7 +31,7 @@ export function decodeVendorSpecificBlock(block: DisplayIdDataBlock): DisplayIdV
   const typedBlock: DisplayIdVendorSpecificBlock = {
     ...block,
     tag: DisplayIdDataBlockTag.VendorSpecific,
-    ieeeOui: p.length >= 3 ? ((p[0] << 16) | (p[1] << 8) | p[2]) >>> 0 : 0,
+    ieeeOui: p.length >= 3 ? readIeeeOui(p, 0) : 0,
   };
 
   // VESA DisplayPort-specific subtype (Appendix B). Vendor data is 2..4 bytes
@@ -74,10 +75,8 @@ export function encodeVendorSpecificBlock(block: DisplayIdVendorSpecificBlock): 
     const hasDsc = typeof v.dscBitsPerPixel === 'number';
     const trailing = v.trailing ?? new Uint8Array(0);
     const payload = new Uint8Array(3 + 2 + (hasDsc ? 2 : 0) + trailing.length);
-    // OUI, big-endian.
-    payload[0] = (block.ieeeOui >> 16) & 0xff;
-    payload[1] = (block.ieeeOui >> 8) & 0xff;
-    payload[2] = block.ieeeOui & 0xff;
+    // OUI, big-endian (DisplayID §4.9).
+    writeIeeeOui(payload, 0, block.ieeeOui);
     // vendor[0]: structureType (bits 2:0) | nativeColorspaceEotf (bit 7).
     payload[3] = (v.structureType & 0x07) | (v.nativeColorspaceEotf ? 0x80 : 0);
     // vendor[1]: horizontalOverlapPixels (bits 3:0) | multiSstOperation (bits 6:5).
@@ -101,9 +100,7 @@ export function encodeVendorSpecificBlock(block: DisplayIdVendorSpecificBlock): 
   // overwrite the 3-byte OUI (big-endian) when there is room for it.
   const payload = block.payload.slice();
   if (payload.length >= 3) {
-    payload[0] = (block.ieeeOui >> 16) & 0xff;
-    payload[1] = (block.ieeeOui >> 8) & 0xff;
-    payload[2] = block.ieeeOui & 0xff;
+    writeIeeeOui(payload, 0, block.ieeeOui);
   }
   return payload;
 }

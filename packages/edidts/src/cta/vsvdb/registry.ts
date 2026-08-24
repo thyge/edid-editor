@@ -4,6 +4,7 @@ import type { ExtendedDataBlock, VendorSpecificVideoDataBlock } from '../cta-ext
 import type { CEAExtensionBlock, CEADataBlock } from '../extension-block';
 import { OUI } from '../vsdb/types';
 import type { HDR10PlusVSDB, VSVDBVendorDecoded } from './types';
+import { readIeeeOuiLE, writeIeeeOuiLE } from '../../common/bintools';
 
 // The VSVDB (Vendor-Specific Video Data Block) is the CTA-861-G extended tag
 // 0x01, distinct from the regular VSDB at tag 0x03. Only Dolby Vision is
@@ -53,7 +54,7 @@ export function decodeVSVDB(base: ExtendedDataBlock, payload: Uint8Array): Vendo
     };
   }
 
-  const ieeeOui = (payload[0] | (payload[1] << 8) | (payload[2] << 16)) >>> 0;
+  const ieeeOui = readIeeeOuiLE(payload, 0);
   const data = payload.slice(3);
 
   const block: VendorSpecificVideoDataBlock = {
@@ -88,12 +89,9 @@ export function decodeVSVDB(base: ExtendedDataBlock, payload: Uint8Array): Vendo
 export function reassembleVsvdbBlock(ieeeOui: number, payload: Uint8Array): Uint8Array {
   const out = new Uint8Array(1 + 3 + payload.length);
   out[0] = 0x01; // extended tag code
-  // OUI is written little-endian on the wire (low byte first), matching
+  // OUI is written little-endian on the wire (CTA-861 order), matching
   // `decodeVSVDB`'s reader and the production `encodeVendorSpecificVideoBlock`.
-  // `writeIeeeOui` is big-endian, so write the bytes explicitly here.
-  out[1] = ieeeOui & 0xff;
-  out[2] = (ieeeOui >>> 8) & 0xff;
-  out[3] = (ieeeOui >>> 16) & 0xff;
+  writeIeeeOuiLE(out, 1, ieeeOui);
   out.set(payload, 4);
   return out;
 }

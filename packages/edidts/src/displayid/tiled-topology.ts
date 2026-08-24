@@ -5,6 +5,7 @@ import {
   type DisplayIdDataBlock,
   type DisplayIdTiledDisplayTopologyBlock,
 } from './types';
+import { readIeeeOui, writeIeeeOui } from '../common/bintools';
 
 /**
  * DisplayID 2.0 §4.7 Tiled Display Topology Data Block (tag 0x28).
@@ -88,7 +89,9 @@ export function decodeTiledDisplayTopologyBlock(
     rightBezelSize: p[11] ?? 0,
     leftBezelSize: p[12] ?? 0,
     // Topology ID (Table 4-42).
-    vendorOui: ((p[13] ?? 0) << 16) | ((p[14] ?? 0) << 8) | (p[15] ?? 0),
+    // Topology ID is an optional trailing group; read the OUI only when all
+    // three bytes are present, else 0 (matches the prior per-byte ?? 0 fallback).
+    vendorOui: p.length >= 16 ? readIeeeOui(p, 13) : 0,
     productId: readUint16LE(p, 16),
     serialNumber: ((p[18] ?? 0) | ((p[19] ?? 0) << 8) | ((p[20] ?? 0) << 16) | ((p[21] ?? 0) << 24)) >>> 0,
   };
@@ -133,9 +136,7 @@ export function encodeTiledDisplayTopologyBlock(
   payload[12] = block.leftBezelSize & 0xff;
 
   // Topology ID: 3-byte OUI (big-endian), 16-bit product ID (LE), 32-bit serial (LE).
-  payload[13] = (block.vendorOui >> 16) & 0xff;
-  payload[14] = (block.vendorOui >> 8) & 0xff;
-  payload[15] = block.vendorOui & 0xff;
+  writeIeeeOui(payload, 13, block.vendorOui);
   writeUint16LE(payload, 16, clamp16(block.productId));
   payload[18] = block.serialNumber & 0xff;
   payload[19] = (block.serialNumber >> 8) & 0xff;

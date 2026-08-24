@@ -1,4 +1,5 @@
 import { DisplayIdDataBlockTag, type DisplayIdDataBlock, type DisplayIdProductIdentificationBlock } from './types';
+import { readIeeeOuiLE, writeIeeeOuiLE } from '../common/bintools';
 
 const MIN_PRODUCT_IDENTIFICATION_PAYLOAD_LENGTH = 12;
 
@@ -13,7 +14,7 @@ export function decodeProductIdentificationBlock(block: DisplayIdDataBlock): Dis
   return {
     ...block,
     tag: DisplayIdDataBlockTag.ProductIdentification,
-    ieeeOui: payload[0] | (payload[1] << 8) | (payload[2] << 16),
+    ieeeOui: readIeeeOuiLE(payload, 0),
     productId: readUint16LE(payload, 3),
     serialNumber: serialNumber === 0 ? undefined : serialNumber,
     manufactureWeek: weekByte === 0 || weekByte === 0xff ? undefined : weekByte,
@@ -34,9 +35,7 @@ export function encodeProductIdentificationBlock(block: DisplayIdProductIdentifi
     ? block.payload.slice()
     : new Uint8Array(minimumLength);
 
-  payload[0] = block.ieeeOui & 0xff;
-  payload[1] = (block.ieeeOui >> 8) & 0xff;
-  payload[2] = (block.ieeeOui >> 16) & 0xff;
+  writeIeeeOuiLE(payload, 0, block.ieeeOui);
   payload[3] = block.productId & 0xff;
   payload[4] = (block.productId >> 8) & 0xff;
   writeUint32LE(payload, 5, block.serialNumber ?? 0);

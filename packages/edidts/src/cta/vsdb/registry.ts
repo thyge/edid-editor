@@ -3,6 +3,7 @@
 import type { VendorSpecificDecoded, VendorSpecificDataBlock, MHLVSDB } from './types';
 import { OUI } from './types';
 import type { CEAExtensionBlock } from '../extension-block';
+import { readIeeeOuiLE, writeIeeeOuiLE } from '../../common/bintools';
 
 // 'unknown' is the fallback case and is never paired with a decoder/encoder.
 type DecoderKind = Exclude<VendorSpecificDecoded['kind'], 'unknown'>;
@@ -32,16 +33,14 @@ export function reassembleVsdbBlock(ieeeOui: number, payload: Uint8Array): Uint8
   const header = (3 << 5) | (length & 0x1F);
   const out = new Uint8Array(1 + length);
   out[0] = header;
-  out[1] = ieeeOui & 0xff;
-  out[2] = (ieeeOui >>> 8) & 0xff;
-  out[3] = (ieeeOui >>> 16) & 0xff;
+  writeIeeeOuiLE(out, 1, ieeeOui);
   out.set(payload, 4);
   return out;
 }
 
 export function decodeVendorSpecificBlock(data: Uint8Array): VendorSpecificDataBlock {
   // data[0] is the header byte: high 3 bits = tag (3), low 5 bits = length of bytes after header
-  const ieeeOui = data.length >= 4 ? (data[1] | (data[2] << 8) | (data[3] << 16)) >>> 0 : 0;
+  const ieeeOui = data.length >= 4 ? readIeeeOuiLE(data, 1) : 0;
   const declaredLength = data[0] & 0x1F;
   // The payload (post-OUI) starts at data[4] and is 3 bytes shorter than declaredLength
   const payloadLen = Math.max(0, Math.min(declaredLength - 3, data.length - 4));

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   readIeeeOui,
   writeIeeeOui,
+  readIeeeOuiLE,
+  writeIeeeOuiLE,
   readUint16BE,
   readUint16LE,
   readUint32LE,
@@ -56,6 +58,41 @@ describe('IEEE OUI helpers', () => {
     const target = new Uint8Array(6)
     writeIeeeOui(target, 0, oui1)
     writeIeeeOui(target, 3, oui2)
+    expect(Array.from(target)).toEqual(Array.from(original))
+  })
+})
+
+describe('IEEE OUI little-endian helpers (CTA-861 wire order)', () => {
+  it('reads an IEEE OUI in little-endian order', () => {
+    // CTA-861 stores OUIs low-byte first: bytes 03-0C-00 => 0x000C03.
+    expect(readIeeeOuiLE(new Uint8Array([0x03, 0x0c, 0x00]))).toBe(0x000c03)
+    expect(readIeeeOuiLE(new Uint8Array([0xd8, 0x5d, 0xc4]))).toBe(0xc45dd8)
+  })
+
+  it('reads an IEEE OUI LE at an explicit offset', () => {
+    const data = new Uint8Array([0xff, 0x03, 0x0c, 0x00, 0xff])
+    expect(readIeeeOuiLE(data, 1)).toBe(0x000c03)
+  })
+
+  it('writes an IEEE OUI in little-endian order', () => {
+    const target = new Uint8Array(6)
+    writeIeeeOuiLE(target, 1, 0x000c03)
+    expect(Array.from(target)).toEqual([0x00, 0x03, 0x0c, 0x00, 0x00, 0x00])
+  })
+
+  it('masks the OUI value to 24 bits on LE write', () => {
+    const target = new Uint8Array(3)
+    writeIeeeOuiLE(target, 0, 0xff000c03)
+    expect(Array.from(target)).toEqual([0x03, 0x0c, 0x00])
+  })
+
+  it('round-trips through LE read → LE write', () => {
+    const original = new Uint8Array([0x03, 0x0c, 0x00, 0xd8, 0x5d, 0xc4])
+    const oui1 = readIeeeOuiLE(original, 0)
+    const oui2 = readIeeeOuiLE(original, 3)
+    const target = new Uint8Array(6)
+    writeIeeeOuiLE(target, 0, oui1)
+    writeIeeeOuiLE(target, 3, oui2)
     expect(Array.from(target)).toEqual(Array.from(original))
   })
 })

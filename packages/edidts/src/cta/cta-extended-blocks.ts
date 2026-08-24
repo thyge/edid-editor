@@ -9,6 +9,15 @@ import type { CEADataBlock, SpeakerAllocationBlock } from './extension-block';
 import { decodeVSVDB, reassembleVsvdbBlock, VENDOR_VSVDB_ENCODERS } from './vsvdb/registry';
 import type { VSVDBVendorDecoded } from './vsvdb/types';
 import { isKnownVIC } from './vic-table';
+import { readIeeeOuiLE, writeIeeeOuiLE } from '../common/bintools';
+
+/** Push a 3-byte little-endian IEEE OUI (CTA-861 wire order) onto a number[]
+ *  buffer being assembled for `new Uint8Array(bytes)`. */
+function pushOuiLE(bytes: number[], oui: number): void {
+  const tmp = new Uint8Array(3);
+  writeIeeeOuiLE(tmp, 0, oui);
+  bytes.push(tmp[0], tmp[1], tmp[2]);
+}
 
 export type ExtendedTagCode =
   | 0x00  // Video Capability Data Block
@@ -843,7 +852,7 @@ function decodeVendorSpecificAudioBlock(base: ExtendedDataBlock, payload: Uint8A
     };
   }
 
-  const ieeeOui = payload[0] | (payload[1] << 8) | (payload[2] << 16);
+  const ieeeOui = readIeeeOuiLE(payload, 0);
 
   return {
     ...base,
@@ -1037,7 +1046,7 @@ function decodeInfoFrameBlock(base: ExtendedDataBlock, payload: Uint8Array): Inf
     if (typeCode === 0x01) {
       // Short Vendor-Specific InfoFrame Descriptor (Table 80): 3-byte OUI + payload.
       if (i + 1 + 3 + payloadLen > payload.length) break;
-      const ieeeOui = payload[i + 1] | (payload[i + 2] << 8) | (payload[i + 3] << 16);
+      const ieeeOui = readIeeeOuiLE(payload, i + 1);
       const descPayload = payload.slice(i + 4, i + 4 + payloadLen);
       descriptors.push({ kind: 'vendor', ieeeOui, payload: descPayload });
       i += 4 + payloadLen;
@@ -1126,7 +1135,8 @@ function encodeVendorSpecificVideoBlock(block: VendorSpecificVideoDataBlock): Ui
       );
     }
   }
-  const bytes = [0x01, block.ieeeOui & 0xff, (block.ieeeOui >> 8) & 0xff, (block.ieeeOui >> 16) & 0xff];
+  const bytes = [0x01];
+  pushOuiLE(bytes, block.ieeeOui);
   for (const b of block.payload) bytes.push(b);
   return new Uint8Array(bytes);
 }
@@ -1162,7 +1172,7 @@ function encodeInfoFrameBlock(block: InfoFrameDataBlock): Uint8Array {
     const payloadLen = (desc.payload.length) & 0x07;
     if (desc.kind === 'vendor') {
       bytes.push((payloadLen << 5) | 0x01);
-      bytes.push(desc.ieeeOui & 0xff, (desc.ieeeOui >> 8) & 0xff, (desc.ieeeOui >> 16) & 0xff);
+      pushOuiLE(bytes, desc.ieeeOui);
       for (const b of desc.payload) bytes.push(b);
     } else {
       bytes.push((payloadLen << 5) | (desc.infoFrameType & 0x1f));
@@ -1200,12 +1210,8 @@ function encodeVideoFormatPreferenceBlock(block: VideoFormatPreferenceDataBlock)
 }
 
 function encodeVendorSpecificAudioBlock(block: VendorSpecificAudioDataBlock): Uint8Array {
-  const bytes = [
-    0x11,
-    block.ieeeOui & 0xff,
-    (block.ieeeOui >> 8) & 0xff,
-    (block.ieeeOui >> 16) & 0xff,
-  ];
+  const bytes = [0x11];
+  pushOuiLE(bytes, block.ieeeOui);
   for (const b of block.payload) bytes.push(b);
   return new Uint8Array(bytes);
 }
