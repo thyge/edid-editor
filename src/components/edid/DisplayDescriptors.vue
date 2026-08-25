@@ -72,14 +72,14 @@ function handleDescriptorUpdate(index: number, descriptor: DisplayDescriptor) {
 </script>
 
 <template>
-  <div class="border-t pt-4 space-y-3">
+  <div :class="['space-y-3', focusedSourceIndex === -1 ? 'border-t pt-4' : '']">
     <h4 v-if="focusedSourceIndex === -1" class="font-medium text-muted-foreground">Display Descriptors</h4>
     <div class="space-y-3">
       <div
         v-for="entry in orderedDescriptors"
         :id="`edid-card-desc-${entry.sourceIndex}`"
         :key="entry.sourceIndex"
-        class="rounded-lg border p-3 text-sm"
+        class="rounded-lg border bg-card p-3 text-sm scroll-mt-6"
       >
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">

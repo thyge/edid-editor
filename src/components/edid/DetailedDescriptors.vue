@@ -12,7 +12,6 @@ import type {
 import type { EDIDViewModel } from '@/types/edid'
 import DisplayDescriptors from './DisplayDescriptors.vue'
 import DetailedTimingFields from './DetailedTimingFields.vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const props = defineProps<{
   edid: EDIDViewModel
@@ -57,26 +56,6 @@ const visibleTimingEntries = computed(() => {
     return t ? [{ timing: t, i }] : []
   }
   return detailedTimings.value.map((t, i) => ({ timing: t, i }))
-})
-
-function timingLabel(t: DetailedTimingDescriptor): string {
-  if (t.horizontalActive > 0 && t.verticalActive > 0) {
-    return `${t.horizontalActive}×${t.verticalActive}${t.flags.interlaced ? 'i' : 'p'}${Math.round(t.refreshRate)}`
-  }
-  return 'Untitled Timing'
-}
-
-const cardTitle = computed(() => {
-  switch (focusMode.value.kind) {
-    case 'dtd': {
-      const t = detailedTimings.value[focusMode.value.index]
-      return t ? timingLabel(t) : 'Detailed Timing'
-    }
-    case 'descriptor':
-      return 'Display Descriptor'
-    default:
-      return 'Detailed Timings & Descriptors'
-  }
 })
 
 const cvtAnalysis = computed<CVTAnalysisResult[]>(() =>
@@ -186,19 +165,16 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
 </script>
 
 <template>
-  <Card>
-    <CardHeader>
-      <CardTitle>{{ cardTitle }}</CardTitle>
-    </CardHeader>
-    <CardContent class="space-y-4">
+  <div class="space-y-4">
       <!-- Detailed timings: all in the combined view, just the focused one in
            a dedicated timing view. Hidden in the dedicated descriptor view. -->
       <div v-if="focusMode.kind !== 'descriptor' && visibleTimingEntries.length > 0" class="space-y-4">
+        <h4 v-if="isAllView" class="font-medium text-muted-foreground">Detailed Timings</h4>
         <div
           v-for="entry in visibleTimingEntries"
           :id="`edid-card-dtd-${entry.i}`"
           :key="entry.i"
-          class="rounded-2xl border border-border/60 bg-card/40 shadow-sm"
+          class="rounded-2xl border border-border/60 bg-card shadow-sm scroll-mt-6"
         >
           <div class="flex flex-wrap items-start gap-4 border-b border-border/40 p-4">
             <div>
@@ -389,6 +365,5 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
         :focus="focus"
         @update-descriptor="(index: number, descriptor: DisplayDescriptor) => emit('updateDescriptor', index, descriptor)"
       />
-    </CardContent>
-  </Card>
+  </div>
 </template>
