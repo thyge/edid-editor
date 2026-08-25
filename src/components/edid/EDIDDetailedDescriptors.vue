@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, watch, nextTick } from 'vue'
 import { analyzeDetailedTimingWithCVT, analyzeDetailedTimingAgainstCTA } from 'edidts'
 import type {
   DetailedTimingDescriptor,
@@ -11,7 +11,7 @@ import type {
 } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import EDIDDisplayDescriptors from './EDIDDisplayDescriptors.vue'
-import DetailedTimingFields from '../common/DetailedTimingFields.vue'
+import DetailedTimingCard from '../common/DetailedTimingCard.vue'
 
 const props = defineProps<{
   edid: EDIDViewModel
@@ -25,7 +25,6 @@ const emit = defineEmits<{
 
 const detailedTimings = computed(() => props.edid.base.detailedTimings)
 const displayDescriptors = computed(() => props.edid.base.displayDescriptors)
-const expandedTimings = ref<Set<number>>(new Set())
 
 // Navigation focus: 'edid-descriptors' (or empty) → combined view of all
 // timings + descriptors; 'edid-dtd-<i>' → dedicated single-timing view;
@@ -66,20 +65,6 @@ const ceaAnalysis = computed<CTAAnalysisResult[]>(() =>
   detailedTimings.value.map((timing: DetailedTimingDescriptor) => analyzeDetailedTimingAgainstCTA(timing))
 )
 
-function toggleTimingDetails(index: number) {
-  const next = new Set(expandedTimings.value)
-  if (next.has(index)) {
-    next.delete(index)
-  } else {
-    next.add(index)
-  }
-  expandedTimings.value = next
-}
-
-function isTimingExpanded(index: number): boolean {
-  return expandedTimings.value.has(index)
-}
-
 // Scroll the focused item into view on navigation. In dedicated single-item
 // views the item is the only content, so this mainly matters when re-entering
 // the combined view; expansion is handled by forceExpandTiming.
@@ -94,10 +79,6 @@ watch(() => props.focus, async (focus) => {
     if (!Number.isNaN(idx)) document.getElementById(`edid-card-desc-${idx}`)?.scrollIntoView({ block: 'nearest' })
   }
 }, { immediate: true })
-
-function scanTypeLabel(timing: DetailedTimingDescriptor): string {
-  return timing.flags.interlaced ? 'Interlaced' : 'Progressive'
-}
 
 function horizontalFrontPorch(timing: DetailedTimingDescriptor): number {
   return Math.max(0, timing.horizontalSyncOffset)
@@ -170,49 +151,22 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
            a dedicated timing view. Hidden in the dedicated descriptor view. -->
       <div v-if="focusMode.kind !== 'descriptor' && visibleTimingEntries.length > 0" class="space-y-4">
         <h4 v-if="isAllView" class="font-medium text-muted-foreground">Detailed Timings</h4>
-        <div
+        <DetailedTimingCard
           v-for="entry in visibleTimingEntries"
           :id="`edid-card-dtd-${entry.i}`"
           :key="entry.i"
-          class="rounded-2xl border border-border/60 bg-card shadow-sm scroll-mt-6"
+          :timing="entry.timing"
+          :index="entry.i"
+          :force-expand="forceExpandTiming"
+          :show-toggle="isAllView"
+          @update="(field: string, value: unknown) => emit('updateTiming', entry.i, field, value)"
         >
-          <div class="flex flex-wrap items-start gap-4 border-b border-border/40 p-4">
-            <div>
-              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">Timing {{ entry.i + 1 }}</p>
-              <p class="text-lg font-semibold text-foreground">
-                {{ entry.timing.horizontalActive }}×{{ entry.timing.verticalActive }}{{ entry.timing.flags.interlaced ? 'i' : 'p' }} ·
-                {{ entry.timing.refreshRate.toFixed(2) }} Hz
-              </p>
-              <p class="text-xs text-muted-foreground">{{ entry.timing.pixelClock.toFixed(2) }} MHz pixel clock</p>
-            </div>
-            <div class="ml-auto flex items-center gap-3">
-              <span class="rounded-full border border-border/60 bg-muted/30 px-3 py-1 text-xs font-semibold text-muted-foreground">
-                {{ scanTypeLabel(entry.timing) }}
-              </span>
-              <span class="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                {{ getTimingClassificationLabel(entry.i) }}
-              </span>
-              <button
-                v-if="isAllView"
-                type="button"
-                class="text-xs font-semibold text-foreground/80 hover:text-primary"
-                @click="toggleTimingDetails(entry.i)"
-              >
-                {{ isTimingExpanded(entry.i) ? 'Hide details' : 'Show details' }}
-              </button>
-            </div>
-          </div>
-          <div
-            v-if="forceExpandTiming || isTimingExpanded(entry.i)"
-            class="border-t border-border/40 p-4 text-xs text-muted-foreground"
-          >
-            <div class="mb-4">
-              <p class="text-[11px] uppercase tracking-wide mb-2 text-foreground/80">Edit Fields</p>
-              <DetailedTimingFields
-                :timing="entry.timing"
-                @update="(field: string, value: unknown) => emit('updateTiming', entry.i, field, value)"
-              />
-            </div>
+          <template #badges>
+            <span class="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              {{ getTimingClassificationLabel(entry.i) }}
+            </span>
+          </template>
+          <template #details>
             <div class="grid gap-3 md:grid-cols-2">
               <div class="rounded-lg border border-border/40 p-3">
                 <p class="text-[11px] uppercase tracking-wide mb-2">Horizontal</p>
@@ -355,8 +309,8 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </template>
+        </DetailedTimingCard>
       </div>
 
       <EDIDDisplayDescriptors

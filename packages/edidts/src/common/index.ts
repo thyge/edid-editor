@@ -18,6 +18,7 @@ export {
   encodeEdidCtaDetailedTimingFlags,
   normalizeDetailedTiming,
   normalizeTimingFlags,
+  computeRefreshRate,
 } from './detailed-timing-descriptor';
 export type { DetailedTiming, DetailedTimingInput, StereoMode, SyncType, TimingFlags } from './detailed-timing-descriptor';
 export {

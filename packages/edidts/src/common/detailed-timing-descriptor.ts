@@ -138,6 +138,33 @@ export function normalizeDetailedTiming(data?: DetailedTimingInput): DetailedTim
   };
 }
 
+/**
+ * Derive the refresh rate (Hz) for any {@link DetailedTiming}-shaped object
+ * (base-block DTD or CTA-861 DTD). Single source of truth for the UI card and
+ * the {@link DetailedTimingDescriptor.refreshRate} getter.
+ *
+ * For interlaced timings the result is the field rate (pixel clock / total
+ * pixels per frame, doubled) — the user-facing "60 Hz" convention for 1080i.
+ */
+export function computeRefreshRate(timing: DetailedTiming): number {
+  const horizontalTotal = timing.horizontalActive + timing.horizontalBlanking;
+  const verticalTotal = timing.verticalActive + timing.verticalBlanking;
+
+  if (horizontalTotal === 0 || verticalTotal === 0 || timing.pixelClock === 0) {
+    return 0;
+  }
+
+  // Refresh rate = pixel clock (MHz) * 1,000,000 / (horizontal total * vertical total)
+  let rate = (timing.pixelClock * 1_000_000) / (horizontalTotal * verticalTotal);
+
+  // For interlaced, the field rate is doubled
+  if (timing.flags.interlaced) {
+    rate *= 2;
+  }
+
+  return rate;
+}
+
 export function decodeEdidCtaDetailedTimingFlags(byte: number): TimingFlags {
   const interlaced = (byte & 0x80) !== 0;
 
@@ -374,25 +401,13 @@ export class DetailedTimingDescriptor {
   }
 
   /**
-   * Calculate the refresh rate in Hz
+   * Calculate the refresh rate in Hz.
+   *
+   * Delegates to the shared {@link computeRefreshRate} helper so the UI layer
+   * (DetailedTimingCard) and the lib model derive refresh from one source.
    */
   get refreshRate(): number {
-    const horizontalTotal = this.horizontalTotal;
-    const verticalTotal = this.verticalTotal;
-    
-    if (horizontalTotal === 0 || verticalTotal === 0 || this.pixelClock === 0) {
-      return 0;
-    }
-    
-    // Refresh rate = pixel clock (MHz) * 1,000,000 / (horizontal total * vertical total)
-    let rate = (this.pixelClock * 1000000) / (horizontalTotal * verticalTotal);
-    
-    // For interlaced, the field rate is doubled
-    if (this.flags.interlaced) {
-      rate *= 2;
-    }
-    
-    return rate;
+    return computeRefreshRate(this);
   }
 
   /**
