@@ -86,13 +86,31 @@ export interface CEAExtensionBlock extends BaseExtensionBlock {
   detailedTimings: CEADetailedTiming[];
 }
 
-export type CEADataBlockTag = 
+export type CEADataBlockTag =
   | 0x01  // Audio Data Block
   | 0x02  // Video Data Block
   | 0x03  // Vendor Specific Data Block
   | 0x04  // Speaker Allocation Data Block
   | 0x05  // VESA Display Transfer Characteristic
   | 0x07; // Extended Tag
+
+/**
+ * Display labels for the CEA short data-block tags (CTA-861-G Table 46).
+ * Used by overview/summary UI to name a block by its tag.
+ */
+export const CEA_DATA_BLOCK_LABELS: Record<CEADataBlockTag, string> = {
+  0x01: 'Audio Data Block',
+  0x02: 'Video Data Block',
+  0x03: 'Vendor Specific Data Block',
+  0x04: 'Speaker Allocation Data Block',
+  0x05: 'VESA Display Transfer Characteristic',
+  0x07: 'Extended Data Block',
+};
+
+/** Display label for a CEA data-block tag, tolerating unknown tags. */
+export function getCEADataBlockLabel(tag: number): string {
+  return CEA_DATA_BLOCK_LABELS[tag as CEADataBlockTag] ?? `Unknown (0x${tag.toString(16).toUpperCase()})`;
+}
 
 export interface CEADataBlock {
   tag: CEADataBlockTag;
@@ -194,6 +212,20 @@ export interface VESADisplayTransferCharacteristicBlock extends CEADataBlock {
   numEntries: number; // 8, 16, 32, or 48
   gammaValues: number[]; // Normalized gamma values (0-1)
 }
+
+/**
+ * Display-label options for the VESA Display Transfer Characteristic transfer
+ * type (CTA-861-G §7.5.24, 2-bit code in the block header byte).
+ */
+export const VESA_TRANSFER_TYPE_OPTIONS: ReadonlyArray<{
+  value: VESADisplayTransferCharacteristicBlock['transferType'];
+  label: string;
+}> = [
+  { value: 'white', label: 'White' },
+  { value: 'red', label: 'Red' },
+  { value: 'green', label: 'Green' },
+  { value: 'blue', label: 'Blue' },
+];
 
 /**
  * CEA Detailed Timing Descriptor.

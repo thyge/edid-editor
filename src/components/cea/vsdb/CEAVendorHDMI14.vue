@@ -2,7 +2,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import type { HDMI14VSDB, Hdmi3DMode, HdmiImageSize } from 'edidts'
+import type { HDMI14VSDB } from 'edidts'
+import { HDMI_3D_MODE_OPTIONS, HDMI_IMAGE_SIZE_OPTIONS } from 'edidts'
 
 const props = defineProps<{ fields: HDMI14VSDB }>()
 
@@ -13,18 +14,8 @@ const selectClass =
   'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 const sectionClass = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2'
 
-const threeDModeOptions: { value: Hdmi3DMode; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'all-vics-3d', label: 'All VICs 3D' },
-  { value: 'vic-mask', label: 'VIC Mask' },
-]
-
-const imageSizeOptions: { value: HdmiImageSize; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'aspect-ratio', label: 'Aspect Ratio' },
-  { value: 'cm', label: 'Centimeters' },
-  { value: '5cm', label: '5 cm Units' },
-]
+const threeDModeOptions = HDMI_3D_MODE_OPTIONS
+const imageSizeOptions = HDMI_IMAGE_SIZE_OPTIONS
 
 function onNumber(field: string, v: string | number) {
   const parsed = typeof v === 'number' ? v : Number(v)

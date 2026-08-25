@@ -91,6 +91,50 @@ export interface HDRStaticMetadataDataBlock extends ExtendedDataBlock {
 }
 
 /**
+ * Video Capability scan-behavior 2-bit code (CTA-861-G §7.5.1, Video Capability
+ * Data Block). The on-the-wire value is the array index.
+ */
+export type ScanBehavior = VideoCapabilityDataBlock['ceVideoScanBehavior'];
+
+/** Display-label options for each Video Capability scan-behavior field. */
+export const SCAN_BEHAVIOR_OPTIONS: ReadonlyArray<{ value: ScanBehavior; label: string }> = [
+  { value: 'not_supported', label: 'Not Supported' },
+  { value: 'always_overscanned', label: 'Always Overscanned' },
+  { value: 'always_underscanned', label: 'Always Underscanned' },
+  { value: 'both', label: 'Both (Over & Under)' },
+];
+
+/**
+ * Colorimetry Data Block flag options (CTA-861-G §7.5.5). `key` matches the
+ * boolean-field name on `ColorimetryDataBlock`; `label` is the display string.
+ */
+export const COLORIMETRY_FLAGS: ReadonlyArray<{
+  key: keyof Omit<ColorimetryDataBlock, 'tag' | 'extendedTag' | 'payload'>;
+  label: string;
+}> = [
+  { key: 'xvYCC601', label: 'xvYCC601' },
+  { key: 'xvYCC709', label: 'xvYCC709' },
+  { key: 'sYCC601', label: 'sYCC601' },
+  { key: 'opYCC601', label: 'opYCC601' },
+  { key: 'opRGB', label: 'opRGB' },
+  { key: 'bt2020cYCC', label: 'BT.2020 cYCC' },
+  { key: 'bt2020YCC', label: 'BT.2020 YCC' },
+  { key: 'bt2020RGB', label: 'BT.2020 RGB' },
+  { key: 'dciP3', label: 'DCI-P3' },
+];
+
+/**
+ * HDR Static Metadata EOTF flag options (CTA-861-G §7.5.6). `key` matches the
+ * boolean-field name on `HDRStaticMetadataDataBlock['eotf']`.
+ */
+export const EOTF_FLAGS: ReadonlyArray<{ key: keyof HDRStaticMetadataDataBlock['eotf']; label: string }> = [
+  { key: 'traditionalGammaSDR', label: 'Traditional Gamma SDR' },
+  { key: 'traditionalGammaHDR', label: 'Traditional Gamma HDR' },
+  { key: 'smpte2084', label: 'SMPTE ST 2084 (HDR10)' },
+  { key: 'hlg', label: 'Hybrid Log-Gamma (HLG)' },
+];
+
+/**
  * HDR Dynamic Metadata Data Block (Extended Tag 7)
  */
 export interface HDRDynamicMetadataDataBlock extends ExtendedDataBlock {

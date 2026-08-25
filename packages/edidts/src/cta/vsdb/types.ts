@@ -68,6 +68,21 @@ export interface HdmiLatency {
 export type Hdmi3DMode = 'none' | 'all-vics-3d' | 'vic-mask';
 export type HdmiImageSize = 'none' | 'aspect-ratio' | 'cm' | '5cm';
 
+/** Display-label options for the HDMI 1.4 VSDB 3D mode field. */
+export const HDMI_3D_MODE_OPTIONS: ReadonlyArray<{ value: Hdmi3DMode; label: string }> = [
+  { value: 'none', label: 'None' },
+  { value: 'all-vics-3d', label: 'All VICs 3D' },
+  { value: 'vic-mask', label: 'VIC Mask' },
+];
+
+/** Display-label options for the HDMI 1.4 VSDB base image-size field. */
+export const HDMI_IMAGE_SIZE_OPTIONS: ReadonlyArray<{ value: HdmiImageSize; label: string }> = [
+  { value: 'none', label: 'None' },
+  { value: 'aspect-ratio', label: 'Aspect Ratio' },
+  { value: 'cm', label: 'Centimeters' },
+  { value: '5cm', label: '5 cm Units' },
+];
+
 /** A per-VIC 3D structure entry (3D_Structure_X / 3D_Detail_X nibbles). */
 export interface Hdmi3DStructure {
   /** 2D VIC order index (high nibble). */
@@ -98,6 +113,25 @@ export interface HDMIForumVSDB {
   cnmVrr: boolean;
   dsc: boolean;
   maxFrlRate: number;
+}
+
+/**
+ * HDMI Forum VSDB Max FRL Rate code options (CTA-861-G HDMI 2.1, 3-bit code).
+ * `value` is the on-the-wire code stored on `HDMIForumVSDB.maxFrlRate`.
+ */
+export const HDMI_FRL_RATE_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 0, label: 'None' },
+  { value: 1, label: '3 Gbps (3 lanes)' },
+  { value: 2, label: '6 Gbps (3 lanes)' },
+  { value: 3, label: '6 Gbps (4 lanes)' },
+  { value: 4, label: '8 Gbps (4 lanes)' },
+  { value: 5, label: '10 Gbps (4 lanes)' },
+  { value: 6, label: '12 Gbps (4 lanes)' },
+];
+
+/** Display label for an HDMI Forum Max FRL Rate code, tolerating unknown codes. */
+export function getHdmiFrlRateLabel(rate: number): string {
+  return HDMI_FRL_RATE_OPTIONS[rate]?.label ?? `Rate ${rate}`;
 }
 
 export interface MicrosoftHMDVSDB {

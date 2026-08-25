@@ -123,3 +123,28 @@ export function getBitDepthsString(depths: {
   if (depths.bd24) depthStrings.push('24');
   return depthStrings.join('/') + '-bit';
 }
+
+/**
+ * Sampling-rate toggle options for an Audio Data Block descriptor
+ * (CTA-861-G Table 53). `key` matches the `samplingRates` boolean-field name
+ * on `AudioDataBlock['descriptors'][number]`; `label` is the display string.
+ */
+export const AUDIO_SAMPLING_RATE_OPTIONS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'sr32kHz', label: '32 kHz' },
+  { key: 'sr44_1kHz', label: '44.1 kHz' },
+  { key: 'sr48kHz', label: '48 kHz' },
+  { key: 'sr88_2kHz', label: '88.2 kHz' },
+  { key: 'sr96kHz', label: '96 kHz' },
+  { key: 'sr176_4kHz', label: '176.4 kHz' },
+  { key: 'sr192kHz', label: '192 kHz' },
+];
+
+/**
+ * LPCM bit-depth toggle options. `key` matches the `bitDepths` boolean-field
+ * name on `AudioDataBlock['descriptors'][number]`.
+ */
+export const AUDIO_BIT_DEPTH_OPTIONS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'bd16', label: '16-bit' },
+  { key: 'bd20', label: '20-bit' },
+  { key: 'bd24', label: '24-bit' },
+];

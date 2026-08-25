@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { CEAExtensionBlock, SpeakerAllocationBlock } from 'edidts'
+import type { CEAExtensionBlock, SpeakerAllocationBlock, SpeakerPlacement } from 'edidts'
+import { SPEAKER_ALLOCATION_BITS, SPEAKER_PLACEMENT } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const props = defineProps<{
@@ -28,41 +29,85 @@ interface SpeakerNode {
   elevation: Elevation
 }
 
-const pairedKeys = [
-  'frontLeftRight', 'rearLeftRight', 'frontLeftRightCenter',
-  'rearLeftRightCenter', 'frontLeftRightWide', 'frontLeftRightHigh',
-  'surroundLeftRight', 'sideLeftRight', 'topSideLeftRight',
-  'topBackLeftRight', 'bottomFrontLeftRight', 'topLeftRightSurround',
-]
+// --- Lib-sourced speaker model -------------------------------------------
+// SADB bit keys + L/R pairing come from SPEAKER_ALLOCATION_BITS; the short
+// code and human-readable description for each rendered position come from
+// SPEAKER_PLACEMENT (CTA-861-G Table 34). Only the x/y/elevation coordinates
+// below are a UI presentation concern (the top-down room diagram) — the lib
+// has no positional data.
 
-const speakerNodes: SpeakerNode[] = [
+const placementByCode = new Map<string, SpeakerPlacement>()
+for (const p of SPEAKER_PLACEMENT) placementByCode.set(p.code, p)
+
+// Map each rendered speaker code to the SADB `speakers` field key that toggles
+// it. For bits with Table 34 codes (speakerIds non-empty) the code is resolved
+// via SPEAKER_PLACEMENT; for the two SADB pairs with no Table 34 entry
+// (RLC/RRC, TpLS/TpRS) the codes are split off the SADB label itself.
+const codeToKey = new Map<string, string>()
+for (const bit of SPEAKER_ALLOCATION_BITS) {
+  if (bit.speakerIds.length > 0) {
+    for (const id of bit.speakerIds) {
+      const placement = SPEAKER_PLACEMENT.find(p => p.id === id)
+      if (placement) codeToKey.set(placement.code, bit.key)
+    }
+  } else {
+    for (const code of bit.label.split('/')) codeToKey.set(code, bit.key)
+  }
+}
+
+// A SADB bit is a Left/Right pair when it carries two Table 34 codes or its
+// label is in "L/R" slash form (covers the no-Table-34 pairs).
+const pairedKeys = new Set(
+  SPEAKER_ALLOCATION_BITS
+    .filter(b => b.speakerIds.length === 2 || b.label.includes('/'))
+    .map(b => b.key as string)
+)
+
+// Descriptions for the two SADB pairs that have no Table 34 entry (so
+// SPEAKER_PLACEMENT has no label for them).
+const fallbackDescription: Record<string, string> = {
+  RLC: 'Rear Left of Center',
+  RRC: 'Rear Right of Center',
+}
+
+// Positional overlay for the top-down room diagram. `code` matches
+// SPEAKER_PLACEMENT.code (or the SADB-label-split code for RLC/RRC).
+const nodeLayout: { code: string; x: number; y: number; elevation: Elevation }[] = [
   // Front wall (ear level)
-  { key: 'frontLeftRightWide', label: 'FLW', description: 'Front Left Wide', x: 5, y: 14, elevation: 'floor' },
-  { key: 'frontLeftRight', label: 'FL', description: 'Front Left', x: 20, y: 14, elevation: 'floor' },
-  { key: 'frontLeftRightCenter', label: 'FLC', description: 'Front Left of Center', x: 37, y: 14, elevation: 'floor' },
-  { key: 'frontCenter', label: 'FC', description: 'Front Center', x: 50, y: 14, elevation: 'floor' },
-  { key: 'frontLeftRightCenter', label: 'FRC', description: 'Front Right of Center', x: 63, y: 14, elevation: 'floor' },
-  { key: 'frontLeftRight', label: 'FR', description: 'Front Right', x: 80, y: 14, elevation: 'floor' },
-  { key: 'frontLeftRightWide', label: 'FRW', description: 'Front Right Wide', x: 95, y: 14, elevation: 'floor' },
-
+  { code: 'FLw', x: 5, y: 14, elevation: 'floor' },
+  { code: 'FL', x: 20, y: 14, elevation: 'floor' },
+  { code: 'FLc', x: 37, y: 14, elevation: 'floor' },
+  { code: 'FC', x: 50, y: 14, elevation: 'floor' },
+  { code: 'FRc', x: 63, y: 14, elevation: 'floor' },
+  { code: 'FR', x: 80, y: 14, elevation: 'floor' },
+  { code: 'FRw', x: 95, y: 14, elevation: 'floor' },
   // Height speakers (overhead, between front and listener)
-  { key: 'frontLeftRightHigh', label: 'FLH', description: 'Front Left High', x: 22, y: 32, elevation: 'top' },
-  { key: 'frontCenterHigh', label: 'FCH', description: 'Front Center High', x: 50, y: 32, elevation: 'top' },
-  { key: 'frontLeftRightHigh', label: 'FRH', description: 'Front Right High', x: 78, y: 32, elevation: 'top' },
-
+  { code: 'TpFL', x: 22, y: 32, elevation: 'top' },
+  { code: 'TpFC', x: 50, y: 32, elevation: 'top' },
+  { code: 'TpFR', x: 78, y: 32, elevation: 'top' },
   // LFE (subwoofer, front-left area)
-  { key: 'lfe', label: 'LFE', description: 'Low Frequency Effects (Subwoofer)', x: 10, y: 42, elevation: 'sub' },
-
+  { code: 'LFE1', x: 10, y: 42, elevation: 'sub' },
   // Top Center (overhead, directly above listener)
-  { key: 'topCenter', label: 'TC', description: 'Top Center', x: 50, y: 55, elevation: 'top' },
-
-  // Rear speakers (ear level, back wall)
-  { key: 'rearLeftRightCenter', label: 'RLC', description: 'Rear Left of Center', x: 25, y: 86, elevation: 'floor' },
-  { key: 'rearLeftRight', label: 'RL', description: 'Rear Left', x: 10, y: 86, elevation: 'floor' },
-  { key: 'rearCenter', label: 'RC', description: 'Rear Center', x: 50, y: 86, elevation: 'floor' },
-  { key: 'rearLeftRight', label: 'RR', description: 'Rear Right', x: 90, y: 86, elevation: 'floor' },
-  { key: 'rearLeftRightCenter', label: 'RRC', description: 'Rear Right of Center', x: 75, y: 86, elevation: 'floor' },
+  { code: 'TpC', x: 50, y: 55, elevation: 'top' },
+  // Back wall (ear level)
+  { code: 'RLC', x: 25, y: 86, elevation: 'floor' },
+  { code: 'BL', x: 10, y: 86, elevation: 'floor' },
+  { code: 'BC', x: 50, y: 86, elevation: 'floor' },
+  { code: 'BR', x: 90, y: 86, elevation: 'floor' },
+  { code: 'RRC', x: 75, y: 86, elevation: 'floor' },
 ]
+
+const speakerNodes: SpeakerNode[] = nodeLayout.map(n => {
+  const placement = placementByCode.get(n.code)
+  return {
+    key: codeToKey.get(n.code) ?? n.code,
+    label: placement?.code ?? n.code,
+    description: placement?.label ?? fallbackDescription[n.code] ?? n.code,
+    x: n.x,
+    y: n.y,
+    elevation: n.elevation,
+  }
+})
 
 function toggleSpeaker(key: string) {
   if (!speakers.value) return
@@ -81,7 +126,7 @@ const activeCount = computed(() => {
   let count = 0
   for (const [key, val] of Object.entries(speakers.value)) {
     if (!val) continue
-    count += pairedKeys.includes(key) ? 2 : 1
+    count += pairedKeys.has(key) ? 2 : 1
   }
   return count
 })

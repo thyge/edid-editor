@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CEAExtensionBlock, VESADisplayTransferCharacteristicBlock } from 'edidts'
+import { VESA_TRANSFER_TYPE_OPTIONS } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
@@ -17,12 +18,7 @@ const block = computed(() =>
 const selectClass =
   'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
-const transferTypeOptions = [
-  { value: 'white', label: 'White' },
-  { value: 'red', label: 'Red' },
-  { value: 'green', label: 'Green' },
-  { value: 'blue', label: 'Blue' },
-]
+const transferTypeOptions = VESA_TRANSFER_TYPE_OPTIONS
 
 function setGamma(i: number, v: string | number) {
   if (!block.value) return

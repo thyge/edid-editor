@@ -22,6 +22,8 @@ export type {
 export {
   AUDIO_FORMAT_CODES,
   EXTENDED_AUDIO_FORMAT_CODES,
+  AUDIO_SAMPLING_RATE_OPTIONS,
+  AUDIO_BIT_DEPTH_OPTIONS,
   getAudioFormatName,
   getAudioFormatShortName,
   getExtendedAudioFormatName,
@@ -36,6 +38,9 @@ export {
   SPEAKER_PLACEMENT,
   SPEAKER_ALLOCATION_BITS,
   unifySpeakerLayout,
+  SCAN_BEHAVIOR_OPTIONS,
+  COLORIMETRY_FLAGS,
+  EOTF_FLAGS,
   VESA_INTERFACE_CATEGORIES,
   VESA_CONTENT_PROTECTION,
   VESA_ORIENTATION,
@@ -68,6 +73,7 @@ export type {
   SpeakerPlacement,
   SpeakerAllocationBit,
   UnifiedSpeaker,
+  ScanBehavior,
 } from './cta-extended-blocks';
 
 // CEA/CTA Extension Block
@@ -76,7 +82,10 @@ export {
   findHDMIBlock,
   findHDMIForumBlock,
   getSupportedVICs,
-  getHDMI21Features
+  getHDMI21Features,
+  CEA_DATA_BLOCK_LABELS,
+  getCEADataBlockLabel,
+  VESA_TRANSFER_TYPE_OPTIONS,
 } from './extension-block';
 export type {
   ExtensionBlock,
@@ -126,6 +135,12 @@ export type {
   VendorSpecificDecoded,
 } from './vsdb/types';
 export { OUI } from './vsdb/types';
+export {
+  HDMI_3D_MODE_OPTIONS,
+  HDMI_IMAGE_SIZE_OPTIONS,
+  HDMI_FRL_RATE_OPTIONS,
+  getHdmiFrlRateLabel,
+} from './vsdb/types';
 export { MICROSOFT_HMD_USE_CASES } from './vsdb/microsoft-hmd';
 // The VSDB `decodeVendorSpecificBlock` is re-exported as
 // `decodeVsdbBlock` to avoid colliding with the DisplayID module's
@@ -150,3 +165,7 @@ export {
   VENDOR_VSVDB_ENCODERS,
 } from './vsvdb/registry';
 export { DolbyVSDBDecoder, DolbyVSDBEncoder, DOLBY_VSDB_DEFAULT } from './vsvdb/dolby';
+
+// CEA data-block default-value factory
+export { createDefaultCEADataBlock } from './default-blocks';
+export type { CEADefaultBlockType } from './default-blocks';

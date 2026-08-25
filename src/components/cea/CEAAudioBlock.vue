@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { AUDIO_FORMAT_CODES } from 'edidts'
+import { AUDIO_FORMAT_CODES, AUDIO_SAMPLING_RATE_OPTIONS, AUDIO_BIT_DEPTH_OPTIONS } from 'edidts'
 import type { CEAExtensionBlock, AudioDataBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
@@ -21,21 +21,8 @@ const audioBlock = computed(() =>
 
 const descriptors = computed(() => audioBlock.value?.descriptors ?? [])
 
-const sampleRateLabels: { key: string; label: string }[] = [
-  { key: 'sr32kHz', label: '32 kHz' },
-  { key: 'sr44_1kHz', label: '44.1 kHz' },
-  { key: 'sr48kHz', label: '48 kHz' },
-  { key: 'sr88_2kHz', label: '88.2 kHz' },
-  { key: 'sr96kHz', label: '96 kHz' },
-  { key: 'sr176_4kHz', label: '176.4 kHz' },
-  { key: 'sr192kHz', label: '192 kHz' },
-]
-
-const bitDepthLabels: { key: string; label: string }[] = [
-  { key: 'bd16', label: '16-bit' },
-  { key: 'bd20', label: '20-bit' },
-  { key: 'bd24', label: '24-bit' },
-]
+const sampleRateLabels = AUDIO_SAMPLING_RATE_OPTIONS
+const bitDepthLabels = AUDIO_BIT_DEPTH_OPTIONS
 
 // Codes 1–14 are selectable; 15 (extension) is not user-addable here.
 const formatOptions = AUDIO_FORMAT_CODES.filter(f => f.code >= 1 && f.code <= 14)

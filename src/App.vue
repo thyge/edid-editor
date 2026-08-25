@@ -5,8 +5,10 @@ import {
   DisplayIdDataBlockTag,
   createDefaultDisplayIdBlock,
   createDefaultDescriptor,
+  createDefaultCEADataBlock,
   getCEAExtension,
   getDisplayIdExtension,
+  type CEADefaultBlockType,
   type DisplayDescriptor,
   type ScreenSize,
   type VideoInputDefinition,
@@ -234,99 +236,27 @@ function addCEADataBlock(blockType: string) {
   if (!edidRef.value) return
   const cea = getCEAExtension(edidRef.value)
   if (!cea) return
-  const empty = new Uint8Array(0)
+  const block = createDefaultCEADataBlock(blockType as CEADefaultBlockType)
+  if (!block) return
+  cea.dataBlocks.push(block)
+  const section = ceaBlockActiveSection[blockType]
+  if (section) activeSection.value = section
+}
 
-  switch (blockType) {
-    case 'video':
-      cea.dataBlocks.push({ tag: 0x02, payload: empty, vics: [] } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-video'
-      break
-    case 'audio':
-      cea.dataBlocks.push({ tag: 0x01, payload: empty, descriptors: [] } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-audio'
-      break
-    case 'speakers':
-      cea.dataBlocks.push({
-        tag: 0x04, payload: empty,
-        speakers: {
-          frontLeftRight: true, lfe: false, frontCenter: false,
-          rearLeftRight: false, rearCenter: false, frontLeftRightCenter: false,
-          rearLeftRightCenter: false, frontLeftRightWide: false,
-          frontLeftRightHigh: false, topCenter: false, frontCenterHigh: false,
-          surroundLeftRight: false, lfe2: false, topBackCenter: false,
-          sideLeftRight: false, topSideLeftRight: false,
-          topBackLeftRight: false, bottomFrontCenter: false,
-          bottomFrontLeftRight: false, topLeftRightSurround: false,
-        },
-        trailing: new Uint8Array(),
-      } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-speakers'
-      break
-    case 'video-capability':
-      cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x00, payload: empty,
-        ceVideoScanBehavior: 'not_supported',
-        itVideoScanBehavior: 'not_supported',
-        ptVideoScanBehavior: 'not_supported',
-        quantizationRangeSelectable: false,
-        quantizationRangeYCC: false,
-      } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-video-cap'
-      break
-    case 'colorimetry':
-      cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x05, payload: empty,
-        xvYCC601: false, xvYCC709: false, sYCC601: false, opYCC601: false,
-        opRGB: false, bt2020cYCC: false, bt2020YCC: false, bt2020RGB: false, dciP3: false,
-      } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-hdr-color'
-      break
-    case 'hdr-static':
-      cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x06, payload: empty,
-        eotf: { traditionalGammaSDR: false, traditionalGammaHDR: false, smpte2084: false, hlg: false },
-        staticMetadataType1: false,
-      } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-hdr-color'
-      break
-    case 'video-format-preference':
-      cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x0D, payload: empty, svrs: [],
-      } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-video-format-pref'
-      break
-    case 'vendor-audio':
-      cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x11, payload: empty, ieeeOui: 0, vendorPayload: new Uint8Array(),
-      } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-vendor-audio'
-      break
-    case 'room-config':
-      cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x13, payload: empty, speakerCount: 0, speakerPresenceDescriptor: 0,
-      } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-room-config'
-      break
-    case 'speaker-location':
-      cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x14, payload: empty, descriptors: [], trailing: new Uint8Array(),
-      } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-speaker-location'
-      break
-    case 'infoframe':
-      cea.dataBlocks.push({
-        tag: 0x07, extendedTag: 0x20, payload: empty,
-        additionalVsifs: 0, processingPayload: new Uint8Array(), descriptors: [], trailing: new Uint8Array(),
-      } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-infoframe'
-      break
-    case 'vesa-transfer':
-      cea.dataBlocks.push({
-        tag: 0x05, payload: new Uint8Array(1), transferType: 'white', numEntries: 8, gammaValues: new Array(8).fill(0),
-      } as unknown as import('edidts').CEADataBlock)
-      activeSection.value = 'cea-vesa-transfer'
-      break
-  }
+/** Maps a CEA default-block type to the editor section shown after adding it. */
+const ceaBlockActiveSection: Record<string, string> = {
+  'video': 'cea-video',
+  'audio': 'cea-audio',
+  'speakers': 'cea-speakers',
+  'video-capability': 'cea-video-cap',
+  'colorimetry': 'cea-hdr-color',
+  'hdr-static': 'cea-hdr-color',
+  'video-format-preference': 'cea-video-format-pref',
+  'vendor-audio': 'cea-vendor-audio',
+  'room-config': 'cea-room-config',
+  'speaker-location': 'cea-speaker-location',
+  'infoframe': 'cea-infoframe',
+  'vesa-transfer': 'cea-vesa-transfer',
 }
 
 function removeCEADataBlock(blockTag: number, extendedTag?: number) {

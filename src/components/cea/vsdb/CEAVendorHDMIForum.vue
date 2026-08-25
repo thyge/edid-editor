@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import type { HDMIForumVSDB } from 'edidts'
+import { HDMI_FRL_RATE_OPTIONS, getHdmiFrlRateLabel } from 'edidts'
 
 const props = defineProps<{ fields: HDMIForumVSDB }>()
 
@@ -12,19 +13,7 @@ const rowClass = 'flex items-center justify-between gap-2 rounded-md border bord
 const selectClass =
   'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
-const frlRateOptions = [
-  { value: 0, label: 'None' },
-  { value: 1, label: '3 Gbps (3 lanes)' },
-  { value: 2, label: '6 Gbps (3 lanes)' },
-  { value: 3, label: '6 Gbps (4 lanes)' },
-  { value: 4, label: '8 Gbps (4 lanes)' },
-  { value: 5, label: '10 Gbps (4 lanes)' },
-  { value: 6, label: '12 Gbps (4 lanes)' },
-]
-
-function frlRateLabel(rate: number): string {
-  return frlRateOptions[rate]?.label ?? `Rate ${rate}`
-}
+const frlRateOptions = HDMI_FRL_RATE_OPTIONS
 
 function onNumber(field: string, v: string | number) {
   const parsed = typeof v === 'number' ? v : Number(v)
@@ -48,7 +37,7 @@ function onNumber(field: string, v: string | number) {
           <Input type="number" :min="0" :step="1" :model-value="props.fields.maxTmdsCharacterRate" @update:model-value="(v) => onNumber('maxTmdsCharacterRate', v)" />
         </label>
         <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Max FRL Rate ({{ frlRateLabel(props.fields.maxFrlRate) }})
+          Max FRL Rate ({{ getHdmiFrlRateLabel(props.fields.maxFrlRate) }})
           <select :class="selectClass" :value="props.fields.maxFrlRate" @change="(e: Event) => onNumber('maxFrlRate', Number((e.target as HTMLSelectElement).value))">
             <option v-for="opt in frlRateOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>

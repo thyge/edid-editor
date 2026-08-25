@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { CEAExtensionBlock } from 'edidts'
 import type { VideoCapabilityDataBlock } from 'edidts'
+import { SCAN_BEHAVIOR_OPTIONS } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 
@@ -19,12 +20,7 @@ const vcdb = computed(() =>
   ) as VideoCapabilityDataBlock | undefined
 )
 
-const scanBehaviorOptions = [
-  { value: 'not_supported', label: 'Not Supported' },
-  { value: 'always_overscanned', label: 'Always Overscanned' },
-  { value: 'always_underscanned', label: 'Always Underscanned' },
-  { value: 'both', label: 'Both (Over & Under)' },
-]
+const scanBehaviorOptions = SCAN_BEHAVIOR_OPTIONS
 
 const selectClass = 'flex h-8 w-full rounded-md border border-input dark:bg-input/30 bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 const switchRowClass = 'flex items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2 hover:bg-muted/50 transition-colors'

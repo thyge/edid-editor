@@ -8,7 +8,7 @@ import type {
   YCbCr420VideoDataBlock,
   YCbCr420CapabilityMapDataBlock,
 } from 'edidts'
-import { getVICDefinition, VIC_TABLE } from 'edidts'
+import { getVICDefinition, VIC_TABLE, COLORIMETRY_FLAGS, EOTF_FLAGS } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -37,24 +37,8 @@ const ycbcr420Map = computed(() => findExtended<YCbCr420CapabilityMapDataBlock>(
 const rowClass = 'flex items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2'
 const sectionClass = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3'
 
-const colorimetryFlags: { key: string; label: string }[] = [
-  { key: 'xvYCC601', label: 'xvYCC601' },
-  { key: 'xvYCC709', label: 'xvYCC709' },
-  { key: 'sYCC601', label: 'sYCC601' },
-  { key: 'opYCC601', label: 'opYCC601' },
-  { key: 'opRGB', label: 'opRGB' },
-  { key: 'bt2020cYCC', label: 'BT.2020 cYCC' },
-  { key: 'bt2020YCC', label: 'BT.2020 YCC' },
-  { key: 'bt2020RGB', label: 'BT.2020 RGB' },
-  { key: 'dciP3', label: 'DCI-P3' },
-]
-
-const eotfFlags: { key: string; label: string }[] = [
-  { key: 'traditionalGammaSDR', label: 'Traditional Gamma SDR' },
-  { key: 'traditionalGammaHDR', label: 'Traditional Gamma HDR' },
-  { key: 'smpte2084', label: 'SMPTE ST 2084 (HDR10)' },
-  { key: 'hlg', label: 'Hybrid Log-Gamma (HLG)' },
-]
+const colorimetryFlags = COLORIMETRY_FLAGS
+const eotfFlags = EOTF_FLAGS
 
 function vicLabel(vic: number): string {
   const def = getVICDefinition(vic)

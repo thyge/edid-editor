@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CEAExtensionBlock, AudioDataBlock, VideoDataBlock } from 'edidts'
+import { getCEADataBlockLabel } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
@@ -40,26 +41,26 @@ const blockSummary = computed(() => {
   const video = blocks.filter(b => b.tag === 0x02)
   if (video.length) {
     const totalSvds = video.reduce((sum, b) => sum + ((b as VideoDataBlock).vics?.length ?? 0), 0)
-    counts.push({ label: 'Video Data Block', count: totalSvds })
+    counts.push({ label: getCEADataBlockLabel(0x02), count: totalSvds })
   }
 
   const audio = blocks.filter(b => b.tag === 0x01)
   if (audio.length) {
     const totalSads = audio.reduce((sum, b) => sum + ((b as AudioDataBlock).descriptors?.length ?? 0), 0)
-    counts.push({ label: 'Audio Data Block', count: totalSads })
+    counts.push({ label: getCEADataBlockLabel(0x01), count: totalSads })
   }
 
   const speaker = blocks.filter(b => b.tag === 0x04)
-  if (speaker.length) counts.push({ label: 'Speaker Allocation', count: speaker.length })
+  if (speaker.length) counts.push({ label: getCEADataBlockLabel(0x04), count: speaker.length })
 
   const vendor = blocks.filter(b => b.tag === 0x03)
-  if (vendor.length) counts.push({ label: 'Vendor Specific', count: vendor.length })
+  if (vendor.length) counts.push({ label: getCEADataBlockLabel(0x03), count: vendor.length })
 
   const extended = blocks.filter(b => b.tag === 0x07)
-  if (extended.length) counts.push({ label: 'Extended Data Blocks', count: extended.length })
+  if (extended.length) counts.push({ label: getCEADataBlockLabel(0x07), count: extended.length })
 
   const vesa = blocks.filter(b => b.tag === 0x05)
-  if (vesa.length) counts.push({ label: 'VESA Transfer Characteristic', count: vesa.length })
+  if (vesa.length) counts.push({ label: getCEADataBlockLabel(0x05), count: vesa.length })
 
   return counts
 })
