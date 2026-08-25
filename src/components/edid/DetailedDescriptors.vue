@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { analyzeDetailedTimingWithCVT, analyzeDetailedTimingAgainstCTA } from 'edidts'
 import type {
   DetailedTimingDescriptor,
@@ -13,17 +13,13 @@ import type { EDIDViewModel } from '@/types/edid'
 import DisplayDescriptors from './DisplayDescriptors.vue'
 import DetailedTimingFields from './DetailedTimingFields.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 
 const props = defineProps<{
   edid: EDIDViewModel
+  focus?: string
 }>()
 
 const emit = defineEmits<{
-  addTiming: []
-  removeTiming: [index: number]
-  addDescriptor: [tag: number]
-  removeDescriptor: [index: number]
   updateDescriptor: [index: number, descriptor: DisplayDescriptor]
   updateTiming: [index: number, field: string, value: unknown]
 }>()
@@ -32,9 +28,56 @@ const detailedTimings = computed(() => props.edid.base.detailedTimings)
 const displayDescriptors = computed(() => props.edid.base.displayDescriptors)
 const expandedTimings = ref<Set<number>>(new Set())
 
-const meaningfulDescriptors = computed(() => displayDescriptors.value.filter((d: DisplayDescriptor) => d.tag !== 0x10))
-const usedSlots = computed(() => detailedTimings.value.length + meaningfulDescriptors.value.length)
-const canAdd = computed(() => usedSlots.value < 4)
+// Navigation focus: 'edid-descriptors' (or empty) → combined view of all
+// timings + descriptors; 'edid-dtd-<i>' → dedicated single-timing view;
+// 'edid-desc-<i>' → dedicated single-descriptor view.
+const focusMode = computed(() => {
+  const f = props.focus ?? ''
+  if (f.startsWith('edid-dtd-')) {
+    const idx = Number(f.slice('edid-dtd-'.length))
+    return { kind: 'dtd' as const, index: Number.isNaN(idx) ? -1 : idx }
+  }
+  if (f.startsWith('edid-desc-')) {
+    const idx = Number(f.slice('edid-desc-'.length))
+    return { kind: 'descriptor' as const, index: Number.isNaN(idx) ? -1 : idx }
+  }
+  return { kind: 'all' as const, index: -1 }
+})
+
+const isAllView = computed(() => focusMode.value.kind === 'all')
+const forceExpandTiming = computed(() => focusMode.value.kind === 'dtd')
+
+// Timings to render: all in the combined view, just the focused one in a
+// dedicated timing view. `i` is always the real index into detailedTimings so
+// the CVT/CTA analysis (indexed by position) stays correct.
+const visibleTimingEntries = computed(() => {
+  if (focusMode.value.kind === 'dtd') {
+    const i = focusMode.value.index
+    const t = detailedTimings.value[i]
+    return t ? [{ timing: t, i }] : []
+  }
+  return detailedTimings.value.map((t, i) => ({ timing: t, i }))
+})
+
+function timingLabel(t: DetailedTimingDescriptor): string {
+  if (t.horizontalActive > 0 && t.verticalActive > 0) {
+    return `${t.horizontalActive}×${t.verticalActive}${t.flags.interlaced ? 'i' : 'p'}${Math.round(t.refreshRate)}`
+  }
+  return 'Untitled Timing'
+}
+
+const cardTitle = computed(() => {
+  switch (focusMode.value.kind) {
+    case 'dtd': {
+      const t = detailedTimings.value[focusMode.value.index]
+      return t ? timingLabel(t) : 'Detailed Timing'
+    }
+    case 'descriptor':
+      return 'Display Descriptor'
+    default:
+      return 'Detailed Timings & Descriptors'
+  }
+})
 
 const cvtAnalysis = computed<CVTAnalysisResult[]>(() =>
   detailedTimings.value.map((timing: DetailedTimingDescriptor) => analyzeDetailedTimingWithCVT(timing))
@@ -57,6 +100,21 @@ function toggleTimingDetails(index: number) {
 function isTimingExpanded(index: number): boolean {
   return expandedTimings.value.has(index)
 }
+
+// Scroll the focused item into view on navigation. In dedicated single-item
+// views the item is the only content, so this mainly matters when re-entering
+// the combined view; expansion is handled by forceExpandTiming.
+watch(() => props.focus, async (focus) => {
+  if (!focus) return
+  await nextTick()
+  if (focus.startsWith('edid-dtd-')) {
+    const idx = Number(focus.slice('edid-dtd-'.length))
+    if (!Number.isNaN(idx)) document.getElementById(`edid-card-dtd-${idx}`)?.scrollIntoView({ block: 'nearest' })
+  } else if (focus.startsWith('edid-desc-')) {
+    const idx = Number(focus.slice('edid-desc-'.length))
+    if (!Number.isNaN(idx)) document.getElementById(`edid-card-desc-${idx}`)?.scrollIntoView({ block: 'nearest' })
+  }
+}, { immediate: true })
 
 function scanTypeLabel(timing: DetailedTimingDescriptor): string {
   return timing.flags.interlaced ? 'Interlaced' : 'Progressive'
@@ -129,100 +187,87 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
 
 <template>
   <Card>
-    <CardHeader class="flex flex-row items-center justify-between">
-      <CardTitle>Detailed Timing Descriptor</CardTitle>
-      <Button
-        variant="outline"
-        size="sm"
-        :disabled="!canAdd"
-        @click="emit('addTiming')"
-      >
-        Add Timing
-      </Button>
+    <CardHeader>
+      <CardTitle>{{ cardTitle }}</CardTitle>
     </CardHeader>
     <CardContent class="space-y-4">
-      <div v-if="detailedTimings.length > 0" class="space-y-4">
+      <!-- Detailed timings: all in the combined view, just the focused one in
+           a dedicated timing view. Hidden in the dedicated descriptor view. -->
+      <div v-if="focusMode.kind !== 'descriptor' && visibleTimingEntries.length > 0" class="space-y-4">
         <div
-          v-for="(timing, i) in detailedTimings"
-          :key="i"
+          v-for="entry in visibleTimingEntries"
+          :id="`edid-card-dtd-${entry.i}`"
+          :key="entry.i"
           class="rounded-2xl border border-border/60 bg-card/40 shadow-sm"
         >
           <div class="flex flex-wrap items-start gap-4 border-b border-border/40 p-4">
             <div>
-              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">Timing {{ i + 1 }}</p>
+              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">Timing {{ entry.i + 1 }}</p>
               <p class="text-lg font-semibold text-foreground">
-                {{ timing.horizontalActive }}×{{ timing.verticalActive }}{{ timing.flags.interlaced ? 'i' : 'p' }} ·
-                {{ timing.refreshRate.toFixed(2) }} Hz
+                {{ entry.timing.horizontalActive }}×{{ entry.timing.verticalActive }}{{ entry.timing.flags.interlaced ? 'i' : 'p' }} ·
+                {{ entry.timing.refreshRate.toFixed(2) }} Hz
               </p>
-              <p class="text-xs text-muted-foreground">{{ timing.pixelClock.toFixed(2) }} MHz pixel clock</p>
+              <p class="text-xs text-muted-foreground">{{ entry.timing.pixelClock.toFixed(2) }} MHz pixel clock</p>
             </div>
             <div class="ml-auto flex items-center gap-3">
               <span class="rounded-full border border-border/60 bg-muted/30 px-3 py-1 text-xs font-semibold text-muted-foreground">
-                {{ scanTypeLabel(timing) }}
+                {{ scanTypeLabel(entry.timing) }}
               </span>
               <span class="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                {{ getTimingClassificationLabel(i) }}
+                {{ getTimingClassificationLabel(entry.i) }}
               </span>
               <button
+                v-if="isAllView"
                 type="button"
                 class="text-xs font-semibold text-foreground/80 hover:text-primary"
-                @click="toggleTimingDetails(i)"
+                @click="toggleTimingDetails(entry.i)"
               >
-                {{ isTimingExpanded(i) ? 'Hide details' : 'Show details' }}
+                {{ isTimingExpanded(entry.i) ? 'Hide details' : 'Show details' }}
               </button>
-              <Button
-                variant="ghost"
-                size="sm"
-                class="text-destructive hover:text-destructive hover:bg-destructive/10"
-                :disabled="detailedTimings.length <= 1"
-                @click="emit('removeTiming', i)"
-              >
-                Remove
-              </Button>
             </div>
           </div>
           <div
-            v-if="isTimingExpanded(i)"
+            v-if="forceExpandTiming || isTimingExpanded(entry.i)"
             class="border-t border-border/40 p-4 text-xs text-muted-foreground"
           >
             <div class="mb-4">
               <p class="text-[11px] uppercase tracking-wide mb-2 text-foreground/80">Edit Fields</p>
               <DetailedTimingFields
-                :timing="timing"
-                @update="(field: string, value: unknown) => emit('updateTiming', i, field, value)"
+                :timing="entry.timing"
+                @update="(field: string, value: unknown) => emit('updateTiming', entry.i, field, value)"
               />
             </div>
             <div class="grid gap-3 md:grid-cols-2">
               <div class="rounded-lg border border-border/40 p-3">
                 <p class="text-[11px] uppercase tracking-wide mb-2">Horizontal</p>
                 <div class="space-y-1">
-                  <div class="flex justify-between"><span>Total</span><span class="font-mono text-foreground">{{ timing.horizontalTotal }} px</span></div>
-                  <div class="flex justify-between"><span>Active</span><span class="font-mono text-foreground">{{ timing.horizontalActive }} px</span></div>
-                  <div class="flex justify-between"><span>Blanking</span><span class="font-mono text-foreground">{{ timing.horizontalBlanking }} px</span></div>
-                  <div class="flex justify-between"><span>Front Porch</span><span class="font-mono text-foreground">{{ horizontalFrontPorch(timing) }} px</span></div>
-                  <div class="flex justify-between"><span>Sync Width</span><span class="font-mono text-foreground">{{ timing.horizontalSyncWidth }} px</span></div>
-                  <div class="flex justify-between"><span>Back Porch</span><span class="font-mono text-foreground">{{ horizontalBackPorch(timing) }} px</span></div>
+                  <div class="flex justify-between"><span>Total</span><span class="font-mono text-foreground">{{ entry.timing.horizontalTotal }} px</span></div>
+                  <div class="flex justify-between"><span>Active</span><span class="font-mono text-foreground">{{ entry.timing.horizontalActive }} px</span></div>
+                  <div class="flex justify-between"><span>Blanking</span><span class="font-mono text-foreground">{{ entry.timing.horizontalBlanking }} px</span></div>
+                  <div class="flex justify-between"><span>Front Porch</span><span class="font-mono text-foreground">{{ horizontalFrontPorch(entry.timing) }} px</span></div>
+                  <div class="flex justify-between"><span>Sync Width</span><span class="font-mono text-foreground">{{ entry.timing.horizontalSyncWidth }} px</span></div>
+                  <div class="flex justify-between"><span>Back Porch</span><span class="font-mono text-foreground">{{ horizontalBackPorch(entry.timing) }} px</span></div>
                 </div>
               </div>
               <div class="rounded-lg border border-border/40 p-3">
                 <p class="text-[11px] uppercase tracking-wide mb-2">Vertical</p>
                 <div class="space-y-1">
-                  <div class="flex justify-between"><span>Total</span><span class="font-mono text-foreground">{{ timing.verticalTotal }} lines</span></div>
-                  <div class="flex justify-between"><span>Active</span><span class="font-mono text-foreground">{{ timing.verticalActive }} lines</span></div>
-                  <div class="flex justify-between"><span>Blanking</span><span class="font-mono text-foreground">{{ timing.verticalBlanking }} lines</span></div>
-                  <div class="flex justify-between"><span>Front Porch</span><span class="font-mono text-foreground">{{ verticalFrontPorch(timing) }} lines</span></div>
-                  <div class="flex justify-between"><span>Sync Width</span><span class="font-mono text-foreground">{{ timing.verticalSyncWidth }} lines</span></div>
-                  <div class="flex justify-between"><span>Back Porch</span><span class="font-mono text-foreground">{{ verticalBackPorch(timing) }} lines</span></div>
+                  <div class="flex justify-between"><span>Total</span><span class="font-mono text-foreground">{{ entry.timing.verticalTotal }} lines</span></div>
+                  <div class="flex justify-between"><span>Active</span><span class="font-mono text-foreground">{{ entry.timing.verticalActive }} lines</span></div>
+                  <div class="flex justify-between"><span>Blanking</span><span class="font-mono text-foreground">{{ entry.timing.verticalBlanking }} lines</span></div>
+                  <div class="flex justify-between"><span>Front Porch</span><span class="font-mono text-foreground">{{ verticalFrontPorch(entry.timing) }} lines</span></div>
+                  <div class="flex justify-between"><span>Sync Width</span><span class="font-mono text-foreground">{{ entry.timing.verticalSyncWidth }} lines</span></div>
+                  <div class="flex justify-between"><span>Back Porch</span><span class="font-mono text-foreground">{{ verticalBackPorch(entry.timing) }} lines</span></div>
                 </div>
               </div>
             </div>
 
             <div class="mt-4 rounded-lg border border-border/40 p-3">
               <p class="text-[11px] uppercase tracking-wide mb-2">CTA-861 Reference</p>
-              <p class="text-xs text-muted-foreground mb-3">{{ getCEAClassificationDescription(i) }}</p>
-              <div class="space-y-2" v-if="getCEAComparisonRows(i).length > 0">
+              <p class="text-xs text-muted-foreground mb-3">{{ getCEAClassificationDescription(entry.i) }}</p>
+              <div class="space-y-2" v-if="getCEAComparisonRows(entry.i).length > 0">
                 <div
-                  v-for="comparison in getCEAComparisonRows(i)"
+                  v-for="comparison in getCEAComparisonRows(entry.i)"
                   :key="comparison.vic.vic"
                   class="rounded border border-border/30 bg-background/60 p-3"
                 >
@@ -280,7 +325,7 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
               <p class="text-[11px] uppercase tracking-wide mb-2">CVT Calculator Check</p>
               <div class="space-y-2">
                 <div
-                  v-for="comparison in getCVTComparisonRows(i)"
+                  v-for="comparison in getCVTComparisonRows(entry.i)"
                   :key="comparison.mode"
                   class="rounded border border-border/30 bg-background/60 p-3"
                 >
@@ -339,10 +384,9 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
       </div>
 
       <DisplayDescriptors
+        v-if="focusMode.kind !== 'dtd'"
         :descriptors="displayDescriptors"
-        :can-add="canAdd"
-        @add-descriptor="(tag: number) => emit('addDescriptor', tag)"
-        @remove-descriptor="(index: number) => emit('removeDescriptor', index)"
+        :focus="focus"
         @update-descriptor="(index: number, descriptor: DisplayDescriptor) => emit('updateDescriptor', index, descriptor)"
       />
     </CardContent>

@@ -44,7 +44,7 @@ import CEASpeakerLocation from '@/components/cea/CEASpeakerLocation.vue'
 import CEAInfoFrame from '@/components/cea/CEAInfoFrame.vue'
 import CEAVesaTransferCharacteristic from '@/components/cea/CEAVesaTransferCharacteristic.vue'
 import { useEDID } from '@/composables/useEDID'
-import { displayIdSectionIds } from '@/components/displayid/displayIdLabels'
+import { displayIdSectionIds, displayIdBlockSectionByTag } from '@/components/displayid/displayIdLabels'
 import DisplayIDOverview from '@/components/displayid/DisplayIDOverview.vue'
 import DisplayIDHeader from '@/components/displayid/DisplayIDHeader.vue'
 import DisplayIDProductIdentification from '@/components/displayid/DisplayIDProductIdentification.vue'
@@ -91,12 +91,13 @@ function addTiming() {
   if (!edidRef.value) return
   const timings = [...edidRef.value.base.detailedTimings, new DetailedTimingDescriptor()]
   edidRef.value.base.detailedTimings = timings
+  activeSection.value = `edid-dtd-${timings.length - 1}`
 }
 
 function removeTiming(index: number) {
   if (!edidRef.value) return
-  const timings = edidRef.value.base.detailedTimings.filter((_, i) => i !== index)
-  edidRef.value.base.detailedTimings = timings
+  edidRef.value.base.detailedTimings = edidRef.value.base.detailedTimings.filter((_, i) => i !== index)
+  if (activeSection.value.startsWith('edid-dtd-')) activeSection.value = 'overview'
 }
 
 function updateDetailedTiming(index: number, field: string, value: unknown) {
@@ -144,6 +145,7 @@ function addDescriptor(tag: number) {
   const descriptor = createDefaultDescriptor(tag)
   const descriptors = [...edidRef.value.base.displayDescriptors, descriptor]
   edidRef.value.base.displayDescriptors = descriptors
+  activeSection.value = `edid-desc-${descriptors.length - 1}`
 }
 
 function removeDescriptor(index: number) {
@@ -152,6 +154,7 @@ function removeDescriptor(index: number) {
   meaningful.splice(index, 1)
   const dummies = edidRef.value.base.displayDescriptors.filter(d => d.tag === 0x10)
   edidRef.value.base.displayDescriptors = [...meaningful, ...dummies]
+  if (activeSection.value.startsWith('edid-desc-')) activeSection.value = 'overview'
 }
 
 function updateDescriptor(index: number, descriptor: DisplayDescriptor) {
@@ -403,7 +406,7 @@ function addDisplayIdBlock(tag: number) {
   const displayId = displayIdExtension.value
   if (!displayId) return
   displayId.section.blocks.push(createDefaultDisplayIdBlock(tag as DisplayIdDataBlockTag))
-  activeSection.value = displayIdSectionIds.overview
+  activeSection.value = displayIdBlockSectionByTag[tag] ?? displayIdSectionIds.overview
 }
 
 function removeDisplayIdBlock(index: number) {
@@ -503,6 +506,10 @@ function updateCEA(field: string, value: unknown) {
       <LeftNav
         :edid="edidRef"
         v-model:active-section="activeSection"
+        @add-edid-timing="addTiming"
+        @remove-edid-timing="removeTiming"
+        @add-edid-descriptor="addDescriptor"
+        @remove-edid-descriptor="removeDescriptor"
         @add-cea="addCEAExtension"
         @remove-cea="removeCEAExtension"
         @add-cea-block="addCEADataBlock"
@@ -537,14 +544,11 @@ function updateCEA(field: string, value: unknown) {
             @update="updateTimings"
           />
           <DetailedDescriptors
-            v-else-if="activeSection === 'descriptor-blocks'"
+            v-else-if="activeSection === 'edid-descriptors' || activeSection.startsWith('edid-dtd-') || activeSection.startsWith('edid-desc-')"
             :edid="edidRef!"
-            @add-timing="addTiming"
-            @remove-timing="removeTiming"
-            @add-descriptor="addDescriptor"
-            @remove-descriptor="removeDescriptor"
-            @update-descriptor="updateDescriptor"
+            :focus="activeSection"
             @update-timing="updateDetailedTiming"
+            @update-descriptor="updateDescriptor"
           />
 
           <!-- CEA sections -->

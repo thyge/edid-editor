@@ -2,15 +2,12 @@
 import { ref, computed } from 'vue'
 import { ChevronRight, X } from '@lucide/vue'
 import type { EDIDViewModel } from '@/types/edid'
-import { DISPLAY_ID_BLOCK_LABELS, getCEAExtension, getDisplayIdExtension } from 'edidts'
+import { DISPLAY_ID_BLOCK_LABELS, getCEAExtension, getDisplayIdExtension, type DetailedTimingDescriptor } from 'edidts'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuItem,
   SidebarMenuButton,
   SidebarMenuSub,
   SidebarMenuSubItem,
@@ -26,6 +23,7 @@ import {
   displayIdBlockSectionByTag,
   displayIdSectionIds,
 } from '@/components/displayid/displayIdLabels'
+import { DESCRIPTOR_OPTIONS, getDescriptorLabel } from '@/components/edid/descriptors/descriptorLabels'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +38,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:activeSection': [section: string]
+  addEdidTiming: []
+  removeEdidTiming: [index: number]
+  addEdidDescriptor: [tag: number]
+  removeEdidDescriptor: [index: number]
   addCea: []
   removeCea: []
   addCeaBlock: [blockType: string]
@@ -51,13 +53,91 @@ const emit = defineEmits<{
   moveDisplayIdBlock: [index: number, direction: -1 | 1]
 }>()
 
-const edidChildren = [
+// Fixed base-block sections — always present, not addable/removable.
+const edidFixedChildren = [
   { id: 'display-info', label: 'Display Information' },
   { id: 'color-gamut', label: 'Color Characteristics' },
   { id: 'timings-established', label: 'Established Timings' },
   { id: 'timings-standard', label: 'Standard Timings' },
-  { id: 'descriptor-blocks', label: 'Detailed Timing Descriptor' },
 ]
+
+const edidBase = computed(() => props.edid?.base ?? null)
+
+// Friendly label for a detailed timing: "1920×1080p60". Falls back to
+// "Timing N" for blank/zeroed DTDs (e.g. a freshly added empty slot).
+function timingNavLabel(t: DetailedTimingDescriptor, i: number): string {
+  if (t.horizontalActive > 0 && t.verticalActive > 0) {
+    const scan = t.flags.interlaced ? 'i' : 'p'
+    return `${t.horizontalActive}×${t.verticalActive}${scan}${Math.round(t.refreshRate)}`
+  }
+  return `Timing ${i + 1}`
+}
+
+// Detailed timings are first-class, removable nav entries (like CTA blocks).
+const edidDtdChildren = computed(() => {
+  const base = edidBase.value
+  if (!base) return []
+  return base.detailedTimings.map((t, i) => ({
+    id: `edid-dtd-${i}`,
+    label: timingNavLabel(t, i),
+    index: i,
+  }))
+})
+
+// Meaningful display descriptors (dummy 0x10 slots are filtered out) as
+// first-class, removable nav entries. `index` is the source index in the full
+// displayDescriptors array, matching the existing removeDescriptor contract.
+const edidDescriptorChildren = computed(() => {
+  const base = edidBase.value
+  if (!base) return []
+  return base.displayDescriptors
+    .map((d, sourceIndex) => ({ d, sourceIndex }))
+    .filter(({ d }) => d.tag !== 0x10)
+    .map(({ d, sourceIndex }) => ({
+      id: `edid-desc-${sourceIndex}`,
+      label: getDescriptorLabel(d.tag),
+      index: sourceIndex,
+    }))
+})
+
+// EDID 1.4 has exactly four 18-byte descriptor slots shared between detailed
+// timings and display descriptors; the add affordance disappears once full.
+const edidCanAdd = computed(() => {
+  const base = edidBase.value
+  if (!base) return false
+  const meaningful = base.displayDescriptors.filter((d) => d.tag !== 0x10).length
+  return base.detailedTimings.length + meaningful < 4
+})
+
+type EdidAddOption =
+  | { kind: 'timing'; label: string; key: string }
+  | { kind: 'descriptor'; tag: number; label: string; key: string }
+
+const edidAddOptions = computed<EdidAddOption[]>(() => {
+  if (!edidCanAdd.value) return []
+  return [
+    { kind: 'timing', label: 'Detailed Timing', key: 'edid-add-timing' },
+    ...DESCRIPTOR_OPTIONS.map((o) => ({
+      kind: 'descriptor' as const,
+      tag: o.tag,
+      label: o.label,
+      key: `edid-add-desc-${o.tag}`,
+    })),
+  ]
+})
+
+function addEdidItem(opt: EdidAddOption) {
+  if (opt.kind === 'timing') emit('addEdidTiming')
+  else emit('addEdidDescriptor', opt.tag)
+}
+
+// True when the active section is the combined Descriptors view or any
+// individual DTD/descriptor entry — used to highlight the sub-group header.
+const isEdidDescriptorSection = computed(() =>
+  props.activeSection === 'edid-descriptors' ||
+  props.activeSection.startsWith('edid-dtd-') ||
+  props.activeSection.startsWith('edid-desc-')
+)
 
 const ceaExt = computed(() => props.edid ? getCEAExtension(props.edid) : null)
 
@@ -182,6 +262,7 @@ function selectSection(id: string) {
 
 // Each top-level group is independently collapsible; default expanded.
 const edidOpen = ref(true)
+const edidDescriptorsOpen = ref(true)
 const ceaOpen = ref(true)
 const displayIdOpen = ref(true)
 </script>
@@ -209,19 +290,118 @@ const displayIdOpen = ref(true)
               </SidebarMenuButton>
             </div>
             <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem v-for="child in edidChildren" :key="child.id">
-                    <SidebarMenuSubButton
-                      as="button"
-                      :is-active="activeSection === child.id"
-                      @click="selectSection(child.id)"
-                    >
-                      {{ child.label }}
-                    </SidebarMenuSubButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
+              <SidebarMenuSub>
+                <!-- Fixed base-block sections -->
+                <SidebarMenuSubItem
+                  v-for="child in edidFixedChildren"
+                  :key="child.id"
+                >
+                  <SidebarMenuSubButton
+                    as="button"
+                    :is-active="activeSection === child.id"
+                    @click="selectSection(child.id)"
+                  >
+                    {{ child.label }}
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+
+                <!-- Detailed timings & display descriptors: own collapsible
+                     sub-group. The four shared 18-byte slots are the add
+                     budget; the "+ Add" dropdown offers a DTD or any
+                     descriptor type. -->
+                <SidebarMenuSubItem>
+                  <Collapsible v-model:open="edidDescriptorsOpen">
+                    <div class="flex items-center gap-1">
+                      <CollapsibleTrigger
+                        class="flex h-7 w-5 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        :aria-label="edidDescriptorsOpen ? 'Collapse descriptors' : 'Expand descriptors'"
+                      >
+                        <ChevronRight class="size-3.5 transition-transform" :class="{ 'rotate-90': edidDescriptorsOpen }" />
+                      </CollapsibleTrigger>
+                      <button
+                        class="flex-1 text-left rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        :class="{ 'text-sidebar-accent-foreground font-semibold': isEdidDescriptorSection }"
+                        @click="selectSection('edid-descriptors')"
+                      >
+                        Descriptors
+                      </button>
+                    </div>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        <!-- Detailed timings (removable) -->
+                        <SidebarMenuSubItem
+                          v-for="child in edidDtdChildren"
+                          :key="child.id"
+                          class="group/edid-child"
+                        >
+                          <div class="flex items-center">
+                            <SidebarMenuSubButton
+                              as="button"
+                              class="flex-1"
+                              :is-active="activeSection === child.id"
+                              @click="selectSection(child.id)"
+                            >
+                              {{ child.label }}
+                            </SidebarMenuSubButton>
+                            <button
+                              class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/edid-child:opacity-100 focus:opacity-100 transition-opacity"
+                              :title="`Remove ${child.label}`"
+                              @click.stop="emit('removeEdidTiming', child.index)"
+                            >
+                              <X class="size-3" />
+                            </button>
+                          </div>
+                        </SidebarMenuSubItem>
+
+                        <!-- Display descriptors (removable) -->
+                        <SidebarMenuSubItem
+                          v-for="child in edidDescriptorChildren"
+                          :key="child.id"
+                          class="group/edid-child"
+                        >
+                          <div class="flex items-center">
+                            <SidebarMenuSubButton
+                              as="button"
+                              class="flex-1"
+                              :is-active="activeSection === child.id"
+                              @click="selectSection(child.id)"
+                            >
+                              {{ child.label }}
+                            </SidebarMenuSubButton>
+                            <button
+                              class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/edid-child:opacity-100 focus:opacity-100 transition-opacity"
+                              :title="`Remove ${child.label}`"
+                              @click.stop="emit('removeEdidDescriptor', child.index)"
+                            >
+                              <X class="size-3" />
+                            </button>
+                          </div>
+                        </SidebarMenuSubItem>
+
+                        <!-- Add detailed timing / display descriptor -->
+                        <SidebarMenuSubItem v-if="edidAddOptions.length > 0">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger as-child>
+                              <Button variant="ghost" size="sm" class="w-full text-xs text-muted-foreground h-7">
+                                + Add
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem
+                                v-for="opt in edidAddOptions"
+                                :key="opt.key"
+                                @click="addEdidItem(opt)"
+                              >
+                                {{ opt.label }}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </SidebarMenuSubItem>
+              </SidebarMenuSub>
             </CollapsibleContent>
           </Collapsible>
         </SidebarGroup>
