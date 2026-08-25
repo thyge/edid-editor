@@ -4,6 +4,7 @@ import {
   DetailedTimingDescriptor,
   DisplayIdDataBlockTag,
   createDefaultDisplayIdBlock,
+  createDefaultDescriptor,
   getCEAExtension,
   getDisplayIdExtension,
   type DisplayDescriptor,
@@ -114,30 +115,6 @@ function updateDetailedTiming(index: number, field: string, value: unknown) {
   // Reassign the array so Vue re-evaluates the detailedTimings computed and
   // the HexViewer reflects the re-encoded bytes.
   edidRef.value.base.detailedTimings = [...timings]
-}
-
-function createDefaultDescriptor(tag: number): DisplayDescriptor {
-  switch (tag) {
-    case 0xFC: return { tag: 0xFC, productName: '' }
-    case 0xFF: return { tag: 0xFF, serialNumber: '' }
-    case 0xFE: return { tag: 0xFE, data: '' }
-    case 0xFD: return {
-      tag: 0xFD,
-      minVerticalRate: 48, maxVerticalRate: 75,
-      minHorizontalRate: 30, maxHorizontalRate: 83,
-      maxPixelClock: 170,
-      timingSupport: 'default-gtf' as const,
-    }
-    case 0xFB: return { tag: 0xFB, colorPoints: [] }
-    case 0xFA: return { tag: 0xFA, timings: [] }
-    case 0xF9: return {
-      tag: 0xF9, version: 3,
-      redA3: 0, redA2: 0, greenA3: 0, greenA2: 0, blueA3: 0, blueA2: 0,
-    }
-    case 0xF8: return { tag: 0xF8, timings: [] }
-    case 0xF7: return { tag: 0xF7, timings: [] }
-    default: return { tag: 0x10 }
-  }
 }
 
 function addDescriptor(tag: number) {

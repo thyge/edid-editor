@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
 import type { DisplayRangeLimitsDescriptor } from 'edidts'
+import {
+  RANGE_LIMITS_TIMING_SUPPORT_OPTIONS,
+  RANGE_CVT_ASPECT_RATIO_FLAGS,
+  RANGE_CVT_PREFERRED_ASPECT_OPTIONS,
+} from 'edidts'
 import { Input } from '@/components/ui/input'
 
 type CVTDescriptorData = NonNullable<DisplayRangeLimitsDescriptor['cvt']>
@@ -21,20 +26,9 @@ type CVTBooleanField =
 
 const selectClass = 'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
-const timingSupportOptions: Array<{ value: DisplayRangeLimitsDescriptor['timingSupport']; label: string }> = [
-  { value: 'default-gtf', label: 'Default GTF' },
-  { value: 'range-limits-only', label: 'Range limits only' },
-  { value: 'secondary-gtf', label: 'Secondary GTF' },
-  { value: 'cvt', label: 'CVT' },
-]
-
-const cvtAspectRatioLabels: Array<{ key: keyof CVTAspectFlags; label: string }> = [
-  { key: 'ar4_3', label: '4:3' },
-  { key: 'ar16_9', label: '16:9' },
-  { key: 'ar16_10', label: '16:10' },
-  { key: 'ar5_4', label: '5:4' },
-  { key: 'ar15_9', label: '15:9' },
-]
+const timingSupportOptions = RANGE_LIMITS_TIMING_SUPPORT_OPTIONS
+const cvtAspectRatioLabels = RANGE_CVT_ASPECT_RATIO_FLAGS
+const cvtPreferredAspectOptions = RANGE_CVT_PREFERRED_ASPECT_OPTIONS
 
 const props = defineProps<{ descriptor: DisplayRangeLimitsDescriptor }>()
 const emit = defineEmits<{ update: [descriptor: DisplayRangeLimitsDescriptor] }>()
@@ -324,11 +318,7 @@ function onPreferredAspectChange(event: Event) {
             :value="local.cvt?.preferredAspectRatio"
             @change="onPreferredAspectChange"
           >
-            <option value="4:3">4:3</option>
-            <option value="16:9">16:9</option>
-            <option value="16:10">16:10</option>
-            <option value="5:4">5:4</option>
-            <option value="15:9">15:9</option>
+            <option v-for="opt in cvtPreferredAspectOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </label>
         <label class="flex flex-col gap-1">

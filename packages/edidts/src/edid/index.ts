@@ -305,11 +305,27 @@ export { EDIDHeader, EDID_VERSIONS, EDID_REVISIONS } from "./edid-header";
 export type { EDIDVersion } from "./edid-header";
 export { EstablishedTiming } from "./established-timing";
 export { StandardTiming } from "./standard-timing";
-export { VideoInputDefinition, ANALOG_SIGNAL_LEVELS, DIGITAL_BIT_DEPTHS, DIGITAL_INTERFACES } from "./video-input";
+export { VideoInputDefinition, ANALOG_SIGNAL_LEVELS, DIGITAL_BIT_DEPTHS, DIGITAL_INTERFACES, DIGITAL_BIT_DEPTH_LABELS, DIGITAL_INTERFACE_LABELS } from "./video-input";
 export type { VideoInput, AnalogVideoInput, DigitalVideoInput, DigitalBitDepth, DigitalInterface, AnalogSignalLevel } from "./video-input";
-export { FeatureSupportFlags, ANALOG_DISPLAY_TYPES, DIGITAL_COLOR_ENCODINGS } from "./feature-support";
+export { FeatureSupportFlags, ANALOG_DISPLAY_TYPES, DIGITAL_COLOR_ENCODINGS, DIGITAL_COLOR_ENCODING_LABELS, ANALOG_DISPLAY_TYPE_LABELS } from "./feature-support";
 export type { FeatureSupport, AnalogDisplayType, DigitalColorEncoding } from "./feature-support";
-export { DisplayDescriptorParser, getProductName, getProductSerial, getRangeLimits } from "./display-descriptor";
+export {
+  DisplayDescriptorParser,
+  getProductName,
+  getProductSerial,
+  getRangeLimits,
+  DISPLAY_DESCRIPTOR_LABELS,
+  DISPLAY_DESCRIPTOR_OPTIONS,
+  getDisplayDescriptorLabel,
+  createDefaultDescriptor,
+  RANGE_LIMITS_TIMING_SUPPORT_OPTIONS,
+  RANGE_CVT_ASPECT_RATIO_FLAGS,
+  RANGE_CVT_PREFERRED_ASPECT_OPTIONS,
+  CVT_TIMING_ASPECT_RATIO_OPTIONS,
+  CVT_PREFERRED_REFRESH_OPTIONS,
+  CVT_REFRESH_RATE_FLAGS,
+  DCM_COEFFICIENT_FIELDS,
+} from "./display-descriptor";
 export type {
   DisplayDescriptor,
   DisplayDescriptorTag,
@@ -324,4 +340,5 @@ export type {
   EstablishedTimingsIIIDescriptor,
   DummyDescriptor,
   ManufacturerDescriptor,
+  DCMCoefficientField,
 } from "./display-descriptor";

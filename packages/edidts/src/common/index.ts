@@ -21,6 +21,12 @@ export {
 } from './detailed-timing-descriptor';
 export type { DetailedTiming, DetailedTimingInput, StereoMode, SyncType, TimingFlags } from './detailed-timing-descriptor';
 export {
+  STEREO_MODE_LABELS,
+  STEREO_MODE_OPTIONS,
+  SYNC_TYPE_LABELS,
+  SYNC_TYPE_OPTIONS,
+} from './detailed-timing-descriptor';
+export {
   calculateCVTTiming,
   generateCVTDetailedTiming,
   analyzeDetailedTimingWithCVT,

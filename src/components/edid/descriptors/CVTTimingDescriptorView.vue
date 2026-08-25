@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
 import type { CVTTimingDescriptor } from 'edidts'
+import {
+  CVT_TIMING_ASPECT_RATIO_OPTIONS,
+  CVT_PREFERRED_REFRESH_OPTIONS,
+  CVT_REFRESH_RATE_FLAGS,
+} from 'edidts'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
@@ -37,22 +42,9 @@ function emitUpdate() {
 const selectClass =
   'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
-const aspectRatioOptions: { value: AspectRatio; label: string }[] = [
-  { value: '4:3', label: '4:3' },
-  { value: '16:9', label: '16:9' },
-  { value: '16:10', label: '16:10' },
-  { value: '5:4', label: '5:4' },
-]
-
-const preferredRefreshOptions = [50, 60, 75, 85]
-
-const refreshRateFlags: { key: RefreshKey; label: string }[] = [
-  { key: 'r50Hz', label: '50 Hz' },
-  { key: 'r60Hz', label: '60 Hz' },
-  { key: 'r75Hz', label: '75 Hz' },
-  { key: 'r85Hz', label: '85 Hz' },
-  { key: 'r60HzRB', label: '60 Hz RB' },
-]
+const aspectRatioOptions = CVT_TIMING_ASPECT_RATIO_OPTIONS
+const preferredRefreshOptions = CVT_PREFERRED_REFRESH_OPTIONS
+const refreshRateFlags = CVT_REFRESH_RATE_FLAGS
 
 function onLines(index: number, v: string | number) {
   const n = typeof v === 'number' ? v : Number(v)

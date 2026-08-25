@@ -19,6 +19,35 @@ export type DigitalBitDepth = (typeof DIGITAL_BIT_DEPTHS)[number];
 export const DIGITAL_INTERFACES = ['undefined', 'DVI', 'HDMI-a', 'HDMI-b', 'MDDI', 'DisplayPort'] as const;
 export type DigitalInterface = (typeof DIGITAL_INTERFACES)[number];
 
+/**
+ * Display labels for {@link DigitalBitDepth} (E-EDID A2 §3.6 / Table 3.11,
+ * digital bit-depth bits 6-4). The string form is used for the 'undefined'
+ * code; numeric depths render as `<n>-bit`.
+ */
+export const DIGITAL_BIT_DEPTH_LABELS: Record<DigitalBitDepth, string> = {
+  'undefined': 'Undefined',
+  6: '6-bit',
+  8: '8-bit',
+  10: '10-bit',
+  12: '12-bit',
+  14: '14-bit',
+  16: '16-bit',
+};
+
+/**
+ * Display labels for {@link DigitalInterface} (E-EDID A2 §3.6 / Table 3.11,
+ * digital interface bits 2-0). The 'undefined' code renders as 'Undefined';
+ * the rest use the on-the-wire identifier verbatim.
+ */
+export const DIGITAL_INTERFACE_LABELS: Record<DigitalInterface, string> = {
+  'undefined': 'Undefined',
+  'DVI': 'DVI',
+  'HDMI-a': 'HDMI-a',
+  'HDMI-b': 'HDMI-b',
+  'MDDI': 'MDDI',
+  'DisplayPort': 'DisplayPort',
+};
+
 export interface AnalogVideoInput {
   type: 'analog';
   signalLevel: AnalogSignalLevel;

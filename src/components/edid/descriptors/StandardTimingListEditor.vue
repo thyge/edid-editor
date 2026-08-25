@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { STANDARD_TIMING_ASPECTS } from 'edidts'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
@@ -11,12 +12,16 @@ export type TimingInput = {
 
 type AspectCode = '16:10' | '4:3' | '5:4' | '16:9'
 
-const aspectOptions: Array<{ label: string; value: AspectCode; w: number; h: number }> = [
-  { label: '16:10', value: '16:10', w: 16, h: 10 },
-  { label: '4:3', value: '4:3', w: 4, h: 3 },
-  { label: '5:4', value: '5:4', w: 5, h: 4 },
-  { label: '16:9', value: '16:9', w: 16, h: 9 },
-]
+// Aspect-ratio options sourced from the edidts lib's EDID 1.4 standard-timing
+// aspect table (common/aspect-ratios.ts). The lib owns the on-the-wire codes;
+// this maps them to the editor's { label, value, w, h } shape.
+const aspectOptions: Array<{ label: string; value: AspectCode; w: number; h: number }> =
+  STANDARD_TIMING_ASPECTS.map((a) => ({
+    label: a.label,
+    value: a.label as AspectCode,
+    w: a.widthRatio,
+    h: a.heightRatio,
+  }))
 
 const selectClass = 'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 

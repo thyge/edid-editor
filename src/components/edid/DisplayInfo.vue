@@ -4,9 +4,13 @@ import {
   VideoInputDefinition,
   DIGITAL_BIT_DEPTHS,
   DIGITAL_INTERFACES,
+  DIGITAL_BIT_DEPTH_LABELS,
+  DIGITAL_INTERFACE_LABELS,
   ANALOG_SIGNAL_LEVELS,
   ANALOG_DISPLAY_TYPES,
   DIGITAL_COLOR_ENCODINGS,
+  DIGITAL_COLOR_ENCODING_LABELS,
+  ANALOG_DISPLAY_TYPE_LABELS,
 } from 'edidts'
 import type {
   DigitalBitDepth,
@@ -14,8 +18,6 @@ import type {
   DigitalVideoInput,
   AnalogVideoInput,
   AnalogSignalLevel,
-  AnalogDisplayType,
-  DigitalColorEncoding,
   ScreenSize,
 } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
@@ -45,28 +47,6 @@ const analogInput = computed(() => videoInput.value.input as AnalogVideoInput)
 
 const selectClass = 'flex h-8 w-full rounded-md border border-input dark:bg-input/30 bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 const switchRowClass = 'flex items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2 hover:bg-muted/50 transition-colors'
-
-const colorEncodingLabels: Record<DigitalColorEncoding, string> = {
-  'rgb444': 'RGB 4:4:4',
-  'rgb444_ycrcb444': 'RGB 4:4:4 + YCrCb 4:4:4',
-  'rgb444_ycrcb422': 'RGB 4:4:4 + YCrCb 4:2:2',
-  'rgb444_ycrcb444_ycrcb422': 'RGB 4:4:4 + YCrCb 4:4:4 & 4:2:2',
-}
-
-const analogDisplayTypeLabels: Record<AnalogDisplayType, string> = {
-  'monochrome': 'Monochrome / Grayscale',
-  'rgb': 'RGB Color',
-  'non-rgb': 'Non-RGB Color',
-  'undefined': 'Undefined',
-}
-
-function bitDepthLabel(bd: DigitalBitDepth): string {
-  return bd === 'undefined' ? 'Undefined' : `${bd}-bit`
-}
-
-function interfaceLabel(iface: DigitalInterface): string {
-  return iface === 'undefined' ? 'Undefined' : iface
-}
 
 function switchInputType(type: string) {
   if (type === 'digital') {
@@ -302,7 +282,7 @@ function updateFeature(key: string, value: unknown) {
                 :disabled="!isV14"
                 @change="(e: Event) => updateBitDepth((e.target as HTMLSelectElement).value)"
               >
-                <option v-for="bd in DIGITAL_BIT_DEPTHS" :key="String(bd)" :value="String(bd)">{{ bitDepthLabel(bd) }}</option>
+                <option v-for="bd in DIGITAL_BIT_DEPTHS" :key="String(bd)" :value="String(bd)">{{ DIGITAL_BIT_DEPTH_LABELS[bd] }}</option>
               </select>
               <p v-if="!isV14" class="text-xs text-muted-foreground">Not available in EDID 1.3</p>
             </div>
@@ -314,7 +294,7 @@ function updateFeature(key: string, value: unknown) {
                 :disabled="!isV14"
                 @change="(e: Event) => updateInterface((e.target as HTMLSelectElement).value)"
               >
-                <option v-for="iface in DIGITAL_INTERFACES" :key="iface" :value="iface">{{ interfaceLabel(iface) }}</option>
+                <option v-for="iface in DIGITAL_INTERFACES" :key="iface" :value="iface">{{ DIGITAL_INTERFACE_LABELS[iface] }}</option>
               </select>
               <p v-if="!isV14" class="text-xs text-muted-foreground">Not available in EDID 1.3</p>
             </div>
@@ -346,7 +326,7 @@ function updateFeature(key: string, value: unknown) {
               :class="selectClass"
               @change="(e: Event) => updateFeature('digitalColorEncoding', (e.target as HTMLSelectElement).value)"
             >
-              <option v-for="enc in DIGITAL_COLOR_ENCODINGS" :key="enc" :value="enc">{{ colorEncodingLabels[enc] }}</option>
+              <option v-for="enc in DIGITAL_COLOR_ENCODINGS" :key="enc" :value="enc">{{ DIGITAL_COLOR_ENCODING_LABELS[enc] }}</option>
             </select>
             <select
               v-else
@@ -354,7 +334,7 @@ function updateFeature(key: string, value: unknown) {
               :class="selectClass"
               @change="(e: Event) => updateFeature('analogDisplayType', (e.target as HTMLSelectElement).value)"
             >
-              <option v-for="dt in ANALOG_DISPLAY_TYPES" :key="dt" :value="dt">{{ analogDisplayTypeLabels[dt] }}</option>
+              <option v-for="dt in ANALOG_DISPLAY_TYPES" :key="dt" :value="dt">{{ ANALOG_DISPLAY_TYPE_LABELS[dt] }}</option>
             </select>
           </div>
         </div>

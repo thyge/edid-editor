@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { DetailedTiming, StereoMode, SyncType } from 'edidts'
+import type { DetailedTiming } from 'edidts'
+import { STEREO_MODE_OPTIONS, SYNC_TYPE_OPTIONS } from 'edidts'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 
@@ -13,7 +14,7 @@ import { Switch } from '@/components/ui/switch'
  *
  * Emits `update` with a dotted field path (e.g. "pixelClock", "flags.interlaced",
  * "flags.vSyncPolarity") and the new value. The owning component mutates the
- * matching DetailedTiming instance and re-encodes via syncEdid().
+ * matching DetailedTiming instance; the useEDID computed re-encodes.
  */
 const props = defineProps<{
   timing: DetailedTiming
@@ -22,23 +23,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   update: [field: string, value: unknown]
 }>()
-
-const STEREO_MODES: { value: StereoMode; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'field-sequential-right', label: 'Field Sequential (Right)' },
-  { value: 'field-sequential-left', label: 'Field Sequential (Left)' },
-  { value: '2-way-interleaved-right', label: '2-Way Interleaved (Right)' },
-  { value: '2-way-interleaved-left', label: '2-Way Interleaved (Left)' },
-  { value: '4-way-interleaved', label: '4-Way Interleaved' },
-  { value: 'side-by-side-interleaved', label: 'Side-by-Side Interleaved' },
-]
-
-const SYNC_TYPES: { value: SyncType; label: string }[] = [
-  { value: 'analog-composite', label: 'Analog Composite' },
-  { value: 'bipolar-analog-composite', label: 'Bipolar Analog Composite' },
-  { value: 'digital-composite', label: 'Digital Composite' },
-  { value: 'digital-separate', label: 'Digital Separate' },
-]
 
 const selectClass =
   'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
@@ -219,7 +203,7 @@ function onFlag(flag: string, value: unknown) {
           :value="timing.flags.syncType"
           @change="(e: Event) => onFlag('syncType', (e.target as HTMLSelectElement).value)"
         >
-          <option v-for="opt in SYNC_TYPES" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          <option v-for="opt in SYNC_TYPE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
       </label>
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -229,7 +213,7 @@ function onFlag(flag: string, value: unknown) {
           :value="timing.flags.stereoMode"
           @change="(e: Event) => onFlag('stereoMode', (e.target as HTMLSelectElement).value)"
         >
-          <option v-for="opt in STEREO_MODES" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          <option v-for="opt in STEREO_MODE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
       </label>
       <label class="flex items-center justify-between gap-2 rounded-md border border-border/50 px-3 py-2">

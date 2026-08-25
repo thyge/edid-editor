@@ -20,6 +20,28 @@ export const DIGITAL_COLOR_ENCODINGS = [
 ] as const;
 export type DigitalColorEncoding = (typeof DIGITAL_COLOR_ENCODINGS)[number];
 
+/**
+ * Display labels for {@link DigitalColorEncoding} (EDID 1.4 §3.6 / Table 3.14,
+ * digital color bit-depth bits 4-3). The array index is the on-the-wire code.
+ */
+export const DIGITAL_COLOR_ENCODING_LABELS: Record<DigitalColorEncoding, string> = {
+  'rgb444': 'RGB 4:4:4',
+  'rgb444_ycrcb444': 'RGB 4:4:4 + YCrCb 4:4:4',
+  'rgb444_ycrcb422': 'RGB 4:4:4 + YCrCb 4:2:2',
+  'rgb444_ycrcb444_ycrcb422': 'RGB 4:4:4 + YCrCb 4:4:4 & 4:2:2',
+};
+
+/**
+ * Display labels for {@link AnalogDisplayType} (E-EDID A2 §3.6 / Table 3.14,
+ * analog display color type bits 4-3). The array index is the on-the-wire code.
+ */
+export const ANALOG_DISPLAY_TYPE_LABELS: Record<AnalogDisplayType, string> = {
+  'monochrome': 'Monochrome / Grayscale',
+  'rgb': 'RGB Color',
+  'non-rgb': 'Non-RGB Color',
+  'undefined': 'Undefined',
+};
+
 export interface FeatureSupport {
   // Power management (DPMS)
   standbySupported: boolean;

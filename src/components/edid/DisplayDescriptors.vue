@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { DisplayDescriptor } from 'edidts'
-import { getDescriptorLabel } from './descriptors/descriptorLabels'
+import { getDisplayDescriptorLabel } from 'edidts'
 import StringDescriptorEditor from './descriptors/StringDescriptorEditor.vue'
 import RangeLimitsDescriptorView from './descriptors/RangeLimitsDescriptorView.vue'
 import ColorPointDescriptorView from './descriptors/ColorPointDescriptorView.vue'
@@ -83,7 +83,7 @@ function handleDescriptorUpdate(index: number, descriptor: DisplayDescriptor) {
       >
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="font-medium">{{ getDescriptorLabel(entry.descriptor.tag) }}</span>
+            <span class="font-medium">{{ getDisplayDescriptorLabel(entry.descriptor.tag) }}</span>
             <span class="text-xs text-muted-foreground">Tag 0x{{ entry.descriptor.tag.toString(16).toUpperCase().padStart(2, '0') }}</span>
           </div>
         </div>

@@ -764,3 +764,178 @@ export function getProductSerial(descriptors: DisplayDescriptor[]): string | nul
 export function getRangeLimits(descriptors: DisplayDescriptor[]): DisplayRangeLimitsDescriptor | null {
   return descriptors.find(d => d.tag === 0xFD) as DisplayRangeLimitsDescriptor ?? null;
 }
+
+/**
+ * Display-descriptor tag → human-readable label (VESA E-EDID A2 §3.10.3).
+ * Covers the structured tags; the manufacturer (0x00–0x0F) and reserved
+ * (0x11–0xF6) ranges are handled by {@link getDisplayDescriptorLabel}.
+ */
+export const DISPLAY_DESCRIPTOR_LABELS: Record<number, string> = {
+  0xFF: 'Serial Number',
+  0xFE: 'Data String',
+  0xFD: 'Range Limits',
+  0xFC: 'Product Name',
+  0xFB: 'Color Points',
+  0xFA: 'Standard Timing IDs',
+  0xF9: 'Display Color Management (DCM) Data',
+  0xF8: 'CVT 3 Byte Codes',
+  0xF7: 'Established Timings III',
+};
+
+/** Structured descriptor tags in the spec's conventional display order. */
+const DISPLAY_DESCRIPTOR_TAG_ORDER = [0xFF, 0xFE, 0xFD, 0xFC, 0xFB, 0xFA, 0xF9, 0xF8, 0xF7];
+
+/** Add-dropdown option list for structured descriptor tags, in display order. */
+export const DISPLAY_DESCRIPTOR_OPTIONS: ReadonlyArray<{ tag: number; label: string }> =
+  DISPLAY_DESCRIPTOR_TAG_ORDER.map((tag) => ({
+    tag,
+    label: DISPLAY_DESCRIPTOR_LABELS[tag] ?? `Descriptor 0x${tag.toString(16).toUpperCase()}`,
+  }));
+
+/**
+ * Human-readable label for any descriptor tag, including the manufacturer
+ * (0x00–0x0F) and reserved (0x11–0xF6) ranges not in
+ * {@link DISPLAY_DESCRIPTOR_LABELS}.
+ */
+export function getDisplayDescriptorLabel(tag: number): string {
+  if (tag >= 0x00 && tag <= 0x0F) return 'Manufacturer Descriptor';
+  if (tag >= 0x11 && tag <= 0xF6) return 'Reserved Descriptor';
+  return DISPLAY_DESCRIPTOR_LABELS[tag] ?? `Descriptor 0x${tag.toString(16).toUpperCase()}`;
+}
+
+/**
+ * Construct a default-valued {@link DisplayDescriptor} for the given tag, ready
+ * to drop into a base-block descriptor slot. Unknown/reserved tags fall back to
+ * a dummy (tag 0x10) descriptor, matching the unused-slot convention.
+ */
+export function createDefaultDescriptor(tag: number): DisplayDescriptor {
+  switch (tag) {
+    case 0xFC:
+      return { tag: 0xFC, productName: '' };
+    case 0xFF:
+      return { tag: 0xFF, serialNumber: '' };
+    case 0xFE:
+      return { tag: 0xFE, data: '' };
+    case 0xFD:
+      return {
+        tag: 0xFD,
+        minVerticalRate: 48,
+        maxVerticalRate: 75,
+        minHorizontalRate: 30,
+        maxHorizontalRate: 83,
+        maxPixelClock: 170,
+        timingSupport: 'default-gtf',
+      };
+    case 0xFB:
+      return { tag: 0xFB, colorPoints: [] };
+    case 0xFA:
+      return { tag: 0xFA, timings: [] };
+    case 0xF9:
+      return {
+        tag: 0xF9,
+        version: 3,
+        redA3: 0,
+        redA2: 0,
+        greenA3: 0,
+        greenA2: 0,
+        blueA3: 0,
+        blueA2: 0,
+      };
+    case 0xF8:
+      return { tag: 0xF8, timings: [] };
+    case 0xF7:
+      return { tag: 0xF7, timings: [] };
+    default:
+      return { tag: 0x10 };
+  }
+}
+
+/**
+ * Selectable timing-support options for the Display Range Limits descriptor
+ * (VESA E-EDID A2 §3.10.3.2, byte 10), in spec display order.
+ */
+export const RANGE_LIMITS_TIMING_SUPPORT_OPTIONS: ReadonlyArray<{
+  value: DisplayRangeLimitsDescriptor['timingSupport'];
+  label: string;
+}> = [
+  { value: 'default-gtf', label: 'Default GTF' },
+  { value: 'range-limits-only', label: 'Range limits only' },
+  { value: 'secondary-gtf', label: 'Secondary GTF' },
+  { value: 'cvt', label: 'CVT' },
+];
+
+/**
+ * Display Range Limits CVT supported-aspect-ratio bitmap flags (byte 14),
+ * keyed by the {@link DisplayRangeLimitsDescriptor} `aspectRatios` field name.
+ */
+export const RANGE_CVT_ASPECT_RATIO_FLAGS: ReadonlyArray<{
+  key: keyof NonNullable<DisplayRangeLimitsDescriptor['cvt']>['aspectRatios'];
+  label: string;
+}> = [
+  { key: 'ar4_3', label: '4:3' },
+  { key: 'ar16_9', label: '16:9' },
+  { key: 'ar16_10', label: '16:10' },
+  { key: 'ar5_4', label: '5:4' },
+  { key: 'ar15_9', label: '15:9' },
+];
+
+/**
+ * Display Range Limits CVT preferred aspect-ratio options (byte 15 bits 7-5),
+ * in spec display order.
+ */
+export const RANGE_CVT_PREFERRED_ASPECT_OPTIONS: ReadonlyArray<{
+  value: NonNullable<DisplayRangeLimitsDescriptor['cvt']>['preferredAspectRatio'];
+  label: string;
+}> = [
+  { value: '4:3', label: '4:3' },
+  { value: '16:9', label: '16:9' },
+  { value: '16:10', label: '16:10' },
+  { value: '5:4', label: '5:4' },
+  { value: '15:9', label: '15:9' },
+];
+
+/**
+ * CVT 3-Byte Timing Code aspect-ratio options (VESA E-EDID A2 §3.10.3.6 /
+ * Table 3.35). Only four values are defined for the 2-bit field; 15:9 is not
+ * a CVT 3-byte value (it appears only in the Range Limits CVT bitmap).
+ */
+export const CVT_TIMING_ASPECT_RATIO_OPTIONS: ReadonlyArray<{
+  value: CVTTimingDescriptor['timings'][number]['aspectRatio'];
+  label: string;
+}> = [
+  { value: '4:3', label: '4:3' },
+  { value: '16:9', label: '16:9' },
+  { value: '16:10', label: '16:10' },
+  { value: '5:4', label: '5:4' },
+];
+
+/** CVT 3-Byte preferred refresh-rate options (byte 3 bits 7-6). */
+export const CVT_PREFERRED_REFRESH_OPTIONS = [50, 60, 75, 85] as const;
+
+/**
+ * CVT 3-Byte refresh-rate support flags (byte 3 bits 4-0), keyed by the
+ * {@link CVTTimingDescriptor} `refreshRates` field name.
+ */
+export const CVT_REFRESH_RATE_FLAGS: ReadonlyArray<{
+  key: keyof CVTTimingDescriptor['timings'][number]['refreshRates'];
+  label: string;
+}> = [
+  { key: 'r50Hz', label: '50 Hz' },
+  { key: 'r60Hz', label: '60 Hz' },
+  { key: 'r75Hz', label: '75 Hz' },
+  { key: 'r85Hz', label: '85 Hz' },
+  { key: 'r60HzRB', label: '60 Hz RB' },
+];
+
+/** DCM coefficient field identifiers (bytes 6-17, little-endian uint16 pairs). */
+export type DCMCoefficientField = 'redA3' | 'redA2' | 'greenA3' | 'greenA2' | 'blueA3' | 'blueA2';
+
+/** DCM coefficient fields with display labels, in byte order. */
+export const DCM_COEFFICIENT_FIELDS: ReadonlyArray<{ field: DCMCoefficientField; label: string }> = [
+  { field: 'redA3', label: 'Red A3' },
+  { field: 'redA2', label: 'Red A2' },
+  { field: 'greenA3', label: 'Green A3' },
+  { field: 'greenA2', label: 'Green A2' },
+  { field: 'blueA3', label: 'Blue A3' },
+  { field: 'blueA2', label: 'Blue A2' },
+];

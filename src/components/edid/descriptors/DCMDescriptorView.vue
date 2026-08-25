@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
-import type { DCMDescriptor } from 'edidts'
+import type { DCMDescriptor, DCMCoefficientField } from 'edidts'
+import { DCM_COEFFICIENT_FIELDS } from 'edidts'
 import { Input } from '@/components/ui/input'
-
-type CoeffField = 'redA3' | 'redA2' | 'greenA3' | 'greenA2' | 'blueA3' | 'blueA2'
 
 const props = defineProps<{ descriptor: DCMDescriptor }>()
 const emit = defineEmits<{ update: [descriptor: DCMDescriptor] }>()
@@ -30,20 +29,13 @@ function onVersion(v: string | number) {
   emitUpdate()
 }
 
-function onCoeff(field: CoeffField, v: string | number) {
+function onCoeff(field: DCMCoefficientField, v: string | number) {
   const n = typeof v === 'number' ? v : Number(v)
   local[field] = Number.isFinite(n) ? Math.max(0, Math.min(65535, Math.round(n))) : 0
   emitUpdate()
 }
 
-const coeffFields: { field: CoeffField; label: string }[] = [
-  { field: 'redA3', label: 'Red A3' },
-  { field: 'redA2', label: 'Red A2' },
-  { field: 'greenA3', label: 'Green A3' },
-  { field: 'greenA2', label: 'Green A2' },
-  { field: 'blueA3', label: 'Blue A3' },
-  { field: 'blueA2', label: 'Blue A2' },
-]
+const coeffFields = DCM_COEFFICIENT_FIELDS
 </script>
 
 <template>

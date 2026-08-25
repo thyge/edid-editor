@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { ChevronRight, X } from '@lucide/vue'
 import type { EDIDViewModel } from '@/types/edid'
-import { DISPLAY_ID_BLOCK_LABELS, getCEAExtension, getDisplayIdExtension, type DetailedTimingDescriptor } from 'edidts'
+import { DISPLAY_ID_BLOCK_LABELS, getCEAExtension, getDisplayIdExtension, type DetailedTimingDescriptor, DISPLAY_DESCRIPTOR_OPTIONS, getDisplayDescriptorLabel } from 'edidts'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar,
@@ -23,7 +23,6 @@ import {
   displayIdBlockSectionByTag,
   displayIdSectionIds,
 } from '@/components/displayid/displayIdLabels'
-import { DESCRIPTOR_OPTIONS, getDescriptorLabel } from '@/components/edid/descriptors/descriptorLabels'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,7 +94,7 @@ const edidDescriptorChildren = computed(() => {
     .filter(({ d }) => d.tag !== 0x10)
     .map(({ d, sourceIndex }) => ({
       id: `edid-desc-${sourceIndex}`,
-      label: getDescriptorLabel(d.tag),
+      label: getDisplayDescriptorLabel(d.tag),
       index: sourceIndex,
     }))
 })
@@ -117,7 +116,7 @@ const edidAddOptions = computed<EdidAddOption[]>(() => {
   if (!edidCanAdd.value) return []
   return [
     { kind: 'timing', label: 'Detailed Timing', key: 'edid-add-timing' },
-    ...DESCRIPTOR_OPTIONS.map((o) => ({
+    ...DISPLAY_DESCRIPTOR_OPTIONS.map((o) => ({
       kind: 'descriptor' as const,
       tag: o.tag,
       label: o.label,

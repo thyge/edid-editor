@@ -18,11 +18,59 @@ export type StereoMode =
   | '4-way-interleaved'
   | 'side-by-side-interleaved';
 
-export type SyncType = 
+export type SyncType =
   | 'analog-composite'
   | 'bipolar-analog-composite'
   | 'digital-composite'
   | 'digital-separate';
+
+/**
+ * Display labels for {@link StereoMode} (EDID 1.4 §3.10.3.6). The stereo-mode
+ * code is a 3-bit value formed from bits 6:5 and 0 of the flags byte; these
+ * labels are the human-readable form used by the timing editor.
+ */
+export const STEREO_MODE_LABELS: Record<StereoMode, string> = {
+  'none': 'None',
+  'field-sequential-right': 'Field Sequential (Right)',
+  'field-sequential-left': 'Field Sequential (Left)',
+  '2-way-interleaved-right': '2-Way Interleaved (Right)',
+  '2-way-interleaved-left': '2-Way Interleaved (Left)',
+  '4-way-interleaved': '4-Way Interleaved',
+  'side-by-side-interleaved': 'Side-by-Side Interleaved',
+};
+
+/**
+ * Selectable stereo-mode options in spec display order, for `<select>` lists.
+ */
+export const STEREO_MODE_OPTIONS: ReadonlyArray<{ value: StereoMode; label: string }> = [
+  { value: 'none', label: STEREO_MODE_LABELS['none'] },
+  { value: 'field-sequential-right', label: STEREO_MODE_LABELS['field-sequential-right'] },
+  { value: 'field-sequential-left', label: STEREO_MODE_LABELS['field-sequential-left'] },
+  { value: '2-way-interleaved-right', label: STEREO_MODE_LABELS['2-way-interleaved-right'] },
+  { value: '2-way-interleaved-left', label: STEREO_MODE_LABELS['2-way-interleaved-left'] },
+  { value: '4-way-interleaved', label: STEREO_MODE_LABELS['4-way-interleaved'] },
+  { value: 'side-by-side-interleaved', label: STEREO_MODE_LABELS['side-by-side-interleaved'] },
+];
+
+/**
+ * Display labels for {@link SyncType} (EDID 1.4 §3.10.3.6, flags byte bits 4-1).
+ */
+export const SYNC_TYPE_LABELS: Record<SyncType, string> = {
+  'analog-composite': 'Analog Composite',
+  'bipolar-analog-composite': 'Bipolar Analog Composite',
+  'digital-composite': 'Digital Composite',
+  'digital-separate': 'Digital Separate',
+};
+
+/**
+ * Selectable sync-type options in spec display order, for `<select>` lists.
+ */
+export const SYNC_TYPE_OPTIONS: ReadonlyArray<{ value: SyncType; label: string }> = [
+  { value: 'analog-composite', label: SYNC_TYPE_LABELS['analog-composite'] },
+  { value: 'bipolar-analog-composite', label: SYNC_TYPE_LABELS['bipolar-analog-composite'] },
+  { value: 'digital-composite', label: SYNC_TYPE_LABELS['digital-composite'] },
+  { value: 'digital-separate', label: SYNC_TYPE_LABELS['digital-separate'] },
+];
 
 export interface TimingFlags {
   interlaced: boolean;
