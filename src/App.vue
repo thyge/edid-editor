@@ -25,27 +25,27 @@ import LeftNav from '@/components/layout/LeftNav.vue'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import HexViewer from '@/components/layout/HexViewer.vue'
 import EDIDUpload from '@/components/edid/EDIDUpload.vue'
-import OverviewSummary from '@/components/edid/OverviewSummary.vue'
-import DisplayInfo from '@/components/edid/DisplayInfo.vue'
-import ColorCharacteristics from '@/components/edid/ColorCharacteristics.vue'
-import EstablishedTimings from '@/components/edid/EstablishedTimings.vue'
-import StandardTimings from '@/components/edid/StandardTimings.vue'
-import DetailedDescriptors from '@/components/edid/DetailedDescriptors.vue'
-import CEAOverview from '@/components/cea/CEAOverview.vue'
-import CEAHeaderFlags from '@/components/cea/CEAHeaderFlags.vue'
-import CEAVideoBlock from '@/components/cea/CEAVideoBlock.vue'
-import CEAAudioBlock from '@/components/cea/CEAAudioBlock.vue'
-import CEASpeakerBlock from '@/components/cea/CEASpeakerBlock.vue'
-import CEAVendorBlock from '@/components/cea/CEAVendorBlock.vue'
-import CEAHDRColorimetry from '@/components/cea/CEAHDRColorimetry.vue'
-import CEAVideoCapability from '@/components/cea/CEAVideoCapability.vue'
-import CEADetailedTimings from '@/components/cea/CEADetailedTimings.vue'
-import CEAVideoFormatPreference from '@/components/cea/CEAVideoFormatPreference.vue'
-import CEAVendorAudioBlock from '@/components/cea/CEAVendorAudioBlock.vue'
-import CEARoomConfiguration from '@/components/cea/CEARoomConfiguration.vue'
-import CEASpeakerLocation from '@/components/cea/CEASpeakerLocation.vue'
-import CEAInfoFrame from '@/components/cea/CEAInfoFrame.vue'
-import CEAVesaTransferCharacteristic from '@/components/cea/CEAVesaTransferCharacteristic.vue'
+import EDIDOverviewSummary from '@/components/edid/EDIDOverviewSummary.vue'
+import EDIDDisplayInfo from '@/components/edid/EDIDDisplayInfo.vue'
+import EDIDColorCharacteristics from '@/components/edid/EDIDColorCharacteristics.vue'
+import EDIDEstablishedTimings from '@/components/edid/EDIDEstablishedTimings.vue'
+import EDIDStandardTimings from '@/components/edid/EDIDStandardTimings.vue'
+import EDIDDetailedDescriptors from '@/components/edid/EDIDDetailedDescriptors.vue'
+import CTAOverview from '@/components/cta/CTAOverview.vue'
+import CTAHeaderFlags from '@/components/cta/CTAHeaderFlags.vue'
+import CTAVideoBlock from '@/components/cta/CTAVideoBlock.vue'
+import CTAAudioBlock from '@/components/cta/CTAAudioBlock.vue'
+import CTASpeakerBlock from '@/components/cta/CTASpeakerBlock.vue'
+import CTAVendorBlock from '@/components/cta/CTAVendorBlock.vue'
+import CTAHDRColorimetry from '@/components/cta/CTAHDRColorimetry.vue'
+import CTAVideoCapability from '@/components/cta/CTAVideoCapability.vue'
+import CTADetailedTimings from '@/components/cta/CTADetailedTimings.vue'
+import CTAVideoFormatPreference from '@/components/cta/CTAVideoFormatPreference.vue'
+import CTAVendorAudioBlock from '@/components/cta/CTAVendorAudioBlock.vue'
+import CTARoomConfiguration from '@/components/cta/CTARoomConfiguration.vue'
+import CTASpeakerLocation from '@/components/cta/CTASpeakerLocation.vue'
+import CTAInfoFrame from '@/components/cta/CTAInfoFrame.vue'
+import CTAVesaTransferCharacteristic from '@/components/cta/CTAVesaTransferCharacteristic.vue'
 import { useEDID } from '@/composables/useEDID'
 import { displayIdSectionIds, displayIdBlockSectionByTag } from '@/components/displayid/displayIdLabels'
 import DisplayIDOverview from '@/components/displayid/DisplayIDOverview.vue'
@@ -172,7 +172,7 @@ function applyVendorField(block: VendorSpecificDataBlock | VendorSpecificVideoDa
   setByPath(vendor.fields as object, field, value)
 }
 
-function updateDisplayInfo(field: string, value: unknown) {
+function updateEDIDDisplayInfo(field: string, value: unknown) {
   if (!edidRef.value) return
   const edid = edidRef.value.base
 
@@ -437,20 +437,20 @@ function updateCEA(field: string, value: unknown) {
         </div>
 
         <div v-else class="max-w-4xl">
-          <OverviewSummary v-if="activeSection === 'overview'" :edid="edidRef!" />
-          <DisplayInfo v-else-if="activeSection === 'display-info'" :edid="edidRef!" @update="updateDisplayInfo" />
-          <ColorCharacteristics v-else-if="activeSection === 'color-gamut'" :edid="edidRef!" />
-          <EstablishedTimings
+          <EDIDOverviewSummary v-if="activeSection === 'overview'" :edid="edidRef!" />
+          <EDIDDisplayInfo v-else-if="activeSection === 'display-info'" :edid="edidRef!" @update="updateEDIDDisplayInfo" />
+          <EDIDColorCharacteristics v-else-if="activeSection === 'color-gamut'" :edid="edidRef!" />
+          <EDIDEstablishedTimings
             v-else-if="activeSection === 'timings-established'"
             :edid="edidRef!"
             @update="updateTimings"
           />
-          <StandardTimings
+          <EDIDStandardTimings
             v-else-if="activeSection === 'timings-standard'"
             :edid="edidRef!"
             @update="updateTimings"
           />
-          <DetailedDescriptors
+          <EDIDDetailedDescriptors
             v-else-if="activeSection === 'edid-descriptors' || activeSection.startsWith('edid-dtd-') || activeSection.startsWith('edid-desc-')"
             :edid="edidRef!"
             :focus="activeSection"
@@ -459,21 +459,21 @@ function updateCEA(field: string, value: unknown) {
           />
 
           <!-- CEA sections -->
-          <CEAOverview v-else-if="activeSection === 'cea-overview' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CEAHeaderFlags v-else-if="activeSection === 'cea-header' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CEAVideoBlock v-else-if="activeSection === 'cea-video' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CEAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CEASpeakerBlock v-else-if="activeSection === 'cea-speakers' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CEAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => applyVendorField(b, f, v)" @update-vsvdb="(b, f, v) => applyVendorField(b, f, v)" />
-          <CEAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CEAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CEAVideoFormatPreference v-else-if="activeSection === 'cea-video-format-pref' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CEAVendorAudioBlock v-else-if="activeSection === 'cea-vendor-audio' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CEARoomConfiguration v-else-if="activeSection === 'cea-room-config' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CEASpeakerLocation v-else-if="activeSection === 'cea-speaker-location' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CEAInfoFrame v-else-if="activeSection === 'cea-infoframe' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CEAVesaTransferCharacteristic v-else-if="activeSection === 'cea-vesa-transfer' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CEADetailedTimings
+          <CTAOverview v-else-if="activeSection === 'cea-overview' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
+          <CTAHeaderFlags v-else-if="activeSection === 'cea-header' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
+          <CTAVideoBlock v-else-if="activeSection === 'cea-video' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
+          <CTAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
+          <CTASpeakerBlock v-else-if="activeSection === 'cea-speakers' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
+          <CTAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => applyVendorField(b, f, v)" @update-vsvdb="(b, f, v) => applyVendorField(b, f, v)" />
+          <CTAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
+          <CTAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
+          <CTAVideoFormatPreference v-else-if="activeSection === 'cea-video-format-pref' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
+          <CTAVendorAudioBlock v-else-if="activeSection === 'cea-vendor-audio' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
+          <CTARoomConfiguration v-else-if="activeSection === 'cea-room-config' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
+          <CTASpeakerLocation v-else-if="activeSection === 'cea-speaker-location' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
+          <CTAInfoFrame v-else-if="activeSection === 'cea-infoframe' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
+          <CTAVesaTransferCharacteristic v-else-if="activeSection === 'cea-vesa-transfer' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
+          <CTADetailedTimings
             v-else-if="activeSection === 'cea-timings' && ceaExtension"
             :cea="ceaExtension"
             @update="(i: number, f: string, v: unknown) => updateCEA(`detailedTiming.${i}.${f}`, v)"

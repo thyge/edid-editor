@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { StandardTiming } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import StandardTimingListEditor, { type TimingInput } from '@/components/edid/descriptors/StandardTimingListEditor.vue'
+import StandardTimingListEditor, { type TimingInput } from '@/components/edid/StandardTimingListEditor.vue'
 
 const props = defineProps<{ edid: EDIDViewModel }>()
 const emit = defineEmits<{ update: [field: string, value: unknown] }>()

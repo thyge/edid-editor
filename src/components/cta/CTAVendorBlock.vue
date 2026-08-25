@@ -6,12 +6,12 @@ import { findVSDBs, findVSVDBs } from 'edidts'
 type DolbyVSVDB = VendorSpecificVideoDataBlock & { vendor: Extract<VSVDBVendorDecoded, { kind: 'dolbyVsdb' }> }
 const isDolbyVSVDB = (b: VendorSpecificVideoDataBlock): b is DolbyVSVDB => b.vendor?.kind === 'dolbyVsdb'
 
-import CEAVendorHDMI14 from './vsdb/CEAVendorHDMI14.vue'
-import CEAVendorHDMIForum from './vsdb/CEAVendorHDMIForum.vue'
-import CEAVendorMicrosoftHMD from './vsdb/CEAVendorMicrosoftHMD.vue'
-import CEAVendorDolby from './vsdb/CEAVendorDolby.vue'
-import CEAVendorAMD from './vsdb/CEAVendorAMD.vue'
-import CEAVendorUnknown from './vsdb/CEAVendorUnknown.vue'
+import CTAVendorHDMI14 from './vsdb/CTAVendorHDMI14.vue'
+import CTAVendorHDMIForum from './vsdb/CTAVendorHDMIForum.vue'
+import CTAVendorMicrosoftHMD from './vsdb/CTAVendorMicrosoftHMD.vue'
+import CTAVendorDolby from './vsvdb/CTAVendorDolby.vue'
+import CTAVendorAMD from './vsdb/CTAVendorAMD.vue'
+import CTAVendorUnknown from './vsdb/CTAVendorUnknown.vue'
 
 interface DolbyRenderable {
   block: VendorSpecificVideoDataBlock
@@ -46,15 +46,15 @@ const dolbyRenderables = computed<DolbyRenderable[]>(() =>
     <p v-if="!vsdbs.length && !dolbyRenderables.length" class="text-muted-foreground">No Vendor Specific Data Blocks present.</p>
 
     <template v-for="(block, i) in vsdbs" :key="`vsdb-${i}`">
-      <CEAVendorHDMI14          v-if="block.vendor?.kind === 'hdmi14'"           :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
-      <CEAVendorHDMIForum       v-else-if="block.vendor?.kind === 'hdmiForum'"   :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
-      <CEAVendorMicrosoftHMD    v-else-if="block.vendor?.kind === 'microsoftHmd'" :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
-      <CEAVendorAMD             v-else-if="block.vendor?.kind === 'amdFreeSync'" :fields="block.vendor.fields" />
-      <CEAVendorUnknown         v-else                                            :block="block" />
+      <CTAVendorHDMI14          v-if="block.vendor?.kind === 'hdmi14'"           :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
+      <CTAVendorHDMIForum       v-else-if="block.vendor?.kind === 'hdmiForum'"   :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
+      <CTAVendorMicrosoftHMD    v-else-if="block.vendor?.kind === 'microsoftHmd'" :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
+      <CTAVendorAMD             v-else-if="block.vendor?.kind === 'amdFreeSync'" :fields="block.vendor.fields" />
+      <CTAVendorUnknown         v-else                                            :block="block" />
     </template>
 
     <template v-for="(item, i) in dolbyRenderables" :key="`vsvdb-${i}`">
-      <CEAVendorDolby :fields="item.fields" @update="(f: string, v: unknown) => emit('update-vsvdb', item.block, f, v)" />
+      <CTAVendorDolby :fields="item.fields" @update="(f: string, v: unknown) => emit('update-vsvdb', item.block, f, v)" />
     </template>
   </div>
 </template>

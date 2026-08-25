@@ -9,7 +9,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { blocksByTag, numberFromEvent } from './displayIdEditorUtils'
+import { blocksByTag, numberFromEvent } from '../common/editorUtils'
 
 const props = defineProps<{
   displayId: DisplayIdExtension

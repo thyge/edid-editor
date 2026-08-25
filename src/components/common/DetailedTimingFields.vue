@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch'
  * Shared field-level editor for the 18-byte Detailed Timing Descriptor geometry,
  * sync, image-size, border, and flag fields. Used by both the EDID base
  * descriptor slots (DetailedDescriptors.vue) and the CTA-861 DTDs
- * (CEADetailedTimings.vue), which share the same DetailedTiming field set via
+ * (CTADetailedTimings.vue), which share the same DetailedTiming field set via
  * the common DTD codec (see packages/edidts/src/common/detailed-timing-descriptor.ts).
  *
  * Emits `update` with a dotted field path (e.g. "pixelClock", "flags.interlaced",

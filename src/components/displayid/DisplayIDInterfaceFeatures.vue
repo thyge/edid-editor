@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { blocksByTag, numberFromEvent, updateArrayItem, removeArrayItem } from './displayIdEditorUtils'
+import { blocksByTag, numberFromEvent, updateArrayItem, removeArrayItem } from '../common/editorUtils'
 
 const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()

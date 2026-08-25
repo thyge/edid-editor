@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import type { CEAExtensionBlock, CEADetailedTiming } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import DetailedTimingFields from '../edid/DetailedTimingFields.vue'
+import DetailedTimingFields from '../common/DetailedTimingFields.vue'
 
 const props = defineProps<{
   cea: CEAExtensionBlock

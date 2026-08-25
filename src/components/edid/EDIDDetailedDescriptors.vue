@@ -10,8 +10,8 @@ import type {
   CTAComparisonResult,
 } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
-import DisplayDescriptors from './DisplayDescriptors.vue'
-import DetailedTimingFields from './DetailedTimingFields.vue'
+import EDIDDisplayDescriptors from './EDIDDisplayDescriptors.vue'
+import DetailedTimingFields from '../common/DetailedTimingFields.vue'
 
 const props = defineProps<{
   edid: EDIDViewModel
@@ -359,7 +359,7 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
         </div>
       </div>
 
-      <DisplayDescriptors
+      <EDIDDisplayDescriptors
         v-if="focusMode.kind !== 'dtd'"
         :descriptors="displayDescriptors"
         :focus="focus"

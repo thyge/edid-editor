@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { EEDID, type ColorPointDescriptor, type DisplayDescriptor } from 'edidts'
+import type { ColorPointDescriptor, DisplayDescriptor } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useEDID } from '@/composables/useEDID'
 
 const props = defineProps<{ edid: EDIDViewModel }>()
 
-const { edid: edidRef, edidData } = useEDID()
+const { edid: edidRef } = useEDID()
 
 const chromaticity = computed(() => props.edid.base.colorCharacteristics)
 const colorPointDescriptor = computed(() =>
@@ -15,7 +15,6 @@ const colorPointDescriptor = computed(() =>
 )
 const supplementalWhitePoints = computed(() => {
   const descriptor = colorPointDescriptor.value
-  console.log('Supplemental white points from descriptor:', descriptor)
   if (!descriptor) return []
   return descriptor.colorPoints
     .filter((point) => Number.isFinite(point.whiteX) && Number.isFinite(point.whiteY))
@@ -129,8 +128,6 @@ function onMouseUp() {
     else if (key === 'green') { cc.greenX = dragX.value; cc.greenY = dragY.value }
     else if (key === 'blue') { cc.blueX = dragX.value; cc.blueY = dragY.value }
     else if (key === 'white') { cc.whiteX = dragX.value; cc.whiteY = dragY.value }
-    edid.base.colorCharacteristics = cc
-    edidData.value = EEDID.encode(edid)
   }
   dragging.value = null
 }

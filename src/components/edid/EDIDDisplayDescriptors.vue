@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { DisplayDescriptor } from 'edidts'
 import { getDisplayDescriptorLabel } from 'edidts'
-import StringDescriptorEditor from './descriptors/StringDescriptorEditor.vue'
+import StringDescriptorView from './descriptors/StringDescriptorView.vue'
 import RangeLimitsDescriptorView from './descriptors/RangeLimitsDescriptorView.vue'
 import ColorPointDescriptorView from './descriptors/ColorPointDescriptorView.vue'
 import StandardTimingDescriptorView from './descriptors/StandardTimingDescriptorView.vue'
@@ -89,21 +89,21 @@ function handleDescriptorUpdate(index: number, descriptor: DisplayDescriptor) {
         </div>
 
         <div class="mt-2 text-xs space-y-2">
-          <StringDescriptorEditor
+          <StringDescriptorView
             v-if="entry.descriptor.tag === 0xFC"
             :descriptor="(entry.descriptor as any)"
             field="productName"
             placeholder="Enter product name"
             @update="(updated) => handleDescriptorUpdate(entry.sourceIndex, updated)"
           />
-          <StringDescriptorEditor
+          <StringDescriptorView
             v-else-if="entry.descriptor.tag === 0xFF"
             :descriptor="(entry.descriptor as any)"
             field="serialNumber"
             placeholder="Enter serial number"
             @update="(updated) => handleDescriptorUpdate(entry.sourceIndex, updated)"
           />
-          <StringDescriptorEditor
+          <StringDescriptorView
             v-else-if="entry.descriptor.tag === 0xFE"
             :descriptor="(entry.descriptor as any)"
             field="data"

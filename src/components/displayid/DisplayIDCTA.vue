@@ -9,7 +9,7 @@ import {
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { blocksByTag, bytesToHex, hexToBytes, stringFromEvent } from './displayIdEditorUtils'
+import { blocksByTag, bytesToHex, hexToBytes, stringFromEvent } from '../common/editorUtils'
 
 const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()

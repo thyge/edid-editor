@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { StandardTimingIdDescriptor } from 'edidts'
-import StandardTimingListEditor, { type TimingInput } from './StandardTimingListEditor.vue'
+import StandardTimingListEditor, { type TimingInput } from '../StandardTimingListEditor.vue'
 
 const props = defineProps<{ descriptor: StandardTimingIdDescriptor }>()
 const emit = defineEmits<{ update: [StandardTimingIdDescriptor] }>()
