@@ -14,6 +14,7 @@ import {
   type DisplayIdTypeIXFormulaBasedTimingBlock,
   type DisplayIdVendorSpecificBlock,
   DisplayIdDecodeError,
+  DISPLAY_ID_V1_BLOCK_TAGS,
 } from './types';
 import {
   decodeDisplayParametersBlock,
@@ -101,7 +102,24 @@ import {
   isBrightnessLuminanceRangePayloadLengthValid,
   type DisplayIdBrightnessLuminanceRangeBlock,
 } from './brightness-luminance';
-import { encodeV1KnownPayload } from './v1-blocks';
+import {
+  decodeV1ProductIdentificationBlock,
+  decodeV1DisplayParametersBlock,
+  decodeV1TypeITimingBlock,
+  decodeV1TiledDisplayTopologyBlock,
+  encodeV1ProductIdentificationBlock,
+  encodeV1DisplayParametersBlock,
+  encodeV1TypeITimingBlock,
+  encodeV1TiledDisplayTopologyBlock,
+  isTypedV1ProductIdentificationBlock,
+  isTypedV1DisplayParametersBlock,
+  isTypedV1TypeITimingBlock,
+  isTypedV1TiledDisplayTopologyBlock,
+  isV1ProductIdentificationPayloadLengthValid,
+  isV1DisplayParametersPayloadLengthValid,
+  isV1TypeITimingPayloadLengthValid,
+  isV1TiledDisplayTopologyPayloadLengthValid,
+} from './v1-codecs';
 
 export interface DecodeBlocksResult {
   blocks: DisplayIdDataBlock[];
@@ -180,194 +198,251 @@ export function encodeDisplayIdBlock(block: DisplayIdDataBlock): Uint8Array {
   return encoded;
 }
 
-function decodeKnownBlock(block: DisplayIdDataBlock): DisplayIdDataBlock {
-  if (
-    block.tag === DisplayIdDataBlockTag.ProductIdentification &&
-    isProductIdentificationPayloadLengthValid(block.payloadLength)
-  ) {
-    return decodeProductIdentificationBlock(block);
-  }
+// ---------------------------------------------------------------------------
+// Tag → {decode, encode} registry — the single dispatch site for DisplayID
+// data blocks (TASK-68 AC#1). The v1.x (0x00–0x12) and v2.0 (0x20+) tag spaces
+// do not overlap, so one merged registry serves both the v2.0 walker
+// (decodeDisplayIdBlocks) and the v1.x walker (decodeDisplayIdBlocksV1). Each
+// decode entry gates on its payload-length validator (flags-aware where the
+// layout depends on the block's flags byte); a known tag with a malformed
+// payload falls through to OPAQUE_DISPLAYID_BLOCK and returns the raw
+// carrier. Each encode entry gates on its structural isTyped* guard so an
+// opaque/raw block with a known tag still round-trips verbatim. Mirrors
+// mp4box BoxRegistry: per-block codecs stay free-standing, the registry is
+// just the dispatch table plus an opaque default entry.
+// ---------------------------------------------------------------------------
 
-  if (
-    block.tag === DisplayIdDataBlockTag.DisplayParameters &&
-    isDisplayParametersPayloadLengthValid(block.payloadLength)
-  ) {
-    return decodeDisplayParametersBlock(block);
-  }
-
-  if (
-    block.tag === DisplayIdDataBlockTag.TypeVIIDetailedTiming &&
-    isTypeVIITimingPayloadLengthValid(block.payloadLength)
-  ) {
-    return decodeTypeVIITimingBlock(block);
-  }
-
-  if (
-    block.tag === DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode &&
-    isTypeVIIITimingPayloadLengthValid(block.payloadLength, block.flags)
-  ) {
-    return decodeTypeVIIITimingBlock(block);
-  }
-
-  if (
-    block.tag === DisplayIdDataBlockTag.TypeIXFormulaBasedTiming &&
-    isTypeIXTimingPayloadLengthValid(block.payloadLength)
-  ) {
-    return decodeTypeIXTimingBlock(block);
-  }
-
-  if (
-    block.tag === DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits &&
-    isDynamicVideoTimingRangeLimitsPayloadLengthValid(block.payloadLength)
-  ) {
-    return decodeDynamicVideoTimingRangeLimitsBlock(block);
-  }
-
-  if (
-    block.tag === DisplayIdDataBlockTag.DisplayInterfaceFeatures &&
-    isDisplayInterfaceFeaturesPayloadLengthValid(block.payloadLength)
-  ) {
-    return decodeDisplayInterfaceFeaturesBlock(block);
-  }
-
-  if (
-    block.tag === DisplayIdDataBlockTag.StereoDisplayInterface &&
-    isStereoDisplayInterfacePayloadLengthValid(block.payloadLength)
-  ) {
-    return decodeStereoDisplayInterfaceBlock(block);
-  }
-
-  if (
-    block.tag === DisplayIdDataBlockTag.TiledDisplayTopology &&
-    isTiledDisplayTopologyPayloadLengthValid(block.payloadLength)
-  ) {
-    return decodeTiledDisplayTopologyBlock(block);
-  }
-
-  if (
-    block.tag === DisplayIdDataBlockTag.ContainerId &&
-    isContainerIdPayloadLengthValid(block.payloadLength)
-  ) {
-    return decodeContainerIdBlock(block);
-  }
-
-  if (block.tag === DisplayIdDataBlockTag.TypeXTiming) {
-    const descriptorSizeCode = (block.flags >> 1) & 0x07;
-    const descriptorSize = 6 + descriptorSizeCode;
-    if (descriptorSizeCode <= 2 && isTypeXTimingPayloadLengthValid(block.payloadLength, descriptorSize)) {
-      return decodeTypeXTimingBlock(block);
-    }
-  }
-
-  if (block.tag === DisplayIdDataBlockTag.AdaptiveSync) {
-    const descriptorLenCode = (block.flags >> 1) & 0x07;
-    if (descriptorLenCode === 0 && isAdaptiveSyncPayloadValid(block.payloadLength)) {
-      return decodeAdaptiveSyncBlock(block);
-    }
-  }
-
-  if (block.tag === DisplayIdDataBlockTag.ArvrHmd && block.payloadLength === ARVR_HMD_PAYLOAD_LENGTH) {
-    return decodeArvrHmdBlock(block);
-  }
-
-  if (block.tag === DisplayIdDataBlockTag.ArvrLayer && block.payloadLength === ARVR_LAYER_PAYLOAD_LENGTH) {
-    return decodeArvrLayerBlock(block);
-  }
-
-  if (
-    block.tag === DisplayIdDataBlockTag.BrightnessLuminanceRange &&
-    isBrightnessLuminanceRangePayloadLengthValid(block.payloadLength)
-  ) {
-    return decodeBrightnessLuminanceRangeBlock(block);
-  }
-
-  if (block.tag === DisplayIdDataBlockTag.VendorSpecific) {
-    return decodeVendorSpecificBlock(block);
-  }
-
-  if (block.tag === DisplayIdDataBlockTag.CtaDisplayId) {
-    return decodeCtaDisplayIdBlock(block);
-  }
-
-  return block;
+interface DisplayIdBlockCodec {
+  decode(block: DisplayIdDataBlock): DisplayIdDataBlock;
+  encode(block: DisplayIdDataBlock): Uint8Array;
 }
 
-function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
-  if (isTypedProductIdentificationBlock(block)) {
-    return encodeProductIdentificationBlock(block as DisplayIdProductIdentificationBlock);
-  }
+const OPAQUE_DISPLAYID_BLOCK: DisplayIdBlockCodec = {
+  decode: (block) => block,
+  encode: (block) => block.payload,
+};
 
-  if (isTypedDisplayParametersBlock(block)) {
-    return encodeDisplayParametersBlock(block as DisplayIdDisplayParametersBlock);
-  }
+const DISPLAYID_BLOCK_CODECS: Partial<Record<number, DisplayIdBlockCodec>> = {
+  // DisplayID 2.0 blocks (tags 0x20–0x2e, 0x7e, 0x81)
+  [DisplayIdDataBlockTag.ProductIdentification]: {
+    decode: (b) =>
+      isProductIdentificationPayloadLengthValid(b.payloadLength)
+        ? decodeProductIdentificationBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedProductIdentificationBlock(b)
+        ? encodeProductIdentificationBlock(b as DisplayIdProductIdentificationBlock)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.DisplayParameters]: {
+    decode: (b) =>
+      isDisplayParametersPayloadLengthValid(b.payloadLength)
+        ? decodeDisplayParametersBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedDisplayParametersBlock(b)
+        ? encodeDisplayParametersBlock(b as DisplayIdDisplayParametersBlock)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.TypeVIIDetailedTiming]: {
+    decode: (b) =>
+      isTypeVIITimingPayloadLengthValid(b.payloadLength)
+        ? decodeTypeVIITimingBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedTypeVIITimingBlock(b)
+        ? encodeTypeVIITimingBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode]: {
+    decode: (b) =>
+      isTypeVIIITimingPayloadLengthValid(b.payloadLength, b.flags)
+        ? decodeTypeVIIITimingBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedTypeVIIITimingBlock(b)
+        ? encodeTypeVIIITimingBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.TypeIXFormulaBasedTiming]: {
+    decode: (b) =>
+      isTypeIXTimingPayloadLengthValid(b.payloadLength)
+        ? decodeTypeIXTimingBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedTypeIXTimingBlock(b)
+        ? encodeTypeIXTimingBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits]: {
+    decode: (b) =>
+      isDynamicVideoTimingRangeLimitsPayloadLengthValid(b.payloadLength)
+        ? decodeDynamicVideoTimingRangeLimitsBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedDynamicVideoTimingRangeLimitsBlock(b)
+        ? encodeDynamicVideoTimingRangeLimitsBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.DisplayInterfaceFeatures]: {
+    decode: (b) =>
+      isDisplayInterfaceFeaturesPayloadLengthValid(b.payloadLength)
+        ? decodeDisplayInterfaceFeaturesBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedDisplayInterfaceFeaturesBlock(b)
+        ? encodeDisplayInterfaceFeaturesBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.StereoDisplayInterface]: {
+    decode: (b) =>
+      isStereoDisplayInterfacePayloadLengthValid(b.payloadLength)
+        ? decodeStereoDisplayInterfaceBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedStereoDisplayInterfaceBlock(b)
+        ? encodeStereoDisplayInterfaceBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.TiledDisplayTopology]: {
+    decode: (b) =>
+      isTiledDisplayTopologyPayloadLengthValid(b.payloadLength)
+        ? decodeTiledDisplayTopologyBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedTiledDisplayTopologyBlock(b)
+        ? encodeTiledDisplayTopologyBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.ContainerId]: {
+    decode: (b) =>
+      isContainerIdPayloadLengthValid(b.payloadLength)
+        ? decodeContainerIdBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedContainerIdBlock(b)
+        ? encodeContainerIdBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.TypeXTiming]: {
+    decode: (b) => {
+      const descriptorSizeCode = (b.flags >> 1) & 0x07;
+      const descriptorSize = 6 + descriptorSizeCode;
+      return descriptorSizeCode <= 2 && isTypeXTimingPayloadLengthValid(b.payloadLength, descriptorSize)
+        ? decodeTypeXTimingBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b);
+    },
+    encode: (b) =>
+      isTypedTypeXTimingBlock(b)
+        ? encodeTypeXTimingBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.AdaptiveSync]: {
+    decode: (b) => {
+      const descriptorLenCode = (b.flags >> 1) & 0x07;
+      return descriptorLenCode === 0 && isAdaptiveSyncPayloadValid(b.payloadLength)
+        ? decodeAdaptiveSyncBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b);
+    },
+    encode: (b) =>
+      isTypedAdaptiveSyncBlock(b)
+        ? encodeAdaptiveSyncBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.ArvrHmd]: {
+    decode: (b) =>
+      b.payloadLength === ARVR_HMD_PAYLOAD_LENGTH
+        ? decodeArvrHmdBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedArvrHmdBlock(b)
+        ? encodeArvrHmdBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.ArvrLayer]: {
+    decode: (b) =>
+      b.payloadLength === ARVR_LAYER_PAYLOAD_LENGTH
+        ? decodeArvrLayerBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedArvrLayerBlock(b)
+        ? encodeArvrLayerBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.BrightnessLuminanceRange]: {
+    decode: (b) =>
+      isBrightnessLuminanceRangePayloadLengthValid(b.payloadLength)
+        ? decodeBrightnessLuminanceRangeBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedBrightnessLuminanceRangeBlock(b)
+        ? encodeBrightnessLuminanceRangeBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.VendorSpecific]: {
+    decode: (b) => decodeVendorSpecificBlock(b),
+    encode: (b) =>
+      isTypedVendorSpecificBlock(b)
+        ? encodeVendorSpecificBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DisplayIdDataBlockTag.CtaDisplayId]: {
+    decode: (b) => decodeCtaDisplayIdBlock(b),
+    encode: (b) =>
+      isTypedCtaDisplayIdBlock(b)
+        ? encodeCtaDisplayIdBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
 
-  if (isTypedTypeVIITimingBlock(block)) {
-    return encodeTypeVIITimingBlock(block);
-  }
+  // DisplayID 1.x blocks (tags 0x00, 0x01, 0x03, 0x12) — no tag overlap with v2.0.
+  [DISPLAY_ID_V1_BLOCK_TAGS.ProductIdentification]: {
+    decode: (b) =>
+      isV1ProductIdentificationPayloadLengthValid(b.payloadLength)
+        ? decodeV1ProductIdentificationBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedV1ProductIdentificationBlock(b)
+        ? encodeV1ProductIdentificationBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DISPLAY_ID_V1_BLOCK_TAGS.DisplayParameters]: {
+    decode: (b) =>
+      isV1DisplayParametersPayloadLengthValid(b.payloadLength)
+        ? decodeV1DisplayParametersBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedV1DisplayParametersBlock(b)
+        ? encodeV1DisplayParametersBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DISPLAY_ID_V1_BLOCK_TAGS.TypeIDetailedTiming]: {
+    decode: (b) =>
+      isV1TypeITimingPayloadLengthValid(b.payloadLength)
+        ? decodeV1TypeITimingBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedV1TypeITimingBlock(b)
+        ? encodeV1TypeITimingBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DISPLAY_ID_V1_BLOCK_TAGS.TiledDisplayTopology]: {
+    decode: (b) =>
+      isV1TiledDisplayTopologyPayloadLengthValid(b.payloadLength)
+        ? decodeV1TiledDisplayTopologyBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedV1TiledDisplayTopologyBlock(b)
+        ? encodeV1TiledDisplayTopologyBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+};
 
-  if (isTypedTypeVIIITimingBlock(block)) {
-    return encodeTypeVIIITimingBlock(block);
-  }
+export function decodeKnownBlock(block: DisplayIdDataBlock): DisplayIdDataBlock {
+  return (DISPLAYID_BLOCK_CODECS[block.tag] ?? OPAQUE_DISPLAYID_BLOCK).decode(block);
+}
 
-  if (isTypedTypeIXTimingBlock(block)) {
-    return encodeTypeIXTimingBlock(block);
-  }
-
-  if (isTypedDynamicVideoTimingRangeLimitsBlock(block)) {
-    return encodeDynamicVideoTimingRangeLimitsBlock(block);
-  }
-
-  if (isTypedDisplayInterfaceFeaturesBlock(block)) {
-    return encodeDisplayInterfaceFeaturesBlock(block);
-  }
-
-  if (isTypedStereoDisplayInterfaceBlock(block)) {
-    return encodeStereoDisplayInterfaceBlock(block);
-  }
-
-  if (isTypedTiledDisplayTopologyBlock(block)) {
-    return encodeTiledDisplayTopologyBlock(block);
-  }
-
-  if (isTypedContainerIdBlock(block)) {
-    return encodeContainerIdBlock(block);
-  }
-
-  if (isTypedTypeXTimingBlock(block)) {
-    return encodeTypeXTimingBlock(block);
-  }
-
-  if (isTypedAdaptiveSyncBlock(block)) {
-    return encodeAdaptiveSyncBlock(block);
-  }
-
-  if (isTypedArvrHmdBlock(block)) {
-    return encodeArvrHmdBlock(block);
-  }
-
-  if (isTypedArvrLayerBlock(block)) {
-    return encodeArvrLayerBlock(block);
-  }
-
-  if (isTypedBrightnessLuminanceRangeBlock(block)) {
-    return encodeBrightnessLuminanceRangeBlock(block);
-  }
-
-  if (isTypedVendorSpecificBlock(block)) {
-    return encodeVendorSpecificBlock(block);
-  }
-
-  if (isTypedCtaDisplayIdBlock(block)) {
-    return encodeCtaDisplayIdBlock(block);
-  }
-
-  // DisplayID 1.x blocks (structured fields → re-encode; raw fallback → null).
-  const v1Payload = encodeV1KnownPayload(block);
-  if (v1Payload !== null) {
-    return v1Payload;
-  }
-
-  return block.payload;
+export function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
+  return (DISPLAYID_BLOCK_CODECS[block.tag] ?? OPAQUE_DISPLAYID_BLOCK).encode(block);
 }
 
 function isTypedProductIdentificationBlock(block: DisplayIdDataBlock): block is DisplayIdProductIdentificationBlock {

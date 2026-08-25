@@ -99,41 +99,79 @@ export function isOpaqueExtension(ext: Extension): ext is OpaqueExtension {
   return (ext as { kind?: string }).kind === 'opaque';
 }
 
+// ---------------------------------------------------------------------------
+// Tag → {decode, encode} registry — the single dispatch site for EEDID
+// extension blocks (TASK-68 AC#1). Only CTA-861 (0x02) and DisplayID (0x70)
+// have first-class dispatch entries; every other tag, plus any 0x02/0x70
+// block whose structured parse failed or was refused, falls through to the
+// opaque default entry. Mirrors mp4box BoxRegistry: the per-spec codecs stay
+// free-standing, the registry is just the dispatch table plus an opaque
+// default. The same three dispatch objects serve encode — routed by kind,
+// not tag, so an OpaqueExtension carrying tag 0x02/0x70 still encodes as
+// verbatim opaque bytes rather than being re-dispatched as structured.
+// ---------------------------------------------------------------------------
+
+const OPAQUE_EXTENSION_DISPATCH: ExtensionDispatch = {
+  // Sentinel tag — the opaque entry is never keyed in the registry; it is the
+  // default returned by the `?? OPAQUE_EXTENSION_DISPATCH` fallback for any
+  // tag without a structured entry.
+  tag: 0xff,
+  decode: (bytes) => decodeOpaque(bytes),
+  encode: (ext) => encodeOpaque(ext as OpaqueExtension),
+};
+
+const CTA_DISPATCH: ExtensionDispatch = {
+  tag: 0x02,
+  decode: (bytes) => {
+    // Parse as CTA-861; on any parse error (or a non-0x02 result) fall back
+    // to opaque, mirroring the DisplayID arm's try/catch → opaque pattern so
+    // a single malformed CTA block never crashes the whole EEDID decode.
+    try {
+      const cta = ExtensionBlockParser.decode(bytes);
+      if (cta && cta.tag === 0x02) {
+        return cta as CEAExtension;
+      }
+    } catch {
+      // fall through to opaque
+    }
+    return decodeOpaque(bytes);
+  },
+  encode: (ext) => ExtensionBlockParser.encode(ext as CEAExtension),
+};
+
+const DISPLAYID_DISPATCH: ExtensionDispatch = {
+  tag: 0x70,
+  decode: (bytes) => decodeDisplayId(bytes),
+  encode: (ext) => encodeDisplayId(ext as DisplayIdExtension),
+};
+
+const EXTENSION_DISPATCHERS: Partial<Record<number, ExtensionDispatch>> = {
+  0x02: CTA_DISPATCH,
+  0x70: DISPLAYID_DISPATCH,
+};
+
 export function decodeExtension(bytes: Uint8Array): Extension {
   if (bytes.length < 128) {
     throw new Error(`Extension block must be at least 128 bytes; got ${bytes.length}`);
   }
 
   const tag = bytes[0];
-
-  switch (tag) {
-    case 0x02: {
-      // Parse as CTA-861; on any parse error (or a non-0x02 result) fall back
-      // to opaque, mirroring the DisplayID arm's try/catch → opaque pattern so
-      // a single malformed CTA block never crashes the whole EEDID decode.
-      try {
-        const cta = ExtensionBlockParser.decode(bytes);
-        if (cta && cta.tag === 0x02) {
-          return cta as CEAExtension;
-        }
-      } catch {
-        // fall through to opaque
-      }
-      return decodeOpaque(bytes);
-    }
-    case 0x70: return decodeDisplayId(bytes);
-    default: return decodeOpaque(bytes);
-  }
+  return (EXTENSION_DISPATCHERS[tag] ?? OPAQUE_EXTENSION_DISPATCH).decode(bytes);
 }
 
 export function encodeExtension(ext: Extension): Uint8Array {
+  // Encode is kind-based, not tag-based: an OpaqueExtension that carries tag
+  // 0x02 or 0x70 (decoded opaque because the structured parse failed or was
+  // never attempted) must encode as verbatim opaque bytes, not be re-dispatched
+  // as CTA/DisplayID. So route by kind into the same dispatch objects rather
+  // than by tag — decode is tag-based, encode is kind-based (asymmetric).
   if (isCEAExtension(ext)) {
-    return ExtensionBlockParser.encode(ext);
+    return CTA_DISPATCH.encode(ext);
   }
   if (isDisplayIdExtension(ext)) {
-    return encodeDisplayId(ext);
+    return DISPLAYID_DISPATCH.encode(ext);
   }
-  return encodeOpaque(ext);
+  return OPAQUE_EXTENSION_DISPATCH.encode(ext);
 }
 
 function decodeOpaque(bytes: Uint8Array): OpaqueExtension {

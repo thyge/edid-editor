@@ -636,7 +636,59 @@ export type CTAExtendedDataBlock =
   | ExtendedDataBlock;
 
 /**
- * Decode an Extended Tag Data Block
+ * Per-extended-tag codec registry — the single dispatch site for Extended Tag
+ * Data Blocks (CTA-861-G §7.5, tag 0x07). Each entry pairs a free-standing
+ * decode/encode function pair; the opaque fallback is one `OPAQUE_EXTENDED_BLOCK`
+ * default entry rather than a switch `default:` branch. Adding a block type is
+ * a registry entry, not a dispatcher edit (TASK-68). Mirrors mp4box BoxRegistry.
+ */
+interface CTAExtendedBlockCodec {
+  decode(base: ExtendedDataBlock, payload: Uint8Array): CTAExtendedDataBlock;
+  encode(block: CTAExtendedDataBlock): Uint8Array;
+}
+
+/** Opaque/unknown extended-tag fallback. The decode path has already produced a
+ *  generic `ExtendedDataBlock` (the `base`), so decode returns it unchanged;
+ *  encode returns the carrier `payload` verbatim. One default entry (AC#2). */
+const OPAQUE_EXTENDED_BLOCK: CTAExtendedBlockCodec = {
+  decode: (base) => base,
+  encode: (block) => block.payload,
+};
+
+const EXTENDED_BLOCK_CODECS: Partial<Record<ExtendedTagCode, CTAExtendedBlockCodec>> = {
+  0x00: { decode: decodeVideoCapabilityBlock, encode: (b) => encodeVideoCapabilityBlock(b as VideoCapabilityDataBlock) },
+  0x01: { decode: decodeVendorSpecificVideoBlock, encode: (b) => encodeVendorSpecificVideoBlock(b as VendorSpecificVideoDataBlock) },
+  0x02: {
+    decode: decodeVESAVideoDisplayDeviceBlock,
+    // Only the structured 30-byte block carries `interfaceCategory`; a malformed
+    // block decodes to the generic fallback, which the opaque entry re-emits.
+    encode: (b) => 'interfaceCategory' in b
+      ? encodeVESAVideoDisplayDeviceBlock(b as VESAVideoDisplayDeviceDataBlock)
+      : OPAQUE_EXTENDED_BLOCK.encode(b),
+  },
+  0x03: {
+    decode: decodeVESAVideoTimingBlockExtension,
+    // The structured VTB extension carries opaque timing bytes as `trailing`;
+    // the generic fallback (no `trailing`) re-emits via the opaque entry.
+    encode: (b) => 'trailing' in b
+      ? encodeVESAVideoTimingBlockExtension(b as VESAVideoTimingBlockExtensionDataBlock)
+      : OPAQUE_EXTENDED_BLOCK.encode(b),
+  },
+  0x05: { decode: decodeColorimetryBlock, encode: (b) => encodeColorimetryBlock(b as ColorimetryDataBlock) },
+  0x06: { decode: decodeHDRStaticMetadataBlock, encode: (b) => encodeHDRStaticMetadataBlock(b as HDRStaticMetadataDataBlock) },
+  0x07: { decode: decodeHDRDynamicMetadataBlock, encode: (b) => encodeHDRDynamicMetadataBlock(b as HDRDynamicMetadataDataBlock) },
+  0x0D: { decode: decodeVideoFormatPreferenceBlock, encode: (b) => encodeVideoFormatPreferenceBlock(b as VideoFormatPreferenceDataBlock) },
+  0x0E: { decode: decodeYCbCr420VideoBlock, encode: (b) => encodeYCbCr420VideoBlock(b as YCbCr420VideoDataBlock) },
+  0x0F: { decode: decodeYCbCr420CapabilityMapBlock, encode: (b) => encodeYCbCr420CapabilityMapBlock(b as YCbCr420CapabilityMapDataBlock) },
+  0x11: { decode: decodeVendorSpecificAudioBlock, encode: (b) => encodeVendorSpecificAudioBlock(b as VendorSpecificAudioDataBlock) },
+  0x13: { decode: decodeRoomConfigurationBlock, encode: (b) => encodeRoomConfigurationBlock(b as RoomConfigurationDataBlock) },
+  0x14: { decode: decodeSpeakerLocationBlock, encode: (b) => encodeSpeakerLocationBlock(b as SpeakerLocationDataBlock) },
+  0x15: { decode: decodeRoomEnvironmentBlock, encode: (b) => encodeRoomEnvironmentBlock(b as RoomEnvironmentDataBlock) },
+  0x20: { decode: decodeInfoFrameBlock, encode: (b) => encodeInfoFrameBlock(b as InfoFrameDataBlock) },
+};
+
+/**
+ * Decode an Extended Tag Data Block via the per-tag codec registry.
  */
 export function decodeExtendedDataBlock(blockData: Uint8Array): CTAExtendedDataBlock {
   if (blockData.length < 1) {
@@ -652,40 +704,7 @@ export function decodeExtendedDataBlock(blockData: Uint8Array): CTAExtendedDataB
     payload: blockData,
   };
 
-  switch (extendedTag) {
-    case 0x00:
-      return decodeVideoCapabilityBlock(base, payload);
-    case 0x05:
-      return decodeColorimetryBlock(base, payload);
-    case 0x06:
-      return decodeHDRStaticMetadataBlock(base, payload);
-    case 0x07:
-      return decodeHDRDynamicMetadataBlock(base, payload);
-    case 0x0D:
-      return decodeVideoFormatPreferenceBlock(base, payload);
-    case 0x0E:
-      return decodeYCbCr420VideoBlock(base, payload);
-    case 0x0F:
-      return decodeYCbCr420CapabilityMapBlock(base, payload);
-    case 0x01:
-      return decodeVendorSpecificVideoBlock(base, payload);
-    case 0x02:
-      return decodeVESAVideoDisplayDeviceBlock(base, payload);
-    case 0x03:
-      return decodeVESAVideoTimingBlockExtension(base, payload);
-    case 0x11:
-      return decodeVendorSpecificAudioBlock(base, payload);
-    case 0x13:
-      return decodeRoomConfigurationBlock(base, payload);
-    case 0x14:
-      return decodeSpeakerLocationBlock(base, payload);
-    case 0x15:
-      return decodeRoomEnvironmentBlock(base, payload);
-    case 0x20:
-      return decodeInfoFrameBlock(base, payload);
-    default:
-      return base;
-  }
+  return (EXTENDED_BLOCK_CODECS[extendedTag] ?? OPAQUE_EXTENDED_BLOCK).decode(base, payload);
 }
 
 function decodeVideoCapabilityBlock(base: ExtendedDataBlock, payload: Uint8Array): VideoCapabilityDataBlock {
@@ -1073,54 +1092,10 @@ function decodeInfoFrameBlock(base: ExtendedDataBlock, payload: Uint8Array): Inf
 }
 
 /**
- * Encode an Extended Tag Data Block to bytes
+ * Encode an Extended Tag Data Block to bytes via the per-tag codec registry.
  */
 export function encodeExtendedDataBlock(block: CTAExtendedDataBlock): Uint8Array {
-  switch (block.extendedTag) {
-    case 0x00:
-      return encodeVideoCapabilityBlock(block as VideoCapabilityDataBlock);
-    case 0x05:
-      return encodeColorimetryBlock(block as ColorimetryDataBlock);
-    case 0x06:
-      return encodeHDRStaticMetadataBlock(block as HDRStaticMetadataDataBlock);
-    case 0x07:
-      return encodeHDRDynamicMetadataBlock(block as HDRDynamicMetadataDataBlock);
-    case 0x0D:
-      return encodeVideoFormatPreferenceBlock(block as VideoFormatPreferenceDataBlock);
-    case 0x0E:
-      return encodeYCbCr420VideoBlock(block as YCbCr420VideoDataBlock);
-    case 0x0F:
-      return encodeYCbCr420CapabilityMapBlock(block as YCbCr420CapabilityMapDataBlock);
-    case 0x11:
-      return encodeVendorSpecificAudioBlock(block as VendorSpecificAudioDataBlock);
-    case 0x13:
-      return encodeRoomConfigurationBlock(block as RoomConfigurationDataBlock);
-    case 0x01:
-      return encodeVendorSpecificVideoBlock(block as VendorSpecificVideoDataBlock);
-    case 0x02:
-      // Malformed (non-30-byte) blocks decode to the generic ExtendedDataBlock
-      // fallback; only the structured VDDB carries `interfaceCategory`.
-      return 'interfaceCategory' in block
-        ? encodeVESAVideoDisplayDeviceBlock(block as VESAVideoDisplayDeviceDataBlock)
-        : block.payload;
-    case 0x03:
-      // The structured VESA VTB extension carries the opaque timing bytes as
-      // `trailing`; the generic fallback (no `trailing`) returns its carrier
-      // `payload` verbatim. (Decode always produces the structured type for
-      // ext-tag 0x03; the fallback arm is defensive.)
-      return 'trailing' in block
-        ? encodeVESAVideoTimingBlockExtension(block as VESAVideoTimingBlockExtensionDataBlock)
-        : block.payload;
-    case 0x14:
-      return encodeSpeakerLocationBlock(block as SpeakerLocationDataBlock);
-    case 0x15:
-      return encodeRoomEnvironmentBlock(block as RoomEnvironmentDataBlock);
-    case 0x20:
-      return encodeInfoFrameBlock(block as InfoFrameDataBlock);
-    default:
-      // Return original payload for unhandled types
-      return block.payload;
-  }
+  return (EXTENDED_BLOCK_CODECS[block.extendedTag] ?? OPAQUE_EXTENDED_BLOCK).encode(block);
 }
 
 function encodeVendorSpecificVideoBlock(block: VendorSpecificVideoDataBlock): Uint8Array {
