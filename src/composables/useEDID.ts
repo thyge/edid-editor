@@ -1,9 +1,41 @@
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed, watch, reactive } from 'vue'
 import { EEDID } from 'edidts'
 
 const edidData = ref<Uint8Array | null>(null)
-const edid = ref<EEDID | null>(null)
+// shallowRef: only `.value` reassignment is tracked. The EEDID instance itself
+// is wrapped in reactive() on load so Vue can see deep field edits; a plain
+// ref would double-wrap and fight the explicit reactive() proxy.
+const edid = shallowRef<EEDID | null>(null)
 const error = ref<string | null>(null)
+
+// Suppress the deep watcher's encode for the one drain triggered by a load
+// (setEdidPayload reassigns edid.value). Without this, loading would immediately
+// re-encode and overwrite edidData with normalized bytes — we want an uploaded
+// file's hex to show as-uploaded, and only user edits to re-encode. The flag
+// self-resets on the first watcher drain.
+let suppressEncode = false
+
+// One deep watcher is the single encode site for the whole UI (TASK-66 AC#1).
+// Any mutation to the reactive EEDID tree (field edit, add/remove block, etc.)
+// fires this; default flush:'pre' coalesces synchronous mutations into one
+// microtask encode (the "debounced to a microtask"). EEDID.encode is pure — it
+// writes only to a fresh Uint8Array and never mutates the instance — so
+// reassigning edidData here cannot re-trigger this watcher.
+watch(
+  edid,
+  (val) => {
+    if (suppressEncode) {
+      suppressEncode = false
+      return
+    }
+    if (!val) {
+      edidData.value = null
+      return
+    }
+    edidData.value = EEDID.encode(val)
+  },
+  { deep: true },
+)
 
 function parseHexString(hex: string): Uint8Array {
   const cleaned = hex.replace(/[^0-9A-Fa-f]/g, '')
@@ -15,8 +47,11 @@ function parseHexString(hex: string): Uint8Array {
 }
 
 function setEdidPayload(bytes: Uint8Array) {
+  // Preserve the original bytes for the hex view; suppress the load-triggered
+  // watcher drain so it doesn't overwrite them with a re-encoded copy.
+  suppressEncode = true
   edidData.value = new Uint8Array(bytes)
-  edid.value = EEDID.decode(bytes)
+  edid.value = reactive(EEDID.decode(bytes)) as EEDID
 }
 
 export function useEDID() {
