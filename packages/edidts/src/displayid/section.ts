@@ -18,6 +18,33 @@ function isDisplayIdVersionByte(byte: number): boolean {
   return byte === DISPLAY_ID_2_0_VERSION_BYTE || (byte >= 0x10 && byte < 0x20);
 }
 
+/**
+ * DisplayID v2.0 §2 — byte 0x02 "display product primary use case" (base
+ * section only; extension sections are 0x00). Values 0x0–0x8 are defined;
+ * 0x9–0xF reserved. Source: docs/planning/displayid-v2-spec-breakdown/02-displayid-structure.md
+ */
+export const DISPLAY_ID_PRIMARY_USE_CASES: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 0x0, label: '0x0 — Extension inherits base use case' },
+  { value: 0x1, label: '0x1 — Test structure' },
+  { value: 0x2, label: '0x2 — Generic display' },
+  { value: 0x3, label: '0x3 — Television display' },
+  { value: 0x4, label: '0x4 — Desktop productivity display' },
+  { value: 0x5, label: '0x5 — Desktop gaming display' },
+  { value: 0x6, label: '0x6 — Presentation display' },
+  { value: 0x7, label: '0x7 — Head-mounted VR display' },
+  { value: 0x8, label: '0x8 — Head-mounted AR display' },
+];
+
+export const DISPLAY_ID_RESERVED_USE_CASES: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 0x9, label: '0x9 — Reserved' },
+  { value: 0xa, label: '0xA — Reserved' },
+  { value: 0xb, label: '0xB — Reserved' },
+  { value: 0xc, label: '0xC — Reserved' },
+  { value: 0xd, label: '0xD — Reserved' },
+  { value: 0xe, label: '0xE — Reserved' },
+  { value: 0xf, label: '0xF — Reserved' },
+];
+
 export function decodeDisplayIdSection(data: Uint8Array): DisplayIdSection {
   if (data.length < MIN_SECTION_LENGTH) {
     throw new DisplayIdDecodeError(

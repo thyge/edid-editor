@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import {
   DisplayIdDataBlockTag,
+  DEPTHS_444,
+  DEPTHS_4XX,
+  getDisplayIdColorSpaceLabel,
+  getDisplayIdEotfLabel,
   type DisplayIdColorSpaceEotfCombination,
   type DisplayIdDataBlock,
   type DisplayIdDisplayInterfaceFeaturesBlock,
@@ -16,22 +20,12 @@ import { blocksByTag, numberFromEvent, updateArrayItem, removeArrayItem } from '
 const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
-// DisplayID 2.0 §4.5 bit tables. RGB and YCbCr 4:4:4 support 6/8/10/12/14/16
-// bpc (bits 0-5); YCbCr 4:2:2 and 4:2:0 support 8/10/12/14/16 bpc (bits 0-4).
-const rgbDepths = [6, 8, 10, 12, 14, 16]
-const ycbcr444Depths = [6, 8, 10, 12, 14, 16]
-const ycbcr4xxDepths = [8, 10, 12, 14, 16]
-
-// Table 4-27: additional combination byte — bits 7:4 color space, 3:0 EOTF.
-const colorSpaceLabels = ['Undefined', 'sRGB', 'BT.601', 'BT.709', 'Adobe RGB', 'DCI-P3', 'BT.2020', 'Custom']
-const eotfLabels = ['Undefined', 'sRGB', 'BT.601', 'BT.1886', 'Adobe RGB', 'DCI-P3', 'BT.2020', 'Gamma function', 'SMPTE ST 2084', 'Hybrid Log', 'Custom']
-
-function colorSpaceLabel(code: number): string {
-  return code < colorSpaceLabels.length ? colorSpaceLabels[code] : `Reserved (0x${code.toString(16)})`
-}
-function eotfLabel(code: number): string {
-  return code < eotfLabels.length ? eotfLabels[code] : `Reserved (0x${code.toString(16)})`
-}
+// Color-depth bit tables and the Table 4-27 color space / EOTF label maps are
+// sourced from the edidts lib (interface-features.ts) — see DEPTHS_444 /
+// DEPTHS_4XX and DISPLAY_ID_COLOR_SPACE_LABELS / DISPLAY_ID_EOTF_LABELS.
+const rgbDepths = DEPTHS_444
+const ycbcr444Depths = DEPTHS_444
+const ycbcr4xxDepths = DEPTHS_4XX
 
 function update(index: number, block: DisplayIdDisplayInterfaceFeaturesBlock, patch: Partial<DisplayIdDisplayInterfaceFeaturesBlock>) {
   emit('updateBlock', index, { ...block, ...patch })
@@ -142,13 +136,13 @@ function updateCombination(block: DisplayIdDisplayInterfaceFeaturesBlock, index:
             <div class="space-y-1">
               <label class="text-xs text-muted-foreground">Color space</label>
               <select :value="combo.colorSpace" @change="(event) => updateCombination(block, index, comboIndex, { colorSpace: numberFromEvent(event) })" class="h-9 rounded-md border border-border bg-background px-2 text-sm">
-                <option v-for="code in 16" :key="code - 1" :value="code - 1">{{ colorSpaceLabel(code - 1) }}</option>
+                <option v-for="code in 16" :key="code - 1" :value="code - 1">{{ getDisplayIdColorSpaceLabel(code - 1) }}</option>
               </select>
             </div>
             <div class="space-y-1">
               <label class="text-xs text-muted-foreground">EOTF</label>
               <select :value="combo.eotf" @change="(event) => updateCombination(block, index, comboIndex, { eotf: numberFromEvent(event) })" class="h-9 rounded-md border border-border bg-background px-2 text-sm">
-                <option v-for="code in 16" :key="code - 1" :value="code - 1">{{ eotfLabel(code - 1) }}</option>
+                <option v-for="code in 16" :key="code - 1" :value="code - 1">{{ getDisplayIdEotfLabel(code - 1) }}</option>
               </select>
             </div>
             <Button variant="ghost" size="sm" class="text-destructive" @click="update(index, block, { additionalColorSpaceEotfCombinations: removeArrayItem(block.additionalColorSpaceEotfCombinations, comboIndex) })">Remove</Button>

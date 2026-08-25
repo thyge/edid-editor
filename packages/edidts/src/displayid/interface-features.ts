@@ -25,9 +25,38 @@ const MAX_ADDITIONAL_COMBINATIONS = 7;
 const MAX_PAYLOAD_LENGTH = MIN_INTERFACE_FEATURES_PAYLOAD_LENGTH + MAX_ADDITIONAL_COMBINATIONS;
 
 /** bpc bit positions for RGB and YCbCr 4:4:4 (bits 0-5: 6/8/10/12/14/16). */
-const DEPTHS_444 = [6, 8, 10, 12, 14, 16] as const;
+export const DEPTHS_444 = [6, 8, 10, 12, 14, 16] as const;
 /** bpc bit positions for YCbCr 4:2:2 and 4:2:0 (bits 0-4: 8/10/12/14/16). */
-const DEPTHS_4XX = [8, 10, 12, 14, 16] as const;
+export const DEPTHS_4XX = [8, 10, 12, 14, 16] as const;
+
+/**
+ * DisplayID 2.0 §4.5 Table 4-27 color space codes (bits 7:4 of the additional
+ * combination byte). Index = on-the-wire code; 8-15 are reserved.
+ */
+export const DISPLAY_ID_COLOR_SPACE_LABELS: readonly string[] = [
+  'Undefined', 'sRGB', 'BT.601', 'BT.709', 'Adobe RGB', 'DCI-P3', 'BT.2020', 'Custom',
+];
+
+/**
+ * DisplayID 2.0 §4.5 Table 4-27 EOTF codes (bits 3:0 of the additional
+ * combination byte). Index = on-the-wire code; 11-15 are reserved.
+ */
+export const DISPLAY_ID_EOTF_LABELS: readonly string[] = [
+  'Undefined', 'sRGB', 'BT.601', 'BT.1886', 'Adobe RGB', 'DCI-P3', 'BT.2020',
+  'Gamma function', 'SMPTE ST 2084', 'Hybrid Log', 'Custom',
+];
+
+export function getDisplayIdColorSpaceLabel(code: number): string {
+  return code < DISPLAY_ID_COLOR_SPACE_LABELS.length
+    ? DISPLAY_ID_COLOR_SPACE_LABELS[code]
+    : `Reserved (0x${code.toString(16)})`;
+}
+
+export function getDisplayIdEotfLabel(code: number): string {
+  return code < DISPLAY_ID_EOTF_LABELS.length
+    ? DISPLAY_ID_EOTF_LABELS[code]
+    : `Reserved (0x${code.toString(16)})`;
+}
 
 export function isDisplayInterfaceFeaturesPayloadLengthValid(length: number): boolean {
   return length >= MIN_INTERFACE_FEATURES_PAYLOAD_LENGTH && length <= MAX_PAYLOAD_LENGTH;

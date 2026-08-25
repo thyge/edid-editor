@@ -277,6 +277,16 @@ export interface DisplayIdStereoTimingCodeDescriptor {
 }
 
 /**
+ * DisplayID 2.0 timing-code type labels for the 2-bit code shared by the
+ * Stereo Display Interface 3D Timing Descriptor (§4.6 Table 4-28, header bits
+ * 7:6) and the Type VIII Enumerated Timing Code block (§4.3.2, header flags
+ * bits 7:6). Index = on-the-wire code: 0=DMT, 1=CTA VIC, 2=HDMI VIC, 3=reserved.
+ */
+export const DISPLAY_ID_TIMING_CODE_TYPE_LABELS: readonly string[] = [
+  'DMT', 'CTA VIC', 'HDMI VIC', 'Reserved',
+];
+
+/**
  * DisplayID 2.0 §4.6 Stereo Display Interface Data Block (tag 0x27).
  *
  * Payload layout (offsets relative to the payload, i.e. spec offset + 03h):

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
   DisplayIdDataBlockTag,
+  SINGLE_TILE_BEHAVIOR_LABELS,
+  SUBSET_TILE_BEHAVIOR_LABELS,
   type DisplayIdDataBlock,
   type DisplayIdExtension,
   type DisplayIdTiledDisplayTopologyBlock,
@@ -13,17 +15,10 @@ import { blocksByTag, numberFromEvent, stringFromEvent } from './displayIdEditor
 const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
-// DisplayID 2.0 §4.7 Table 4-38: capabilities byte semantics.
-const singleTileBehaviorLabels = [
-  'Behavior cannot be described',
-  'Image displayed at Tile Location',
-  'Image scaled to fit entire tiled display',
-  'Image cloned to all other tiles',
-]
-const subsetTileBehaviorLabels = [
-  'Behavior cannot be described',
-  'Image displayed at Tile Location',
-]
+// Capabilities byte semantics (Table 4-38) sourced from the edidts lib
+// (tiled-topology.ts): SINGLE_TILE_BEHAVIOR_LABELS / SUBSET_TILE_BEHAVIOR_LABELS.
+const singleTileBehaviorLabels = SINGLE_TILE_BEHAVIOR_LABELS
+const subsetTileBehaviorLabels = SUBSET_TILE_BEHAVIOR_LABELS
 
 function update(index: number, block: DisplayIdTiledDisplayTopologyBlock, patch: Partial<DisplayIdTiledDisplayTopologyBlock>) {
   emit('updateBlock', index, { ...block, ...patch })

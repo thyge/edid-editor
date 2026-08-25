@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import {
   DisplayIdDataBlockTag,
+  STEREO_INTERFACE_METHOD_LABELS,
+  STEREO_INTERFACE_METHOD_PARAM_COUNTS,
+  STEREO_TIMING_SUPPORT_LABELS,
+  DISPLAY_ID_TIMING_CODE_TYPE_LABELS,
   type DisplayIdDataBlock,
   type DisplayIdExtension,
   type DisplayIdStereoDisplayInterfaceBlock,
@@ -14,29 +18,14 @@ import { blocksByTag, bytesToHex, hexToBytes, numberFromEvent, stringFromEvent }
 const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
-// DisplayID 2.0 §4.6 Table 4-29: Stereo Interface Method Codes.
-const methodLabels: Record<number, string> = {
-  0x00: 'Frame/Field Sequential',
-  0x01: 'Side-by-side',
-  0x02: 'Pixel-interleaved',
-  0x03: 'Dual Interface (L/R Separate)',
-  0x04: 'Multi-view',
-  0x05: 'Stacked Frame',
-  0xff: 'Proprietary',
-}
-// Expected parameter byte counts per method code (Table 4-29).
-const methodParamCounts: Record<number, number> = {
-  0x00: 1, 0x01: 1, 0x02: 8, 0x03: 1, 0x04: 2, 0x05: 1, 0xff: 0,
-}
-
-const timingSupportLabels = [
-  'Apply to timings that explicitly report 3D',
-  'Explicit 3D timings + Timing Codes listed',
-  'Apply to all listed timings',
-  'Only Timing Codes listed',
-]
-
-const timingCodeTypeLabels = ['DMT timing code', 'CTA VIC timing code', 'HDMI VIC timing code', 'Reserved timing code type']
+// Stereo interface method codes, parameter counts, 3D timing support, and the
+// timing-code-type labels are sourced from the edidts lib (stereo-interface.ts
+// + types.ts). The timing-code-type map is shared with Type VIII
+// (DISPLAY_ID_TIMING_CODE_TYPE_LABELS).
+const methodLabels = STEREO_INTERFACE_METHOD_LABELS
+const methodParamCounts = STEREO_INTERFACE_METHOD_PARAM_COUNTS
+const timingSupportLabels = STEREO_TIMING_SUPPORT_LABELS
+const timingCodeTypeLabels = DISPLAY_ID_TIMING_CODE_TYPE_LABELS
 
 function methodOptionLabel(code: number): string {
   return methodLabels[code] ?? `Reserved (0x${code.toString(16).padStart(2, '0')})`

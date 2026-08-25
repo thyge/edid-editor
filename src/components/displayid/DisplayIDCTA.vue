@@ -2,6 +2,7 @@
 import {
   DisplayIdDataBlockTag,
   ExtensionBlockParser,
+  getCEADataBlockLabel,
   type DisplayIdCtaBlock,
   type DisplayIdDataBlock,
   type DisplayIdExtension,
@@ -21,14 +22,8 @@ function setPayload(index: number, block: DisplayIdCtaBlock, hex: string) {
   emit('updateBlock', index, { ...block, ctaPayload: raw, dataBlocks, trailing } as DisplayIdCtaBlock)
 }
 
-const tagLabel: Record<number, string> = {
-  0x01: 'Audio',
-  0x02: 'Video',
-  0x03: 'Vendor-Specific',
-  0x04: 'Speaker Allocation',
-  0x05: 'VESA Display Transfer',
-  0x07: 'Extended Tag',
-}
+// Embedded CTA short data-block tag labels reuse the CTA-861 label map
+// (cta/extension-block.ts) via getCEADataBlockLabel — the tag space is shared.
 </script>
 
 <template>
@@ -43,7 +38,7 @@ const tagLabel: Record<number, string> = {
         <div v-if="block.dataBlocks.length > 0" class="space-y-1">
           <h4 class="text-xs font-medium text-muted-foreground">Embedded CTA short data blocks ({{ block.dataBlocks.length }})</h4>
           <div v-for="(dataBlock, dbIndex) in block.dataBlocks" :key="dbIndex" class="flex items-center justify-between rounded-md border border-border px-3 py-1.5">
-            <span class="text-xs">Tag 0x{{ dataBlock.tag.toString(16).padStart(2, '0') }} — {{ tagLabel[dataBlock.tag] ?? 'Unknown' }}</span>
+            <span class="text-xs">Tag 0x{{ dataBlock.tag.toString(16).padStart(2, '0') }} — {{ getCEADataBlockLabel(dataBlock.tag) }}</span>
             <span class="font-mono text-xs text-muted-foreground">{{ bytesToHex(dataBlock.payload) }}</span>
           </div>
         </div>

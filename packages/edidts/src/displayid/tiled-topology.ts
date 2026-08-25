@@ -30,6 +30,26 @@ import { readIeeeOui, writeIeeeOui } from '../common/bintools';
 
 const TILED_TOPOLOGY_PAYLOAD_LENGTH = 22;
 
+/**
+ * DisplayID 2.0 §4.7 Table 4-38 single-tile behavior (capabilities byte
+ * bits 2:0). Index = on-the-wire code.
+ */
+export const SINGLE_TILE_BEHAVIOR_LABELS: readonly string[] = [
+  'Behavior cannot be described',
+  'Image displayed at Tile Location',
+  'Image scaled to fit entire tiled display',
+  'Image cloned to all other tiles',
+];
+
+/**
+ * DisplayID 2.0 §4.7 Table 4-38 subset-tile behavior (capabilities byte
+ * bits 4:3). Index = on-the-wire code.
+ */
+export const SUBSET_TILE_BEHAVIOR_LABELS: readonly string[] = [
+  'Behavior cannot be described',
+  'Image displayed at Tile Location',
+];
+
 export function isTiledDisplayTopologyPayloadLengthValid(length: number): boolean {
   return length === TILED_TOPOLOGY_PAYLOAD_LENGTH;
 }

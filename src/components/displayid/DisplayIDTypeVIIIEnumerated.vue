@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   DisplayIdDataBlockTag,
+  DISPLAY_ID_TIMING_CODE_TYPE_LABELS,
   type DisplayIdDataBlock,
   type DisplayIdExtension,
   type DisplayIdTypeVIIIEnumeratedTimingCodeBlock,
@@ -12,6 +13,10 @@ import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '
 
 const props = defineProps<{ displayId: DisplayIdExtension }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
+
+// Timing-code-type labels are the shared DISPLAY_ID_TIMING_CODE_TYPE_LABELS
+// (types.ts) — the same 2-bit code is used by the Stereo Display Interface
+// 3D Timing Descriptor, so both components consume one lib export.
 
 function updateBlock(index: number, block: DisplayIdTypeVIIIEnumeratedTimingCodeBlock, timingCodes: number[]) {
   emit('updateBlock', index, { ...block, timingCodes } as DisplayIdTypeVIIIEnumeratedTimingCodeBlock)
@@ -30,7 +35,7 @@ function updateBlock(index: number, block: DisplayIdTypeVIIIEnumeratedTimingCode
         class="space-y-3"
       >
         <p class="text-xs text-muted-foreground">
-          Code type: {{ ['DMT', 'CTA VIC', 'HDMI VIC', 'reserved'][block.codeType] ?? block.codeType }}
+          Code type: {{ DISPLAY_ID_TIMING_CODE_TYPE_LABELS[block.codeType] ?? block.codeType }}
           ({{ block.codeSize }}-byte codes)
         </p>
         <div v-for="(code, codeIndex) in block.timingCodes" :key="codeIndex" class="flex items-center gap-2">

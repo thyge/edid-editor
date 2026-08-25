@@ -40,16 +40,27 @@ export {
   decodeDisplayInterfaceFeaturesBlock,
   encodeDisplayInterfaceFeaturesBlock,
   isDisplayInterfaceFeaturesPayloadLengthValid,
+  DEPTHS_444,
+  DEPTHS_4XX,
+  DISPLAY_ID_COLOR_SPACE_LABELS,
+  DISPLAY_ID_EOTF_LABELS,
+  getDisplayIdColorSpaceLabel,
+  getDisplayIdEotfLabel,
 } from './interface-features';
 export {
   decodeStereoDisplayInterfaceBlock,
   encodeStereoDisplayInterfaceBlock,
   isStereoDisplayInterfacePayloadLengthValid,
+  STEREO_INTERFACE_METHOD_LABELS,
+  STEREO_INTERFACE_METHOD_PARAM_COUNTS,
+  STEREO_TIMING_SUPPORT_LABELS,
 } from './stereo-interface';
 export {
   decodeTiledDisplayTopologyBlock,
   encodeTiledDisplayTopologyBlock,
   isTiledDisplayTopologyPayloadLengthValid,
+  SINGLE_TILE_BEHAVIOR_LABELS,
+  SUBSET_TILE_BEHAVIOR_LABELS,
 } from './tiled-topology';
 export {
   decodeContainerIdBlock,
@@ -95,6 +106,8 @@ export {
 export {
   decodeDisplayIdSection,
   encodeDisplayIdSection,
+  DISPLAY_ID_PRIMARY_USE_CASES,
+  DISPLAY_ID_RESERVED_USE_CASES,
 } from './section';
 export {
   decodeDisplayIdBlocksV1,
@@ -109,6 +122,7 @@ export {
   DISPLAY_ID_BLOCK_LABELS,
   DISPLAY_ID_V1_BLOCK_LABELS,
   DISPLAY_ID_V1_BLOCK_TAGS,
+  DISPLAY_ID_TIMING_CODE_TYPE_LABELS,
   DisplayIdDataBlockTag,
   DisplayIdDecodeError,
   createDefaultDisplayIdBlock,

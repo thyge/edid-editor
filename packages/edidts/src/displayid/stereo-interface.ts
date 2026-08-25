@@ -30,6 +30,36 @@ import {
 
 const MIN_STEREO_INTERFACE_PAYLOAD_LENGTH = 2;
 
+/**
+ * DisplayID 2.0 §4.6 Table 4-29 Stereo Interface Method Codes.
+ * Key = on-the-wire method code.
+ */
+export const STEREO_INTERFACE_METHOD_LABELS: Record<number, string> = {
+  0x00: 'Frame/Field Sequential',
+  0x01: 'Side-by-side',
+  0x02: 'Pixel-interleaved',
+  0x03: 'Dual Interface (L/R Separate)',
+  0x04: 'Multi-view',
+  0x05: 'Stacked Frame',
+  0xff: 'Proprietary',
+};
+
+/** Expected method-specific parameter byte counts per method code (Table 4-29). */
+export const STEREO_INTERFACE_METHOD_PARAM_COUNTS: Record<number, number> = {
+  0x00: 1, 0x01: 1, 0x02: 8, 0x03: 1, 0x04: 2, 0x05: 1, 0xff: 0,
+};
+
+/**
+ * DisplayID 2.0 §4.6 Table 4-28 3D Stereo Timing Support (header byte 01h
+ * bits 7:6). Index = on-the-wire code.
+ */
+export const STEREO_TIMING_SUPPORT_LABELS: readonly string[] = [
+  'Apply to timings that explicitly report 3D',
+  'Explicit 3D timings + Timing Codes listed',
+  'Apply to all listed timings',
+  'Only Timing Codes listed',
+];
+
 export function isStereoDisplayInterfacePayloadLengthValid(length: number): boolean {
   return length >= MIN_STEREO_INTERFACE_PAYLOAD_LENGTH;
 }
