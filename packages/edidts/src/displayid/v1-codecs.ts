@@ -18,12 +18,16 @@ import {
   type DisplayIdV1ProductIdentificationBlock,
   type DisplayIdV1TiledDisplayTopologyBlock,
   type DisplayIdV1TypeIDetailedTimingBlock,
+  type DisplayIdV1VendorSpecificBlock,
 } from './types';
+import { readIeeeOui, writeIeeeOui } from '../common/bintools';
 
 export const TYPE_I_TIMING_ENTRY_LENGTH = 20;
 export const TILED_TOPOLOGY_PAYLOAD_LENGTH = 22;
 export const DISPLAY_PARAMETERS_PAYLOAD_LENGTH = 12;
 export const PRODUCT_ID_FIXED_LENGTH = 12;
+/** Minimum vendor-specific payload: the 3-byte OUI (the body may be empty). */
+export const V1_VENDOR_SPECIFIC_MIN_PAYLOAD_LENGTH = 3;
 
 // ---------------------------------------------------------------------------
 // Payload-length validators (decode gates; also part of the public API)
@@ -43,6 +47,10 @@ export function isV1TypeITimingPayloadLengthValid(length: number): boolean {
 
 export function isV1TiledDisplayTopologyPayloadLengthValid(length: number): boolean {
   return length === TILED_TOPOLOGY_PAYLOAD_LENGTH;
+}
+
+export function isV1VendorSpecificPayloadLengthValid(length: number): boolean {
+  return length >= V1_VENDOR_SPECIFIC_MIN_PAYLOAD_LENGTH;
 }
 
 // ---------------------------------------------------------------------------
@@ -296,6 +304,33 @@ export function encodeV1TiledDisplayTopologyBlock(
 }
 
 // ---------------------------------------------------------------------------
+// Vendor-Specific (tag 0x7f, 3-byte big-endian OUI + raw vendor body)
+//
+// Same wire layout as the v2.0 block (tag 0x7e); edid-decode parses both
+// versions in one function (parse_displayid_vendor_specific) and reads the
+// OUI big-endian regardless of section version. This codec models only the
+// OUI + raw body (CTA VSDB-style opaque fallback); per-vendor structured
+// dispatch is a separate task.
+// ---------------------------------------------------------------------------
+
+export function decodeV1VendorSpecificBlock(block: DisplayIdDataBlock): DisplayIdV1VendorSpecificBlock {
+  const p = block.payload;
+  return {
+    ...block,
+    tag: DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific,
+    ieeeOui: readIeeeOui(p, 0),
+    vendorPayload: p.slice(V1_VENDOR_SPECIFIC_MIN_PAYLOAD_LENGTH),
+  };
+}
+
+export function encodeV1VendorSpecificBlock(block: DisplayIdV1VendorSpecificBlock): Uint8Array {
+  const payload = new Uint8Array(V1_VENDOR_SPECIFIC_MIN_PAYLOAD_LENGTH + block.vendorPayload.length);
+  writeIeeeOui(payload, 0, block.ieeeOui);
+  payload.set(block.vendorPayload, V1_VENDOR_SPECIFIC_MIN_PAYLOAD_LENGTH);
+  return payload;
+}
+
+// ---------------------------------------------------------------------------
 // Encode type guards (structural-field checks; gate the encode registry entry)
 // ---------------------------------------------------------------------------
 
@@ -346,6 +381,17 @@ export function isTypedV1TiledDisplayTopologyBlock(
     typeof maybe.singleTileBehavior === 'number' &&
     typeof maybe.productId === 'number' &&
     typeof maybe.serialNumber === 'number'
+  );
+}
+
+export function isTypedV1VendorSpecificBlock(
+  block: DisplayIdDataBlock,
+): block is DisplayIdV1VendorSpecificBlock {
+  const maybe = block as Partial<DisplayIdV1VendorSpecificBlock>;
+  return (
+    block.tag === DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific &&
+    typeof maybe.ieeeOui === 'number' &&
+    maybe.vendorPayload instanceof Uint8Array
   );
 }
 

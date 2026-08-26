@@ -117,6 +117,7 @@ export {
   isV1DisplayParametersPayloadLengthValid,
   isV1TypeITimingPayloadLengthValid,
   isV1TiledDisplayTopologyPayloadLengthValid,
+  isV1VendorSpecificPayloadLengthValid,
 } from './v1-blocks';
 export {
   DISPLAY_ID_BLOCK_LABELS,
@@ -155,6 +156,7 @@ export type {
   DisplayIdV1DisplayParametersBlock,
   DisplayIdV1TypeIDetailedTimingBlock,
   DisplayIdV1TiledDisplayTopologyBlock,
+  DisplayIdV1VendorSpecificBlock,
   KnownDisplayIdV1DataBlock,
 } from './types';
 export type {

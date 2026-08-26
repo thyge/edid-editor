@@ -9,10 +9,12 @@ import {
   isV1ProductIdentificationPayloadLengthValid,
   isV1TiledDisplayTopologyPayloadLengthValid,
   isV1TypeITimingPayloadLengthValid,
+  isV1VendorSpecificPayloadLengthValid,
   type DisplayIdV1DisplayParametersBlock,
   type DisplayIdV1ProductIdentificationBlock,
   type DisplayIdV1TiledDisplayTopologyBlock,
   type DisplayIdV1TypeIDetailedTimingBlock,
+  type DisplayIdV1VendorSpecificBlock,
 } from '../src/displayid';
 
 function withChecksum(bytes: number[]): Uint8Array {
@@ -363,5 +365,66 @@ describe('DisplayID 1.x Tiled Display Topology block (tag 0x12, fixed 22 bytes)'
     expect(isV1TiledDisplayTopologyPayloadLengthValid(22)).toBe(true);
     expect(isV1TiledDisplayTopologyPayloadLengthValid(21)).toBe(false);
     expect(isV1TiledDisplayTopologyPayloadLengthValid(23)).toBe(false);
+  });
+});
+
+describe('DisplayID 1.x Vendor-Specific block (tag 0x7f, 3-byte OUI + raw body)', () => {
+  // OUI 0x000C03 (HDMI, big-endian bytes 00 0C 03) + a 4-byte vendor body.
+  const payload = new Uint8Array([0x00, 0x0c, 0x03, 0x01, 0x02, 0x03, 0x04]);
+  const sectionBytes = v1SectionWith([0x7f, 0x00, payload.length, ...payload]);
+
+  it('decodes the big-endian OUI and the raw vendor body', () => {
+    const section = decodeDisplayIdSection(sectionBytes);
+    const block = section.blocks[0] as DisplayIdV1VendorSpecificBlock;
+    expect(block.tag).toBe(DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific);
+    expect(block.ieeeOui).toBe(0x000c03);
+    expect(Array.from(block.vendorPayload)).toEqual([0x01, 0x02, 0x03, 0x04]);
+  });
+
+  it('round-trips byte-exactly through decode + encode', () => {
+    const section = decodeDisplayIdSection(sectionBytes);
+    expect(Array.from(encodeDisplayIdSection(section))).toEqual(Array.from(sectionBytes));
+  });
+
+  it('re-encodes an edited OUI and vendor body', () => {
+    const section = decodeDisplayIdSection(sectionBytes);
+    const block = section.blocks[0] as DisplayIdV1VendorSpecificBlock;
+    block.ieeeOui = 0x3a0292; // VESA
+    block.vendorPayload = new Uint8Array([0xaa, 0xbb]);
+    section.blocks[0] = { ...block, payload: encodeDisplayIdBlock(block) };
+
+    const redecoded = decodeDisplayIdSection(encodeDisplayIdSection(section));
+    const reblock = redecoded.blocks[0] as DisplayIdV1VendorSpecificBlock;
+    expect(reblock.ieeeOui).toBe(0x3a0292);
+    expect(Array.from(reblock.vendorPayload)).toEqual([0xaa, 0xbb]);
+  });
+
+  it('decodes an OUI-only block (empty vendor body) and round-trips it', () => {
+    const ouiOnly = new Uint8Array([0x3a, 0x02, 0x92]); // VESA OUI, no body
+    const bytes = v1SectionWith([0x7f, 0x00, ouiOnly.length, ...ouiOnly]);
+    const section = decodeDisplayIdSection(bytes);
+    const block = section.blocks[0] as DisplayIdV1VendorSpecificBlock;
+    expect(block.tag).toBe(DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific);
+    expect(block.ieeeOui).toBe(0x3a0292);
+    expect(block.vendorPayload.length).toBe(0);
+    expect(Array.from(encodeDisplayIdSection(section))).toEqual(Array.from(bytes));
+  });
+
+  it('falls through to the opaque carrier when the payload is too short for an OUI', () => {
+    // 2-byte payload: not enough for the 3-byte OUI, so the length gate fails and
+    // the block stays a raw generic carrier (no ieeeOui field) that round-trips.
+    const bytes = v1SectionWith([0x7f, 0x00, 0x02, 0xaa, 0xbb]);
+    const section = decodeDisplayIdSection(bytes);
+    const block = section.blocks[0] as Partial<DisplayIdV1VendorSpecificBlock>;
+    expect(block.tag).toBe(DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific);
+    expect(block.ieeeOui).toBeUndefined();
+    expect(Array.from(encodeDisplayIdSection(section))).toEqual(Array.from(bytes));
+  });
+
+  it('isV1VendorSpecificPayloadLengthValid accepts >= 3 bytes (body may be empty)', () => {
+    expect(isV1VendorSpecificPayloadLengthValid(3)).toBe(true);
+    expect(isV1VendorSpecificPayloadLengthValid(7)).toBe(true);
+    expect(isV1VendorSpecificPayloadLengthValid(2)).toBe(false);
+    expect(isV1VendorSpecificPayloadLengthValid(0)).toBe(false);
   });
 });

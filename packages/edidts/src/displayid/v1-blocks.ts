@@ -24,6 +24,7 @@ export {
   isV1DisplayParametersPayloadLengthValid,
   isV1TypeITimingPayloadLengthValid,
   isV1TiledDisplayTopologyPayloadLengthValid,
+  isV1VendorSpecificPayloadLengthValid,
 } from './v1-codecs';
 
 export interface DecodeV1BlocksResult {

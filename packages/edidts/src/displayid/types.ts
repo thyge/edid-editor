@@ -593,11 +593,34 @@ export interface DisplayIdV1TiledDisplayTopologyBlock extends DisplayIdDataBlock
   serialNumber: number;
 }
 
+/**
+ * DisplayID 1.x Vendor-Specific Data Block (tag 0x7f).
+ *
+ * Same wire layout as the v2.0 block (tag 0x7e): payload[0..2] = 24-bit IEEE
+ * OUI (big-endian, MSB first — DisplayID §4.9), payload[3..] = the
+ * vendor-specific body. edid-decode parses both versions in one function
+ * (parse_displayid_vendor_specific, parse-displayid-block.cpp) and reads the
+ * OUI big-endian regardless of section version, so the v1.x and v2.0
+ * vendor-specific blocks share one wire format; only the tag differs.
+ *
+ * This first increment models only the OUI + raw vendor body (mirrors the CTA
+ * VSDB opaque fallback): per-vendor structured dispatch — parity with the v2.0
+ * OUI-keyed registry (displayid/vendor-specific.ts) — is a separate task.
+ */
+export interface DisplayIdV1VendorSpecificBlock extends DisplayIdDataBlock {
+  tag: typeof DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific;
+  /** 24-bit IEEE OUI (payload[0..2], big-endian — same wire order as v2.0 §4.9). */
+  ieeeOui: number;
+  /** Vendor-specific body (payload[3..]), preserved byte-identically. */
+  vendorPayload: Uint8Array;
+}
+
 export type KnownDisplayIdV1DataBlock =
   | DisplayIdV1ProductIdentificationBlock
   | DisplayIdV1DisplayParametersBlock
   | DisplayIdV1TypeIDetailedTimingBlock
-  | DisplayIdV1TiledDisplayTopologyBlock;
+  | DisplayIdV1TiledDisplayTopologyBlock
+  | DisplayIdV1VendorSpecificBlock;
 
 export const DISPLAY_ID_V1_BLOCK_LABELS: Record<number, string> = {
   [DISPLAY_ID_V1_BLOCK_TAGS.ProductIdentification]: 'Product Identification',

@@ -107,18 +107,22 @@ import {
   decodeV1DisplayParametersBlock,
   decodeV1TypeITimingBlock,
   decodeV1TiledDisplayTopologyBlock,
+  decodeV1VendorSpecificBlock,
   encodeV1ProductIdentificationBlock,
   encodeV1DisplayParametersBlock,
   encodeV1TypeITimingBlock,
   encodeV1TiledDisplayTopologyBlock,
+  encodeV1VendorSpecificBlock,
   isTypedV1ProductIdentificationBlock,
   isTypedV1DisplayParametersBlock,
   isTypedV1TypeITimingBlock,
   isTypedV1TiledDisplayTopologyBlock,
+  isTypedV1VendorSpecificBlock,
   isV1ProductIdentificationPayloadLengthValid,
   isV1DisplayParametersPayloadLengthValid,
   isV1TypeITimingPayloadLengthValid,
   isV1TiledDisplayTopologyPayloadLengthValid,
+  isV1VendorSpecificPayloadLengthValid,
 } from './v1-codecs';
 
 export interface DecodeBlocksResult {
@@ -433,6 +437,16 @@ const DISPLAYID_BLOCK_CODECS: Partial<Record<number, DisplayIdBlockCodec>> = {
     encode: (b) =>
       isTypedV1TiledDisplayTopologyBlock(b)
         ? encodeV1TiledDisplayTopologyBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.encode(b),
+  },
+  [DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific]: {
+    decode: (b) =>
+      isV1VendorSpecificPayloadLengthValid(b.payloadLength)
+        ? decodeV1VendorSpecificBlock(b)
+        : OPAQUE_DISPLAYID_BLOCK.decode(b),
+    encode: (b) =>
+      isTypedV1VendorSpecificBlock(b)
+        ? encodeV1VendorSpecificBlock(b)
         : OPAQUE_DISPLAYID_BLOCK.encode(b),
   },
 };
