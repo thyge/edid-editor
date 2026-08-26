@@ -85,7 +85,52 @@ export interface TimingFlags {
   syncOnGreen?: boolean; // analog only
 }
 
-export interface DetailedTiming {
+/**
+ * Shared field contract for detailed timings across EDID and DisplayID.
+ *
+ * EDID base / CTA-861 DTDs (`DetailedTiming`, 18-byte) and DisplayID Type VII /
+ * v1 Type I (`DisplayIdTypeVIIDetailedTiming`, 20-byte) model the same DTD
+ * geometry, but differ in clock units, in where the interlace/stereo/polarity
+ * flags live (EDID nests them in `flags`; DisplayID flattens them to the top
+ * level), and in per-family extras (EDID image-size-mm/borders/syncType;
+ * DisplayID aspectRatio-code/preferred). Only the eight active/blanking/sync
+ * geometry fields share an identical name, type, and nesting across both
+ * families — those form the required core.
+ *
+ * The semantic fields are OPTIONAL: present at the top level on the family
+ * that defines them, `undefined` on the other (e.g. `pixelClockKHz` is set by
+ * DisplayID, which uses kHz natively, while EDID exposes `pixelClock` in MHz
+ * and leaves `pixelClockKHz` absent). Consumers that need the clock, interlace,
+ * stereo, or polarity must handle `undefined` or read the family-specific
+ * field (`pixelClock` / `flags` for EDID). This is a type-level contract only
+ * — the on-wire codecs are unchanged (TASK-62 structural freeze preserved, and
+ * reference parsers keep the on-wire structs separate; see TASK-73/84).
+ *
+ * Type IX (6-byte formula) and Type X (6-8 byte delta) timings do NOT carry the
+ * full DTD field set and are deliberately NOT modeled as extending this base.
+ */
+export interface DetailedTimingBase {
+  horizontalActive: number;
+  horizontalBlanking: number;
+  verticalActive: number;
+  verticalBlanking: number;
+  horizontalSyncOffset: number;
+  horizontalSyncWidth: number;
+  verticalSyncOffset: number;
+  verticalSyncWidth: number;
+  /** Pixel clock in kHz. DisplayID Type VII / v1 Type I expose this; EDID uses `pixelClock` (MHz). */
+  pixelClockKHz?: number;
+  /** Interlace flag. DisplayID exposes this top-level; EDID nests it in `flags.interlaced`. */
+  interlaced?: boolean;
+  /** 3D stereo (0-3). DisplayID exposes this top-level; EDID uses `flags.stereoMode` (string union). */
+  stereo?: number;
+  /** Horizontal sync polarity. DisplayID exposes this top-level; EDID nests it in `flags.hSyncPolarity`. */
+  horizontalSyncPolarity?: boolean;
+  /** Vertical sync polarity. DisplayID exposes this top-level; EDID nests it in `flags.vSyncPolarity`. */
+  verticalSyncPolarity?: boolean;
+}
+
+export interface DetailedTiming extends DetailedTimingBase {
   pixelClock: number; // MHz (megahertz)
   horizontalActive: number;
   horizontalBlanking: number;

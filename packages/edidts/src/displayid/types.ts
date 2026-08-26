@@ -2,6 +2,10 @@ import type { DisplayIdTypeXTimingBlock } from './type-x-timing';
 import type { DisplayIdAdaptiveSyncBlock } from './adaptive-sync';
 import type { DisplayIdArvrHmdBlock, DisplayIdArvrLayerBlock } from './ar-vr';
 import type { DisplayIdBrightnessLuminanceRangeBlock } from './brightness-luminance';
+// Shared detailed-timing field contract (TASK-73/84). Type-only import: erased
+// at runtime, so no runtime dependency on the common module; `common` is a
+// lower-level leaf, so there is no cycle.
+import type { DetailedTimingBase } from '../common/detailed-timing-descriptor';
 // CTA-861 short data block types (DisplayID 2.0 §4.10 CTA DisplayID embeds a
 // stream of these). Type-only import: erased at runtime, so this does not
 // create a runtime dependency cycle with the cta module.
@@ -114,7 +118,7 @@ export interface DisplayIdDisplayParametersBlock extends DisplayIdDataBlock {
  * Pixel clock is 24-bit little-endian at 1 kHz resolution (1 + raw24).
  * Field layout per edid-decode parse_displayid_type_1_7_timing.
  */
-export interface DisplayIdTypeVIIDetailedTiming {
+export interface DisplayIdTypeVIIDetailedTiming extends DetailedTimingBase {
   /** Bytes 0-2 — pixel clock in kHz (1 + raw 24-bit LE). */
   pixelClockKHz: number;
   /** Byte 3 bits 3:0 — aspect ratio code (0-8; 8 = calculate from active). */

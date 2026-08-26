@@ -20,7 +20,7 @@ export {
   normalizeTimingFlags,
   computeRefreshRate,
 } from './detailed-timing-descriptor';
-export type { DetailedTiming, DetailedTimingInput, StereoMode, SyncType, TimingFlags } from './detailed-timing-descriptor';
+export type { DetailedTiming, DetailedTimingBase, DetailedTimingInput, StereoMode, SyncType, TimingFlags } from './detailed-timing-descriptor';
 export {
   STEREO_MODE_LABELS,
   STEREO_MODE_OPTIONS,

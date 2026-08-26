@@ -3,10 +3,13 @@ import {
   DetailedTimingDescriptor,
   decodeEdidCtaDetailedTiming,
   encodeEdidCtaDetailedTiming,
+  type DetailedTiming,
+  type DetailedTimingBase,
   type DetailedTimingInput,
   type StereoMode,
   type TimingFlags,
 } from '../src/common/detailed-timing-descriptor';
+import type { DisplayIdTypeVIIDetailedTiming } from '../src/displayid';
 
 describe('common detailed timing model and EDID/CTA codec', () => {
   it('decodes EDID/CTA 18-byte DTDs into the canonical timing model', () => {
@@ -292,5 +295,36 @@ describe('common detailed timing model and EDID/CTA codec', () => {
     const reStereoBits = ((reencoded[17] >> 4) & 0x06) | (reencoded[17] & 0x01);
     expect(reStereoBits).not.toBe(0x07);
     expect(reencoded[17] & 0x01).toBe(0);
+  });
+});
+
+describe('DetailedTimingBase shared supertype (TASK-84)', () => {
+  // Compile-time assignability checks: the cast-assignment below only type-
+  // checks if each detailed-timing interface is assignable to DetailedTimingBase.
+  // Both interfaces `extends DetailedTimingBase`, so the common 8 geometry
+  // fields are guaranteed; the semantic fields (clock/interlace/stereo/polarity)
+  // are optional and family-specific. No codec is involved — type contract only.
+
+  it('EDID DetailedTiming is assignable to DetailedTimingBase', () => {
+    const edid: DetailedTimingBase = {} as DetailedTiming;
+    expect(edid).toBeDefined();
+  });
+
+  it('DisplayID Type VII detailed timing is assignable to DetailedTimingBase', () => {
+    const displayId: DetailedTimingBase = {} as DisplayIdTypeVIIDetailedTiming;
+    expect(displayId).toBeDefined();
+  });
+
+  it('DisplayIdTypeVIIDetailedTiming narrows the optional base fields to required', () => {
+    // DisplayID declares pixelClockKHz/interlaced/stereo/polarity as required,
+    // narrowing the base's optional declarations — so they are `number`/`boolean`
+    // (not `| undefined`) on the DisplayID interface.
+    const t = {} as DisplayIdTypeVIIDetailedTiming;
+    const clock: number = t.pixelClockKHz;
+    const interlaced: boolean = t.interlaced;
+    const stereo: number = t.stereo;
+    expect(clock).toBeUndefined();
+    expect(interlaced).toBeUndefined();
+    expect(stereo).toBeUndefined();
   });
 });
