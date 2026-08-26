@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { appendArrayItem, removeArrayItem } from '../common/editorUtils'
+import { appendArrayItem, removeArrayItem, findDataBlockIndex } from '../common/editorUtils'
 
 const props = defineProps<{
   cea: CEAExtensionBlock
@@ -16,6 +16,7 @@ const emit = defineEmits<{
   update: [field: string, value: unknown]
 }>()
 
+const blockIndex = computed(() => findDataBlockIndex(props.cea, 0x01))
 const audioBlock = computed(() =>
   props.cea.dataBlocks.find(b => b.tag === 0x01) as AudioDataBlock | undefined
 )
@@ -29,7 +30,7 @@ const bitDepthLabels = AUDIO_BIT_DEPTH_OPTIONS
 const formatOptions = AUDIO_FORMAT_CODES.filter(f => f.code >= 1 && f.code <= 14)
 
 function commit(updated: AudioDataBlock['descriptors']) {
-  emit('update', 'audioBlock.descriptors', updated)
+  emit('update', `dataBlocks.${blockIndex.value}.descriptors`, updated)
 }
 
 function toggleSampleRate(descIndex: number, rateKey: string, value: boolean) {

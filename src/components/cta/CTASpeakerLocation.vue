@@ -5,15 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import { findExtendedDataBlockIndex } from '../common/editorUtils'
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
 const emit = defineEmits<{
-  update: [block: SpeakerLocationDataBlock | undefined, field: string, value: unknown]
+  update: [path: string, value: unknown]
 }>()
 
 type Descriptor = SpeakerLocationDataBlock['descriptors'][number]
 
+const blockIndex = computed(() => findExtendedDataBlockIndex(props.cea, 0x14))
 const block = computed(() =>
   props.cea.dataBlocks.find(
     b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x14
@@ -21,7 +23,7 @@ const block = computed(() =>
 )
 
 function setDescriptors(descriptors: Descriptor[]) {
-  emit('update', block.value, 'descriptors', descriptors)
+  emit('update', `dataBlocks.${blockIndex.value}.descriptors`, descriptors)
 }
 function updateEntry(index: number, patch: Partial<Descriptor>) {
   if (!block.value) return

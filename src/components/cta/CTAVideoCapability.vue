@@ -5,6 +5,7 @@ import type { VideoCapabilityDataBlock } from 'edidts'
 import { SCAN_BEHAVIOR_OPTIONS } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { findExtendedDataBlockIndex } from '../common/editorUtils'
 
 const props = defineProps<{
   cea: CEAExtensionBlock
@@ -14,6 +15,7 @@ const emit = defineEmits<{
   update: [field: string, value: unknown]
 }>()
 
+const blockIndex = computed(() => findExtendedDataBlockIndex(props.cea, 0x00))
 const vcdb = computed(() =>
   props.cea.dataBlocks.find(
     b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x00
@@ -26,7 +28,7 @@ const selectClass = 'flex h-8 w-full rounded-md border border-input dark:bg-inpu
 const switchRowClass = 'flex items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2 hover:bg-muted/50 transition-colors'
 
 function updateField(field: string, value: unknown) {
-  emit('update', `videoCapability.${field}`, value)
+  emit('update', `dataBlocks.${blockIndex.value}.${field}`, value)
 }
 </script>
 

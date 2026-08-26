@@ -10,15 +10,9 @@ import {
   getDisplayIdExtension,
   type CEADefaultBlockType,
   type DisplayDescriptor,
-  type ScreenSize,
-  type VideoInputDefinition,
-  type EstablishedTiming,
-  type StandardTiming,
   type CEAExtension,
   type DisplayIdDataBlock,
   type DisplayIdExtension,
-  type VendorSpecificDataBlock,
-  type VendorSpecificVideoDataBlock,
 } from 'edidts'
 import { appendArrayItem, updateArrayItem, removeArrayItem } from '@/components/common/editorUtils'
 import TopNav from '@/components/layout/TopNav.vue'
@@ -104,22 +98,6 @@ function removeTiming(index: number) {
   if (activeSection.value.startsWith('edid-dtd-')) activeSection.value = 'overview'
 }
 
-function updateDetailedTiming(index: number, field: string, value: unknown) {
-  if (!edidRef.value) return
-  const timings = edidRef.value.base.detailedTimings
-  const timing = timings[index]
-  if (!timing) return
-  if (field.startsWith('flags.')) {
-    const key = field.slice(6)
-    ;(timing.flags as unknown as Record<string, unknown>)[key] = value
-  } else {
-    ;(timing as unknown as Record<string, unknown>)[field] = value
-  }
-  // Reassign the array so Vue re-evaluates the detailedTimings computed and
-  // the HexViewer reflects the re-encoded bytes.
-  edidRef.value.base.detailedTimings = updateArrayItem(timings, index, timing)
-}
-
 function addDescriptor(tag: number) {
   if (!edidRef.value) return
   const descriptor = createDefaultDescriptor(tag)
@@ -146,62 +124,46 @@ function updateDescriptor(index: number, descriptor: DisplayDescriptor) {
   edidRef.value.base.displayDescriptors = updateArrayItem(descriptors, index, descriptor)
 }
 
-/** Set a (possibly dotted) path on an object, mutating in place. The EEDID
- *  tree is reactive, so this mutation is tracked and the deep watcher in
- *  useEDID re-encodes — no manual syncEdid/trigger needed. No-ops on a nullish
- *  target (carrier children emit `block | undefined`). */
-function setByPath(obj: object | undefined | null, path: string, value: unknown): void {
-  if (!obj) return
+/** Set a (possibly dotted) path on a reactive prop-root, mutating in place.
+ *  The EEDID tree is wrapped in `reactive()`, so a deep property set is
+ *  tracked and the `edidData` computed (whose only expression is
+ *  `EEDID.encode(edid.value)`) lazily re-encodes on the next render — no manual
+ *  encode call site. No-ops on a nullish target or an unresolved intermediate.
+ *
+ *  After the in-place set, the OUTERMOST array ancestor in the path is
+ *  reassigned (a shallow copy). This is defensive: reactive() deep-tracks
+ *  nested property sets, but reassigning the enclosing array also covers
+ *  shallowRef-wrapped roots and matches the TASK-76 contract (array-element
+ *  edits reassign the array). The encode is pure, so re-reading the copied
+ *  array (same element refs, mutated in place) reproduces identical bytes. */
+function setByPath(root: object | undefined | null, path: string, value: unknown): void {
+  if (!root) return
   const parts = path.split('.')
-  let cur: Record<string, unknown> = obj as Record<string, unknown>
-  for (let i = 0; i < parts.length - 1; i++) {
-    const next = cur[parts[i]]
+  const containers: { container: object; key: string }[] = []
+  let cur: object = root
+  for (let i = 0; i < parts.length; i++) {
+    const key = parts[i]
+    containers.push({ container: cur, key })
+    if (i === parts.length - 1) {
+      ;(cur as Record<string, unknown>)[key] = value
+      break
+    }
+    const next = (cur as Record<string, unknown>)[key]
     if (next == null || typeof next !== 'object') return
-    cur = next as Record<string, unknown>
+    cur = next
   }
-  cur[parts[parts.length - 1]] = value
-}
-
-/** Edit a structured vendor data block — tag-0x03 VSDBs (HDMI 1.4, HDMI
- *  Forum, Microsoft HMD, AMD) and tag-0x07 ext-0x01 VSVDBs (Dolby Vision).
- *  Both carrier families re-encode from block.vendor.fields; mutate the fields
- *  object and the reactive tree + deep watcher handle propagation. The
- *  VSDB/VSVDB split collapsed in TASK-67; trailing vendor-reserved bytes live
- *  in the decoded shape's `trailing` field and survive the vendor encoder. */
-function applyVendorField(block: VendorSpecificDataBlock | VendorSpecificVideoDataBlock, field: string, value: unknown) {
-  const vendor = block.vendor
-  if (!vendor || vendor.kind === 'unknown') return
-  setByPath(vendor.fields as object, field, value)
-}
-
-function updateEDIDDisplayInfo(field: string, value: unknown) {
-  if (!edidRef.value) return
-  const edid = edidRef.value.base
-
-  if (field.startsWith('header.')) {
-    const key = field.slice(7) as keyof typeof edid.header & string
-    ;(edid.header as unknown as Record<string, unknown>)[key] = value
-  } else if (field === 'videoInput') {
-    edid.videoInput = value as VideoInputDefinition
-  } else if (field === 'screenSize') {
-    edid.screenSize = value as ScreenSize
-  } else if (field === 'gamma') {
-    edid.gamma = value as number
-  } else if (field.startsWith('featureSupport.')) {
-    const key = field.slice(15) as keyof typeof edid.featureSupport.features & string
-    ;(edid.featureSupport.features as unknown as Record<string, unknown>)[key] = value
-  }
-
-}
-
-function updateTimings(field: string, value: unknown) {
-  if (!edidRef.value) return
-  if (field === 'establishedTimings') {
-    edidRef.value.base.establishedTimings = value as EstablishedTiming[]
-  } else if (field === 'standardTimings') {
-    edidRef.value.base.standardTimings = value as StandardTiming[]
+  for (const { container, key } of containers) {
+    const slot = (container as Record<string, unknown>)[key]
+    if (Array.isArray(slot)) {
+      ;(container as Record<string, unknown>)[key] = [...(slot as unknown[])]
+      break
+    }
   }
 }
+
+/** One setByPath per prop-root (TASK-76): every EDID-base field edit lands as a
+ *  prop-relative dotted path rooted at the base block. */
+const setEdidField = (path: string, value: unknown) => setByPath(edidRef.value?.base, path, value)
 
 const ceaExtension = computed(() => edidRef.value ? getCEAExtension(edidRef.value) : null)
 const displayIdExtension = computed(() => edidRef.value ? getDisplayIdExtension(edidRef.value) : null)
@@ -334,74 +296,20 @@ function moveDisplayIdBlock(index: number, direction: -1 | 1) {
   blocks.splice(nextIndex, 0, block)
 }
 
-function updateDisplayId(field: string, value: unknown) {
-  const displayId = displayIdExtension.value
-  if (!displayId) return
-  const section = displayId.section
-  if (field === 'primaryUseCase') section.primaryUseCase = value as number
-  if (field === 'extensionCount') section.extensionCount = value as number
-}
-
 function updateDisplayIdBlock(index: number, block: DisplayIdDataBlock) {
   const displayId = displayIdExtension.value
   if (!displayId) return
   displayId.section.blocks = updateArrayItem(displayId.section.blocks, index, block)
 }
 
-function updateCEA(field: string, value: unknown) {
-  if (!edidRef.value) return
-  const cea = getCEAExtension(edidRef.value)
-  if (!cea) return
+/** One setByPath per prop-root (TASK-76): every CTA field edit lands as a
+ *  prop-relative dotted path rooted at the CEA extension (e.g. "revision",
+ *  "dataBlocks.1.vics", "detailedTimings.0.flags.interlaced"). */
+const setCeaField = (path: string, value: unknown) => setByPath(ceaExtension.value, path, value)
 
-  if (field === 'revision') {
-    cea.revision = value as number
-  } else if (field === 'underscan' || field === 'basicAudio' || field === 'ycbcr444' || field === 'ycbcr422') {
-    ;(cea as unknown as Record<string, unknown>)[field] = value
-  } else if (field === 'nativeFormats') {
-    cea.nativeFormats = value as number
-  } else if (field === 'videoBlock.vics') {
-    const vdb = cea.dataBlocks.find(b => b.tag === 0x02)
-    if (vdb) {
-      ;(vdb as unknown as Record<string, unknown>).vics = value
-    }
-  } else if (field === 'audioBlock.descriptors') {
-    const adb = cea.dataBlocks.find(b => b.tag === 0x01)
-    if (adb) {
-      ;(adb as unknown as Record<string, unknown>).descriptors = value
-    }
-  } else if (field === 'speakerBlock.speakers') {
-    const spk = cea.dataBlocks.find(b => b.tag === 0x04)
-    if (spk) {
-      ;(spk as unknown as Record<string, unknown>).speakers = value
-    }
-  } else if (field.startsWith('videoCapability.')) {
-    const vcdb = cea.dataBlocks.find(
-      b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x00
-    )
-    if (vcdb) {
-      const key = field.slice('videoCapability.'.length)
-      ;(vcdb as unknown as Record<string, unknown>)[key] = value
-    }
-  } else if (field.startsWith('detailedTiming.')) {
-    // "detailedTiming.<index>.<subfield>" — subfield is a dotted path such as
-    // "pixelClock" or "flags.interlaced".
-    const rest = field.slice('detailedTiming.'.length)
-    const sep = rest.indexOf('.')
-    const idx = Number(rest.slice(0, sep))
-    const subfield = rest.slice(sep + 1)
-    const timing = cea.detailedTimings[idx]
-    if (timing) {
-      if (subfield.startsWith('flags.')) {
-        const key = subfield.slice(6)
-        ;(timing.flags as unknown as Record<string, unknown>)[key] = value
-      } else {
-        ;(timing as unknown as Record<string, unknown>)[subfield] = value
-      }
-      cea.detailedTimings = updateArrayItem(cea.detailedTimings, idx, timing)
-    }
-  }
-
-}
+/** One setByPath per prop-root (TASK-76): every DisplayID section-level edit
+ *  lands as a prop-relative dotted path rooted at the DisplayID section. */
+const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdExtension.value?.section, path, value)
 </script>
 
 <template>
@@ -440,45 +348,45 @@ function updateCEA(field: string, value: unknown) {
 
         <div v-else class="max-w-4xl">
           <EDIDOverviewSummary v-if="activeSection === 'overview'" :edid="edidRef!" />
-          <EDIDDisplayInfo v-else-if="activeSection === 'display-info'" :edid="edidRef!" @update="updateEDIDDisplayInfo" />
-          <EDIDColorCharacteristics v-else-if="activeSection === 'color-gamut'" :edid="edidRef!" />
+          <EDIDDisplayInfo v-else-if="activeSection === 'display-info'" :edid="edidRef!" @update="setEdidField" />
+          <EDIDColorCharacteristics v-else-if="activeSection === 'color-gamut'" :edid="edidRef!" @update="setEdidField" />
           <EDIDEstablishedTimings
             v-else-if="activeSection === 'timings-established'"
             :edid="edidRef!"
-            @update="updateTimings"
+            @update="setEdidField"
           />
           <EDIDStandardTimings
             v-else-if="activeSection === 'timings-standard'"
             :edid="edidRef!"
-            @update="updateTimings"
+            @update="setEdidField"
           />
           <EDIDDetailedDescriptors
             v-else-if="activeSection === 'edid-descriptors' || activeSection.startsWith('edid-dtd-') || activeSection.startsWith('edid-desc-')"
             :edid="edidRef!"
             :focus="activeSection"
-            @update-timing="updateDetailedTiming"
+            @update="setEdidField"
             @update-descriptor="updateDescriptor"
           />
 
           <!-- CEA sections -->
-          <CTAOverview v-else-if="activeSection === 'cea-overview' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CTAHeaderFlags v-else-if="activeSection === 'cea-header' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CTAVideoBlock v-else-if="activeSection === 'cea-video' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CTAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CTASpeakerBlock v-else-if="activeSection === 'cea-speakers' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CTAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => applyVendorField(b, f, v)" @update-vsvdb="(b, f, v) => applyVendorField(b, f, v)" />
-          <CTAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CTAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="updateCEA" />
-          <CTAVideoFormatPreference v-else-if="activeSection === 'cea-video-format-pref' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CTAVendorAudioBlock v-else-if="activeSection === 'cea-vendor-audio' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CTARoomConfiguration v-else-if="activeSection === 'cea-room-config' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CTASpeakerLocation v-else-if="activeSection === 'cea-speaker-location' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CTAInfoFrame v-else-if="activeSection === 'cea-infoframe' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
-          <CTAVesaTransferCharacteristic v-else-if="activeSection === 'cea-vesa-transfer' && ceaExtension" :cea="ceaExtension" @update="(b, f, v) => setByPath(b, f, v)" />
+          <CTAOverview v-else-if="activeSection === 'cea-overview' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAHeaderFlags v-else-if="activeSection === 'cea-header' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAVideoBlock v-else-if="activeSection === 'cea-video' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTASpeakerBlock v-else-if="activeSection === 'cea-speakers' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAVideoFormatPreference v-else-if="activeSection === 'cea-video-format-pref' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAVendorAudioBlock v-else-if="activeSection === 'cea-vendor-audio' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTARoomConfiguration v-else-if="activeSection === 'cea-room-config' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTASpeakerLocation v-else-if="activeSection === 'cea-speaker-location' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAInfoFrame v-else-if="activeSection === 'cea-infoframe' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAVesaTransferCharacteristic v-else-if="activeSection === 'cea-vesa-transfer' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <CTADetailedTimings
             v-else-if="activeSection === 'cea-timings' && ceaExtension"
             :cea="ceaExtension"
-            @update="(i: number, f: string, v: unknown) => updateCEA(`detailedTiming.${i}.${f}`, v)"
+            @update="setCeaField"
           />
 
           <DisplayIDOverview
@@ -490,7 +398,7 @@ function updateCEA(field: string, value: unknown) {
           <DisplayIDHeader
             v-else-if="activeSection === displayIdSectionIds.header && displayIdExtension"
             :display-id="displayIdExtension"
-            @update="updateDisplayId"
+            @update="setDisplayIdField"
           />
           <DisplayIDProductIdentification
             v-else-if="activeSection === displayIdSectionIds.product && displayIdExtension"

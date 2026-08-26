@@ -154,7 +154,7 @@ function updateGamma(value: string | number) {
 }
 
 function updateFeature(key: string, value: unknown) {
-  emit('update', `featureSupport.${key}`, value)
+  emit('update', `featureSupport.features.${key}`, value)
 }
 </script>
 

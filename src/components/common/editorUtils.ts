@@ -1,4 +1,4 @@
-import type { DisplayIdDataBlock, DisplayIdExtension } from 'edidts'
+import type { CEAExtensionBlock, DisplayIdDataBlock, DisplayIdExtension } from 'edidts'
 
 /**
  * Cross-extension editor helpers shared by the EDID base-block, CTA-861, and
@@ -25,6 +25,25 @@ export function blocksByTag<T extends DisplayIdDataBlock>(
   return displayId.section.blocks
     .map((block, index) => ({ block, index }))
     .filter(({ block }) => block.tag === tag) as IndexedBlock<T>[]
+}
+
+/**
+ * Index of the first CTA data block with `tag`, or -1. Used by CTA block
+ * editors to build prop-rooted edit paths (`"dataBlocks.<i>.<field>"`) so App
+ * can route every CTA edit through one `setByPath(cea, path, value)`.
+ */
+export function findDataBlockIndex(cea: CEAExtensionBlock, tag: number): number {
+  return cea.dataBlocks.findIndex(b => b.tag === tag)
+}
+
+/**
+ * Index of the first CTA extended data block (tag 0x07) with `extendedTag`,
+ * or -1. Same purpose as {@link findDataBlockIndex} for extended-tag blocks.
+ */
+export function findExtendedDataBlockIndex(cea: CEAExtensionBlock, extendedTag: number): number {
+  return cea.dataBlocks.findIndex(
+    b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === extendedTag,
+  )
 }
 
 /** Append an item, returning a new array (immutable append for reactive arrays). */

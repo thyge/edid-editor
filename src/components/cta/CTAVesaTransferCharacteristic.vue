@@ -4,14 +4,15 @@ import type { CEAExtensionBlock, VESADisplayTransferCharacteristicBlock } from '
 import { VESA_TRANSFER_TYPE_OPTIONS } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { updateArrayItem } from '../common/editorUtils'
+import { updateArrayItem, findDataBlockIndex } from '../common/editorUtils'
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
 const emit = defineEmits<{
-  update: [block: VESADisplayTransferCharacteristicBlock | undefined, field: string, value: unknown]
+  update: [path: string, value: unknown]
 }>()
 
+const blockIndex = computed(() => findDataBlockIndex(props.cea, 0x05))
 const block = computed(() =>
   props.cea.dataBlocks.find(b => b.tag === 0x05) as VESADisplayTransferCharacteristicBlock | undefined
 )
@@ -25,7 +26,7 @@ function setGamma(i: number, v: string | number) {
   if (!block.value) return
   const n = typeof v === 'number' ? v : Number(v)
   const clamped = Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0
-  emit('update', block.value, 'gammaValues', updateArrayItem(block.value.gammaValues, i, clamped))
+  emit('update', `dataBlocks.${blockIndex.value}.gammaValues`, updateArrayItem(block.value.gammaValues, i, clamped))
 }
 </script>
 
@@ -43,7 +44,7 @@ function setGamma(i: number, v: string | number) {
             <select
               :class="selectClass"
               :value="block.transferType"
-              @change="(e: Event) => emit('update', block, 'transferType', (e.target as HTMLSelectElement).value)"
+              @change="(e: Event) => emit('update', `dataBlocks.${blockIndex}.transferType`, (e.target as HTMLSelectElement).value)"
             >
               <option v-for="opt in transferTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>

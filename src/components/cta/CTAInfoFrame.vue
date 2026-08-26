@@ -4,21 +4,27 @@ import type { CEAExtensionBlock, InfoFrameDataBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { appendArrayItem, removeArrayItem } from '../common/editorUtils'
+import { appendArrayItem, removeArrayItem, findExtendedDataBlockIndex } from '../common/editorUtils'
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
 const emit = defineEmits<{
-  update: [block: InfoFrameDataBlock | undefined, field: string, value: unknown]
+  update: [path: string, value: unknown]
 }>()
 
 type Descriptor = InfoFrameDataBlock['descriptors'][number]
 
+const blockIndex = computed(() => findExtendedDataBlockIndex(props.cea, 0x20))
 const block = computed(() =>
   props.cea.dataBlocks.find(
     b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x20
   ) as InfoFrameDataBlock | undefined
 )
+
+/** Emit a prop-rooted path `dataBlocks.<idx>.<field>` for the InfoFrame block. */
+function emitField(field: string, value: unknown) {
+  emit('update', `dataBlocks.${blockIndex.value}.${field}`, value)
+}
 
 function ouiHex(oui: number): string {
   return oui.toString(16).padStart(6, '0').toUpperCase().replace(/^(..)(..)(..)$/, '$1-$2-$3')
@@ -29,10 +35,10 @@ function hex(u: Uint8Array): string {
 function onAdditionalVsifs(v: string | number) {
   if (!block.value) return
   const n = typeof v === 'number' ? v : Number(v)
-  emit('update', block.value, 'additionalVsifs', Number.isFinite(n) ? Math.max(0, Math.min(7, Math.round(n))) : 0)
+  emitField('additionalVsifs', Number.isFinite(n) ? Math.max(0, Math.min(7, Math.round(n))) : 0)
 }
 function setDescriptors(descriptors: Descriptor[]) {
-  emit('update', block.value, 'descriptors', descriptors)
+  emitField('descriptors', descriptors)
 }
 function removeDescriptor(index: number) {
   if (!block.value) return

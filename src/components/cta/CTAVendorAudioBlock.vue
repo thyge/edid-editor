@@ -3,13 +3,15 @@ import { computed } from 'vue'
 import type { CEAExtensionBlock, VendorSpecificAudioDataBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { findExtendedDataBlockIndex } from '../common/editorUtils'
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
 const emit = defineEmits<{
-  update: [block: VendorSpecificAudioDataBlock | undefined, field: string, value: unknown]
+  update: [path: string, value: unknown]
 }>()
 
+const blockIndex = computed(() => findExtendedDataBlockIndex(props.cea, 0x11))
 const block = computed(() =>
   props.cea.dataBlocks.find(
     b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x11
@@ -26,7 +28,7 @@ function payloadHex(): string {
 function onPayload(text: string) {
   if (!block.value) return
   const bytes = text.trim().split(/\s+/).map(s => parseInt(s, 16) & 0xff).filter(n => !Number.isNaN(n))
-  emit('update', block.value, 'vendorPayload', new Uint8Array(bytes))
+  emit('update', `dataBlocks.${blockIndex.value}.vendorPayload`, new Uint8Array(bytes))
 }
 const rowClass = 'flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground'
 </script>

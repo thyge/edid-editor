@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { CEAExtensionBlock, SpeakerAllocationBlock, SpeakerPlacement } from 'edidts'
 import { SPEAKER_ALLOCATION_BITS, SPEAKER_PLACEMENT } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { findDataBlockIndex } from '../common/editorUtils'
 
 const props = defineProps<{
   cea: CEAExtensionBlock
@@ -12,6 +13,7 @@ const emit = defineEmits<{
   update: [field: string, value: unknown]
 }>()
 
+const blockIndex = computed(() => findDataBlockIndex(props.cea, 0x04))
 const speakerBlock = computed(() =>
   props.cea.dataBlocks.find(b => b.tag === 0x04) as SpeakerAllocationBlock | undefined
 )
@@ -113,7 +115,7 @@ function toggleSpeaker(key: string) {
   if (!speakers.value) return
   const current = (speakers.value as Record<string, boolean>)[key]
   const updated = { ...speakers.value, [key]: !current }
-  emit('update', 'speakerBlock.speakers', updated)
+  emit('update', `dataBlocks.${blockIndex.value}.speakers`, updated)
 }
 
 function isActive(key: string): boolean {

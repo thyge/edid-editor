@@ -20,7 +20,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   updateDescriptor: [index: number, descriptor: DisplayDescriptor]
-  updateTiming: [index: number, field: string, value: unknown]
+  update: [path: string, value: unknown]
 }>()
 
 const detailedTimings = computed(() => props.edid.base.detailedTimings)
@@ -159,7 +159,7 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
           :index="entry.i"
           :force-expand="forceExpandTiming"
           :show-toggle="isAllView"
-          @update="(field: string, value: unknown) => emit('updateTiming', entry.i, field, value)"
+          @update="(field: string, value: unknown) => emit('update', `detailedTimings.${entry.i}.${field}`, value)"
         >
           <template #badges>
             <span class="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">

@@ -19,8 +19,17 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  update: [block: object | undefined, field: string, value: unknown]
+  update: [path: string, value: unknown]
 }>()
+
+/** Resolve a CTA data block to its `dataBlocks` index and emit a prop-rooted
+ *  edit path (`dataBlocks.<idx>.<field>`) so App can route via one
+ *  `setByPath(cea, path, value)`. No-ops if the block is not found. */
+function emitBlock(block: object | undefined, field: string, value: unknown) {
+  if (!block) return
+  const idx = props.cea.dataBlocks.findIndex(b => b === block)
+  if (idx !== -1) emit('update', `dataBlocks.${idx}.${field}`, value)
+}
 
 function findExtended<T>(extTag: number): T | undefined {
   return props.cea.dataBlocks.find(
@@ -48,12 +57,12 @@ function vicLabel(vic: number): string {
 
 function onNumber(block: object | undefined, field: string, v: string | number) {
   const parsed = typeof v === 'number' ? v : Number(v)
-  emit('update', block, field, Number.isFinite(parsed) ? parsed : 0)
+  emitBlock(block, field, Number.isFinite(parsed) ? parsed : 0)
 }
 
 // --- YCbCr 4:2:0 VIC list edits -------------------------------------------
 function set420Vics(block: YCbCr420VideoDataBlock | undefined, vics: YCbCr420VideoDataBlock['vics']) {
-  emit('update', block, 'vics', vics)
+  emitBlock(block, 'vics', vics)
 }
 function toggle420Native(block: YCbCr420VideoDataBlock | undefined, index: number, native: boolean) {
   if (!block) return
@@ -75,7 +84,7 @@ const available420Vics = computed(() => {
 
 // --- HDR Dynamic Metadata entries edits ----------------------------------
 function setDynEntries(block: HDRDynamicMetadataDataBlock | undefined, entries: HDRDynamicMetadataDataBlock['entries']) {
-  emit('update', block, 'entries', entries)
+  emitBlock(block, 'entries', entries)
 }
 function updateDynEntry(block: HDRDynamicMetadataDataBlock | undefined, index: number, field: 'type' | 'supportFlags', value: number) {
   if (!block) return
@@ -106,12 +115,12 @@ function addDynEntry(block: HDRDynamicMetadataDataBlock | undefined) {
             <span>{{ flag.label }}</span>
             <Switch
               :checked="(hdrStatic as unknown as Record<string, unknown>).eotf ? (hdrStatic.eotf as unknown as Record<string, boolean>)[flag.key] : false"
-              @update:checked="(v: boolean) => emit('update', hdrStatic, `eotf.${flag.key}`, v)"
+              @update:checked="(v: boolean) => emitBlock(hdrStatic, `eotf.${flag.key}`, v)"
             />
           </div>
           <div :class="rowClass">
             <span>Static Metadata Type 1</span>
-            <Switch :checked="hdrStatic.staticMetadataType1" @update:checked="(v: boolean) => emit('update', hdrStatic, 'staticMetadataType1', v)" />
+            <Switch :checked="hdrStatic.staticMetadataType1" @update:checked="(v: boolean) => emitBlock(hdrStatic, 'staticMetadataType1', v)" />
           </div>
         </div>
 
@@ -170,7 +179,7 @@ function addDynEntry(block: HDRDynamicMetadataDataBlock | undefined) {
             <span>{{ flag.label }}</span>
             <Switch
               :checked="(colorimetry as unknown as Record<string, boolean>)[flag.key]"
-              @update:checked="(v: boolean) => emit('update', colorimetry, flag.key, v)"
+              @update:checked="(v: boolean) => emitBlock(colorimetry, flag.key, v)"
             />
           </div>
         </div>

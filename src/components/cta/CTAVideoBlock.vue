@@ -5,7 +5,7 @@ import type { CEAExtensionBlock, VideoDataBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import { appendArrayItem, removeArrayItem } from '../common/editorUtils'
+import { appendArrayItem, removeArrayItem, findDataBlockIndex } from '../common/editorUtils'
 
 const props = defineProps<{
   cea: CEAExtensionBlock
@@ -15,11 +15,13 @@ const emit = defineEmits<{
   update: [field: string, value: unknown]
 }>()
 
+const blockIndex = computed(() => findDataBlockIndex(props.cea, 0x02))
 const videoBlock = computed(() =>
   props.cea.dataBlocks.find(b => b.tag === 0x02) as VideoDataBlock | undefined
 )
 
 const vics = computed(() => videoBlock.value?.vics ?? [])
+const vicsPath = computed(() => `dataBlocks.${blockIndex.value}.vics`)
 
 const selectClass = 'flex h-8 w-full rounded-md border border-input dark:bg-input/30 bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
@@ -31,15 +33,15 @@ function getVicLabel(vic: number): string {
 
 function toggleNative(index: number, native: boolean) {
   const updated = vics.value.map((v, i) => i === index ? { ...v, native } : v)
-  emit('update', 'videoBlock.vics', updated)
+  emit('update', vicsPath.value, updated)
 }
 
 function removeVic(index: number) {
-  emit('update', 'videoBlock.vics', removeArrayItem(vics.value, index))
+  emit('update', vicsPath.value, removeArrayItem(vics.value, index))
 }
 
 function addVic(vicNumber: number) {
-  emit('update', 'videoBlock.vics', appendArrayItem(vics.value, { vic: vicNumber, native: false }))
+  emit('update', vicsPath.value, appendArrayItem(vics.value, { vic: vicNumber, native: false }))
 }
 
 const availableVics = computed(() =>

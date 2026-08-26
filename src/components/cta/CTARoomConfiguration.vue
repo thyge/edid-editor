@@ -3,13 +3,15 @@ import { computed } from 'vue'
 import type { CEAExtensionBlock, RoomConfigurationDataBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { findExtendedDataBlockIndex } from '../common/editorUtils'
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
 const emit = defineEmits<{
-  update: [block: RoomConfigurationDataBlock | undefined, field: string, value: unknown]
+  update: [path: string, value: unknown]
 }>()
 
+const blockIndex = computed(() => findExtendedDataBlockIndex(props.cea, 0x13))
 const block = computed(() =>
   props.cea.dataBlocks.find(
     b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x13
@@ -19,7 +21,7 @@ const block = computed(() =>
 function onNumber(field: string, v: string | number) {
   if (!block.value) return
   const n = typeof v === 'number' ? v : Number(v)
-  emit('update', block.value, field, Number.isFinite(n) ? Math.round(n) : 0)
+  emit('update', `dataBlocks.${blockIndex.value}.${field}`, Number.isFinite(n) ? Math.round(n) : 0)
 }
 </script>
 

@@ -3,11 +3,10 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { ColorPointDescriptor, DisplayDescriptor } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useEDID } from '@/composables/useEDID'
 
 const props = defineProps<{ edid: EDIDViewModel }>()
 
-const { edid: edidRef } = useEDID()
+const emit = defineEmits<{ update: [path: string, value: unknown] }>()
 
 const chromaticity = computed(() => props.edid.base.colorCharacteristics)
 const colorPointDescriptor = computed(() =>
@@ -121,14 +120,10 @@ function onMouseMove(e: MouseEvent) {
 function onMouseUp() {
   if (!dragging.value) return
   const key = dragging.value
-  const edid = edidRef.value
-  if (edid) {
-    const cc = edid.base.colorCharacteristics
-    if (key === 'red') { cc.redX = dragX.value; cc.redY = dragY.value }
-    else if (key === 'green') { cc.greenX = dragX.value; cc.greenY = dragY.value }
-    else if (key === 'blue') { cc.blueX = dragX.value; cc.blueY = dragY.value }
-    else if (key === 'white') { cc.whiteX = dragX.value; cc.whiteY = dragY.value }
-  }
+  if (key === 'red') { emit('update', 'colorCharacteristics.redX', dragX.value); emit('update', 'colorCharacteristics.redY', dragY.value) }
+  else if (key === 'green') { emit('update', 'colorCharacteristics.greenX', dragX.value); emit('update', 'colorCharacteristics.greenY', dragY.value) }
+  else if (key === 'blue') { emit('update', 'colorCharacteristics.blueX', dragX.value); emit('update', 'colorCharacteristics.blueY', dragY.value) }
+  else if (key === 'white') { emit('update', 'colorCharacteristics.whiteX', dragX.value); emit('update', 'colorCharacteristics.whiteY', dragY.value) }
   dragging.value = null
 }
 

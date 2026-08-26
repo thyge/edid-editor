@@ -21,9 +21,17 @@ interface DolbyRenderable {
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
 const emit = defineEmits<{
-  update: [block: VendorSpecificDataBlock, field: string, value: unknown]
-  'update-vsvdb': [block: VendorSpecificVideoDataBlock, field: string, value: unknown]
+  update: [path: string, value: unknown]
 }>()
+
+/** Resolve a vendor block to its `dataBlocks` index and emit a prop-rooted edit
+ *  path (`dataBlocks.<idx>.vendor.fields.<field>`). The tag-0x03 VSDB and
+ *  tag-0x07 VSVDB carriers both expose their structured shape as
+ *  `block.vendor.fields`, so one path shape covers both. */
+function emitBlock(block: VendorSpecificDataBlock | VendorSpecificVideoDataBlock, field: string, value: unknown) {
+  const idx = props.cea.dataBlocks.findIndex(b => b === block)
+  if (idx !== -1) emit('update', `dataBlocks.${idx}.vendor.fields.${field}`, value)
+}
 
 // Tag 0x03 VSDBs (HDMI 1.4, HDMI Forum, Microsoft HMD, AMD)
 const vsdbs = computed(() => findVSDBs(props.cea))
@@ -46,15 +54,15 @@ const dolbyRenderables = computed<DolbyRenderable[]>(() =>
     <p v-if="!vsdbs.length && !dolbyRenderables.length" class="text-muted-foreground">No Vendor Specific Data Blocks present.</p>
 
     <template v-for="(block, i) in vsdbs" :key="`vsdb-${i}`">
-      <CTAVendorHDMI14          v-if="block.vendor?.kind === 'hdmi14'"           :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
-      <CTAVendorHDMIForum       v-else-if="block.vendor?.kind === 'hdmiForum'"   :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
-      <CTAVendorMicrosoftHMD    v-else-if="block.vendor?.kind === 'microsoftHmd'" :fields="block.vendor.fields" @update="(f: string, v: unknown) => emit('update', block, f, v)" />
+      <CTAVendorHDMI14          v-if="block.vendor?.kind === 'hdmi14'"           :fields="block.vendor.fields" @update="(f: string, v: unknown) => emitBlock(block, f, v)" />
+      <CTAVendorHDMIForum       v-else-if="block.vendor?.kind === 'hdmiForum'"   :fields="block.vendor.fields" @update="(f: string, v: unknown) => emitBlock(block, f, v)" />
+      <CTAVendorMicrosoftHMD    v-else-if="block.vendor?.kind === 'microsoftHmd'" :fields="block.vendor.fields" @update="(f: string, v: unknown) => emitBlock(block, f, v)" />
       <CTAVendorAMD             v-else-if="block.vendor?.kind === 'amdFreeSync'" :fields="block.vendor.fields" />
       <CTAVendorUnknown         v-else                                            :block="block" />
     </template>
 
     <template v-for="(item, i) in dolbyRenderables" :key="`vsvdb-${i}`">
-      <CTAVendorDolby :fields="item.fields" @update="(f: string, v: unknown) => emit('update-vsvdb', item.block, f, v)" />
+      <CTAVendorDolby :fields="item.fields" @update="(f: string, v: unknown) => emitBlock(item.block, f, v)" />
     </template>
   </div>
 </template>

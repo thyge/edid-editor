@@ -5,13 +5,15 @@ import { getVICDefinition } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { findExtendedDataBlockIndex } from '../common/editorUtils'
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
 const emit = defineEmits<{
-  update: [block: VideoFormatPreferenceDataBlock | undefined, field: string, value: unknown]
+  update: [path: string, value: unknown]
 }>()
 
+const blockIndex = computed(() => findExtendedDataBlockIndex(props.cea, 0x0D))
 const block = computed(() =>
   props.cea.dataBlocks.find(
     b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x0D
@@ -19,7 +21,7 @@ const block = computed(() =>
 )
 
 function setSvrs(svrs: VideoFormatPreferenceDataBlock['svrs']) {
-  emit('update', block.value, 'svrs', svrs)
+  emit('update', `dataBlocks.${blockIndex.value}.svrs`, svrs)
 }
 function updateSvr(index: number, kind: 'vic' | 'dtd', raw: number) {
   if (!block.value) return

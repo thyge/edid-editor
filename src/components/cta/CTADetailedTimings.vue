@@ -9,7 +9,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  update: [index: number, field: string, value: unknown]
+  update: [path: string, value: unknown]
 }>()
 
 const timings = computed(() => props.cea.detailedTimings)
@@ -27,7 +27,7 @@ const timings = computed(() => props.cea.detailedTimings)
           :key="i"
           :timing="timing"
           :index="i"
-          @update="(field: string, value: unknown) => emit('update', i, field, value)"
+          @update="(field: string, value: unknown) => emit('update', `detailedTimings.${i}.${field}`, value)"
         >
           <template #details>
             <div class="grid gap-3 md:grid-cols-2">
