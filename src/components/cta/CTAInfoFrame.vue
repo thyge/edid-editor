@@ -4,6 +4,7 @@ import type { CEAExtensionBlock, InfoFrameDataBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { appendArrayItem, removeArrayItem } from '../common/editorUtils'
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
@@ -35,15 +36,15 @@ function setDescriptors(descriptors: Descriptor[]) {
 }
 function removeDescriptor(index: number) {
   if (!block.value) return
-  setDescriptors(block.value.descriptors.filter((_, i) => i !== index))
+  setDescriptors(removeArrayItem(block.value.descriptors, index))
 }
 function addShort() {
   if (!block.value) return
-  setDescriptors([...block.value.descriptors, { kind: 'short', infoFrameType: 0, payload: new Uint8Array() }])
+  setDescriptors(appendArrayItem(block.value.descriptors, { kind: 'short', infoFrameType: 0, payload: new Uint8Array() }))
 }
 function addVendor() {
   if (!block.value) return
-  setDescriptors([...block.value.descriptors, { kind: 'vendor', ieeeOui: 0, payload: new Uint8Array() }])
+  setDescriptors(appendArrayItem(block.value.descriptors, { kind: 'vendor', ieeeOui: 0, payload: new Uint8Array() }))
 }
 </script>
 

@@ -5,6 +5,7 @@ import type { CEAExtensionBlock, VideoDataBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import { appendArrayItem, removeArrayItem } from '../common/editorUtils'
 
 const props = defineProps<{
   cea: CEAExtensionBlock
@@ -34,13 +35,11 @@ function toggleNative(index: number, native: boolean) {
 }
 
 function removeVic(index: number) {
-  const updated = vics.value.filter((_, i) => i !== index)
-  emit('update', 'videoBlock.vics', updated)
+  emit('update', 'videoBlock.vics', removeArrayItem(vics.value, index))
 }
 
 function addVic(vicNumber: number) {
-  const updated = [...vics.value, { vic: vicNumber, native: false }]
-  emit('update', 'videoBlock.vics', updated)
+  emit('update', 'videoBlock.vics', appendArrayItem(vics.value, { vic: vicNumber, native: false }))
 }
 
 const availableVics = computed(() =>

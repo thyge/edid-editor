@@ -1,5 +1,18 @@
 import type { DisplayIdDataBlock, DisplayIdExtension } from 'edidts'
 
+/**
+ * Cross-extension editor helpers shared by the EDID base-block, CTA-861, and
+ * DisplayID view components.
+ *
+ * Generic (extension-agnostic): {@link appendArrayItem}, {@link updateArrayItem},
+ * {@link removeArrayItem}, {@link bytesToHex}, {@link hexToBytes},
+ * {@link numberFromEvent}, {@link stringFromEvent}.
+ *
+ * DisplayID-specific: {@link blocksByTag} (typed to DisplayIdExtension /
+ * DisplayIdDataBlock). It lives here so the displayid components have a single
+ * util import, but it is not used by the EDID/CTA layers.
+ */
+
 export interface IndexedBlock<T extends DisplayIdDataBlock> {
   index: number
   block: T
@@ -12,6 +25,11 @@ export function blocksByTag<T extends DisplayIdDataBlock>(
   return displayId.section.blocks
     .map((block, index) => ({ block, index }))
     .filter(({ block }) => block.tag === tag) as IndexedBlock<T>[]
+}
+
+/** Append an item, returning a new array (immutable append for reactive arrays). */
+export function appendArrayItem<T>(items: T[], item: T): T[] {
+  return [...items, item]
 }
 
 export function updateArrayItem<T>(items: T[], index: number, item: T): T[] {

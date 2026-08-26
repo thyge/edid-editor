@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { STANDARD_TIMING_ASPECTS } from 'edidts'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { appendArrayItem, removeArrayItem } from '../common/editorUtils'
 
 export type TimingInput = {
   width: number
@@ -136,7 +137,7 @@ function updateAspect(index: number, value: AspectCode) {
 }
 
 function removeTiming(index: number) {
-  localTimings.value = localTimings.value.filter((_, idx) => idx !== index)
+  localTimings.value = removeArrayItem(localTimings.value, index)
   emitUpdate()
 }
 
@@ -150,7 +151,7 @@ function createDefaultTiming(): EditableTiming {
 
 function addTiming() {
   if (!canAdd.value) return
-  localTimings.value = [...localTimings.value, createDefaultTiming()]
+  localTimings.value = appendArrayItem(localTimings.value, createDefaultTiming())
   emitUpdate()
 }
 

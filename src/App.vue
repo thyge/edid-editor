@@ -20,6 +20,7 @@ import {
   type VendorSpecificDataBlock,
   type VendorSpecificVideoDataBlock,
 } from 'edidts'
+import { appendArrayItem, updateArrayItem, removeArrayItem } from '@/components/common/editorUtils'
 import TopNav from '@/components/layout/TopNav.vue'
 import LeftNav from '@/components/layout/LeftNav.vue'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -92,14 +93,14 @@ const activeSection = ref('overview')
 
 function addTiming() {
   if (!edidRef.value) return
-  const timings = [...edidRef.value.base.detailedTimings, new DetailedTimingDescriptor()]
+  const timings = appendArrayItem(edidRef.value.base.detailedTimings, new DetailedTimingDescriptor())
   edidRef.value.base.detailedTimings = timings
   activeSection.value = `edid-dtd-${timings.length - 1}`
 }
 
 function removeTiming(index: number) {
   if (!edidRef.value) return
-  edidRef.value.base.detailedTimings = edidRef.value.base.detailedTimings.filter((_, i) => i !== index)
+  edidRef.value.base.detailedTimings = removeArrayItem(edidRef.value.base.detailedTimings, index)
   if (activeSection.value.startsWith('edid-dtd-')) activeSection.value = 'overview'
 }
 
@@ -116,21 +117,23 @@ function updateDetailedTiming(index: number, field: string, value: unknown) {
   }
   // Reassign the array so Vue re-evaluates the detailedTimings computed and
   // the HexViewer reflects the re-encoded bytes.
-  edidRef.value.base.detailedTimings = [...timings]
+  edidRef.value.base.detailedTimings = updateArrayItem(timings, index, timing)
 }
 
 function addDescriptor(tag: number) {
   if (!edidRef.value) return
   const descriptor = createDefaultDescriptor(tag)
-  const descriptors = [...edidRef.value.base.displayDescriptors, descriptor]
+  const descriptors = appendArrayItem(edidRef.value.base.displayDescriptors, descriptor)
   edidRef.value.base.displayDescriptors = descriptors
   activeSection.value = `edid-desc-${descriptors.length - 1}`
 }
 
 function removeDescriptor(index: number) {
   if (!edidRef.value) return
-  const meaningful = edidRef.value.base.displayDescriptors.filter(d => d.tag !== 0x10)
-  meaningful.splice(index, 1)
+  const meaningful = removeArrayItem(
+    edidRef.value.base.displayDescriptors.filter(d => d.tag !== 0x10),
+    index,
+  )
   const dummies = edidRef.value.base.displayDescriptors.filter(d => d.tag === 0x10)
   edidRef.value.base.displayDescriptors = [...meaningful, ...dummies]
   if (activeSection.value.startsWith('edid-desc-')) activeSection.value = 'overview'
@@ -138,10 +141,9 @@ function removeDescriptor(index: number) {
 
 function updateDescriptor(index: number, descriptor: DisplayDescriptor) {
   if (!edidRef.value) return
-  const descriptors = [...edidRef.value.base.displayDescriptors]
+  const descriptors = edidRef.value.base.displayDescriptors
   if (index < 0 || index >= descriptors.length) return
-  descriptors[index] = descriptor
-  edidRef.value.base.displayDescriptors = descriptors
+  edidRef.value.base.displayDescriptors = updateArrayItem(descriptors, index, descriptor)
 }
 
 /** Set a (possibly dotted) path on an object, mutating in place. The EEDID
@@ -220,7 +222,7 @@ function addCEAExtension() {
     dataBlocks: [],
     detailedTimings: [],
   }
-  edidRef.value.extensions = [...edidRef.value.extensions, blankCEA]
+  edidRef.value.extensions = appendArrayItem(edidRef.value.extensions, blankCEA)
   activeSection.value = 'cea-overview'
 }
 
@@ -238,7 +240,7 @@ function addCEADataBlock(blockType: string) {
   if (!cea) return
   const block = createDefaultCEADataBlock(blockType as CEADefaultBlockType)
   if (!block) return
-  cea.dataBlocks.push(block)
+  cea.dataBlocks = appendArrayItem(cea.dataBlocks, block)
   const section = ceaBlockActiveSection[blockType]
   if (section) activeSection.value = section
 }
@@ -269,7 +271,7 @@ function removeCEADataBlock(blockTag: number, extendedTag?: number) {
     )
   } else {
     const idx = cea.dataBlocks.findIndex(b => b.tag === blockTag)
-    if (idx !== -1) cea.dataBlocks.splice(idx, 1)
+    if (idx !== -1) cea.dataBlocks = removeArrayItem(cea.dataBlocks, idx)
   }
   if (activeSection.value.startsWith('cea-')) {
     activeSection.value = 'cea-overview'
@@ -297,7 +299,7 @@ function addDisplayIdExtension() {
       isChecksumValid: true,
     },
   }
-  edidRef.value.extensions = [...edidRef.value.extensions, displayId]
+  edidRef.value.extensions = appendArrayItem(edidRef.value.extensions, displayId)
   activeSection.value = displayIdSectionIds.overview
 }
 
@@ -312,14 +314,14 @@ function removeDisplayIdExtension() {
 function addDisplayIdBlock(tag: number) {
   const displayId = displayIdExtension.value
   if (!displayId) return
-  displayId.section.blocks.push(createDefaultDisplayIdBlock(tag as DisplayIdDataBlockTag))
+  displayId.section.blocks = appendArrayItem(displayId.section.blocks, createDefaultDisplayIdBlock(tag as DisplayIdDataBlockTag))
   activeSection.value = displayIdBlockSectionByTag[tag] ?? displayIdSectionIds.overview
 }
 
 function removeDisplayIdBlock(index: number) {
   const displayId = displayIdExtension.value
   if (!displayId) return
-  displayId.section.blocks.splice(index, 1)
+  displayId.section.blocks = removeArrayItem(displayId.section.blocks, index)
 }
 
 function moveDisplayIdBlock(index: number, direction: -1 | 1) {
@@ -343,7 +345,7 @@ function updateDisplayId(field: string, value: unknown) {
 function updateDisplayIdBlock(index: number, block: DisplayIdDataBlock) {
   const displayId = displayIdExtension.value
   if (!displayId) return
-  displayId.section.blocks[index] = block
+  displayId.section.blocks = updateArrayItem(displayId.section.blocks, index, block)
 }
 
 function updateCEA(field: string, value: unknown) {
@@ -395,7 +397,7 @@ function updateCEA(field: string, value: unknown) {
       } else {
         ;(timing as unknown as Record<string, unknown>)[subfield] = value
       }
-      cea.detailedTimings = [...cea.detailedTimings]
+      cea.detailedTimings = updateArrayItem(cea.detailedTimings, idx, timing)
     }
   }
 

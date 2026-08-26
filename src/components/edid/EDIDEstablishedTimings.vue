@@ -4,6 +4,7 @@ import { EstablishedTiming } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { appendArrayItem } from '../common/editorUtils'
 
 const props = defineProps<{ edid: EDIDViewModel }>()
 const emit = defineEmits<{ update: [field: string, value: unknown] }>()
@@ -19,12 +20,9 @@ type TimingEntry = (typeof EstablishedTiming.TIMING_MAP)[number]
 
 function toggleEstablished(entry: TimingEntry, checked: boolean) {
   const current = props.edid.base.establishedTimings
-  let updated: EstablishedTiming[]
-  if (checked) {
-    updated = [...current, new EstablishedTiming(entry)]
-  } else {
-    updated = current.filter((t) => t.id !== entry.id)
-  }
+  const updated = checked
+    ? appendArrayItem(current, new EstablishedTiming(entry))
+    : current.filter((t) => t.id !== entry.id)
   emit('update', 'establishedTimings', updated)
 }
 </script>

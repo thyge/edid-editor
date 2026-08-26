@@ -4,6 +4,7 @@ import type { CEAExtensionBlock, VESADisplayTransferCharacteristicBlock } from '
 import { VESA_TRANSFER_TYPE_OPTIONS } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { updateArrayItem } from '../common/editorUtils'
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
@@ -24,9 +25,7 @@ function setGamma(i: number, v: string | number) {
   if (!block.value) return
   const n = typeof v === 'number' ? v : Number(v)
   const clamped = Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0
-  const next = [...block.value.gammaValues]
-  next[i] = clamped
-  emit('update', block.value, 'gammaValues', next)
+  emit('update', block.value, 'gammaValues', updateArrayItem(block.value.gammaValues, i, clamped))
 }
 </script>
 

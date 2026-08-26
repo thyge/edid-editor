@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { appendArrayItem, removeArrayItem } from '../common/editorUtils'
 
 const props = defineProps<{
   cea: CEAExtensionBlock
@@ -76,8 +77,7 @@ function onFormat(descIndex: number, newFormat: number) {
 }
 
 function removeDescriptor(index: number) {
-  const updated = descriptors.value.filter((_, i) => i !== index)
-  commit(updated)
+  commit(removeArrayItem(descriptors.value, index))
 }
 
 function addDescriptor(formatCode: number) {
@@ -96,7 +96,7 @@ function addDescriptor(formatCode: number) {
     bitDepths: formatCode === 1 ? { bd16: true, bd20: false, bd24: false } : undefined,
     maxBitrate: formatCode !== 1 ? 0 : undefined,
   }
-  commit([...descriptors.value, newDesc])
+  commit(appendArrayItem(descriptors.value, newDesc))
 }
 
 const selectClass = 'flex h-8 w-full rounded-md border border-input dark:bg-input/30 bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
