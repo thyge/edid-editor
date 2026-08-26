@@ -4,6 +4,7 @@ import type { DetailedTiming } from 'edidts'
 import { STEREO_MODE_OPTIONS, SYNC_TYPE_OPTIONS } from 'edidts'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import type { TimingEditorMode } from '@/composables/useTimingEditorState'
 
 /**
  * Shared field-level editor for the 18-byte Detailed Timing Descriptor geometry,
@@ -15,10 +16,17 @@ import { Switch } from '@/components/ui/switch'
  * Emits `update` with a dotted field path (e.g. "pixelClock", "flags.interlaced",
  * "flags.vSyncPolarity") and the new value. The owning component mutates the
  * matching DetailedTiming instance; the useEDID computed re-encodes.
+ *
+ * When `mode` is a CVT mode, the fields the CVT generator derives are locked
+ * (`:disabled`); only the free parameters (H/V active, H/V image size, and
+ * interlaced) remain editable — refresh rate and margins live on the card, not
+ * here, since they are generator inputs with no direct DTD field counterpart.
  */
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   timing: DetailedTiming
-}>()
+  /** Authoring mode; when not `custom`, derived fields are disabled. */
+  mode?: TimingEditorMode
+}>(), { mode: 'custom' })
 
 const emit = defineEmits<{
   update: [field: string, value: unknown]
@@ -26,6 +34,9 @@ const emit = defineEmits<{
 
 const selectClass =
   'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
+
+/** True when a CVT mode owns the derived geometry — disable those inputs. */
+const locked = computed(() => props.mode !== 'custom')
 
 const isDigitalSeparate = computed(() => props.timing.flags.syncType === 'digital-separate')
 const isDigitalComposite = computed(() => props.timing.flags.syncType === 'digital-composite')
@@ -60,6 +71,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="0.01"
+          :disabled="locked"
           :model-value="timing.pixelClock"
           @update:model-value="(v) => onPixelClock(v)"
         />
@@ -80,6 +92,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="locked"
           :model-value="timing.horizontalBlanking"
           @update:model-value="(v) => onNumber('horizontalBlanking', v)"
         />
@@ -100,6 +113,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="locked"
           :model-value="timing.verticalBlanking"
           @update:model-value="(v) => onNumber('verticalBlanking', v)"
         />
@@ -114,6 +128,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="locked"
           :model-value="timing.horizontalSyncOffset"
           @update:model-value="(v) => onNumber('horizontalSyncOffset', v)"
         />
@@ -124,6 +139,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="locked"
           :model-value="timing.horizontalSyncWidth"
           @update:model-value="(v) => onNumber('horizontalSyncWidth', v)"
         />
@@ -134,6 +150,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="locked"
           :model-value="timing.verticalSyncOffset"
           @update:model-value="(v) => onNumber('verticalSyncOffset', v)"
         />
@@ -144,6 +161,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="locked"
           :model-value="timing.verticalSyncWidth"
           @update:model-value="(v) => onNumber('verticalSyncWidth', v)"
         />
@@ -178,6 +196,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="locked"
           :model-value="timing.horizontalBorder"
           @update:model-value="(v) => onNumber('horizontalBorder', v)"
         />
@@ -188,6 +207,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="locked"
           :model-value="timing.verticalBorder"
           @update:model-value="(v) => onNumber('verticalBorder', v)"
         />
@@ -200,6 +220,7 @@ function onFlag(flag: string, value: unknown) {
         Sync Type
         <select
           :class="selectClass"
+          :disabled="locked"
           :value="timing.flags.syncType"
           @change="(e: Event) => onFlag('syncType', (e.target as HTMLSelectElement).value)"
         >
@@ -210,6 +231,7 @@ function onFlag(flag: string, value: unknown) {
         Stereo Mode
         <select
           :class="selectClass"
+          :disabled="locked"
           :value="timing.flags.stereoMode"
           @change="(e: Event) => onFlag('stereoMode', (e.target as HTMLSelectElement).value)"
         >
@@ -231,6 +253,7 @@ function onFlag(flag: string, value: unknown) {
         V. Sync Polarity
         <select
           :class="selectClass"
+          :disabled="locked"
           :value="timing.flags.vSyncPolarity ?? 'positive'"
           @change="(e: Event) => onFlag('vSyncPolarity', (e.target as HTMLSelectElement).value)"
         >
@@ -242,6 +265,7 @@ function onFlag(flag: string, value: unknown) {
         H. Sync Polarity
         <select
           :class="selectClass"
+          :disabled="locked"
           :value="timing.flags.hSyncPolarity ?? 'positive'"
           @change="(e: Event) => onFlag('hSyncPolarity', (e.target as HTMLSelectElement).value)"
         >
@@ -256,6 +280,7 @@ function onFlag(flag: string, value: unknown) {
         <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Serration on V-Sync</span>
         <Switch
           :checked="timing.flags.serrationOnVSync ?? false"
+          :disabled="locked"
           @update:checked="(v: boolean) => onFlag('serrationOnVSync', v)"
         />
       </label>
@@ -263,6 +288,7 @@ function onFlag(flag: string, value: unknown) {
         H. Sync Polarity
         <select
           :class="selectClass"
+          :disabled="locked"
           :value="timing.flags.hSyncPolarity ?? 'positive'"
           @change="(e: Event) => onFlag('hSyncPolarity', (e.target as HTMLSelectElement).value)"
         >
@@ -277,6 +303,7 @@ function onFlag(flag: string, value: unknown) {
         <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Serration on V-Sync</span>
         <Switch
           :checked="timing.flags.serrationOnVSync ?? false"
+          :disabled="locked"
           @update:checked="(v: boolean) => onFlag('serrationOnVSync', v)"
         />
       </label>
@@ -284,6 +311,7 @@ function onFlag(flag: string, value: unknown) {
         <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sync on All Channels</span>
         <Switch
           :checked="timing.flags.syncOnAllChannels ?? false"
+          :disabled="locked"
           @update:checked="(v: boolean) => onFlag('syncOnAllChannels', v)"
         />
       </label>
