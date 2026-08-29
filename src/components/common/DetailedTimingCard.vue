@@ -69,6 +69,11 @@ const showMargins = computed(() => state.mode === 'cvt')
 const modeSelectClass =
   'h-7 rounded-md border border-input bg-transparent dark:bg-input/30 px-2 text-xs shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
+/** App-standard Switch row treatment (matches CTAHeaderFlags / CTAVideoCapability):
+ * transparent border, hover wash, non-uppercase muted label. */
+const switchRowClass =
+  'flex items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2 hover:bg-muted/50 transition-colors'
+
 /** DTD fields the CVT generator derives from the free parameters. */
 const FREE_PARAM_FIELDS = new Set([
   'horizontalActive',
@@ -158,6 +163,16 @@ function onRefreshChange(v: string | number): void {
   regenerate()
 }
 
+/**
+ * Pixel Clock edit (Custom mode only — the input is disabled in CVT modes where
+ * the generator owns it). pixelClock is in MHz with 0.01 MHz resolution (10 kHz
+ * units), so round to 2 dp before forwarding to the owning mutator.
+ */
+function onPixelClock(v: string | number): void {
+  const parsed = typeof v === 'number' ? v : Number(v)
+  emit('update', 'pixelClock', Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0)
+}
+
 function onMarginsChange(v: boolean): void {
   state.margins = v
   regenerate()
@@ -229,12 +244,24 @@ function applyFreeParam(field: string, value: unknown): void {
       v-if="isExpanded"
       class="border-t border-border/40 p-4 text-xs text-muted-foreground"
     >
-      <!-- CVT free-parameter controls (refresh rate + margins). Always
-           rendered so the layout never reflows between modes: in Custom mode
-           the Refresh Rate is a read-only mirror of the derived rate and Margins
-           is disabled; in CVT modes Refresh Rate becomes the editable generator
-           input and Margins is enabled only for standard CVT (RB ignores it). -->
-      <div class="mb-4 grid gap-3 sm:grid-cols-2">
+      <!-- Top controls row: Pixel Clock | Refresh Rate | Margins. Always
+           rendered as a 3-column grid so the layout never reflows between
+           modes. Pixel Clock is editable in Custom mode and disabled (showing
+           the generator output) in CVT modes; Refresh Rate is the editable CVT
+           generator input (read-only mirror of the derived rate in Custom);
+           Margins is enabled only for standard CVT (RB ignores it). -->
+      <div class="mb-4 grid gap-3 sm:grid-cols-3">
+        <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Pixel Clock (MHz)
+          <Input
+            type="number"
+            :min="0"
+            :step="0.01"
+            :disabled="isCVTMode"
+            :model-value="timing.pixelClock"
+            @update:model-value="(v) => onPixelClock(v)"
+          />
+        </label>
         <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Refresh Rate (Hz)
           <Input
@@ -246,8 +273,8 @@ function applyFreeParam(field: string, value: unknown): void {
             @update:model-value="(v) => onRefreshChange(v)"
           />
         </label>
-        <label class="flex items-center justify-between gap-2 rounded-md border border-border/50 px-3 py-2">
-          <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Margins (1.8%)</span>
+        <label :class="switchRowClass">
+          <span class="text-xs text-muted-foreground">Margins (1.8%)</span>
           <Switch
             :checked="state.margins"
             :disabled="!showMargins"

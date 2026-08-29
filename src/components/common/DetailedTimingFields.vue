@@ -35,6 +35,11 @@ const emit = defineEmits<{
 const selectClass =
   'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
+/** App-standard Switch row treatment (matches CTAHeaderFlags / CTAVideoCapability):
+ * transparent border, hover wash, non-uppercase muted label. */
+const switchRowClass =
+  'flex items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2 hover:bg-muted/50 transition-colors'
+
 /** True when a CVT mode owns the derived geometry — disable those inputs. */
 const locked = computed(() => props.mode !== 'custom')
 
@@ -50,12 +55,6 @@ function onNumber(field: string, v: string | number) {
   emit('update', field, Number.isFinite(parsed) ? Math.round(parsed) : 0)
 }
 
-function onPixelClock(v: string | number) {
-  const parsed = typeof v === 'number' ? v : Number(v)
-  // pixelClock is in MHz with 0.01 MHz resolution (10 kHz units).
-  emit('update', 'pixelClock', Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0)
-}
-
 function onFlag(flag: string, value: unknown) {
   emit('update', `flags.${flag}`, value)
 }
@@ -63,19 +62,8 @@ function onFlag(flag: string, value: unknown) {
 
 <template>
   <div class="space-y-4">
-    <!-- Pixel clock + geometry -->
+    <!-- Geometry (pixel clock lives on the card's top controls row) -->
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Pixel Clock (MHz)
-        <Input
-          type="number"
-          :min="0"
-          :step="0.01"
-          :disabled="locked"
-          :model-value="timing.pixelClock"
-          @update:model-value="(v) => onPixelClock(v)"
-        />
-      </label>
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         H. Active (px)
         <Input
@@ -238,8 +226,8 @@ function onFlag(flag: string, value: unknown) {
           <option v-for="opt in STEREO_MODE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
       </label>
-      <label class="flex items-center justify-between gap-2 rounded-md border border-border/50 px-3 py-2">
-        <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Interlaced</span>
+      <label :class="switchRowClass">
+        <span class="text-xs text-muted-foreground">Interlaced</span>
         <Switch
           :checked="timing.flags.interlaced"
           @update:checked="(v: boolean) => onFlag('interlaced', v)"
