@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import {
-  DetailedTimingDescriptor,
   DisplayIdDataBlockTag,
   createDefaultDisplayIdBlock,
   createDefaultDescriptor,
@@ -15,6 +14,10 @@ import {
   type DisplayIdExtension,
 } from 'edidts'
 import { appendArrayItem, updateArrayItem, removeArrayItem } from '@/components/common/editorUtils'
+import {
+  generateTimingFromPreset,
+  getTimingEditorState,
+} from '@/composables/useTimingEditorState'
 import TopNav from '@/components/layout/TopNav.vue'
 import LeftNav from '@/components/layout/LeftNav.vue'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
@@ -85,11 +88,41 @@ onMounted(() => {
 
 const activeSection = ref('overview')
 
-function addTiming() {
+/**
+ * Add a detailed timing to the EDID base block, generated from a CVT preset
+ * (default 1080p60 standard CVT — matching the EDID constructor's first
+ * descriptor baseline). After appending, the new DTD's editor authoring mode
+ * is pre-set to the preset's CVT variant (and the CVT refresh-rate input to the
+ * preset's rate) so the card opens with field locking already applied — the
+ * WeakMap-keyed state must be seeded against the reactive proxy that
+ * `detailedTimings` exposes after the array reassign, not the raw instance.
+ */
+function addTiming(presetKey?: string) {
   if (!edidRef.value) return
-  const timings = appendArrayItem(edidRef.value.base.detailedTimings, new DetailedTimingDescriptor())
+  const { timing, mode, refreshRate } = generateTimingFromPreset(presetKey)
+  const timings = appendArrayItem(edidRef.value.base.detailedTimings, timing)
   edidRef.value.base.detailedTimings = timings
+  const proxy = edidRef.value.base.detailedTimings[timings.length - 1]
+  const state = getTimingEditorState(proxy)
+  state.mode = mode
+  state.refreshRate = refreshRate
   activeSection.value = `edid-dtd-${timings.length - 1}`
+}
+
+/** Add a CTA-861 detailed timing via the same CVT-preset flow (TASK-87 AC #4). */
+function addCeaTiming(presetKey?: string) {
+  if (!edidRef.value) return
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
+  const { timing, mode, refreshRate } = generateTimingFromPreset(presetKey)
+  const ceaTiming = { ...timing, isNative: false }
+  const timings = appendArrayItem(cea.detailedTimings, ceaTiming)
+  cea.detailedTimings = timings
+  const proxy = cea.detailedTimings[timings.length - 1]
+  const state = getTimingEditorState(proxy)
+  state.mode = mode
+  state.refreshRate = refreshRate
+  activeSection.value = 'cea-timings'
 }
 
 function removeTiming(index: number) {
@@ -323,7 +356,7 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
       <LeftNav
         :edid="edidRef"
         v-model:active-section="activeSection"
-        @add-edid-timing="addTiming"
+        @add-edid-timing="(k?: string) => addTiming(k)"
         @remove-edid-timing="removeTiming"
         @add-edid-descriptor="addDescriptor"
         @remove-edid-descriptor="removeDescriptor"
@@ -331,6 +364,7 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
         @remove-cea="removeCEAExtension"
         @add-cea-block="addCEADataBlock"
         @remove-cea-block="removeCEADataBlock"
+        @add-cea-timing="(k?: string) => addCeaTiming(k)"
         @add-display-id="addDisplayIdExtension"
         @remove-display-id="removeDisplayIdExtension"
         @add-display-id-block="addDisplayIdBlock"

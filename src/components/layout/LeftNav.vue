@@ -27,8 +27,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { CVT_PRESET_ENTRIES } from '@/composables/useTimingEditorState'
 
 const props = defineProps<{
   edid: EDIDViewModel | null
@@ -37,12 +41,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:activeSection': [section: string]
-  addEdidTiming: []
+  addEdidTiming: [presetKey?: string]
   removeEdidTiming: [index: number]
   addEdidDescriptor: [tag: number]
   removeEdidDescriptor: [index: number]
   addCea: []
   removeCea: []
+  addCeaTiming: [presetKey?: string]
   addCeaBlock: [blockType: string]
   removeCeaBlock: [blockTag: number, extendedTag?: number]
   addDisplayId: []
@@ -108,27 +113,20 @@ const edidCanAdd = computed(() => {
   return base.detailedTimings.length + meaningful < 4
 })
 
-type EdidAddOption =
-  | { kind: 'timing'; label: string; key: string }
-  | { kind: 'descriptor'; tag: number; label: string; key: string }
+type EdidAddOption = { kind: 'descriptor'; tag: number; label: string; key: string }
 
 const edidAddOptions = computed<EdidAddOption[]>(() => {
   if (!edidCanAdd.value) return []
-  return [
-    { kind: 'timing', label: 'Detailed Timing', key: 'edid-add-timing' },
-    ...DISPLAY_DESCRIPTOR_OPTIONS.map((o) => ({
-      kind: 'descriptor' as const,
-      tag: o.tag,
-      label: o.label,
-      key: `edid-add-desc-${o.tag}`,
-    })),
-  ]
+  return DISPLAY_DESCRIPTOR_OPTIONS.map((o) => ({
+    kind: 'descriptor' as const,
+    tag: o.tag,
+    label: o.label,
+    key: `edid-add-desc-${o.tag}`,
+  }))
 })
 
-function addEdidItem(opt: EdidAddOption) {
-  if (opt.kind === 'timing') emit('addEdidTiming')
-  else emit('addEdidDescriptor', opt.tag)
-}
+/** CTA detailed-timings are addable whenever a CEA extension exists. */
+const ceaCanAddTiming = computed(() => ceaExt.value !== null)
 
 // True when the active section is the combined Descriptors view or any
 // individual DTD/descriptor entry — used to highlight the sub-group header.
@@ -386,10 +384,25 @@ const displayIdOpen = ref(true)
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start">
+                              <!-- Detailed Timing: CVT-preset submenu. The
+                                   default preset (first entry) matches the EDID
+                                   constructor's 1080p60 standard-CVT baseline. -->
+                              <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>Detailed Timing</DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent>
+                                  <DropdownMenuItem
+                                    v-for="preset in CVT_PRESET_ENTRIES"
+                                    :key="preset.key"
+                                    @click="emit('addEdidTiming', preset.key)"
+                                  >
+                                    {{ preset.label }}
+                                  </DropdownMenuItem>
+                                </DropdownMenuSubContent>
+                              </DropdownMenuSub>
                               <DropdownMenuItem
                                 v-for="opt in edidAddOptions"
                                 :key="opt.key"
-                                @click="addEdidItem(opt)"
+                                @click="emit('addEdidDescriptor', opt.tag)"
                               >
                                 {{ opt.label }}
                               </DropdownMenuItem>
@@ -457,6 +470,27 @@ const displayIdOpen = ref(true)
                       <X class="size-3" />
                     </button>
                   </div>
+                </SidebarMenuSubItem>
+
+                <!-- Add CTA detailed timing (CVT-preset submenu, same flow as
+                     the EDID base-block add-timing). -->
+                <SidebarMenuSubItem v-if="ceaCanAddTiming">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <Button variant="ghost" size="sm" class="w-full text-xs text-muted-foreground h-7">
+                        + Add Timing
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        v-for="preset in CVT_PRESET_ENTRIES"
+                        :key="preset.key"
+                        @click="emit('addCeaTiming', preset.key)"
+                      >
+                        {{ preset.label }}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </SidebarMenuSubItem>
 
                 <!-- Add data block -->
