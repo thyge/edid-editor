@@ -110,30 +110,6 @@ function getCEAComparisonRows(index: number): CTAComparisonResult[] {
   return (ceaAnalysis.value[index]?.comparisons ?? []).filter((comparison) => comparison.withinTolerance)
 }
 
-function normalizeCVTLabel(label: string): string {
-  switch (label) {
-    case 'CVT RB':
-      return 'CVT-RB'
-    case 'CVT RB2':
-      return 'CVT-RBv2'
-    default:
-      return label
-  }
-}
-
-function getTimingClassificationLabel(index: number): string {
-  const cvtLabel = cvtAnalysis.value[index]?.matchLabel
-  if (cvtLabel && cvtLabel !== 'Custom') {
-    return normalizeCVTLabel(cvtLabel)
-  }
-
-  if (ceaAnalysis.value[index]?.matchVic) {
-    return 'CEA-861'
-  }
-
-  return 'Custom'
-}
-
 function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): string {
   const decimals = unit === 'MHz' ? 2 : 0
   const rounded = Number(value.toFixed(decimals))
@@ -161,11 +137,6 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
           :show-toggle="isAllView"
           @update="(field: string, value: unknown) => emit('update', `detailedTimings.${entry.i}.${field}`, value)"
         >
-          <template #badges>
-            <span class="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              {{ getTimingClassificationLabel(entry.i) }}
-            </span>
-          </template>
           <template #details>
             <div class="grid gap-3 md:grid-cols-2">
               <div class="rounded-lg border border-border/40 p-3">

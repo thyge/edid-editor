@@ -8,6 +8,7 @@ export {
   isVIC4K,
   isVIC8K,
   analyzeDetailedTimingAgainstCTA,
+  generateDetailedTimingFromVIC,
 } from './vic-table';
 export type { 
   VICDefinition,

@@ -27,12 +27,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { CVT_PRESET_ENTRIES } from '@/composables/useTimingEditorState'
 
 const props = defineProps<{
   edid: EDIDViewModel | null
@@ -384,21 +380,12 @@ const displayIdOpen = ref(true)
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start">
-                              <!-- Detailed Timing: CVT-preset submenu. The
-                                   default preset (first entry) matches the EDID
-                                   constructor's 1080p60 standard-CVT baseline. -->
-                              <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>Detailed Timing</DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent>
-                                  <DropdownMenuItem
-                                    v-for="preset in CVT_PRESET_ENTRIES"
-                                    :key="preset.key"
-                                    @click="emit('addEdidTiming', preset.key)"
-                                  >
-                                    {{ preset.label }}
-                                  </DropdownMenuItem>
-                                </DropdownMenuSubContent>
-                              </DropdownMenuSub>
+                              <!-- Detailed Timing: adds a default 1080p60
+                                   standard-CVT DTD. Pick a different preset from
+                                   inside the timing card's Preset row. -->
+                              <DropdownMenuItem @click="emit('addEdidTiming')">
+                                Detailed Timing
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 v-for="opt in edidAddOptions"
                                 :key="opt.key"
@@ -472,25 +459,18 @@ const displayIdOpen = ref(true)
                   </div>
                 </SidebarMenuSubItem>
 
-                <!-- Add CTA detailed timing (CVT-preset submenu, same flow as
-                     the EDID base-block add-timing). -->
+                <!-- Add CTA detailed timing: adds a default 1080p60 standard-CVT
+                     DTD. Pick a different preset from inside the timing card's
+                     Preset row. -->
                 <SidebarMenuSubItem v-if="ceaCanAddTiming">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger as-child>
-                      <Button variant="ghost" size="sm" class="w-full text-xs text-muted-foreground h-7">
-                        + Add Timing
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem
-                        v-for="preset in CVT_PRESET_ENTRIES"
-                        :key="preset.key"
-                        @click="emit('addCeaTiming', preset.key)"
-                      >
-                        {{ preset.label }}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="w-full text-xs text-muted-foreground h-7"
+                    @click="emit('addCeaTiming')"
+                  >
+                    + Add Timing
+                  </Button>
                 </SidebarMenuSubItem>
 
                 <!-- Add data block -->

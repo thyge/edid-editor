@@ -42,6 +42,9 @@ const switchRowClass =
 
 /** True when a CVT mode owns the derived geometry — disable those inputs. */
 const locked = computed(() => props.mode !== 'custom')
+/** True in CEA-861 mode — the VIC owns every byte, so even the CVT free
+ *  parameters (H/V active, image size, interlaced) are read-only. */
+const cea861 = computed(() => props.mode === 'cea-861')
 
 const isDigitalSeparate = computed(() => props.timing.flags.syncType === 'digital-separate')
 const isDigitalComposite = computed(() => props.timing.flags.syncType === 'digital-composite')
@@ -70,6 +73,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="cea861"
           :model-value="timing.horizontalActive"
           @update:model-value="(v) => onNumber('horizontalActive', v)"
         />
@@ -91,6 +95,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="cea861"
           :model-value="timing.verticalActive"
           @update:model-value="(v) => onNumber('verticalActive', v)"
         />
@@ -164,6 +169,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="cea861"
           :model-value="timing.horizontalImageSize"
           @update:model-value="(v) => onNumber('horizontalImageSize', v)"
         />
@@ -174,6 +180,7 @@ function onFlag(flag: string, value: unknown) {
           type="number"
           :min="0"
           :step="1"
+          :disabled="cea861"
           :model-value="timing.verticalImageSize"
           @update:model-value="(v) => onNumber('verticalImageSize', v)"
         />
@@ -230,6 +237,7 @@ function onFlag(flag: string, value: unknown) {
         <span class="text-xs text-muted-foreground">Interlaced</span>
         <Switch
           :checked="timing.flags.interlaced"
+          :disabled="cea861"
           @update:checked="(v: boolean) => onFlag('interlaced', v)"
         />
       </label>

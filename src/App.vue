@@ -45,6 +45,7 @@ import CTASpeakerLocation from '@/components/cta/CTASpeakerLocation.vue'
 import CTAInfoFrame from '@/components/cta/CTAInfoFrame.vue'
 import CTAVesaTransferCharacteristic from '@/components/cta/CTAVesaTransferCharacteristic.vue'
 import { useEDID } from '@/composables/useEDID'
+import { computeHexBlockRegions, type HexRegion } from '@/composables/useHexBlockRegions'
 import { displayIdSectionIds, displayIdBlockSectionByTag } from '@/components/displayid/displayIdLabels'
 import DisplayIDOverview from '@/components/displayid/DisplayIDOverview.vue'
 import DisplayIDHeader from '@/components/displayid/DisplayIDHeader.vue'
@@ -87,6 +88,45 @@ onMounted(() => {
 })
 
 const activeSection = ref('overview')
+
+/**
+ * App-wide drag-and-drop for EDID files: dropping a file anywhere on the window
+ * loads it via the same `loadFromFile` path as the TopNav file picker (so it
+ * works whether or not an EDID is already loaded). A drag counter tolerates
+ * nested dragenter/dragleave events; only file drags are intercepted (text/plain
+ * hex drops are ignored here — the EDIDUpload card handles those via paste).
+ */
+const isDragging = ref(false)
+const dragDepth = ref(0)
+
+function hasFiles(e: DragEvent): boolean {
+  return Array.from(e.dataTransfer?.types ?? []).includes('Files')
+}
+function onDragEnter(e: DragEvent): void {
+  if (!hasFiles(e)) return
+  e.preventDefault()
+  dragDepth.value++
+  isDragging.value = true
+}
+function onDragOver(e: DragEvent): void {
+  if (!hasFiles(e)) return
+  e.preventDefault()
+  e.dataTransfer!.dropEffect = 'copy'
+  isDragging.value = true
+}
+function onDragLeave(e: DragEvent): void {
+  if (!hasFiles(e)) return
+  dragDepth.value = Math.max(0, dragDepth.value - 1)
+  if (dragDepth.value === 0) isDragging.value = false
+}
+function onDrop(e: DragEvent): void {
+  if (!hasFiles(e)) return
+  e.preventDefault()
+  dragDepth.value = 0
+  isDragging.value = false
+  const file = e.dataTransfer?.files?.[0]
+  if (file) loadFromFile(file)
+}
 
 /**
  * Add a detailed timing to the EDID base block, generated from a CVT preset
@@ -200,6 +240,10 @@ const setEdidField = (path: string, value: unknown) => setByPath(edidRef.value?.
 
 const ceaExtension = computed(() => edidRef.value ? getCEAExtension(edidRef.value) : null)
 const displayIdExtension = computed(() => edidRef.value ? getDisplayIdExtension(edidRef.value) : null)
+/** Per-data-block regions for the HexViewer dividers (offset + label + depth),
+ *  tiled over the full re-encoded blob. Derived from the same reactive EEDID
+ *  tree that `edidData` encodes from, so it stays in sync with edits. */
+const hexRegions = computed<HexRegion[]>(() => (edidRef.value ? computeHexBlockRegions(edidRef.value) : []))
 
 function addCEAExtension() {
   if (!edidRef.value) return
@@ -346,7 +390,24 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-background text-foreground">
+  <div
+    class="h-screen flex flex-col bg-background text-foreground relative"
+    @dragenter="onDragEnter"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
+  >
+    <!-- Full-window drop overlay for EDID files (pointer-events-none so the drop
+         still lands on the root handler). -->
+    <div
+      v-if="isDragging"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-primary/10 backdrop-blur-sm pointer-events-none"
+    >
+      <div class="rounded-xl border-2 border-dashed border-primary bg-background/80 px-8 py-6 text-center shadow-lg">
+        <p class="text-lg font-semibold text-primary">Drop EDID file to load</p>
+        <p class="text-sm text-muted-foreground">.bin, .edid, .raw, .dat, or .txt (hex)</p>
+      </div>
+    </div>
     <TopNav
       @import-file="loadFromFile"
       @load-hex="loadFromHex"
@@ -497,7 +558,7 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
         </div>
       </SidebarInset>
       <section id="hex-viewer" class="h-full scroll-mt-24">
-        <HexViewer :data="edidData" />
+        <HexViewer :data="edidData" :regions="hexRegions" />
       </section>
     </SidebarProvider>
   </div>

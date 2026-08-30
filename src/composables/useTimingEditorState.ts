@@ -1,5 +1,7 @@
 import { reactive } from 'vue'
 import {
+  analyzeDetailedTimingAgainstCTA,
+  analyzeDetailedTimingWithCVT,
   computeRefreshRate,
   CVT_PRESETS,
   generateCVTDetailedTiming,
@@ -20,21 +22,26 @@ import {
  *  - `cvt`        — standard CVT blanking; margins toggle available.
  *  - `cvt-rb`     — CVT Reduced Blanking v1; margins ignored.
  *  - `cvt-rb2`    — CVT Reduced Blanking v2; margins ignored.
+ *  - `cea-861`    — CTA-861 VIC owns every byte; a VIC picker is the only free
+ *                  control and {@link generateDetailedTimingFromVIC} snaps the
+ *                  DTD to the VIC's exact bytes. Distinct from the generative
+ *                  CVT modes — VICs are a fixed enumerated set (1-127, 193-219).
  */
-export type TimingEditorMode = 'custom' | 'cvt' | 'cvt-rb' | 'cvt-rb2'
+export type TimingEditorMode = 'custom' | 'cvt' | 'cvt-rb' | 'cvt-rb2' | 'cea-861'
 
 export const TIMING_MODE_OPTIONS: ReadonlyArray<{ value: TimingEditorMode; label: string }> = [
   { value: 'custom', label: 'Custom' },
   { value: 'cvt', label: 'CVT' },
   { value: 'cvt-rb', label: 'CVT-RB' },
   { value: 'cvt-rb2', label: 'CVT-RBv2' },
+  { value: 'cea-861', label: 'CEA-861' },
 ]
 
 /**
  * Per-DTD editor state. `refreshRate` and `margins` are CVT generator inputs
  * that have no direct DTD field counterpart (refresh is *derived* from the DTD;
  * margins does not exist on the DTD at all), so they are held here and only
- * used while a CVT mode is active.
+ * used while a CVT mode is active. `selectedVic` is the CEA-861 picker value.
  */
 export interface TimingEditorState {
   mode: TimingEditorMode
@@ -42,9 +49,11 @@ export interface TimingEditorState {
   refreshRate: number
   /** 1.8% margins toggle. Standard CVT only — RB modes ignore it. */
   margins: boolean
+  /** Selected CTA-861 VIC in `cea-861` mode (null = no selection / other modes). */
+  selectedVic: number | null
 }
 
-/** Map an authoring mode to the CVT generator's blankingMode, or null for Custom. */
+/** Map an authoring mode to the CVT generator's blankingMode, or null for non-CVT. */
 export function modeToBlankingMode(mode: TimingEditorMode): CVTBlankingMode | null {
   switch (mode) {
     case 'cvt':
@@ -56,6 +65,35 @@ export function modeToBlankingMode(mode: TimingEditorMode): CVTBlankingMode | nu
     default:
       return null
   }
+}
+
+/**
+ * Infer the editor authoring mode for a DTD from the lib classifiers, so the
+ * selector and reality agree on load (TASK-89 AC #4). CEA-861 first — a DTD
+ * matching a CTA-861 VIC snaps to `cea-861` with that VIC selected — then the
+ * CVT family, else `custom`.
+ *
+ * Note: {@link analyzeDetailedTimingAgainstCTA} compares the DTD's full-frame
+ * verticalTotal against the VIC table's per-field vTotal for interlaced VICs,
+ * a pre-existing ~2× mismatch (see TASK-88), so interlaced CEA DTDs fall
+ * through to CVT/custom here. The user can still pick `cea-861` + the VIC by
+ * hand.
+ */
+function inferEditorMode(timing: DetailedTiming): {
+  mode: TimingEditorMode
+  selectedVic: number | null
+} {
+  const dtd = timing as DetailedTimingDescriptor
+  const cea = analyzeDetailedTimingAgainstCTA(dtd)
+  if (cea.matchVic) {
+    return { mode: 'cea-861', selectedVic: cea.matchVic.vic }
+  }
+  const cvt = analyzeDetailedTimingWithCVT(dtd)
+  const cvtMatch = cvt.comparisons.find((comparison) => comparison.withinTolerance)
+  if (cvtMatch) {
+    return { mode: blankingModeToMode(cvtMatch.mode), selectedVic: null }
+  }
+  return { mode: 'custom', selectedVic: null }
 }
 
 /**
@@ -99,8 +137,10 @@ const store = new WeakMap<object, TimingEditorState>()
 export function getTimingEditorState(timing: DetailedTiming): TimingEditorState {
   let state = store.get(timing)
   if (!state) {
+    const inferred = inferEditorMode(timing)
     state = reactive({
-      mode: 'custom',
+      mode: inferred.mode,
+      selectedVic: inferred.selectedVic,
       refreshRate: round2(computeRefreshRate(timing)),
       margins: false,
     }) as TimingEditorState

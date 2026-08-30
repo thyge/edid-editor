@@ -1,16 +1,22 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import {
+  analyzeDetailedTimingAgainstCTA,
   computeRefreshRate,
   generateCVTDetailedTiming,
+  generateDetailedTimingFromVIC,
   type CVTTimingInput,
   type DetailedTiming,
+  type DetailedTimingDescriptor,
 } from 'edidts'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import DetailedTimingFields from './DetailedTimingFields.vue'
+import VicPicker from './VicPicker.vue'
 import {
+  CVT_PRESET_ENTRIES,
   TIMING_MODE_OPTIONS,
+  generateTimingFromPreset,
   getTimingEditorState,
   modeToBlankingMode,
   type TimingEditorMode,
@@ -18,14 +24,14 @@ import {
 
 /**
  * Shared detailed-timing card chrome: header (Timing N, resolution×refresh,
- * pixel-clock subtitle), Interlaced/Progressive badge, expand toggle, and the
+ * pixel-clock subtitle, Mode selector, expand toggle), a Preset picker, the
+ * top controls row (Pixel Clock / Refresh / Margins), and the
  * DetailedTimingFields editor. Consumed by the EDID base-block descriptor view
  * (EDIDDetailedDescriptors.vue) and the CTA-861 DTD view (CTADetailedTimings.vue),
  * which share the same DetailedTiming field set via the common DTD codec.
  *
  * Refresh is derived from the single lib source {@link computeRefreshRate} —
  * never recomputed locally. Consumer-specific chrome is supplied via slots:
- *   - #badges: extra header badges (e.g. the EDID CVT/CTA classification badge)
  *   - #details: the expanded body after the field editor (H/V summary grid,
  *     CTA-861 reference, CVT calculator — these differ per consumer)
  *
@@ -58,16 +64,22 @@ const expanded = ref(false)
 const isExpanded = computed(() => props.forceExpand || expanded.value)
 
 const refresh = computed(() => computeRefreshRate(props.timing))
-const scanTypeLabel = computed(() => (props.timing.flags.interlaced ? 'Interlaced' : 'Progressive'))
 
 /** Editor-only authoring state for this DTD (mode + CVT free params). */
 const state = getTimingEditorState(props.timing)
-const isCVTMode = computed(() => state.mode !== 'custom')
+const isCVTMode = computed(() => state.mode !== 'custom' && state.mode !== 'cea-861')
+/** CEA-861 authoring mode: a VIC owns the timing geometry. */
+const cea861 = computed(() => state.mode === 'cea-861')
 /** Margins only applies to standard CVT — RB modes ignore it. */
 const showMargins = computed(() => state.mode === 'cvt')
 
 const modeSelectClass =
   'h-7 rounded-md border border-input bg-transparent dark:bg-input/30 px-2 text-xs shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
+
+/** Controlled value of the Preset `<select>` — held only to reset the picker to
+ * its placeholder after a load (it is a one-shot "load a starting point"
+ * control, not a persistent selection). */
+const selectedPreset = ref('')
 
 /** App-standard Switch row treatment (matches CTAHeaderFlags / CTAVideoCapability):
  * transparent border, hover wash, non-uppercase muted label. */
@@ -145,9 +157,63 @@ function regenerate(): void {
   emit('update', 'pixelClock', props.timing.pixelClock)
 }
 
+/**
+ * Load a CVT preset onto the current DTD as a complete starting point. Unlike
+ * {@link regenerate} (which preserves the user-set free parameters), this
+ * overwrites every DetailedTiming field with the preset's generated timing,
+ * sets the editor authoring mode to the preset's CVT variant, seeds the CVT
+ * refresh-rate input from the preset, then emits `update` for `pixelClock` so
+ * the owning mutator reassigns the enclosing `detailedTimings` array (the
+ * documented encode trigger). The picker resets to its placeholder afterwards —
+ * it is a one-shot "load a starting point" control, not a persistent selection
+ * (subsequent field edits would diverge from any fixed label).
+ */
+function onPresetChange(event: Event): void {
+  const key = (event.target as HTMLSelectElement).value
+  if (!key) return
+  const { timing: gen, mode, refreshRate } = generateTimingFromPreset(key)
+
+  props.timing.pixelClock = gen.pixelClock
+  props.timing.horizontalActive = gen.horizontalActive
+  props.timing.horizontalBlanking = gen.horizontalBlanking
+  props.timing.verticalActive = gen.verticalActive
+  props.timing.verticalBlanking = gen.verticalBlanking
+  props.timing.horizontalSyncOffset = gen.horizontalSyncOffset
+  props.timing.horizontalSyncWidth = gen.horizontalSyncWidth
+  props.timing.verticalSyncOffset = gen.verticalSyncOffset
+  props.timing.verticalSyncWidth = gen.verticalSyncWidth
+  props.timing.horizontalImageSize = gen.horizontalImageSize
+  props.timing.verticalImageSize = gen.verticalImageSize
+  props.timing.horizontalBorder = gen.horizontalBorder
+  props.timing.verticalBorder = gen.verticalBorder
+  props.timing.flags.interlaced = gen.flags.interlaced
+  props.timing.flags.syncType = gen.flags.syncType
+  props.timing.flags.stereoMode = gen.flags.stereoMode
+  props.timing.flags.hSyncPolarity = gen.flags.hSyncPolarity
+  props.timing.flags.vSyncPolarity = gen.flags.vSyncPolarity
+
+  state.mode = mode
+  state.refreshRate = refreshRate
+  state.margins = false
+
+  emit('update', 'pixelClock', props.timing.pixelClock)
+  selectedPreset.value = ''
+}
+
 function onModeChange(event: Event): void {
   const mode = (event.target as HTMLSelectElement).value as TimingEditorMode
   state.mode = mode
+  if (mode === 'cea-861') {
+    // CEA-861 mode: the VIC owns the timing. If the DTD already matches a VIC
+    // (e.g. it was authored from one), pre-select it so the picker reflects the
+    // current bytes — no rewrite is needed in that case. Otherwise leave the
+    // picker on its placeholder and let the user pick a VIC to snap to.
+    if (state.selectedVic == null) {
+      const match = analyzeDetailedTimingAgainstCTA(props.timing as DetailedTimingDescriptor).matchVic
+      if (match) state.selectedVic = match.vic
+    }
+    return
+  }
   if (mode !== 'custom') {
     // Seed the CVT refresh-rate input from the DTD's present geometry so the
     // first regeneration stays at the current rate; reset margins (std-only).
@@ -155,6 +221,40 @@ function onModeChange(event: Event): void {
     state.margins = false
     regenerate()
   }
+}
+
+/**
+ * Apply a CTA-861 VIC to the current DTD: snap every timing field to the VIC's
+ * canonical geometry (written onto the reactive DTD in place, like
+ * {@link onPresetChange}), record the selection in editor state, and emit
+ * `update` for `pixelClock` so the owning mutator reassigns the enclosing
+ * `detailedTimings` array (the documented encode trigger). Image size is
+ * preserved — it is display-specific, not a VIC property, and stays read-only
+ * in CEA-861 mode. A null selection (picker cleared) is ignored.
+ */
+function onVICSelect(vic: number | null): void {
+  if (vic == null) return
+  const gen = generateDetailedTimingFromVIC(vic)
+
+  props.timing.pixelClock = gen.pixelClock
+  props.timing.horizontalActive = gen.horizontalActive
+  props.timing.horizontalBlanking = gen.horizontalBlanking
+  props.timing.verticalActive = gen.verticalActive
+  props.timing.verticalBlanking = gen.verticalBlanking
+  props.timing.horizontalSyncOffset = gen.horizontalSyncOffset
+  props.timing.horizontalSyncWidth = gen.horizontalSyncWidth
+  props.timing.verticalSyncOffset = gen.verticalSyncOffset
+  props.timing.verticalSyncWidth = gen.verticalSyncWidth
+  props.timing.horizontalBorder = gen.horizontalBorder
+  props.timing.verticalBorder = gen.verticalBorder
+  props.timing.flags.interlaced = gen.flags.interlaced
+  props.timing.flags.syncType = gen.flags.syncType
+  props.timing.flags.stereoMode = gen.flags.stereoMode
+  props.timing.flags.hSyncPolarity = gen.flags.hSyncPolarity
+  props.timing.flags.vSyncPolarity = gen.flags.vSyncPolarity
+
+  state.selectedVic = vic
+  emit('update', 'pixelClock', props.timing.pixelClock)
 }
 
 function onRefreshChange(v: string | number): void {
@@ -215,29 +315,47 @@ function applyFreeParam(field: string, value: unknown): void {
         </p>
         <p class="text-xs text-muted-foreground">{{ timing.pixelClock.toFixed(2) }} MHz pixel clock</p>
       </div>
-      <div class="ml-auto flex flex-wrap items-center gap-3">
-        <label class="flex items-center gap-2">
-          <span class="text-[10px] uppercase tracking-wide text-muted-foreground">Mode</span>
+      <div class="ml-auto flex flex-col items-end gap-2">
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Preset picker: load a CVT preset onto the current DTD as a starting
+               point (overwrites all fields and sets the matching CVT mode). A
+               one-shot control — resets to the placeholder after each load. -->
           <select
             :class="modeSelectClass"
+            aria-label="Load preset"
+            :value="selectedPreset"
+            :disabled="cea861"
+            @change="onPresetChange"
+          >
+            <option value="">Load preset…</option>
+            <option v-for="preset in CVT_PRESET_ENTRIES" :key="preset.key" :value="preset.key">{{ preset.label }}</option>
+          </select>
+          <select
+            :class="modeSelectClass"
+            aria-label="Timing mode"
             :value="state.mode"
             @change="onModeChange"
           >
             <option v-for="opt in TIMING_MODE_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
-        </label>
-        <span class="rounded-full border border-border/60 bg-muted/30 px-3 py-1 text-xs font-semibold text-muted-foreground">
-          {{ scanTypeLabel }}
-        </span>
-        <slot name="badges" />
-        <button
-          v-if="showToggle"
-          type="button"
-          class="text-xs font-semibold text-foreground/80 hover:text-primary"
-          @click="toggle"
-        >
-          {{ isExpanded ? 'Hide details' : 'Show details' }}
-        </button>
+          <button
+            v-if="showToggle"
+            type="button"
+            class="text-xs font-semibold text-foreground/80 hover:text-primary"
+            @click="toggle"
+          >
+            {{ isExpanded ? 'Hide details' : 'Show details' }}
+          </button>
+        </div>
+        <!-- CEA-861 mode: the VIC picker lives under the preset/mode selectors
+             (it is the sole free-parameter control — every DTD field is locked
+             to the VIC's bytes). Kept out of the edit-fields area per UX. -->
+        <VicPicker
+          v-if="cea861"
+          class="w-full sm:w-72"
+          :model-value="state.selectedVic"
+          @update:model-value="(v) => onVICSelect(v)"
+        />
       </div>
     </div>
     <div
@@ -246,10 +364,11 @@ function applyFreeParam(field: string, value: unknown): void {
     >
       <!-- Top controls row: Pixel Clock | Refresh Rate | Margins. Always
            rendered as a 3-column grid so the layout never reflows between
-           modes. Pixel Clock is editable in Custom mode and disabled (showing
-           the generator output) in CVT modes; Refresh Rate is the editable CVT
-           generator input (read-only mirror of the derived rate in Custom);
-           Margins is enabled only for standard CVT (RB ignores it). -->
+           modes. Pixel Clock is editable in Custom mode and disabled in CVT
+           modes (generator owns it) and CEA-861 mode (the VIC owns it); the
+           CEA-861 VIC picker lives in the header, not here. Refresh Rate is the
+           editable CVT generator input (read-only mirror of the derived rate in
+           Custom / CEA-861); Margins is enabled only for standard CVT. -->
       <div class="mb-4 grid gap-3 sm:grid-cols-3">
         <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Pixel Clock (MHz)
@@ -257,7 +376,7 @@ function applyFreeParam(field: string, value: unknown): void {
             type="number"
             :min="0"
             :step="0.01"
-            :disabled="isCVTMode"
+            :disabled="isCVTMode || cea861"
             :model-value="timing.pixelClock"
             @update:model-value="(v) => onPixelClock(v)"
           />

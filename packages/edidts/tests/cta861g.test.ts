@@ -17,14 +17,17 @@ import {
   getBitDepthsString,
   VIC_TABLE,
   VESA_INTERFACE_CATEGORIES,
+  generateDetailedTimingFromVIC,
+  analyzeDetailedTimingAgainstCTA,
   type VideoCapabilityDataBlock,
   type ColorimetryDataBlock,
   type HDRStaticMetadataDataBlock,
   type YCbCr420VideoDataBlock,
   type VESAVideoDisplayDeviceDataBlock,
   type VESAVideoTimingBlockExtensionDataBlock,
+  type VICDefinition,
 } from '../src/cta';
-import { checksum8 } from '../src/common';
+import { checksum8, encodeEdidCtaDetailedTiming, decodeEdidCtaDetailedTiming } from '../src/common';
 import { buildCeaExtension } from './cea-utils';
 
 describe('CTA and VTB detailed timing descriptors', () => {
@@ -604,5 +607,107 @@ describe('VESA extended tag 0x03 (Video Timing Block Extension) — TASK-9', () 
     expect(block.trailing.length).toBe(0);
     const reencoded = encodeExtendedDataBlock(block);
     expect(Array.from(reencoded)).toEqual([0x03]);
+  });
+});
+
+describe('VIC Table per-VIC short-form fields + generateDetailedTimingFromVIC (TASK-88)', () => {
+  it('every VIC_TABLE entry has all new fields populated with valid values', () => {
+    expect(VIC_TABLE.length).toBeGreaterThan(100);
+    for (const vic of VIC_TABLE) {
+      expect(vic.horizontalSyncOffset).toBeGreaterThanOrEqual(0);
+      expect(vic.horizontalSyncWidth).toBeGreaterThan(0);
+      expect(vic.verticalSyncOffset).toBeGreaterThanOrEqual(0);
+      expect(vic.verticalSyncWidth).toBeGreaterThan(0);
+      expect(vic.hSyncPolarity === 'positive' || vic.hSyncPolarity === 'negative').toBe(true);
+      expect(vic.vSyncPolarity === 'positive' || vic.vSyncPolarity === 'negative').toBe(true);
+      expect(vic.horizontalBorder).toBeGreaterThanOrEqual(0);
+      expect(vic.verticalBorder).toBeGreaterThanOrEqual(0);
+      // H sync/porch fields are consistent with the stored (displayed-form) totals.
+      expect(vic.horizontalSyncOffset + vic.horizontalSyncWidth).toBeLessThanOrEqual(vic.hTotal - vic.width);
+    }
+  });
+
+  // Representative set: progressive (1, 4, 16), interlaced (5), double-clocked
+  // displayed-form (6), even-vtotal interlaced (39), a previously-corrected
+  // hTotal/vTotal error (91), 4K (93), 8K (194).
+  const REPS = [1, 4, 5, 6, 16, 39, 91, 93, 194];
+  // VICs whose active dimensions fit the 18-byte EDID/CTA DTD (H/V active are
+  // 12-bit, max 4095). 8K (194, 7680x4320) and 5120-wide VICs exceed that, so
+  // they are carried only as VIC numbers / DisplayID timings — not as DTDs.
+  const REPS_FIT_18BYTE = [1, 4, 5, 6, 16, 39, 91, 93];
+  // Progressive VICs only. Interlaced VICs are excluded from the analyzer-match
+  // assertion: analyzeDetailedTimingAgainstCTA compares the DTD's full-frame
+  // verticalTotal (active + blanking, e.g. 1125 for 1080i) against the VIC
+  // table's per-field vTotal (562.5), a pre-existing ~2× mismatch that is out
+  // of scope for TASK-88 (AC #5: the analyzer stays unchanged).
+  const REPS_PROGRESSIVE = [1, 4, 16, 91, 93, 194];
+
+  for (const vicNum of REPS) {
+    it(`VIC ${vicNum}: generateDetailedTimingFromVIC derives correct DTD geometry`, () => {
+      const def = getVICDefinition(vicNum)!;
+      const dtd = generateDetailedTimingFromVIC(vicNum);
+
+      expect(dtd.horizontalActive).toBe(def.width);
+      expect(dtd.verticalActive).toBe(def.height);
+      expect(dtd.horizontalBlanking).toBe(def.hTotal - def.width);
+      expect(dtd.verticalBlanking).toBe(def.interlaced ? 2 * def.vTotal - def.height : def.vTotal - def.height);
+      expect(dtd.pixelClock).toBe(def.pixelClock);
+      expect(dtd.horizontalSyncOffset).toBe(def.horizontalSyncOffset);
+      expect(dtd.horizontalSyncWidth).toBe(def.horizontalSyncWidth);
+      expect(dtd.verticalSyncOffset).toBe(def.verticalSyncOffset);
+      expect(dtd.verticalSyncWidth).toBe(def.verticalSyncWidth);
+      expect(dtd.flags.interlaced).toBe(def.interlaced);
+      expect(dtd.flags.syncType).toBe('digital-separate');
+      expect(dtd.flags.stereoMode).toBe('none');
+      expect(dtd.flags.hSyncPolarity).toBe(def.hSyncPolarity);
+      expect(dtd.flags.vSyncPolarity).toBe(def.vSyncPolarity);
+      expect(dtd.horizontalBorder).toBe(def.horizontalBorder);
+      expect(dtd.verticalBorder).toBe(def.verticalBorder);
+    });
+  }
+
+  for (const vicNum of REPS_FIT_18BYTE) {
+    it(`VIC ${vicNum}: builder output round-trips through the 18-byte DTD codec`, () => {
+      const def = getVICDefinition(vicNum)!;
+      const dtd = generateDetailedTimingFromVIC(vicNum);
+      const bytes = encodeEdidCtaDetailedTiming(dtd);
+      const decoded = decodeEdidCtaDetailedTiming(bytes)!;
+      expect(decoded.horizontalActive).toBe(def.width);
+      expect(decoded.verticalActive).toBe(def.height);
+      expect(decoded.pixelClock).toBeCloseTo(def.pixelClock, 2);
+      expect(decoded.horizontalBlanking).toBe(def.hTotal - def.width);
+      expect(decoded.flags.interlaced).toBe(def.interlaced);
+      expect(decoded.flags.syncType).toBe('digital-separate');
+    });
+  }
+
+  for (const vicNum of REPS_PROGRESSIVE) {
+    it(`VIC ${vicNum}: builder output is matched back to its VIC by the analyzer`, () => {
+      const dtd = generateDetailedTimingFromVIC(vicNum);
+      const analysis = analyzeDetailedTimingAgainstCTA(dtd);
+      expect(analysis.matchVic?.vic).toBe(vicNum);
+    });
+  }
+
+  it('generateDetailedTimingFromVIC accepts a VICDefinition as well as a number', () => {
+    const def = getVICDefinition(16)!;
+    const fromNumber = generateDetailedTimingFromVIC(16);
+    const fromDef = generateDetailedTimingFromVIC(def);
+    expect(fromDef.horizontalActive).toBe(fromNumber.horizontalActive);
+    expect(fromDef.horizontalBlanking).toBe(fromNumber.horizontalBlanking);
+    expect(fromDef.verticalBlanking).toBe(fromNumber.verticalBlanking);
+    expect(fromDef.pixelClock).toBe(fromNumber.pixelClock);
+    expect(analyzeDetailedTimingAgainstCTA(fromDef).matchVic?.vic).toBe(16);
+  });
+
+  it('generateDetailedTimingFromVIC throws on an unknown/reserved VIC', () => {
+    expect(() => generateDetailedTimingFromVIC(0)).toThrow();
+    expect(() => generateDetailedTimingFromVIC(128)).toThrow();
+  });
+
+  it('generateDetailedTimingFromVIC applies optional image-size overrides', () => {
+    const dtd = generateDetailedTimingFromVIC(16, { horizontalImageSize: 600, verticalImageSize: 340 });
+    expect(dtd.horizontalImageSize).toBe(600);
+    expect(dtd.verticalImageSize).toBe(340);
   });
 });

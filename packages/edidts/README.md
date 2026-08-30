@@ -43,6 +43,16 @@ npm install
 npm run build          # tsc + Vite, produces dist/index.js + .d.ts
 ```
 
+## Examples
+
+`examples/print-edid.ts` decodes the built-in demo EDID (the same blob the Vue app loads on mount) into the `EEDID` data model and prints a human-readable summary, then re-encodes it to show the round-trip. Run it from the repo root:
+
+```sh
+npx tsx packages/edidts/examples/print-edid.ts
+# or decode a different EDID (commas/spaces ok):
+npx tsx packages/edidts/examples/print-edid.ts "00,FF,FF,..."
+```
+
 ## Tests
 
 ```sh
