@@ -73,11 +73,11 @@ function hdmiVicsText(): string {
       </div>
 
       <div class="grid grid-cols-2 gap-x-6 gap-y-1">
-        <div :class="rowClass"><span>AI Support</span><Switch :checked="props.fields.supportsAI" @update:checked="(v: boolean) => emit('update', 'supportsAI', v)" /></div>
-        <div :class="rowClass"><span>DC Y444</span><Switch :checked="props.fields.dcY444" @update:checked="(v: boolean) => emit('update', 'dcY444', v)" /></div>
-        <div :class="rowClass"><span>Deep Color 30-bit</span><Switch :checked="props.fields.dc30bit" @update:checked="(v: boolean) => emit('update', 'dc30bit', v)" /></div>
-        <div :class="rowClass"><span>Deep Color 36-bit</span><Switch :checked="props.fields.dc36bit" @update:checked="(v: boolean) => emit('update', 'dc36bit', v)" /></div>
-        <div :class="rowClass"><span>Deep Color 48-bit</span><Switch :checked="props.fields.dc48bit" @update:checked="(v: boolean) => emit('update', 'dc48bit', v)" /></div>
+        <div :class="rowClass"><span>AI Support</span><Switch :model-value="props.fields.supportsAI" @update:model-value="(v: boolean) => emit('update', 'supportsAI', v)" /></div>
+        <div :class="rowClass"><span>DC Y444</span><Switch :model-value="props.fields.dcY444" @update:model-value="(v: boolean) => emit('update', 'dcY444', v)" /></div>
+        <div :class="rowClass"><span>Deep Color 30-bit</span><Switch :model-value="props.fields.dc30bit" @update:model-value="(v: boolean) => emit('update', 'dc30bit', v)" /></div>
+        <div :class="rowClass"><span>Deep Color 36-bit</span><Switch :model-value="props.fields.dc36bit" @update:model-value="(v: boolean) => emit('update', 'dc36bit', v)" /></div>
+        <div :class="rowClass"><span>Deep Color 48-bit</span><Switch :model-value="props.fields.dc48bit" @update:model-value="(v: boolean) => emit('update', 'dc48bit', v)" /></div>
       </div>
 
       <!-- Latency (present iff byte 4 bit 7 set; rendered only when decoded) -->
@@ -109,7 +109,7 @@ function hdmiVicsText(): string {
       <div v-if="props.fields.extended">
         <p :class="sectionClass">Extended HDMI Video Details</p>
         <div class="grid grid-cols-2 gap-x-6 gap-y-2">
-          <div :class="rowClass"><span>3D Present</span><Switch :checked="props.fields.extended.threeDPresent" @update:checked="(v: boolean) => emit('update', 'extended.threeDPresent', v)" /></div>
+          <div :class="rowClass"><span>3D Present</span><Switch :model-value="props.fields.extended.threeDPresent" @update:model-value="(v: boolean) => emit('update', 'extended.threeDPresent', v)" /></div>
           <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             3D Mode
             <select :class="selectClass" :value="props.fields.extended.threeDMode" @change="(e: Event) => emit('update', 'extended.threeDMode', (e.target as HTMLSelectElement).value)">

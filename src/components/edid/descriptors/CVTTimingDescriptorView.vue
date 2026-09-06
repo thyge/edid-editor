@@ -125,7 +125,7 @@ function removeTiming(index: number) {
             :key="flag.key"
             class="flex items-center gap-1.5 text-xs cursor-pointer"
           >
-            <Switch :checked="timing.refreshRates[flag.key]" @update:checked="(v: boolean) => onRefresh(index, flag.key, v)" />
+            <Switch :model-value="timing.refreshRates[flag.key]" @update:model-value="(v: boolean) => onRefresh(index, flag.key, v)" />
             <span>{{ flag.label }}</span>
           </label>
         </div>

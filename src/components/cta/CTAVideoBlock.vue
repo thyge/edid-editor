@@ -69,7 +69,7 @@ const availableVics = computed(() =>
           <div class="flex items-center gap-3 shrink-0">
             <label class="flex items-center gap-1.5 text-xs">
               <span class="text-muted-foreground">Native</span>
-              <Switch :checked="svd.native" @update:checked="(v: boolean) => toggleNative(i, v)" />
+              <Switch :model-value="svd.native" @update:model-value="(v: boolean) => toggleNative(i, v)" />
             </label>
             <Button
               variant="ghost"

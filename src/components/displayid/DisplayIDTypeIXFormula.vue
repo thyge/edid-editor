@@ -63,7 +63,7 @@ function updateBlock(index: number, block: DisplayIdTypeIXFormulaBasedTimingBloc
             </div>
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
               <span>NTSC Pull-down</span>
-              <Switch :checked="timing.ntscPullDown" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, ntscPullDown: value }))" />
+              <Switch :model-value="timing.ntscPullDown" @update:model-value="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, ntscPullDown: value }))" />
             </label>
           </div>
         </div>

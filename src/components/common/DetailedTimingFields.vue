@@ -236,9 +236,9 @@ function onFlag(flag: string, value: unknown) {
       <label :class="switchRowClass">
         <span class="text-xs text-muted-foreground">Interlaced</span>
         <Switch
-          :checked="timing.flags.interlaced"
+          :model-value="timing.flags.interlaced"
           :disabled="cea861"
-          @update:checked="(v: boolean) => onFlag('interlaced', v)"
+          @update:model-value="(v: boolean) => onFlag('interlaced', v)"
         />
       </label>
     </div>
@@ -275,9 +275,9 @@ function onFlag(flag: string, value: unknown) {
       <label class="flex items-center justify-between gap-2 rounded-md border border-border/50 px-3 py-2">
         <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Serration on V-Sync</span>
         <Switch
-          :checked="timing.flags.serrationOnVSync ?? false"
+          :model-value="timing.flags.serrationOnVSync ?? false"
           :disabled="locked"
-          @update:checked="(v: boolean) => onFlag('serrationOnVSync', v)"
+          @update:model-value="(v: boolean) => onFlag('serrationOnVSync', v)"
         />
       </label>
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -298,17 +298,17 @@ function onFlag(flag: string, value: unknown) {
       <label class="flex items-center justify-between gap-2 rounded-md border border-border/50 px-3 py-2">
         <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Serration on V-Sync</span>
         <Switch
-          :checked="timing.flags.serrationOnVSync ?? false"
+          :model-value="timing.flags.serrationOnVSync ?? false"
           :disabled="locked"
-          @update:checked="(v: boolean) => onFlag('serrationOnVSync', v)"
+          @update:model-value="(v: boolean) => onFlag('serrationOnVSync', v)"
         />
       </label>
       <label class="flex items-center justify-between gap-2 rounded-md border border-border/50 px-3 py-2">
         <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sync on All Channels</span>
         <Switch
-          :checked="timing.flags.syncOnAllChannels ?? false"
+          :model-value="timing.flags.syncOnAllChannels ?? false"
           :disabled="locked"
-          @update:checked="(v: boolean) => onFlag('syncOnAllChannels', v)"
+          @update:model-value="(v: boolean) => onFlag('syncOnAllChannels', v)"
         />
       </label>
     </div>

@@ -114,13 +114,13 @@ function addDynEntry(block: HDRDynamicMetadataDataBlock | undefined) {
           <div v-for="flag in eotfFlags" :key="flag.key" :class="rowClass">
             <span>{{ flag.label }}</span>
             <Switch
-              :checked="(hdrStatic as unknown as Record<string, unknown>).eotf ? (hdrStatic.eotf as unknown as Record<string, boolean>)[flag.key] : false"
-              @update:checked="(v: boolean) => emitBlock(hdrStatic, `eotf.${flag.key}`, v)"
+              :model-value="(hdrStatic as unknown as Record<string, unknown>).eotf ? (hdrStatic.eotf as unknown as Record<string, boolean>)[flag.key] : false"
+              @update:model-value="(v: boolean) => emitBlock(hdrStatic, `eotf.${flag.key}`, v)"
             />
           </div>
           <div :class="rowClass">
             <span>Static Metadata Type 1</span>
-            <Switch :checked="hdrStatic.staticMetadataType1" @update:checked="(v: boolean) => emitBlock(hdrStatic, 'staticMetadataType1', v)" />
+            <Switch :model-value="hdrStatic.staticMetadataType1" @update:model-value="(v: boolean) => emitBlock(hdrStatic, 'staticMetadataType1', v)" />
           </div>
         </div>
 
@@ -178,8 +178,8 @@ function addDynEntry(block: HDRDynamicMetadataDataBlock | undefined) {
           <div v-for="flag in colorimetryFlags" :key="flag.key" :class="rowClass">
             <span>{{ flag.label }}</span>
             <Switch
-              :checked="(colorimetry as unknown as Record<string, boolean>)[flag.key]"
-              @update:checked="(v: boolean) => emitBlock(colorimetry, flag.key, v)"
+              :model-value="(colorimetry as unknown as Record<string, boolean>)[flag.key]"
+              @update:model-value="(v: boolean) => emitBlock(colorimetry, flag.key, v)"
             />
           </div>
         </div>
@@ -201,7 +201,7 @@ function addDynEntry(block: HDRDynamicMetadataDataBlock | undefined) {
             <div class="flex items-center gap-3 shrink-0">
               <label class="flex items-center gap-1.5 text-xs">
                 <span class="text-muted-foreground">Native</span>
-                <Switch :checked="v.native" @update:checked="(val: boolean) => toggle420Native(ycbcr420Video, i, val)" />
+                <Switch :model-value="v.native" @update:model-value="(val: boolean) => toggle420Native(ycbcr420Video, i, val)" />
               </label>
               <Button variant="ghost" size="sm" class="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 px-2" @click="remove420Vic(ycbcr420Video, i)">
                 Remove

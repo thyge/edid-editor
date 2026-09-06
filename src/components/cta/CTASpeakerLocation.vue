@@ -71,7 +71,7 @@ function num(v: string | number): number {
               </label>
               <label class="flex items-center gap-2 text-xs pb-2">
                 <span class="text-muted-foreground">Active</span>
-                <Switch :checked="d.active" @update:checked="(v: boolean) => updateEntry(i, { active: v })" />
+                <Switch :model-value="d.active" @update:model-value="(v: boolean) => updateEntry(i, { active: v })" />
               </label>
               <Button variant="ghost" size="sm" class="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 px-2" @click="removeEntry(i)">Remove</Button>
             </div>

@@ -44,8 +44,8 @@ function update(index: number, block: DisplayIdTiledDisplayTopologyBlock, patch:
               <option v-for="value in 2" :key="value - 1" :value="value - 1">{{ subsetTileBehaviorLabels[value - 1] }}</option>
             </select>
           </div>
-          <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50"><span>Bezel information present</span><Switch :checked="block.bezelInfoPresent" @update:checked="(value: boolean) => update(index, block, { bezelInfoPresent: value })" /></label>
-          <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50"><span>Single physical enclosure</span><Switch :checked="block.singleEnclosure" @update:checked="(value: boolean) => update(index, block, { singleEnclosure: value })" /></label>
+          <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50"><span>Bezel information present</span><Switch :model-value="block.bezelInfoPresent" @update:model-value="(value: boolean) => update(index, block, { bezelInfoPresent: value })" /></label>
+          <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50"><span>Single physical enclosure</span><Switch :model-value="block.singleEnclosure" @update:model-value="(value: boolean) => update(index, block, { singleEnclosure: value })" /></label>
         </section>
 
         <section class="grid grid-cols-2 gap-4">

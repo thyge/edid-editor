@@ -395,9 +395,9 @@ function applyFreeParam(field: string, value: unknown): void {
         <label :class="switchRowClass">
           <span class="text-xs text-muted-foreground">Margins (1.8%)</span>
           <Switch
-            :checked="state.margins"
+            :model-value="state.margins"
             :disabled="!showMargins"
-            @update:checked="(v: boolean) => onMarginsChange(v)"
+            @update:model-value="(v: boolean) => onMarginsChange(v)"
           />
         </label>
       </div>

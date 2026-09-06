@@ -33,7 +33,7 @@ function update(index: number, block: DisplayIdDynamicVideoTimingRangeLimitsBloc
         </div>
         <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
           <span>Seamless Dynamic Video Timing</span>
-          <Switch :checked="block.seamlessDynamicVideoTiming" @update:checked="(value: boolean) => update(index, block, { seamlessDynamicVideoTiming: value })" />
+          <Switch :model-value="block.seamlessDynamicVideoTiming" @update:model-value="(value: boolean) => update(index, block, { seamlessDynamicVideoTiming: value })" />
         </label>
       </div>
     </CardContent>

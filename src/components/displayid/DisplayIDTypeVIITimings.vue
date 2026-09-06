@@ -75,11 +75,11 @@ function updateBlock(index: number, block: DisplayIdTypeVIIDetailedTimingBlock, 
           <div class="grid grid-cols-3 gap-3">
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
               <span>Preferred</span>
-              <Switch :checked="timing.preferred" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, preferred: value }))" />
+              <Switch :model-value="timing.preferred" @update:model-value="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, preferred: value }))" />
             </label>
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
               <span>Interlaced</span>
-              <Switch :checked="timing.interlaced" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, interlaced: value }))" />
+              <Switch :model-value="timing.interlaced" @update:model-value="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, interlaced: value }))" />
             </label>
             <div class="space-y-1">
               <label class="text-xs text-muted-foreground">3D Stereo (0–3)</label>
@@ -87,11 +87,11 @@ function updateBlock(index: number, block: DisplayIdTypeVIIDetailedTimingBlock, 
             </div>
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
               <span>Hsync +</span>
-              <Switch :checked="timing.horizontalSyncPolarity" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, horizontalSyncPolarity: value }))" />
+              <Switch :model-value="timing.horizontalSyncPolarity" @update:model-value="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, horizontalSyncPolarity: value }))" />
             </label>
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
               <span>Vsync +</span>
-              <Switch :checked="timing.verticalSyncPolarity" @update:checked="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, verticalSyncPolarity: value }))" />
+              <Switch :model-value="timing.verticalSyncPolarity" @update:model-value="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, verticalSyncPolarity: value }))" />
             </label>
           </div>
         </div>

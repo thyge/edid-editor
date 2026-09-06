@@ -337,7 +337,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :checked="local.cvt?.reducedBlankingPreferred ?? false"
+            :model-value="local.cvt?.reducedBlankingPreferred ?? false"
             @change="(e) => updateCVTBoolean('reducedBlankingPreferred', (e.target as HTMLInputElement).checked)"
           />
           Reduced Blanking Preferred
@@ -346,7 +346,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :checked="local.cvt?.standardBlankingSupported ?? false"
+            :model-value="local.cvt?.standardBlankingSupported ?? false"
             @change="(e) => updateCVTBoolean('standardBlankingSupported', (e.target as HTMLInputElement).checked)"
           />
           Standard Blanking Supported
@@ -355,7 +355,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :checked="local.cvt?.horizontalShrinkSupported ?? false"
+            :model-value="local.cvt?.horizontalShrinkSupported ?? false"
             @change="(e) => updateCVTBoolean('horizontalShrinkSupported', (e.target as HTMLInputElement).checked)"
           />
           Horizontal Shrink
@@ -364,7 +364,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :checked="local.cvt?.horizontalStretchSupported ?? false"
+            :model-value="local.cvt?.horizontalStretchSupported ?? false"
             @change="(e) => updateCVTBoolean('horizontalStretchSupported', (e.target as HTMLInputElement).checked)"
           />
           Horizontal Stretch
@@ -373,7 +373,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :checked="local.cvt?.verticalShrinkSupported ?? false"
+            :model-value="local.cvt?.verticalShrinkSupported ?? false"
             @change="(e) => updateCVTBoolean('verticalShrinkSupported', (e.target as HTMLInputElement).checked)"
           />
           Vertical Shrink
@@ -382,7 +382,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :checked="local.cvt?.verticalStretchSupported ?? false"
+            :model-value="local.cvt?.verticalStretchSupported ?? false"
             @change="(e) => updateCVTBoolean('verticalStretchSupported', (e.target as HTMLInputElement).checked)"
           />
           Vertical Stretch
@@ -400,7 +400,7 @@ function onPreferredAspectChange(event: Event) {
             <input
               type="checkbox"
               class="size-4 rounded border border-input accent-primary"
-              :checked="local.cvt?.aspectRatios[ratio.key] ?? false"
+              :model-value="local.cvt?.aspectRatios[ratio.key] ?? false"
               @change="(e) => updateCVTAspectRatio(ratio.key, (e.target as HTMLInputElement).checked)"
             />
             {{ ratio.label }}

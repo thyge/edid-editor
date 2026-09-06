@@ -44,49 +44,49 @@ function onNumber(field: string, v: string | number) {
         </label>
         <div :class="rowClass">
           <span>SCDC</span>
-          <Switch :checked="props.fields.scdc" @update:checked="(v: boolean) => emit('update', 'scdc', v)" />
+          <Switch :model-value="props.fields.scdc" @update:model-value="(v: boolean) => emit('update', 'scdc', v)" />
         </div>
         <div :class="rowClass">
           <span>Read Request</span>
-          <Switch :checked="props.fields.rr" @update:checked="(v: boolean) => emit('update', 'rr', v)" />
+          <Switch :model-value="props.fields.rr" @update:model-value="(v: boolean) => emit('update', 'rr', v)" />
         </div>
         <div :class="rowClass">
           <span>340 Mcsc Scramble</span>
-          <Switch :checked="props.fields.lte340McscScramble" @update:checked="(v: boolean) => emit('update', 'lte340McscScramble', v)" />
+          <Switch :model-value="props.fields.lte340McscScramble" @update:model-value="(v: boolean) => emit('update', 'lte340McscScramble', v)" />
         </div>
         <div :class="rowClass">
           <span>Independent View</span>
-          <Switch :checked="props.fields.independentView" @update:checked="(v: boolean) => emit('update', 'independentView', v)" />
+          <Switch :model-value="props.fields.independentView" @update:model-value="(v: boolean) => emit('update', 'independentView', v)" />
         </div>
         <div :class="rowClass">
           <span>Dual View</span>
-          <Switch :checked="props.fields.dualView" @update:checked="(v: boolean) => emit('update', 'dualView', v)" />
+          <Switch :model-value="props.fields.dualView" @update:model-value="(v: boolean) => emit('update', 'dualView', v)" />
         </div>
         <div :class="rowClass">
           <span>OSD 3D</span>
-          <Switch :checked="props.fields.osd3d" @update:checked="(v: boolean) => emit('update', 'osd3d', v)" />
+          <Switch :model-value="props.fields.osd3d" @update:model-value="(v: boolean) => emit('update', 'osd3d', v)" />
         </div>
       </div>
 
       <div>
         <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">HDMI 2.1 Features</h4>
         <div class="grid grid-cols-3 gap-x-6 gap-y-1">
-          <div :class="rowClass"><span>VRR</span><Switch :checked="props.fields.vrr" @update:checked="(v: boolean) => emit('update', 'vrr', v)" /></div>
-          <div :class="rowClass"><span>ALLM</span><Switch :checked="props.fields.allm" @update:checked="(v: boolean) => emit('update', 'allm', v)" /></div>
-          <div :class="rowClass"><span>DSC</span><Switch :checked="props.fields.dsc" @update:checked="(v: boolean) => emit('update', 'dsc', v)" /></div>
-          <div :class="rowClass"><span>CinemaVRR</span><Switch :checked="props.fields.cnmVrr" @update:checked="(v: boolean) => emit('update', 'cnmVrr', v)" /></div>
-          <div :class="rowClass"><span>FAPA</span><Switch :checked="props.fields.fapa" @update:checked="(v: boolean) => emit('update', 'fapa', v)" /></div>
-          <div :class="rowClass"><span>FVA</span><Switch :checked="props.fields.fva" @update:checked="(v: boolean) => emit('update', 'fva', v)" /></div>
-          <div :class="rowClass"><span>UHD 4K</span><Switch :checked="props.fields.uhd4k" @update:checked="(v: boolean) => emit('update', 'uhd4k', v)" /></div>
+          <div :class="rowClass"><span>VRR</span><Switch :model-value="props.fields.vrr" @update:model-value="(v: boolean) => emit('update', 'vrr', v)" /></div>
+          <div :class="rowClass"><span>ALLM</span><Switch :model-value="props.fields.allm" @update:model-value="(v: boolean) => emit('update', 'allm', v)" /></div>
+          <div :class="rowClass"><span>DSC</span><Switch :model-value="props.fields.dsc" @update:model-value="(v: boolean) => emit('update', 'dsc', v)" /></div>
+          <div :class="rowClass"><span>CinemaVRR</span><Switch :model-value="props.fields.cnmVrr" @update:model-value="(v: boolean) => emit('update', 'cnmVrr', v)" /></div>
+          <div :class="rowClass"><span>FAPA</span><Switch :model-value="props.fields.fapa" @update:model-value="(v: boolean) => emit('update', 'fapa', v)" /></div>
+          <div :class="rowClass"><span>FVA</span><Switch :model-value="props.fields.fva" @update:model-value="(v: boolean) => emit('update', 'fva', v)" /></div>
+          <div :class="rowClass"><span>UHD 4K</span><Switch :model-value="props.fields.uhd4k" @update:model-value="(v: boolean) => emit('update', 'uhd4k', v)" /></div>
         </div>
       </div>
 
       <div>
         <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Deep Color 4:2:0</h4>
         <div class="grid grid-cols-3 gap-x-6 gap-y-1">
-          <div :class="rowClass"><span>30-bit</span><Switch :checked="props.fields.dc30bit420" @update:checked="(v: boolean) => emit('update', 'dc30bit420', v)" /></div>
-          <div :class="rowClass"><span>36-bit</span><Switch :checked="props.fields.dc36bit420" @update:checked="(v: boolean) => emit('update', 'dc36bit420', v)" /></div>
-          <div :class="rowClass"><span>48-bit</span><Switch :checked="props.fields.dc48bit420" @update:checked="(v: boolean) => emit('update', 'dc48bit420', v)" /></div>
+          <div :class="rowClass"><span>30-bit</span><Switch :model-value="props.fields.dc30bit420" @update:model-value="(v: boolean) => emit('update', 'dc30bit420', v)" /></div>
+          <div :class="rowClass"><span>36-bit</span><Switch :model-value="props.fields.dc36bit420" @update:model-value="(v: boolean) => emit('update', 'dc36bit420', v)" /></div>
+          <div :class="rowClass"><span>48-bit</span><Switch :model-value="props.fields.dc48bit420" @update:model-value="(v: boolean) => emit('update', 'dc48bit420', v)" /></div>
         </div>
       </div>
     </CardContent>

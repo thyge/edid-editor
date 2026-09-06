@@ -50,11 +50,11 @@ function onContainerId(text: string) {
       </label>
       <div :class="rowClass">
         <span>Desktop Usage</span>
-        <Switch :checked="props.fields.desktopUsage" @update:checked="(v: boolean) => emit('update', 'desktopUsage', v)" />
+        <Switch :model-value="props.fields.desktopUsage" @update:model-value="(v: boolean) => emit('update', 'desktopUsage', v)" />
       </div>
       <div :class="rowClass">
         <span>Non-Microsoft Usage</span>
-        <Switch :checked="props.fields.nonMicrosoftUsage" @update:checked="(v: boolean) => emit('update', 'nonMicrosoftUsage', v)" />
+        <Switch :model-value="props.fields.nonMicrosoftUsage" @update:model-value="(v: boolean) => emit('update', 'nonMicrosoftUsage', v)" />
       </div>
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Primary Use Case

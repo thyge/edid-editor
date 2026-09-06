@@ -342,23 +342,23 @@ function updateFeature(key: string, value: unknown) {
         <div v-if="!isDigital" class="grid grid-cols-3 gap-x-6 gap-y-2 mt-3">
           <label :class="switchRowClass">
             <span>Video Setup</span>
-            <Switch :checked="analogInput.videoSetup" @update:checked="(v: boolean) => updateAnalogFlag('videoSetup', v)" />
+            <Switch :model-value="analogInput.videoSetup" @update:model-value="(v: boolean) => updateAnalogFlag('videoSetup', v)" />
           </label>
           <label :class="switchRowClass">
             <span>Separate Sync</span>
-            <Switch :checked="analogInput.separateSyncSupported" @update:checked="(v: boolean) => updateAnalogFlag('separateSyncSupported', v)" />
+            <Switch :model-value="analogInput.separateSyncSupported" @update:model-value="(v: boolean) => updateAnalogFlag('separateSyncSupported', v)" />
           </label>
           <label :class="switchRowClass">
             <span>Composite Sync</span>
-            <Switch :checked="analogInput.compositeSyncSupported" @update:checked="(v: boolean) => updateAnalogFlag('compositeSyncSupported', v)" />
+            <Switch :model-value="analogInput.compositeSyncSupported" @update:model-value="(v: boolean) => updateAnalogFlag('compositeSyncSupported', v)" />
           </label>
           <label :class="switchRowClass">
             <span>Sync on Green</span>
-            <Switch :checked="analogInput.syncOnGreenSupported" @update:checked="(v: boolean) => updateAnalogFlag('syncOnGreenSupported', v)" />
+            <Switch :model-value="analogInput.syncOnGreenSupported" @update:model-value="(v: boolean) => updateAnalogFlag('syncOnGreenSupported', v)" />
           </label>
           <label :class="switchRowClass">
             <span>VSync Serration</span>
-            <Switch :checked="analogInput.vsyncSerrationSupported" @update:checked="(v: boolean) => updateAnalogFlag('vsyncSerrationSupported', v)" />
+            <Switch :model-value="analogInput.vsyncSerrationSupported" @update:model-value="(v: boolean) => updateAnalogFlag('vsyncSerrationSupported', v)" />
           </label>
         </div>
       </section>
@@ -459,43 +459,43 @@ function updateFeature(key: string, value: unknown) {
           <label :class="switchRowClass">
             <span>Standby</span>
             <Switch
-              :checked="featureSupport.features.standbySupported"
-              @update:checked="(v: boolean) => updateFeature('standbySupported', v)"
+              :model-value="featureSupport.features.standbySupported"
+              @update:model-value="(v: boolean) => updateFeature('standbySupported', v)"
             />
           </label>
           <label :class="switchRowClass">
             <span>Suspend</span>
             <Switch
-              :checked="featureSupport.features.suspendSupported"
-              @update:checked="(v: boolean) => updateFeature('suspendSupported', v)"
+              :model-value="featureSupport.features.suspendSupported"
+              @update:model-value="(v: boolean) => updateFeature('suspendSupported', v)"
             />
           </label>
           <label :class="switchRowClass">
             <span>Active-Off</span>
             <Switch
-              :checked="featureSupport.features.activeOffSupported"
-              @update:checked="(v: boolean) => updateFeature('activeOffSupported', v)"
+              :model-value="featureSupport.features.activeOffSupported"
+              @update:model-value="(v: boolean) => updateFeature('activeOffSupported', v)"
             />
           </label>
           <label :class="switchRowClass">
             <span>sRGB Default</span>
             <Switch
-              :checked="featureSupport.features.sRGBDefault"
-              @update:checked="(v: boolean) => updateFeature('sRGBDefault', v)"
+              :model-value="featureSupport.features.sRGBDefault"
+              @update:model-value="(v: boolean) => updateFeature('sRGBDefault', v)"
             />
           </label>
           <label :class="switchRowClass">
             <span>{{ isV14 ? 'Native Format in PTM' : 'Preferred Timing' }}</span>
             <Switch
-              :checked="featureSupport.features.preferredTimingMode"
-              @update:checked="(v: boolean) => updateFeature('preferredTimingMode', v)"
+              :model-value="featureSupport.features.preferredTimingMode"
+              @update:model-value="(v: boolean) => updateFeature('preferredTimingMode', v)"
             />
           </label>
           <label :class="switchRowClass">
             <span>{{ isV14 ? 'Continuous Frequency' : 'GTF Supported' }}</span>
             <Switch
-              :checked="featureSupport.features.continuousFrequency"
-              @update:checked="(v: boolean) => updateFeature('continuousFrequency', v)"
+              :model-value="featureSupport.features.continuousFrequency"
+              @update:model-value="(v: boolean) => updateFeature('continuousFrequency', v)"
             />
           </label>
         </div>

@@ -29,15 +29,15 @@ function onNumber(field: string, v: string | number) {
       </label>
       <div :class="rowClass">
         <span>YUV 4:2:2 12-bit</span>
-        <Switch :checked="props.fields.supportsYUV422_12bit" @update:checked="(v: boolean) => emit('update', 'supportsYUV422_12bit', v)" />
+        <Switch :model-value="props.fields.supportsYUV422_12bit" @update:model-value="(v: boolean) => emit('update', 'supportsYUV422_12bit', v)" />
       </div>
       <div :class="rowClass">
         <span>2160p60</span>
-        <Switch :checked="props.fields.supports2160p60" @update:checked="(v: boolean) => emit('update', 'supports2160p60', v)" />
+        <Switch :model-value="props.fields.supports2160p60" @update:model-value="(v: boolean) => emit('update', 'supports2160p60', v)" />
       </div>
       <div :class="rowClass">
         <span>Global Dimming</span>
-        <Switch :checked="props.fields.supportsGlobalDimming" @update:checked="(v: boolean) => emit('update', 'supportsGlobalDimming', v)" />
+        <Switch :model-value="props.fields.supportsGlobalDimming" @update:model-value="(v: boolean) => emit('update', 'supportsGlobalDimming', v)" />
       </div>
     </CardContent>
   </Card>

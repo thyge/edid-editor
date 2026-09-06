@@ -151,8 +151,8 @@ const inlineSelectClass = 'flex h-8 rounded-md border border-input dark:bg-input
                   class="flex items-center gap-1.5 text-xs cursor-pointer"
                 >
                   <Switch
-                    :checked="(desc.samplingRates as Record<string, boolean>)[sr.key]"
-                    @update:checked="(v: boolean) => toggleSampleRate(i, sr.key, v)"
+                    :model-value="(desc.samplingRates as Record<string, boolean>)[sr.key]"
+                    @update:model-value="(v: boolean) => toggleSampleRate(i, sr.key, v)"
                   />
                   <span>{{ sr.label }}</span>
                 </label>
@@ -168,8 +168,8 @@ const inlineSelectClass = 'flex h-8 rounded-md border border-input dark:bg-input
                   class="flex items-center gap-1.5 text-xs cursor-pointer"
                 >
                   <Switch
-                    :checked="(desc.bitDepths as Record<string, boolean>)[bd.key]"
-                    @update:checked="(v: boolean) => toggleBitDepth(i, bd.key, v)"
+                    :model-value="(desc.bitDepths as Record<string, boolean>)[bd.key]"
+                    @update:model-value="(v: boolean) => toggleBitDepth(i, bd.key, v)"
                   />
                   <span>{{ bd.label }}</span>
                 </label>

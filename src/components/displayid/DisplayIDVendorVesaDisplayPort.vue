@@ -82,7 +82,7 @@ function hexDump(bytes: Uint8Array): string {
             <p class="text-xs font-semibold">Native Colorspace/EOTF</p>
             <p class="text-[11px] text-muted-foreground">On = native per Display Parameters DB; Off = sRGB</p>
           </div>
-          <Switch :checked="props.fields.nativeColorspaceEotf" @update:checked="(v: boolean) => emit('update', 'nativeColorspaceEotf', v)" />
+          <Switch :model-value="props.fields.nativeColorspaceEotf" @update:model-value="(v: boolean) => emit('update', 'nativeColorspaceEotf', v)" />
         </label>
 
         <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -97,7 +97,7 @@ function hexDump(bytes: Uint8Array): string {
             <p class="text-xs font-semibold">DSC Bits Per Pixel</p>
             <p class="text-[11px] text-muted-foreground">Present = payload length ≥ 7 (3 OUI + 4 vendor bytes)</p>
           </div>
-          <Switch :checked="props.fields.dscBitsPerPixel !== undefined" @update:checked="(v: boolean) => onDscPresent(v)" />
+          <Switch :model-value="props.fields.dscBitsPerPixel !== undefined" @update:model-value="(v: boolean) => onDscPresent(v)" />
         </div>
         <div v-if="props.fields.dscBitsPerPixel !== undefined" class="mt-2 px-3">
           <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground max-w-xs">

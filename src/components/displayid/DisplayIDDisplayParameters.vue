@@ -91,15 +91,15 @@ function updateChromaticity(
         <section class="grid grid-cols-2 gap-x-6 gap-y-2">
           <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
             <span>Color Info CIE 1976</span>
-            <Switch :checked="block.colorInformationCie1976" @update:checked="(value: boolean) => update(index, block, { colorInformationCie1976: value })" />
+            <Switch :model-value="block.colorInformationCie1976" @update:model-value="(value: boolean) => update(index, block, { colorInformationCie1976: value })" />
           </label>
           <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
             <span>Audio Speaker Not Integrated</span>
-            <Switch :checked="block.audioSpeakerNotIntegrated" @update:checked="(value: boolean) => update(index, block, { audioSpeakerNotIntegrated: value })" />
+            <Switch :model-value="block.audioSpeakerNotIntegrated" @update:model-value="(value: boolean) => update(index, block, { audioSpeakerNotIntegrated: value })" />
           </label>
           <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
             <span>Dark Theme Preference</span>
-            <Switch :checked="block.displayDeviceThemePreference" @update:checked="(value: boolean) => update(index, block, { displayDeviceThemePreference: value })" />
+            <Switch :model-value="block.displayDeviceThemePreference" @update:model-value="(value: boolean) => update(index, block, { displayDeviceThemePreference: value })" />
           </label>
         </section>
 

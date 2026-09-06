@@ -50,7 +50,7 @@ function toggleBit(bit: number, on: boolean) {
         class="flex items-center gap-1.5 text-xs rounded px-1.5 py-1"
         :class="set.has(bit) ? 'bg-emerald-500/10' : 'bg-muted/30'"
       >
-        <Switch :checked="set.has(bit)" @update:checked="(v: boolean) => toggleBit(bit, v)" />
+        <Switch :model-value="set.has(bit)" @update:model-value="(v: boolean) => toggleBit(bit, v)" />
         <span class="font-mono text-muted-foreground">{{ bit }}</span>
       </label>
     </div>

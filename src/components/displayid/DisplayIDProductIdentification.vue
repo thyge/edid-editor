@@ -69,7 +69,7 @@ function updateName(index: number, block: DisplayIdProductIdentificationBlock, v
         </div>
         <label class="col-span-2 flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
           <span>Model Year</span>
-          <Switch :checked="block.isModelYear" @update:checked="(value: boolean) => update(index, block, { isModelYear: value })" />
+          <Switch :model-value="block.isModelYear" @update:model-value="(value: boolean) => update(index, block, { isModelYear: value })" />
         </label>
       </div>
     </CardContent>
