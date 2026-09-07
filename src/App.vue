@@ -5,6 +5,7 @@ import {
   createDefaultDisplayIdBlock,
   createDefaultDescriptor,
   createDefaultCEADataBlock,
+  ExtensionBlockParser,
   getCEAExtension,
   getDisplayIdExtension,
   type CEADefaultBlockType,
@@ -14,6 +15,7 @@ import {
   type DisplayIdDataBlock,
   type DisplayIdExtension,
 } from 'edidts'
+import { isVendorBlock } from '@/components/cta/vendorLabels'
 import { appendArrayItem, updateArrayItem, removeArrayItem } from '@/components/common/editorUtils'
 import {
   blankingModeToMode,
@@ -159,6 +161,11 @@ function addCeaTiming(presetKey?: string) {
   if (!edidRef.value) return
   const cea = getCEAExtension(edidRef.value)
   if (!cea) return
+  // TASK-110 backstop: an 18-byte DTD must fit the remaining payload area
+  // (bytes 4..126, shared with the data blocks). LeftNav disables the add
+  // button when full, but a stale UI must not reach the encoder's silent
+  // DTD-truncation path.
+  if (ExtensionBlockParser.getCeaFreePayloadBytes(cea) < ExtensionBlockParser.CEA_DTD_SIZE) return
   const { timing, refreshRate } = generateTimingFromPreset(presetKey, DEFAULT_TIMING_BLANKING_MODE)
   const ceaTiming = { ...timing, isNative: false }
   const timings = appendArrayItem(cea.detailedTimings, ceaTiming)
@@ -299,10 +306,15 @@ function addCEADataBlock(blockType: string) {
   if (!cea) return
   const block = createDefaultCEADataBlock(blockType as CEADefaultBlockType)
   if (!block) return
+  // TASK-110 backstop: refuse a block that would overflow the payload area.
+  // LeftNav already disables non-fitting options, but the encoder throws on
+  // data-block overflow, so a stale UI must not reach that state.
+  if (ExtensionBlockParser.getCeaEncodedBlockBytes(block) > ExtensionBlockParser.getCeaFreePayloadBytes(cea)) return
   cea.dataBlocks = appendArrayItem(cea.dataBlocks, block)
-  // Vendor-audio blocks live in the vendor sub-group: land on the freshly
-  // appended block's per-child section instead of a flat section id.
-  const section = blockType === 'vendor-audio'
+  // Vendor carriers (tag 0x03 VSDBs, tag 0x07 ext 0x11 vendor audio) live in
+  // the vendor sub-group: land on the freshly appended block's per-child
+  // section instead of a flat section id (TASK-102/109).
+  const section = isVendorBlock(block)
     ? `cea-vendor-block-${cea.dataBlocks.length - 1}`
     : ceaBlockActiveSection[blockType]
   if (section) activeSection.value = section

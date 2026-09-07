@@ -722,6 +722,38 @@ export class ExtensionBlockParser {
     return out;
   }
 
+  /**
+   * CEA-861 payload-area capacity: bytes 4..126 (123 bytes) shared by the
+   * encoded data-block stream and the 18-byte detailed timing descriptors;
+   * byte 127 is the checksum. Mirrors the bounds `encodeCEA` enforces (data
+   * blocks overflowing `offset + 1 + encoded.length > 127` throw; DTDs beyond
+   * the area are silently dropped, which the editor must prevent).
+   */
+  public static readonly CEA_PAYLOAD_CAPACITY = 127 - 4; // 123
+  /** Size of one detailed timing descriptor inside the payload area. */
+  public static readonly CEA_DTD_SIZE = 18;
+
+  /** Bytes a data block occupies in the payload area once encoded
+   *  (header byte + body). Inverse of the per-block encode loop in `encodeCEA`. */
+  public static getCeaEncodedBlockBytes(block: CEADataBlock): number {
+    return 1 + this.encodeCEADataBlock(block).length;
+  }
+
+  /**
+   * Bytes still free in the payload area after the current data-block stream
+   * and existing DTDs. The editor gates its "+ Add Block"/"+ Add Timing"
+   * actions on this so the encoder's DTD-truncation / data-block-overflow
+   * paths stay unreachable (TASK-110).
+   */
+  public static getCeaFreePayloadBytes(cea: CEAExtensionBlock): number {
+    let used = 0;
+    for (const block of cea.dataBlocks) {
+      used += 1 + this.encodeCEADataBlock(block).length;
+    }
+    used += this.CEA_DTD_SIZE * cea.detailedTimings.length;
+    return this.CEA_PAYLOAD_CAPACITY - used;
+  }
+
   private static encodeDisplayId(bytes: Uint8Array, block: DisplayIdExtensionBlock): void {
     const sectionBytes = encodeDisplayIdSection(block.section);
 

@@ -2,7 +2,16 @@
 import { ref, computed } from 'vue'
 import { ChevronRight, X } from '@lucide/vue'
 import type { EDIDViewModel } from '@/types/edid'
-import { getCEAExtension, getDisplayIdExtension, type DetailedTimingDescriptor, DISPLAY_DESCRIPTOR_OPTIONS, getDisplayDescriptorLabel } from 'edidts'
+import {
+  getCEAExtension,
+  getDisplayIdExtension,
+  createDefaultCEADataBlock,
+  ExtensionBlockParser,
+  type CEADefaultBlockType,
+  type DetailedTimingDescriptor,
+  DISPLAY_DESCRIPTOR_OPTIONS,
+  getDisplayDescriptorLabel,
+} from 'edidts'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar,
@@ -29,6 +38,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -124,8 +135,28 @@ const edidAddOptions = computed<EdidAddOption[]>(() => {
   }))
 })
 
-/** CTA detailed-timings are addable whenever a CEA extension exists. */
-const ceaCanAddTiming = computed(() => ceaExt.value !== null)
+/**
+ * Bytes still free in the CTA payload area (bytes 4..126) after the encoded
+ * data-block stream and the existing 18-byte DTDs (TASK-110). Both "+ Add"
+ * paths draw from this shared budget. Derived from the reactive CEA tree, so
+ * adding/removing any data block or timing immediately re-evaluates it.
+ */
+const ceaFreeBytes = computed(() => {
+  const cea = ceaExt.value
+  if (!cea) return 0
+  return ExtensionBlockParser.getCeaFreePayloadBytes(cea)
+})
+
+/** CTA detailed timings are addable while an 18-byte DTD fits the remaining
+ *  payload area shared with the data blocks (TASK-110). */
+const ceaCanAddTiming = computed(() => ceaFreeBytes.value >= ExtensionBlockParser.CEA_DTD_SIZE)
+
+/** Hover hint for the + Add Timing action, explaining why it is disabled when full. */
+const addTimingTitle = computed(() =>
+  ceaCanAddTiming.value
+    ? 'Add a detailed timing descriptor (1080p60 default)'
+    : `No space for another 18-byte timing (${ceaFreeBytes.value} of ${ExtensionBlockParser.CEA_PAYLOAD_CAPACITY} bytes free) — remove a data block or timing first`,
+)
 
 // True when the active section is the combined Descriptors view or any
 // individual DTD/descriptor entry — used to highlight the sub-group header.
@@ -198,11 +229,26 @@ const ceaChildren = computed(() => {
   return items
 })
 
+/**
+ * One "+ Add Block" option: the default-block factory discriminator, its menu
+ * label, and whether its default block still fits the remaining payload area
+ * (TASK-110 — non-fitting options render disabled with the reason in the
+ * label suffix, they are not silently hidden).
+ */
+type CeaAddBlockOption = { type: CEADefaultBlockType; label: string; fits: boolean }
+
+/** True when the default block for `type` fits the free payload area. */
+function defaultBlockFits(type: CEADefaultBlockType): boolean {
+  const block = createDefaultCEADataBlock(type)
+  if (!block) return false
+  return ExtensionBlockParser.getCeaEncodedBlockBytes(block) <= ceaFreeBytes.value
+}
+
 const addableBlocks = computed(() => {
   const cea = ceaExt.value
   if (!cea) return []
   const blocks = cea.dataBlocks
-  const options: { type: string; label: string }[] = []
+  const options: { type: CEADefaultBlockType; label: string }[] = []
   if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x02)) options.push({ type: 'video', label: 'Video Data Block' })
   if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x01)) options.push({ type: 'audio', label: 'Audio Data Block' })
   if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x04)) options.push({ type: 'speakers', label: 'Speaker Allocation' })
@@ -224,7 +270,24 @@ const addableBlocks = computed(() => {
     options.push({ type: 'infoframe', label: 'InfoFrame' })
   if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x05))
     options.push({ type: 'vesa-transfer', label: 'VESA Transfer Characteristic' })
-  return options
+  return options.map((o) => ({ ...o, fits: defaultBlockFits(o.type) }))
+})
+
+/** Vendor-specific data blocks (tag 0x03, TASK-109): multiple VSDBs may
+ *  legally coexist, so unlike the deduped short blocks above these options
+ *  are always offered — the dropdown item itself picks the vendor type to
+ *  instantiate. */
+const VSDB_ADD_OPTIONS: ReadonlyArray<{ type: CEADefaultBlockType; label: string }> = [
+  { type: 'vsdb-hdmi14', label: 'Vendor Block: HDMI 1.4' },
+  { type: 'vsdb-hdmi-forum', label: 'Vendor Block: HDMI Forum' },
+  { type: 'vsdb-microsoft-hmd', label: 'Vendor Block: Microsoft HMD' },
+  { type: 'vsdb-amd', label: 'Vendor Block: AMD FreeSync' },
+  { type: 'vsdb-mhl', label: 'Vendor Block: MHL' },
+]
+
+const addableVsdbBlocks = computed<CeaAddBlockOption[]>(() => {
+  if (!ceaExt.value) return []
+  return VSDB_ADD_OPTIONS.map((o) => ({ ...o, fits: defaultBlockFits(o.type) }))
 })
 
 const displayIdExt = computed(() => props.edid ? getDisplayIdExtension(props.edid) : null)
@@ -535,20 +598,29 @@ const displayIdOpen = ref(true)
 
                 <!-- Add CTA detailed timing: adds a default 1080p60 standard-CVT
                      DTD. Pick a different preset from inside the timing card's
-                     Preset row. -->
-                <SidebarMenuSubItem v-if="ceaCanAddTiming">
+                     Preset row. Disabled (with the reason as hover hint) when
+                     the payload area shared with the data blocks can't hold
+                     another 18-byte DTD (TASK-110). -->
+                <SidebarMenuSubItem>
                   <Button
                     variant="ghost"
                     size="sm"
                     class="w-full text-xs text-muted-foreground h-7"
+                    :disabled="!ceaCanAddTiming"
+                    :title="addTimingTitle"
                     @click="emit('addCeaTiming')"
                   >
                     + Add Timing
                   </Button>
                 </SidebarMenuSubItem>
 
-                <!-- Add data block -->
-                <SidebarMenuSubItem v-if="addableBlocks.length > 0">
+                <!-- Add data block: short blocks are deduped (single-instance)
+                     and VSDBs are always offered (multiple legal, TASK-109) in
+                     their own group. Options whose default block would not fit
+                     the remaining payload area render disabled with a
+                     "(no space)" suffix instead of silently vanishing
+                     (TASK-110). -->
+                <SidebarMenuSubItem v-if="addableBlocks.length > 0 || addableVsdbBlocks.length > 0">
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
                       <Button variant="ghost" size="sm" class="w-full text-xs text-muted-foreground h-7">
@@ -559,10 +631,23 @@ const displayIdOpen = ref(true)
                       <DropdownMenuItem
                         v-for="opt in addableBlocks"
                         :key="opt.type"
+                        :disabled="!opt.fits"
                         @click="emit('addCeaBlock', opt.type)"
                       >
-                        {{ opt.label }}
+                        {{ opt.label }}{{ opt.fits ? '' : ' (no space)' }}
                       </DropdownMenuItem>
+                      <template v-if="addableVsdbBlocks.length > 0">
+                        <DropdownMenuSeparator v-if="addableBlocks.length > 0" />
+                        <DropdownMenuLabel>Vendor-Specific Data Blocks</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          v-for="opt in addableVsdbBlocks"
+                          :key="opt.type"
+                          :disabled="!opt.fits"
+                          @click="emit('addCeaBlock', opt.type)"
+                        >
+                          {{ opt.label }}{{ opt.fits ? '' : ' (no space)' }}
+                        </DropdownMenuItem>
+                      </template>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </SidebarMenuSubItem>
