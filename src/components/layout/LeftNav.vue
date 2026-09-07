@@ -40,7 +40,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -276,21 +278,19 @@ const isCeaTimingSection = computed(() =>
   props.activeSection.startsWith('cea-dtd-')
 )
 
-/** True when the default block for `type` fits the free payload area. */
-function defaultBlockFits(type: CEADefaultBlockType): boolean {
-  const block = createDefaultCEADataBlock(type)
-  if (!block) return false
-  return ExtensionBlockParser.getCeaEncodedBlockBytes(block) <= ceaFreeBytes.value
-}
-
 /**
- * One "+ Add Block" menu item in canonical order (TASK-114): the factory
- * discriminator, its menu label, whether its default block still fits the
- * remaining payload area (TASK-110 — non-fitting options render disabled with
- * the reason in the label suffix, they are not silently hidden), and an
- * optional group label rendered as a menu section header before the item.
+ * One "+ Add Block" option: the factory discriminator, its menu label, whether
+ * its default block still fits the remaining payload area (TASK-110 —
+ * non-fitting options render disabled with a "(no space)" label suffix and
+ * the reason as hover hint, they are not silently hidden).
  */
-type CeaAddBlockMenuItem = { type: CEADefaultBlockType; label: string; fits: boolean; group?: string }
+interface CeaAddOption {
+  type: CEADefaultBlockType
+  label: string
+  fits: boolean
+  /** Hover hint for a disabled (non-fitting) option. */
+  noSpaceTitle?: string
+}
 
 /** Short blocks are single-instance: an option is offered only while no block
  *  of that type is present. VSDBs are exempt (multiple legal, TASK-109). */
@@ -298,33 +298,76 @@ function hasBlock(pred: (b: import('edidts').CEADataBlock) => boolean): boolean 
   return !!ceaExt.value?.dataBlocks.some(pred)
 }
 
-const addBlockMenu = computed<CeaAddBlockMenuItem[]>(() => {
+/** Extended-tag presence test for tag-0x07 blocks. */
+function hasExtBlock(ext: number): boolean {
+  return hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === ext)
+}
+
+/** Build one option with its payload-capacity guard. */
+function addOption(type: CEADefaultBlockType, label: string): CeaAddOption {
+  const block = createDefaultCEADataBlock(type)
+  if (!block) return { type, label, fits: false }
+  const needed = ExtensionBlockParser.getCeaEncodedBlockBytes(block)
+  const free = ceaFreeBytes.value
+  return needed <= free
+    ? { type, label, fits: true }
+    : {
+        type,
+        label,
+        fits: false,
+        noSpaceTitle: `Needs ${needed} bytes; only ${free} of ${ExtensionBlockParser.CEA_PAYLOAD_CAPACITY} free — remove a data block or timing first`,
+      }
+}
+
+/**
+ * One node of the Add Block menu (TASK-117): a direct item, or a cascading
+ * sub-menu holding one family's options.
+ */
+type CeaAddBlockMenuNode =
+  | { kind: 'item'; key: string; option: CeaAddOption }
+  | { kind: 'sub'; key: string; family: CtaBlockFamily; label: string; options: CeaAddOption[] }
+
+const addBlockMenu = computed<CeaAddBlockMenuNode[]>(() => {
   if (!ceaExt.value) return []
-  const items: CeaAddBlockMenuItem[] = []
-  const add = (type: CEADefaultBlockType, label: string, present: boolean, group?: string) => {
-    if (present) return
-    items.push({ type, label, fits: defaultBlockFits(type), group })
+  const nodes: CeaAddBlockMenuNode[] = []
+  const add = (type: CEADefaultBlockType, label: string, present: boolean) => {
+    if (!present) nodes.push({ kind: 'item', key: type, option: addOption(type, label) })
   }
   // Canonical add order (TASK-114): Video, Audio, Speaker Allocation, VSDBs
-  // (grouped), Colorimetry, the VCDB family (Video Capability, Vendor-Specific
-  // Audio, InfoFrame, Video Format Preference, HDR Static), Room Configuration,
-  // Speaker Location, then unlisted types (VESA Display Device).
+  // (cascade, TASK-117), Colorimetry, the VCDB family (cascade, TASK-117:
+  // Video Capability, Vendor-Specific Audio, InfoFrame, Video Format
+  // Preference, HDR Static), Room Configuration, Speaker Location, then
+  // unlisted types (VESA Display Device).
   add('video', 'Video Data Block', hasBlock(b => b.tag === 0x02))
   add('audio', 'Audio Data Block', hasBlock(b => b.tag === 0x01))
   add('speakers', 'Speaker Allocation', hasBlock(b => b.tag === 0x04))
-  for (const opt of VSDB_ADD_OPTIONS) {
-    items.push({ ...opt, fits: defaultBlockFits(opt.type), group: 'Vendor-Specific Data Blocks' })
+  nodes.push({
+    kind: 'sub',
+    key: 'sub-vsdb',
+    family: 'vsdb',
+    label: CTA_FAMILY_LABELS.vsdb,
+    // VSDBs are always offered — multiple may legally coexist (TASK-109).
+    options: VSDB_ADD_OPTIONS.map((opt) => addOption(opt.type, opt.label)),
+  })
+  add('colorimetry', 'Colorimetry', hasExtBlock(0x05))
+  // Single-instance family members are deduped like the flat items; the
+  // cascade itself is dropped when every member is already present.
+  const vcdbOptions = ([
+    ['video-capability', 'Video Capability', 0x00],
+    ['vendor-audio', 'Vendor-Specific Audio', 0x11],
+    ['infoframe', 'InfoFrame', 0x20],
+    ['video-format-preference', 'Video Format Preference', 0x0d],
+    ['hdr-static', 'HDR Static Metadata', 0x06],
+  ] as const)
+    .filter(([, , ext]) => !hasExtBlock(ext))
+    .map(([type, label]) => addOption(type, label))
+  if (vcdbOptions.length > 0) {
+    nodes.push({ kind: 'sub', key: 'sub-vcdb', family: 'vcdb', label: CTA_FAMILY_LABELS.vcdb, options: vcdbOptions })
   }
-  add('colorimetry', 'Colorimetry', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x05))
-  add('video-capability', 'Video Capability', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x00))
-  add('vendor-audio', 'Vendor-Specific Audio', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x11))
-  add('infoframe', 'InfoFrame', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x20))
-  add('video-format-preference', 'Video Format Preference', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x0D))
-  add('hdr-static', 'HDR Static Metadata', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x06))
-  add('room-config', 'Room Configuration', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x13))
-  add('speaker-location', 'Speaker Location', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x14))
+  add('room-config', 'Room Configuration', hasExtBlock(0x13))
+  add('speaker-location', 'Speaker Location', hasExtBlock(0x14))
   add('vesa-transfer', 'VESA Transfer Characteristic', hasBlock(b => b.tag === 0x05))
-  return items
+  return nodes
 })
 
 /** Vendor-specific data blocks (tag 0x03, TASK-109): multiple VSDBs may
@@ -719,13 +762,14 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                   </SidebarMenuSubItem>
                 </template>
 
-                <!-- Add data block: options in the canonical order (TASK-114);
-                     short blocks are deduped (single-instance) and VSDBs are
-                     always offered (multiple legal, TASK-109) under their own
-                     group label. Options whose default block would not fit
-                     the remaining payload area render disabled with a
-                     "(no space)" suffix instead of silently vanishing
-                     (TASK-110). -->
+                <!-- Add data block: options in the canonical order (TASK-114)
+                     with the VSDB and VCDB families as cascading sub-menus at
+                     their canonical positions (TASK-117). Short blocks are
+                     deduped (single-instance) and VSDBs are always offered
+                     (multiple legal, TASK-109). Options whose default block
+                     would not fit the remaining payload area render disabled
+                     with a "(no space)" suffix and hover reason instead of
+                     silently vanishing (TASK-110). -->
                 <SidebarMenuSubItem v-if="addBlockMenu.length > 0">
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
@@ -734,16 +778,29 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
-                      <template v-for="(opt, i) in addBlockMenu" :key="opt.type">
-                        <DropdownMenuLabel v-if="opt.group && (i === 0 || addBlockMenu[i - 1].group !== opt.group)">
-                          {{ opt.group }}
-                        </DropdownMenuLabel>
+                      <template v-for="node in addBlockMenu" :key="node.key">
                         <DropdownMenuItem
-                          :disabled="!opt.fits"
-                          @click="emit('addCeaBlock', opt.type)"
+                          v-if="node.kind === 'item'"
+                          :disabled="!node.option.fits"
+                          :title="node.option.fits ? undefined : node.option.noSpaceTitle"
+                          @click="emit('addCeaBlock', node.option.type)"
                         >
-                          {{ opt.label }}{{ opt.fits ? '' : ' (no space)' }}
+                          {{ node.option.label }}{{ node.option.fits ? '' : ' (no space)' }}
                         </DropdownMenuItem>
+                        <DropdownMenuSub v-else>
+                          <DropdownMenuSubTrigger>{{ node.label }}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            <DropdownMenuItem
+                              v-for="opt in node.options"
+                              :key="opt.type"
+                              :disabled="!opt.fits"
+                              :title="opt.fits ? undefined : opt.noSpaceTitle"
+                              @click="emit('addCeaBlock', opt.type)"
+                            >
+                              {{ opt.label }}{{ opt.fits ? '' : ' (no space)' }}
+                            </DropdownMenuItem>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
                       </template>
                     </DropdownMenuContent>
                   </DropdownMenu>
