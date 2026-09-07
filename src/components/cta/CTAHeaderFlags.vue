@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { computeRefreshRate, type CEAExtensionBlock } from 'edidts'
+import type { CEAExtensionBlock } from 'edidts'
+import { roundedRefreshRate } from '@/components/common/timingLabels'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
@@ -33,8 +34,7 @@ const MAX_NATIVE = 15
 const nativeCount = computed(() => Math.min(props.cea.nativeFormats, props.cea.detailedTimings.length))
 
 function timingLabel(timing: CEAExtensionBlock['detailedTimings'][number]): string {
-  const refresh = computeRefreshRate(timing)
-  return `${timing.horizontalActive}×${timing.verticalActive}${timing.flags.interlaced ? 'i' : 'p'} @ ${refresh.toFixed(2)} Hz`
+  return `${timing.horizontalActive}×${timing.verticalActive}${timing.flags.interlaced ? 'i' : 'p'} @ ${roundedRefreshRate(timing)} Hz`
 }
 
 /**

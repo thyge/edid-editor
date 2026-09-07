@@ -49,7 +49,7 @@ function formatProductCode(code: number): string {
 
 function formatTiming(timing: DetailedTimingDescriptor): string {
   const resolution = `${timing.horizontalActive} × ${timing.verticalActive}`
-  const refresh = timing.refreshRate > 0 ? `${timing.refreshRate.toFixed(2)} Hz` : 'Unknown Hz'
+  const refresh = timing.refreshRate > 0 ? `${Math.round(timing.refreshRate)} Hz` : 'Unknown Hz'
   const scan = timing.flags.interlaced ? 'Interlaced' : 'Progressive'
   const pixelClock = timing.pixelClock > 0 ? `${timing.pixelClock.toFixed(2)} MHz` : 'Unknown clock'
   return `${resolution} @ ${refresh} · ${scan}, ${pixelClock}`

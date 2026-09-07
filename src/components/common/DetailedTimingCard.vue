@@ -10,6 +10,7 @@ import {
   type DetailedTiming,
   type DetailedTimingDescriptor,
 } from 'edidts'
+import { roundedRefreshRate } from '@/components/common/timingLabels'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import DetailedTimingFields from './DetailedTimingFields.vue'
@@ -401,7 +402,7 @@ function applyFreeParam(field: string, value: unknown): void {
         </p>
         <p class="text-lg font-semibold text-foreground">
           {{ timing.horizontalActive }}×{{ timing.verticalActive }}{{ timing.flags.interlaced ? 'i' : 'p' }} ·
-          {{ refresh.toFixed(2) }} Hz
+          {{ roundedRefreshRate(timing) }} Hz
         </p>
         <p class="text-xs text-muted-foreground">{{ timing.pixelClock.toFixed(2) }} MHz pixel clock</p>
       </div>

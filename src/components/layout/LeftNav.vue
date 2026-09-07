@@ -6,7 +6,6 @@ import {
   getCEAExtension,
   getDisplayIdExtension,
   createDefaultCEADataBlock,
-  computeRefreshRate,
   ExtensionBlockParser,
   type CEADefaultBlockType,
   type CEADetailedTiming,
@@ -14,6 +13,7 @@ import {
   DISPLAY_DESCRIPTOR_OPTIONS,
   getDisplayDescriptorLabel,
 } from 'edidts'
+import { timingNameLabel } from '@/components/common/timingLabels'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar,
@@ -80,14 +80,11 @@ const edidFixedChildren = [
 
 const edidBase = computed(() => props.edid?.base ?? null)
 
-// Friendly label for a detailed timing: "1920×1080p60". Falls back to
-// "Timing N" for blank/zeroed DTDs (e.g. a freshly added empty slot).
+// Friendly label for a detailed timing: "1920×1080p60" (TASK-119 shared
+// helper). Falls back to "Timing N" for blank/zeroed DTDs (e.g. a freshly
+// added empty slot).
 function timingNavLabel(t: DetailedTimingDescriptor, i: number): string {
-  if (t.horizontalActive > 0 && t.verticalActive > 0) {
-    const scan = t.flags.interlaced ? 'i' : 'p'
-    return `${t.horizontalActive}×${t.verticalActive}${scan}${Math.round(t.refreshRate)}`
-  }
-  return `Timing ${i + 1}`
+  return timingNameLabel(t, `Timing ${i + 1}`)
 }
 
 // Detailed timings are first-class, removable nav entries (like CTA blocks).
@@ -248,14 +245,10 @@ const activeCeaBlockFamily = computed<CtaBlockFamily | null>(() => {
 })
 
 /** Friendly label for a CTA detailed timing — same "1920×1080p60" shape as
- *  {@link timingNavLabel}, but CTA timings are plain DetailedTiming records
- *  (no refreshRate getter), so derive the rate via the shared helper. */
+ *  {@link timingNavLabel} via the TASK-119 shared helper (CTA timings are
+ *  plain DetailedTiming records, no refreshRate getter). */
 function ceaTimingNavLabel(t: CEADetailedTiming, i: number): string {
-  if (t.horizontalActive > 0 && t.verticalActive > 0) {
-    const scan = t.flags.interlaced ? 'i' : 'p'
-    return `${t.horizontalActive}×${t.verticalActive}${scan}${Math.round(computeRefreshRate(t))}`
-  }
-  return `Timing ${i + 1}`
+  return timingNameLabel(t, `Timing ${i + 1}`)
 }
 
 /** One per-timing nav entry of the "Detailed Timings" sub-group (TASK-112):

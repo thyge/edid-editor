@@ -192,7 +192,7 @@ function formatDifference(value: number, unit: 'MHz' | 'px' | 'lines' | 'Hz'): s
                     <div>
                       <p class="font-medium text-foreground">Refresh Rate</p>
                       <p>
-                        {{ comparison.vic.refreshRate.toFixed(2) }} Hz
+                        {{ Math.round(comparison.vic.refreshRate) }} Hz
                         <span class="text-muted-foreground/80">
                           (Δ {{ formatDifference(comparison.differences.refreshRate, 'Hz') }})
                         </span>
