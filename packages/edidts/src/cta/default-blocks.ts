@@ -10,7 +10,8 @@
  */
 
 import type { CEADataBlock, SpeakerAllocationBlock } from './extension-block';
-import { SPEAKER_ALLOCATION_BITS, COLORIMETRY_FLAGS, EOTF_FLAGS } from './cta-extended-blocks';
+import { SPEAKER_ALLOCATION_BITS, COLORIMETRY_FLAGS } from './cta-extended-blocks';
+import { EOTF_FLAGS } from './vcdb/hdr-static';
 import { writeIeeeOuiLE } from '../common/bintools';
 import { VENDOR_ENCODERS, type VendorEncoder } from './vsdb/registry';
 import { OUI, type VendorSpecificDecoded, type VendorSpecificDataBlock } from './vsdb/types';

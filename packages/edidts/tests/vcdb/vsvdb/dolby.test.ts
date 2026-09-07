@@ -1,13 +1,13 @@
 // packages/edidts/tests/vsvdb/dolby.test.ts
 
 import { describe, it, expect } from 'vitest';
-import { DolbyVSDBDecoder, DolbyVSDBEncoder } from '../../src/cta/vsvdb/dolby';
-import { OUI } from '../../src/cta/vsdb/types';
+import { DolbyVSDBDecoder, DolbyVSDBEncoder } from '../../../src/cta/vcdb/vsvdb/dolby';
+import { OUI } from '../../../src/cta/vsdb/types';
 import {
   decodeExtendedDataBlock,
   encodeExtendedDataBlock,
   type VendorSpecificVideoDataBlock,
-} from '../../src/cta';
+} from '../../../src/cta';
 
 describe('DolbyVSDBEncoder', () => {
   it('round-trips a well-formed fields object', () => {
@@ -100,7 +100,7 @@ describe('DolbyVSDBDecoder', () => {
 
 describe('VSVDB registry', () => {
   it('registers the Dolby decoder under OUI.DOLBY', async () => {
-    const { VENDOR_VSVDB_DECODERS } = await import('../../src/cta/vsvdb/registry');
+    const { VENDOR_VSVDB_DECODERS } = await import('../../../src/cta/vcdb/vsvdb/registry');
     expect(VENDOR_VSVDB_DECODERS[OUI.DOLBY]).toBeDefined();
   });
 });

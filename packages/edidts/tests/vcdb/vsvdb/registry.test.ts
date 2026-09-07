@@ -1,11 +1,11 @@
 // packages/edidts/tests/vsvdb/registry.test.ts
 
 import { describe, it, expect } from 'vitest';
-import { VENDOR_VSVDB_DECODERS, VENDOR_VSVDB_ENCODERS, decodeVSVDB, findVSVDBs } from '../../src/cta/vsvdb/registry';
-import { DolbyVSDBDecoder, DolbyVSDBEncoder } from '../../src/cta/vsvdb/dolby';
-import { OUI } from '../../src/cta/vsdb/types';
-import type { ExtendedDataBlock } from '../../src/cta/cta-extended-blocks';
-import type { CEAExtensionBlock } from '../../src/cta/extension-block';
+import { VENDOR_VSVDB_DECODERS, VENDOR_VSVDB_ENCODERS, decodeVSVDB, findVSVDBs } from '../../../src/cta/vcdb/vsvdb/registry';
+import { DolbyVSDBDecoder, DolbyVSDBEncoder } from '../../../src/cta/vcdb/vsvdb/dolby';
+import { OUI } from '../../../src/cta/vsdb/types';
+import type { ExtendedDataBlock } from '../../../src/cta/cta-extended-blocks';
+import type { CEAExtensionBlock } from '../../../src/cta/extension-block';
 
 const base: ExtendedDataBlock = {
   tag: 0x07,

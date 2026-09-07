@@ -3,21 +3,32 @@
  *
  * When a CEA data block has tag 7 (Extended Tag), the first byte of the
  * payload contains the Extended Tag Code that identifies the specific block type.
+ *
+ * TASK-115: the VCDB-family blocks (Video Capability 0x00, VSVDB 0x01,
+ * HDR Static 0x06, Video Format Preference 0x0D, YCbCr 4:2:0 Video 0x0E /
+ * Capability Map 0x0F, VSADB 0x11, InfoFrame 0x20) live in `./vcdb/`; this
+ * module holds the non-family blocks plus the tag-keyed
+ * `EXTENDED_BLOCK_CODECS` registry, which imports the family codecs from
+ * `./vcdb/`.
  */
 
 import type { CEADataBlock, SpeakerAllocationBlock } from './extension-block';
-import { decodeVSVDB, reassembleVsvdbBlock, VENDOR_VSVDB_ENCODERS } from './vsvdb/registry';
-import type { VSVDBVendorDecoded } from './vsvdb/types';
-import { isKnownVIC } from './vic-table';
-import { readIeeeOuiLE, writeIeeeOuiLE } from '../common/bintools';
-
-/** Push a 3-byte little-endian IEEE OUI (CTA-861 wire order) onto a number[]
- *  buffer being assembled for `new Uint8Array(bytes)`. */
-function pushOuiLE(bytes: number[], oui: number): void {
-  const tmp = new Uint8Array(3);
-  writeIeeeOuiLE(tmp, 0, oui);
-  bytes.push(tmp[0], tmp[1], tmp[2]);
-}
+import { decodeHDRStaticMetadataBlock, encodeHDRStaticMetadataBlock } from './vcdb/hdr-static';
+import type { HDRStaticMetadataDataBlock } from './vcdb/hdr-static';
+import { decodeInfoFrameBlock, encodeInfoFrameBlock } from './vcdb/infoframe';
+import type { InfoFrameDataBlock } from './vcdb/infoframe';
+import { decodeVendorSpecificVideoBlock, encodeVendorSpecificVideoBlock } from './vcdb/vendor-specific-video';
+import type { VendorSpecificVideoDataBlock } from './vcdb/vendor-specific-video';
+import { decodeVSADB, encodeVSADB } from './vcdb/vsadb';
+import type { VendorSpecificAudioDataBlock } from './vcdb/vsadb';
+import { decodeVideoCapabilityBlock, encodeVideoCapabilityBlock } from './vcdb/video-capability';
+import type { VideoCapabilityDataBlock } from './vcdb/video-capability';
+import { decodeVideoFormatPreferenceBlock, encodeVideoFormatPreferenceBlock } from './vcdb/video-format-preference';
+import type { VideoFormatPreferenceDataBlock } from './vcdb/video-format-preference';
+import { decodeYCbCr420CapabilityMapBlock, encodeYCbCr420CapabilityMapBlock } from './vcdb/ycbcr420-capability-map';
+import type { YCbCr420CapabilityMapDataBlock } from './vcdb/ycbcr420-capability-map';
+import { decodeYCbCr420VideoBlock, encodeYCbCr420VideoBlock } from './vcdb/ycbcr420-video';
+import type { YCbCr420VideoDataBlock } from './vcdb/ycbcr420-video';
 
 export type ExtendedTagCode =
   | 0x00  // Video Capability Data Block
@@ -43,19 +54,6 @@ export interface ExtendedDataBlock extends CEADataBlock {
 }
 
 /**
- * Video Capability Data Block (Extended Tag 0)
- * Defines video scan behavior and quantization range support
- */
-export interface VideoCapabilityDataBlock extends ExtendedDataBlock {
-  extendedTag: 0x00;
-  ceVideoScanBehavior: 'not_supported' | 'always_overscanned' | 'always_underscanned' | 'both';
-  itVideoScanBehavior: 'not_supported' | 'always_overscanned' | 'always_underscanned' | 'both';
-  ptVideoScanBehavior: 'not_supported' | 'always_overscanned' | 'always_underscanned' | 'both';
-  quantizationRangeSelectable: boolean;  // QS bit - RGB quantization range
-  quantizationRangeYCC: boolean;         // QY bit - YCC quantization range
-}
-
-/**
  * Colorimetry Data Block (Extended Tag 5)
  * Defines supported colorimetry standards
  */
@@ -71,38 +69,6 @@ export interface ColorimetryDataBlock extends ExtendedDataBlock {
   bt2020RGB: boolean;
   dciP3: boolean;
 }
-
-/**
- * HDR Static Metadata Data Block (Extended Tag 6)
- * Defines HDR capabilities and luminance values
- */
-export interface HDRStaticMetadataDataBlock extends ExtendedDataBlock {
-  extendedTag: 0x06;
-  eotf: {
-    traditionalGammaSDR: boolean;    // Traditional gamma - SDR luminance range
-    traditionalGammaHDR: boolean;    // Traditional gamma - HDR luminance range
-    smpte2084: boolean;              // SMPTE ST 2084 (PQ curve / HDR10)
-    hlg: boolean;                    // Hybrid Log-Gamma
-  };
-  staticMetadataType1: boolean;       // Static Metadata Descriptor Type 1
-  maxLuminance?: number;              // Desired Content Max Luminance (cd/m²)
-  maxFrameAvgLuminance?: number;      // Desired Content Max Frame-avg Luminance (cd/m²)
-  minLuminance?: number;              // Desired Content Min Luminance (cd/m²)
-}
-
-/**
- * Video Capability scan-behavior 2-bit code (CTA-861-G §7.5.1, Video Capability
- * Data Block). The on-the-wire value is the array index.
- */
-export type ScanBehavior = VideoCapabilityDataBlock['ceVideoScanBehavior'];
-
-/** Display-label options for each Video Capability scan-behavior field. */
-export const SCAN_BEHAVIOR_OPTIONS: ReadonlyArray<{ value: ScanBehavior; label: string }> = [
-  { value: 'not_supported', label: 'Not Supported' },
-  { value: 'always_overscanned', label: 'Always Overscanned' },
-  { value: 'always_underscanned', label: 'Always Underscanned' },
-  { value: 'both', label: 'Both (Over & Under)' },
-];
 
 /**
  * Colorimetry Data Block flag options (CTA-861-G §7.5.5). `key` matches the
@@ -124,17 +90,6 @@ export const COLORIMETRY_FLAGS: ReadonlyArray<{
 ];
 
 /**
- * HDR Static Metadata EOTF flag options (CTA-861-G §7.5.6). `key` matches the
- * boolean-field name on `HDRStaticMetadataDataBlock['eotf']`.
- */
-export const EOTF_FLAGS: ReadonlyArray<{ key: keyof HDRStaticMetadataDataBlock['eotf']; label: string }> = [
-  { key: 'traditionalGammaSDR', label: 'Traditional Gamma SDR' },
-  { key: 'traditionalGammaHDR', label: 'Traditional Gamma HDR' },
-  { key: 'smpte2084', label: 'SMPTE ST 2084 (HDR10)' },
-  { key: 'hlg', label: 'Hybrid Log-Gamma (HLG)' },
-];
-
-/**
  * HDR Dynamic Metadata Data Block (Extended Tag 7)
  */
 export interface HDRDynamicMetadataDataBlock extends ExtendedDataBlock {
@@ -153,72 +108,6 @@ export interface HDRDynamicMetadataDataBlock extends ExtendedDataBlock {
   }>;
   /** Bytes after the last complete entry (preserved for byte-exact round-trip). */
   trailing: Uint8Array;
-}
-
-/**
- * Video Format Preference Data Block (Extended Tag 13)
- * Indicates preferred video formats in order
- */
-export interface VideoFormatPreferenceDataBlock extends ExtendedDataBlock {
-  extendedTag: 0x0D;
-  svrs: Array<{
-    vic?: number;      // If SVR < 128, it's a VIC
-    dtdIndex?: number; // If SVR >= 129, it's DTD index (SVR - 128)
-  }>;
-}
-
-/**
- * YCbCr 4:2:0 Video Data Block (Extended Tag 14)
- * Lists VICs that only support YCbCr 4:2:0
- */
-export interface YCbCr420VideoDataBlock extends ExtendedDataBlock {
-  extendedTag: 0x0E;
-  vics: Array<{
-    vic: number;
-    native: boolean;
-    /**
-     * True iff `vic` has a definition in the CTA-861 VIC table. Populated on
-     * decode to flag unknown/reserved VIC values; encode ignores it so the
-     * numeric `vic` round-trips verbatim. Optional so programmatic literals
-     * type-check without supplying it.
-     */
-    known?: boolean;
-  }>;
-}
-
-/**
- * YCbCr 4:2:0 Capability Map Data Block (Extended Tag 15)
- * Bitmap indicating which SVDs in Video Data Block also support 4:2:0
- */
-export interface YCbCr420CapabilityMapDataBlock extends ExtendedDataBlock {
-  extendedTag: 0x0F;
-  capabilityBitmap: Uint8Array;  // Each bit corresponds to an SVD
-}
-
-/**
- * Vendor-Specific Video Data Block (Extended Tag 1)
- *
- * The decoded per-vendor shape (Dolby Vision, HDR10+, ...) is surfaced on the
- * carrier as `vendor`, mirroring the tag-0x03 VSDB. `vendorPayload` retains the
- * raw post-OUI bytes; `vendor.fields` holds the structured, editable form. The
- * CTA encoder re-encodes from `vendor.fields` when a registered encoder exists
- * (see `encodeVendorSpecificVideoBlock`), falling back to the raw
- * `vendorPayload` for unknown OUIs.
- */
-export interface VendorSpecificVideoDataBlock extends ExtendedDataBlock {
-  extendedTag: 0x01;
-  ieeeOui: number;
-  vendorPayload: Uint8Array;
-  vendor?: VSVDBVendorDecoded;
-}
-
-/**
- * Vendor-Specific Audio Data Block (Extended Tag 17)
- */
-export interface VendorSpecificAudioDataBlock extends ExtendedDataBlock {
-  extendedTag: 0x11;
-  ieeeOui: number;
-  vendorPayload: Uint8Array;
 }
 
 /**
@@ -453,32 +342,6 @@ export interface RoomEnvironmentDataBlock extends ExtendedDataBlock {
 }
 
 /**
- * InfoFrame Data Block (Extended Tag 32)
- *
- * CTA-861-G §7.5.9, Tables 77-80. The payload begins with an InfoFrame
- * Processing Descriptor (a header byte carrying Length Lb in bits 7:5 plus
- * reserved bits 4:0, followed by a byte giving the number of additional
- * VSIFs that can be received simultaneously, followed by Lb extension
- * bytes), then optional Short InfoFrame / Short Vendor-Specific InfoFrame
- * Descriptors listed in priority order. Each descriptor header carries a
- * 3-bit Payload Length (bits 7:5) and a 5-bit InfoFrame Type Code (bits 4:0);
- * type 0x01 is the vendor-specific form (3-byte IEEE OUI + payload).
- */
-export interface InfoFrameDataBlock extends ExtendedDataBlock {
-  extendedTag: 0x20;
-  /** Number of additional VSIFs that can be received simultaneously (byte 2). */
-  additionalVsifs: number;
-  /** Lb extension bytes of the Processing Descriptor (normally empty). */
-  processingPayload: Uint8Array;
-  descriptors: Array<
-    | { kind: 'short'; infoFrameType: number; payload: Uint8Array }
-    | { kind: 'vendor'; ieeeOui: number; payload: Uint8Array }
-  >;
-  /** Bytes after the last complete descriptor (preserved for byte-exact round-trip). */
-  trailing: Uint8Array;
-}
-
-/**
  * VESA Video Display Device Data Block (Extended Tag 0x02)
  *
  * Fixed 30-byte payload defined by the VESA Display Device Data Block (DDDB)
@@ -679,12 +542,19 @@ export type CTAExtendedDataBlock =
   | VESAVideoTimingBlockExtensionDataBlock
   | ExtendedDataBlock;
 
+// The VCDB-family members of the union above (Video Capability, HDR Static,
+// Video Format Preference, YCbCr 4:2:0 Video / Capability Map, VSVDB, VSADB,
+// InfoFrame) are defined in `./vcdb/` (TASK-115); only the non-family blocks
+// in this list are declared in this module.
+
 /**
  * Per-extended-tag codec registry — the single dispatch site for Extended Tag
  * Data Blocks (CTA-861-G §7.5, tag 0x07). Each entry pairs a free-standing
  * decode/encode function pair; the opaque fallback is one `OPAQUE_EXTENDED_BLOCK`
  * default entry rather than a switch `default:` branch. Adding a block type is
  * a registry entry, not a dispatcher edit (TASK-68). Mirrors mp4box BoxRegistry.
+ * The VCDB-family codecs (0x00/0x01/0x06/0x0D/0x0E/0x0F/0x11/0x20) are
+ * imported from `./vcdb/` (TASK-115).
  */
 interface CTAExtendedBlockCodec {
   decode(base: ExtendedDataBlock, payload: Uint8Array): CTAExtendedDataBlock;
@@ -724,7 +594,7 @@ const EXTENDED_BLOCK_CODECS: Partial<Record<ExtendedTagCode, CTAExtendedBlockCod
   0x0D: { decode: decodeVideoFormatPreferenceBlock, encode: (b) => encodeVideoFormatPreferenceBlock(b as VideoFormatPreferenceDataBlock) },
   0x0E: { decode: decodeYCbCr420VideoBlock, encode: (b) => encodeYCbCr420VideoBlock(b as YCbCr420VideoDataBlock) },
   0x0F: { decode: decodeYCbCr420CapabilityMapBlock, encode: (b) => encodeYCbCr420CapabilityMapBlock(b as YCbCr420CapabilityMapDataBlock) },
-  0x11: { decode: decodeVendorSpecificAudioBlock, encode: (b) => encodeVendorSpecificAudioBlock(b as VendorSpecificAudioDataBlock) },
+  0x11: { decode: decodeVSADB, encode: (b) => encodeVSADB(b as VendorSpecificAudioDataBlock) },
   0x13: { decode: decodeRoomConfigurationBlock, encode: (b) => encodeRoomConfigurationBlock(b as RoomConfigurationDataBlock) },
   0x14: { decode: decodeSpeakerLocationBlock, encode: (b) => encodeSpeakerLocationBlock(b as SpeakerLocationDataBlock) },
   0x15: { decode: decodeRoomEnvironmentBlock, encode: (b) => encodeRoomEnvironmentBlock(b as RoomEnvironmentDataBlock) },
@@ -751,27 +621,6 @@ export function decodeExtendedDataBlock(blockData: Uint8Array): CTAExtendedDataB
   return (EXTENDED_BLOCK_CODECS[extendedTag] ?? OPAQUE_EXTENDED_BLOCK).decode(base, payload);
 }
 
-function decodeVideoCapabilityBlock(base: ExtendedDataBlock, payload: Uint8Array): VideoCapabilityDataBlock {
-  const byte = payload[0] || 0;
-  
-  const scanBehaviorMap: Record<number, 'not_supported' | 'always_overscanned' | 'always_underscanned' | 'both'> = {
-    0: 'not_supported',
-    1: 'always_overscanned',
-    2: 'always_underscanned',
-    3: 'both',
-  };
-
-  return {
-    ...base,
-    extendedTag: 0x00,
-    ceVideoScanBehavior: scanBehaviorMap[byte & 0x03] ?? 'not_supported',
-    itVideoScanBehavior: scanBehaviorMap[(byte >> 2) & 0x03] ?? 'not_supported',
-    ptVideoScanBehavior: scanBehaviorMap[(byte >> 4) & 0x03] ?? 'not_supported',
-    quantizationRangeSelectable: (byte & 0x40) !== 0,
-    quantizationRangeYCC: (byte & 0x80) !== 0,
-  };
-}
-
 function decodeColorimetryBlock(base: ExtendedDataBlock, payload: Uint8Array): ColorimetryDataBlock {
   const byte1 = payload[0] || 0;
   const byte2 = payload[1] || 0;
@@ -789,42 +638,6 @@ function decodeColorimetryBlock(base: ExtendedDataBlock, payload: Uint8Array): C
     bt2020RGB: (byte1 & 0x80) !== 0,
     dciP3: (byte2 & 0x80) !== 0,
   };
-}
-
-function decodeHDRStaticMetadataBlock(base: ExtendedDataBlock, payload: Uint8Array): HDRStaticMetadataDataBlock {
-  const eotfByte = payload[0] || 0;
-  const descriptorByte = payload[1] || 0;
-
-  const block: HDRStaticMetadataDataBlock = {
-    ...base,
-    extendedTag: 0x06,
-    eotf: {
-      traditionalGammaSDR: (eotfByte & 0x01) !== 0,
-      traditionalGammaHDR: (eotfByte & 0x02) !== 0,
-      smpte2084: (eotfByte & 0x04) !== 0,
-      hlg: (eotfByte & 0x08) !== 0,
-    },
-    staticMetadataType1: (descriptorByte & 0x01) !== 0,
-  };
-
-  // Optional luminance data (bytes 3-5)
-  if (payload.length >= 3) {
-    // Desired Content Max Luminance = 50 * 2^(CV/32)
-    const cv = payload[2];
-    block.maxLuminance = Math.round(50 * Math.pow(2, cv / 32));
-  }
-  if (payload.length >= 4) {
-    const cv = payload[3];
-    block.maxFrameAvgLuminance = Math.round(50 * Math.pow(2, cv / 32));
-  }
-  if (payload.length >= 5) {
-    // Min Luminance = (Max Luminance) * (CV/255)^2 / 100
-    const cv = payload[4];
-    const maxLum = block.maxLuminance ?? 0;
-    block.minLuminance = Math.round((maxLum * Math.pow(cv / 255, 2) / 100) * 10000) / 10000;
-  }
-
-  return block;
 }
 
 function decodeHDRDynamicMetadataBlock(base: ExtendedDataBlock, payload: Uint8Array): HDRDynamicMetadataDataBlock {
@@ -849,79 +662,6 @@ function decodeHDRDynamicMetadataBlock(base: ExtendedDataBlock, payload: Uint8Ar
     extendedTag: 0x07,
     entries,
     trailing: payload.slice(i),
-  };
-}
-
-function decodeVideoFormatPreferenceBlock(base: ExtendedDataBlock, payload: Uint8Array): VideoFormatPreferenceDataBlock {
-  const svrs: VideoFormatPreferenceDataBlock['svrs'] = [];
-
-  for (let i = 0; i < payload.length; i++) {
-    const svr = payload[i];
-    if (svr === 0) continue;
-    
-    if (svr < 128) {
-      svrs.push({ vic: svr });
-    } else if (svr >= 129) {
-      svrs.push({ dtdIndex: svr - 128 });
-    }
-  }
-
-  return {
-    ...base,
-    extendedTag: 0x0D,
-    svrs,
-  };
-}
-
-function decodeYCbCr420VideoBlock(base: ExtendedDataBlock, payload: Uint8Array): YCbCr420VideoDataBlock {
-  const vics: YCbCr420VideoDataBlock['vics'] = [];
-
-  for (let i = 0; i < payload.length; i++) {
-    const byte = payload[i];
-    const vic = byte & 0x7F;
-    vics.push({
-      vic,
-      native: (byte & 0x80) !== 0,
-      known: isKnownVIC(vic),
-    });
-  }
-
-  return {
-    ...base,
-    extendedTag: 0x0E,
-    vics,
-  };
-}
-
-function decodeYCbCr420CapabilityMapBlock(base: ExtendedDataBlock, payload: Uint8Array): YCbCr420CapabilityMapDataBlock {
-  return {
-    ...base,
-    extendedTag: 0x0F,
-    capabilityBitmap: payload,
-  };
-}
-
-function decodeVendorSpecificVideoBlock(base: ExtendedDataBlock, payload: Uint8Array): VendorSpecificVideoDataBlock {
-  return decodeVSVDB(base, payload);
-}
-
-function decodeVendorSpecificAudioBlock(base: ExtendedDataBlock, payload: Uint8Array): VendorSpecificAudioDataBlock {
-  if (payload.length < 3) {
-    return {
-      ...base,
-      extendedTag: 0x11,
-      ieeeOui: 0,
-      vendorPayload: new Uint8Array(),
-    };
-  }
-
-  const ieeeOui = readIeeeOuiLE(payload, 0);
-
-  return {
-    ...base,
-    extendedTag: 0x11,
-    ieeeOui,
-    vendorPayload: payload.slice(3),
   };
 }
 
@@ -1078,90 +818,11 @@ function decodeRoomEnvironmentBlock(base: ExtendedDataBlock, payload: Uint8Array
   return block;
 }
 
-function decodeInfoFrameBlock(base: ExtendedDataBlock, payload: Uint8Array): InfoFrameDataBlock {
-  // CTA-861-G Tables 77-80. The payload begins with an InfoFrame Processing
-  // Descriptor: header byte 0 (Length Lb in bits 7:5, reserved bits 4:0),
-  // byte 1 = number of additional VSIFs, then Lb extension bytes. Then
-  // optional Short InfoFrame / Short Vendor-Specific InfoFrame Descriptors,
-  // each with a 3-bit Payload Length (bits 7:5) and 5-bit Type Code (bits 4:0).
-  if (payload.length < 2) {
-    return {
-      ...base,
-      extendedTag: 0x20,
-      additionalVsifs: 0,
-      processingPayload: new Uint8Array(),
-      descriptors: [],
-      trailing: payload.slice(),
-    };
-  }
-
-  const header = payload[0];
-  const lb = (header >> 5) & 0x07;
-  const additionalVsifs = payload[1];
-  const processingPayload = payload.slice(2, 2 + lb);
-
-  const descriptors: InfoFrameDataBlock['descriptors'] = [];
-  let i = 2 + lb;
-  while (i < payload.length) {
-    const descHeader = payload[i];
-    const payloadLen = (descHeader >> 5) & 0x07;
-    const typeCode = descHeader & 0x1f;
-    if (typeCode === 0x01) {
-      // Short Vendor-Specific InfoFrame Descriptor (Table 80): 3-byte OUI + payload.
-      if (i + 1 + 3 + payloadLen > payload.length) break;
-      const ieeeOui = readIeeeOuiLE(payload, i + 1);
-      const descPayload = payload.slice(i + 4, i + 4 + payloadLen);
-      descriptors.push({ kind: 'vendor', ieeeOui, payload: descPayload });
-      i += 4 + payloadLen;
-    } else if (typeCode === 0x00) {
-      // 0x00 is reserved as a descriptor type code; stop parsing.
-      break;
-    } else {
-      // Short InfoFrame Descriptor (Table 79): payloadLen bytes of payload.
-      if (i + 1 + payloadLen > payload.length) break;
-      const descPayload = payload.slice(i + 1, i + 1 + payloadLen);
-      descriptors.push({ kind: 'short', infoFrameType: typeCode, payload: descPayload });
-      i += 1 + payloadLen;
-    }
-  }
-
-  return {
-    ...base,
-    extendedTag: 0x20,
-    additionalVsifs,
-    processingPayload,
-    descriptors,
-    trailing: payload.slice(i),
-  };
-}
-
 /**
  * Encode an Extended Tag Data Block to bytes via the per-tag codec registry.
  */
 export function encodeExtendedDataBlock(block: CTAExtendedDataBlock): Uint8Array {
   return (EXTENDED_BLOCK_CODECS[block.extendedTag] ?? OPAQUE_EXTENDED_BLOCK).encode(block);
-}
-
-function encodeVendorSpecificVideoBlock(block: VendorSpecificVideoDataBlock): Uint8Array {
-  // Re-encode from the structured `vendor.fields` when a registered encoder
-  // exists (parallel to `encodeVendorSpecificDataBlock` for tag-0x03 VSDBs).
-  // `reassembleVsvdbBlock` emits the extended-tag byte + LE OUI + post-OUI
-  // body, which is exactly the post-header bytes `encodeExtendedDataBlock`
-  // must return. Falls back to the raw `payload` for unknown/unregistered OUIs
-  // so the carrier round-trips byte-identically regardless of registration.
-  if (block.vendor && block.vendor.kind !== 'unknown') {
-    const encoder = VENDOR_VSVDB_ENCODERS[block.vendor.kind];
-    if (encoder) {
-      return reassembleVsvdbBlock(
-        block.ieeeOui,
-        encoder.encode(block.vendor.fields),
-      );
-    }
-  }
-  const bytes = [0x01];
-  pushOuiLE(bytes, block.ieeeOui);
-  for (const b of block.vendorPayload) bytes.push(b);
-  return new Uint8Array(bytes);
 }
 
 function encodeSpeakerLocationBlock(block: SpeakerLocationDataBlock): Uint8Array {
@@ -1185,27 +846,6 @@ function encodeSpeakerLocationBlock(block: SpeakerLocationDataBlock): Uint8Array
   return new Uint8Array(bytes);
 }
 
-function encodeInfoFrameBlock(block: InfoFrameDataBlock): Uint8Array {
-  const bytes = [0x20];
-  // InfoFrame Processing Descriptor: header (Lb in bits 7:5) + additionalVsifs + Lb bytes.
-  const lb = (block.processingPayload?.length ?? 0) & 0x07;
-  bytes.push((lb << 5) & 0xff, block.additionalVsifs & 0xff);
-  for (const b of block.processingPayload ?? []) bytes.push(b);
-  for (const desc of block.descriptors ?? []) {
-    const payloadLen = (desc.payload.length) & 0x07;
-    if (desc.kind === 'vendor') {
-      bytes.push((payloadLen << 5) | 0x01);
-      pushOuiLE(bytes, desc.ieeeOui);
-      for (const b of desc.payload) bytes.push(b);
-    } else {
-      bytes.push((payloadLen << 5) | (desc.infoFrameType & 0x1f));
-      for (const b of desc.payload) bytes.push(b);
-    }
-  }
-  for (const b of block.trailing ?? []) bytes.push(b);
-  return new Uint8Array(bytes);
-}
-
 function encodeHDRDynamicMetadataBlock(block: HDRDynamicMetadataDataBlock): Uint8Array {
   const bytes = [0x07];
   for (const e of block.entries) {
@@ -1215,27 +855,6 @@ function encodeHDRDynamicMetadataBlock(block: HDRDynamicMetadataDataBlock): Uint
     for (const b of e.optionalFields ?? []) bytes.push(b);
   }
   for (const b of block.trailing ?? []) bytes.push(b);
-  return new Uint8Array(bytes);
-}
-
-function encodeVideoFormatPreferenceBlock(block: VideoFormatPreferenceDataBlock): Uint8Array {
-  const bytes = [0x0d];
-  for (const svr of block.svrs) {
-    if (svr.vic !== undefined) {
-      // VICs occupy byte values 1..127; a 0 byte means "no entry".
-      if (svr.vic > 0 && svr.vic < 128) bytes.push(svr.vic);
-    } else if (svr.dtdIndex !== undefined) {
-      // DTD indices are carried as 128 + index (129..255).
-      bytes.push(128 + svr.dtdIndex);
-    }
-  }
-  return new Uint8Array(bytes);
-}
-
-function encodeVendorSpecificAudioBlock(block: VendorSpecificAudioDataBlock): Uint8Array {
-  const bytes = [0x11];
-  pushOuiLE(bytes, block.ieeeOui);
-  for (const b of block.vendorPayload) bytes.push(b);
   return new Uint8Array(bytes);
 }
 
@@ -1348,24 +967,6 @@ function encodeRoomEnvironmentBlock(block: RoomEnvironmentDataBlock): Uint8Array
   return out;
 }
 
-function encodeVideoCapabilityBlock(block: VideoCapabilityDataBlock): Uint8Array {
-  const scanMap: Record<string, number> = {
-    'not_supported': 0,
-    'always_overscanned': 1,
-    'always_underscanned': 2,
-    'both': 3,
-  };
-
-  let byte = 0;
-  byte |= scanMap[block.ceVideoScanBehavior] ?? 0;
-  byte |= (scanMap[block.itVideoScanBehavior] ?? 0) << 2;
-  byte |= (scanMap[block.ptVideoScanBehavior] ?? 0) << 4;
-  if (block.quantizationRangeSelectable) byte |= 0x40;
-  if (block.quantizationRangeYCC) byte |= 0x80;
-
-  return new Uint8Array([0x00, byte]);
-}
-
 function encodeColorimetryBlock(block: ColorimetryDataBlock): Uint8Array {
   let byte1 = 0;
   let byte2 = 0;
@@ -1383,48 +984,3 @@ function encodeColorimetryBlock(block: ColorimetryDataBlock): Uint8Array {
   return new Uint8Array([0x05, byte1, byte2]);
 }
 
-function encodeHDRStaticMetadataBlock(block: HDRStaticMetadataDataBlock): Uint8Array {
-  let eotfByte = 0;
-  let descriptorByte = 0;
-
-  if (block.eotf.traditionalGammaSDR) eotfByte |= 0x01;
-  if (block.eotf.traditionalGammaHDR) eotfByte |= 0x02;
-  if (block.eotf.smpte2084) eotfByte |= 0x04;
-  if (block.eotf.hlg) eotfByte |= 0x08;
-  if (block.staticMetadataType1) descriptorByte |= 0x01;
-
-  const bytes = [0x06, eotfByte, descriptorByte];
-
-  // Optional luminance values
-  if (block.maxLuminance !== undefined) {
-    // CV = 32 * log2(maxLum / 50)
-    const cv = Math.round(32 * Math.log2(block.maxLuminance / 50));
-    bytes.push(Math.max(0, Math.min(255, cv)));
-  }
-  if (block.maxFrameAvgLuminance !== undefined) {
-    const cv = Math.round(32 * Math.log2(block.maxFrameAvgLuminance / 50));
-    bytes.push(Math.max(0, Math.min(255, cv)));
-  }
-  if (block.minLuminance !== undefined && block.maxLuminance !== undefined) {
-    // CV = 255 * sqrt(minLum * 100 / maxLum)
-    const cv = Math.round(255 * Math.sqrt(block.minLuminance * 100 / block.maxLuminance));
-    bytes.push(Math.max(0, Math.min(255, cv)));
-  }
-
-  return new Uint8Array(bytes);
-}
-
-function encodeYCbCr420VideoBlock(block: YCbCr420VideoDataBlock): Uint8Array {
-  const bytes = [0x0E];
-  for (const vic of block.vics) {
-    bytes.push((vic.native ? 0x80 : 0) | (vic.vic & 0x7F));
-  }
-  return new Uint8Array(bytes);
-}
-
-function encodeYCbCr420CapabilityMapBlock(block: YCbCr420CapabilityMapDataBlock): Uint8Array {
-  const bytes = new Uint8Array(1 + block.capabilityBitmap.length);
-  bytes[0] = 0x0F;
-  bytes.set(block.capabilityBitmap, 1);
-  return bytes;
-}

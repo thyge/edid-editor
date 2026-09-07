@@ -25,7 +25,7 @@ import './vsdb/amd';
 import './vsdb/microsoft-hmd';
 // Side-effect import: registers the Dolby VSVDB decoder/encoder with the
 // VSVDB registry so consumers can find it via VENDOR_VSVDB_DECODERS[OUI.DOLBY].
-import './vsvdb/dolby';
+import './vcdb/vsvdb/dolby';
 import {
   DetailedTimingDescriptor,
   decodeEdidCtaDetailedTiming,

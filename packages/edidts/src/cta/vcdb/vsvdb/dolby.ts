@@ -2,7 +2,7 @@
 
 import type { VendorDecoder, VendorEncoder } from './registry';
 import { VENDOR_VSVDB_DECODERS, VENDOR_VSVDB_ENCODERS } from './registry';
-import { OUI } from '../vsdb/types';
+import { OUI } from '../../vsdb/types';
 import type { DolbyVSDB } from './types';
 
 // Dolby VSVDB byte layout (post-OUI):

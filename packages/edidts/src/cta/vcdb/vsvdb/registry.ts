@@ -1,10 +1,11 @@
 // packages/edidts/src/cta/vsvdb/registry.ts
 
-import type { ExtendedDataBlock, VendorSpecificVideoDataBlock } from '../cta-extended-blocks';
-import type { CEAExtensionBlock, CEADataBlock } from '../extension-block';
-import { OUI } from '../vsdb/types';
+import type { ExtendedDataBlock } from '../../cta-extended-blocks';
+import type { VendorSpecificVideoDataBlock } from '../vendor-specific-video';
+import type { CEAExtensionBlock, CEADataBlock } from '../../extension-block';
+import { OUI } from '../../vsdb/types';
 import type { HDR10PlusVSDB, VSVDBVendorDecoded } from './types';
-import { readIeeeOuiLE, writeIeeeOuiLE } from '../../common/bintools';
+import { readIeeeOuiLE, writeIeeeOuiLE } from '../../../common/bintools';
 
 // The VSVDB (Vendor-Specific Video Data Block) is the CTA-861-G extended tag
 // 0x01, distinct from the regular VSDB at tag 0x03. Only Dolby Vision is

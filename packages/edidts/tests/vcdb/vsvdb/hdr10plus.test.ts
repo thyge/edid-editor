@@ -8,13 +8,13 @@ import {
   VENDOR_VSVDB_ENCODERS,
   decodeVSVDB,
   reassembleVsvdbBlock,
-} from '../../src/cta/vsvdb/registry';
+} from '../../../src/cta/vcdb/vsvdb/registry';
 import {
   decodeExtendedDataBlock,
   encodeExtendedDataBlock,
   type VendorSpecificVideoDataBlock,
-} from '../../src/cta';
-import { OUI } from '../../src/cta/vsdb/types';
+} from '../../../src/cta';
+import { OUI } from '../../../src/cta/vsdb/types';
 
 describe('HDR10PlusVsvdbDecoder', () => {
   it('decodes applicationVersion from byte 0 and the remainder as payload', () => {

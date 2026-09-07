@@ -33,15 +33,16 @@ export {
 } from './audio-format-codes';
 export type { AudioFormatDefinition } from './audio-format-codes';
 
-// CTA-861-G Extended Tag Data Blocks
+// CTA-861-G Extended Tag Data Blocks — the non-family blocks and the
+// tag-keyed codec registry live in cta-extended-blocks.ts; the VCDB-family
+// blocks (Video Capability, VSVDB, HDR Static, Video Format Preference,
+// YCbCr 4:2:0 Video/Capability Map, VSADB, InfoFrame) live in vcdb/ (TASK-115).
 export { decodeExtendedDataBlock, encodeExtendedDataBlock } from './cta-extended-blocks';
 export {
   SPEAKER_PLACEMENT,
   SPEAKER_ALLOCATION_BITS,
   unifySpeakerLayout,
-  SCAN_BEHAVIOR_OPTIONS,
   COLORIMETRY_FLAGS,
-  EOTF_FLAGS,
   VESA_INTERFACE_CATEGORIES,
   VESA_CONTENT_PROTECTION,
   VESA_ORIENTATION,
@@ -55,27 +56,28 @@ export type {
   ExtendedTagCode,
   ExtendedDataBlock,
   CTAExtendedDataBlock,
-  VideoCapabilityDataBlock,
   ColorimetryDataBlock,
-  HDRStaticMetadataDataBlock,
   HDRDynamicMetadataDataBlock,
-  VideoFormatPreferenceDataBlock,
-  YCbCr420VideoDataBlock,
-  YCbCr420CapabilityMapDataBlock,
-  VendorSpecificVideoDataBlock,
-  VendorSpecificAudioDataBlock,
   RoomConfigurationDataBlock,
   SpeakerLocationDataBlock,
   RoomEnvironmentDataBlock,
-  InfoFrameDataBlock,
   VESAVideoDisplayDeviceDataBlock,
   VESAVideoTimingBlockExtensionDataBlock,
   VESAChromaticity,
   SpeakerPlacement,
   SpeakerAllocationBit,
   UnifiedSpeaker,
-  ScanBehavior,
 } from './cta-extended-blocks';
+export { SCAN_BEHAVIOR_OPTIONS } from './vcdb/video-capability';
+export type { VideoCapabilityDataBlock, ScanBehavior } from './vcdb/video-capability';
+export { EOTF_FLAGS } from './vcdb/hdr-static';
+export type { HDRStaticMetadataDataBlock } from './vcdb/hdr-static';
+export type { VideoFormatPreferenceDataBlock } from './vcdb/video-format-preference';
+export type { YCbCr420VideoDataBlock } from './vcdb/ycbcr420-video';
+export type { YCbCr420CapabilityMapDataBlock } from './vcdb/ycbcr420-capability-map';
+export type { InfoFrameDataBlock } from './vcdb/infoframe';
+export type { VendorSpecificVideoDataBlock } from './vcdb/vendor-specific-video';
+export type { VendorSpecificAudioDataBlock, VSADBVendorDecoded } from './vcdb/vsadb';
 
 // CEA/CTA Extension Block
 export {
@@ -156,16 +158,17 @@ export {
 } from './vsdb/registry';
 export type { VendorDecoder, VendorEncoder } from './vsdb/registry';
 
-// Vendor-Specific Video Data Blocks (tag 0x07 ext 0x01, e.g., Dolby Vision)
-export type { DolbyVSDB, HDR10PlusVSDB, VSVDBVendorDecoded } from './vsvdb/types';
+// Vendor-Specific Video Data Blocks (tag 0x07 ext 0x01, e.g., Dolby Vision) —
+// part of the VCDB family (vcdb/, TASK-115)
+export type { DolbyVSDB, HDR10PlusVSDB, VSVDBVendorDecoded } from './vcdb/vsvdb/types';
 export {
   decodeVSVDB,
   reassembleVsvdbBlock,
   findVSVDBs,
   VENDOR_VSVDB_DECODERS,
   VENDOR_VSVDB_ENCODERS,
-} from './vsvdb/registry';
-export { DolbyVSDBDecoder, DolbyVSDBEncoder, DOLBY_VSDB_DEFAULT } from './vsvdb/dolby';
+} from './vcdb/vsvdb/registry';
+export { DolbyVSDBDecoder, DolbyVSDBEncoder, DOLBY_VSDB_DEFAULT } from './vcdb/vsvdb/dolby';
 
 // CEA data-block default-value factory
 export { createDefaultCEADataBlock } from './default-blocks';

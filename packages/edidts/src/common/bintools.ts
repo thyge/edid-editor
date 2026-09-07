@@ -69,3 +69,13 @@ export function writeIeeeOuiLE(target: Uint8Array, offset: number, oui: number):
   target[offset + 1] = (oui >>> 8) & 0xff;
   target[offset + 2] = (oui >>> 16) & 0xff;
 }
+
+/**
+ * Push a 3-byte little-endian IEEE OUI (CTA-861 wire order) onto a `number[]`
+ * buffer being assembled for `new Uint8Array(bytes)`.
+ */
+export function pushIeeeOuiLE(bytes: number[], oui: number): void {
+  const tmp = new Uint8Array(3);
+  writeIeeeOuiLE(tmp, 0, oui);
+  bytes.push(tmp[0], tmp[1], tmp[2]);
+}
