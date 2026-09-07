@@ -458,9 +458,10 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                   <SidebarMenuSubButton
                     as="button"
                     :is-active="activeSection === child.id"
+                    :title="child.label"
                     @click="selectSection(child.id)"
                   >
-                    {{ child.label }}
+                    <span class="truncate">{{ child.label }}</span>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
 
@@ -478,8 +479,9 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                         <ChevronRight class="size-3.5 transition-transform" :class="{ 'rotate-90': edidDescriptorsOpen }" />
                       </CollapsibleTrigger>
                       <button
-                        class="flex-1 text-left rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        class="flex-1 min-w-0 truncate text-left rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                         :class="{ 'text-sidebar-accent-foreground font-semibold': isEdidDescriptorSection }"
+                        title="Descriptors"
                         @click="selectSection('edid-descriptors')"
                       >
                         Descriptors
@@ -498,9 +500,10 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                               as="button"
                               class="flex-1"
                               :is-active="activeSection === child.id"
+                              :title="child.label"
                               @click="selectSection(child.id)"
                             >
-                              {{ child.label }}
+                              <span class="truncate">{{ child.label }}</span>
                             </SidebarMenuSubButton>
                             <button
                               class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/edid-child:opacity-100 focus:opacity-100 transition-opacity"
@@ -523,9 +526,10 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                               as="button"
                               class="flex-1"
                               :is-active="activeSection === child.id"
+                              :title="child.label"
                               @click="selectSection(child.id)"
                             >
-                              {{ child.label }}
+                              <span class="truncate">{{ child.label }}</span>
                             </SidebarMenuSubButton>
                             <button
                               class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/edid-child:opacity-100 focus:opacity-100 transition-opacity"
@@ -611,9 +615,10 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                       as="button"
                       class="w-full"
                       :is-active="activeSection === 'cea-header'"
+                      title="Header & Flags"
                       @click="selectSection('cea-header')"
                     >
-                      Header & Flags
+                      <span class="truncate">Header & Flags</span>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
 
@@ -627,9 +632,10 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                         as="button"
                         class="flex-1"
                         :is-active="activeSection === node.child.id"
+                        :title="node.child.label"
                         @click="selectSection(node.child.id)"
                       >
-                        {{ node.child.label }}
+                        <span class="truncate">{{ node.child.label }}</span>
                       </SidebarMenuSubButton>
                       <button
                         class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/cea-child:opacity-100 focus:opacity-100 transition-opacity"
@@ -654,8 +660,9 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                           <ChevronRight class="size-3.5 transition-transform" :class="{ 'rotate-90': ceaFamilyOpen[node.family].value }" />
                         </span>
                         <span
-                          class="flex-1 rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground"
+                          class="flex-1 min-w-0 truncate rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground"
                           :class="{ 'text-sidebar-accent-foreground font-semibold': activeCeaBlockFamily === node.family }"
+                          :title="node.label"
                         >
                           {{ node.label }}
                         </span>
@@ -672,9 +679,10 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                                 as="button"
                                 class="flex-1"
                                 :is-active="activeSection === child.id"
+                                :title="child.label"
                                 @click="selectSection(child.id)"
                               >
-                                {{ child.label }}
+                                <span class="truncate">{{ child.label }}</span>
                               </SidebarMenuSubButton>
                               <button
                                 class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/cea-vendor-child:opacity-100 focus:opacity-100 transition-opacity"
@@ -706,8 +714,9 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                           <ChevronRight class="size-3.5 transition-transform" :class="{ 'rotate-90': ceaTimingsOpen }" />
                         </CollapsibleTrigger>
                         <button
-                          class="flex-1 text-left rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          class="flex-1 min-w-0 truncate text-left rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                           :class="{ 'text-sidebar-accent-foreground font-semibold': isCeaTimingSection }"
+                          title="Detailed Timings"
                           @click="selectSection('cea-timings')"
                         >
                           Detailed Timings
@@ -725,9 +734,10 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                                 as="button"
                                 class="flex-1"
                                 :is-active="activeSection === child.id"
+                                :title="child.label"
                                 @click="selectSection(child.id)"
                               >
-                                {{ child.label }}
+                                <span class="truncate">{{ child.label }}</span>
                               </SidebarMenuSubButton>
                               <button
                                 class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/cea-timing-child:opacity-100 focus:opacity-100 transition-opacity"
@@ -855,9 +865,10 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                       as="button"
                       class="flex-1"
                       :is-active="activeSection === child.id"
+                      :title="child.label"
                       @click="selectSection(child.id)"
                     >
-                      {{ child.label }}
+                      <span class="truncate">{{ child.label }}</span>
                     </SidebarMenuSubButton>
                     <button
                       v-if="child.index !== undefined"
