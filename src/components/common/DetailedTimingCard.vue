@@ -269,11 +269,14 @@ function onRefreshChange(v: string | number): void {
 /**
  * Pixel Clock edit (Custom mode only — the input is disabled in CVT modes where
  * the generator owns it). pixelClock is in MHz with 0.01 MHz resolution (10 kHz
- * units), so round to 2 dp before forwarding to the owning mutator.
+ * units) and a 16-bit field, so round to 2 dp and clamp to the encodable
+ * 0–655.35 MHz range (TASK-99) — the encoder would silently truncate anything
+ * above 655.35.
  */
 function onPixelClock(v: string | number): void {
   const parsed = typeof v === 'number' ? v : Number(v)
-  emit('update', 'pixelClock', Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0)
+  const rounded = Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0
+  emit('update', 'pixelClock', Math.max(0, Math.min(655.35, rounded)))
 }
 
 function onMarginsChange(v: boolean): void {
@@ -381,6 +384,7 @@ function applyFreeParam(field: string, value: unknown): void {
           <Input
             type="number"
             :min="0"
+            :max="655.35"
             :step="0.01"
             :disabled="isCVTMode || cea861"
             :model-value="timing.pixelClock"

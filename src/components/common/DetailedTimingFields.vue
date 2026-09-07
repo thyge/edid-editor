@@ -53,9 +53,38 @@ const isAnalog = computed(() =>
   props.timing.flags.syncType === 'bipolar-analog-composite'
 )
 
-function onNumber(field: string, v: string | number) {
+/**
+ * Per-field encodable maximum for the 18-byte DTD (VESA E-EDID A2 Tables
+ * 3.21/3.22): 12-bit fields cap at 4095, H sync offset/width at 1023 (8+2
+ * bits), V sync offset/width at 63 (4+2 bits), and borders at 255 (8 bits).
+ * The encoder masks every field into its fixed bit width, so anything above
+ * these would silently truncate — clamp here instead (TASK-99).
+ */
+const FIELD_MAX = {
+  horizontalActive: 4095,
+  horizontalBlanking: 4095,
+  verticalActive: 4095,
+  verticalBlanking: 4095,
+  horizontalSyncOffset: 1023,
+  horizontalSyncWidth: 1023,
+  verticalSyncOffset: 63,
+  verticalSyncWidth: 63,
+  horizontalImageSize: 4095,
+  verticalImageSize: 4095,
+  horizontalBorder: 255,
+  verticalBorder: 255,
+} as const
+
+/**
+ * Round + clamp the parsed value into the field's encodable range before
+ * emitting. Clamping to 0 also prevents JS bitwise-mask wraparound in the
+ * encoder (−1 & 0xfff = 4095), so the value the user sees is always the value
+ * that reaches the encoded bytes.
+ */
+function onNumber(field: keyof typeof FIELD_MAX, v: string | number) {
   const parsed = typeof v === 'number' ? v : Number(v)
-  emit('update', field, Number.isFinite(parsed) ? Math.round(parsed) : 0)
+  const rounded = Number.isFinite(parsed) ? Math.round(parsed) : 0
+  emit('update', field, Math.max(0, Math.min(FIELD_MAX[field], rounded)))
 }
 
 function onFlag(flag: string, value: unknown) {
@@ -72,8 +101,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.horizontalActive"
           :step="1"
-          :disabled="cea861"
           :model-value="timing.horizontalActive"
           @update:model-value="(v) => onNumber('horizontalActive', v)"
         />
@@ -83,8 +112,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.horizontalBlanking"
           :step="1"
-          :disabled="locked"
           :model-value="timing.horizontalBlanking"
           @update:model-value="(v) => onNumber('horizontalBlanking', v)"
         />
@@ -94,8 +123,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.verticalActive"
           :step="1"
-          :disabled="cea861"
           :model-value="timing.verticalActive"
           @update:model-value="(v) => onNumber('verticalActive', v)"
         />
@@ -105,8 +134,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.verticalBlanking"
           :step="1"
-          :disabled="locked"
           :model-value="timing.verticalBlanking"
           @update:model-value="(v) => onNumber('verticalBlanking', v)"
         />
@@ -120,8 +149,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.horizontalSyncOffset"
           :step="1"
-          :disabled="locked"
           :model-value="timing.horizontalSyncOffset"
           @update:model-value="(v) => onNumber('horizontalSyncOffset', v)"
         />
@@ -131,8 +160,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.horizontalSyncWidth"
           :step="1"
-          :disabled="locked"
           :model-value="timing.horizontalSyncWidth"
           @update:model-value="(v) => onNumber('horizontalSyncWidth', v)"
         />
@@ -142,8 +171,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.verticalSyncOffset"
           :step="1"
-          :disabled="locked"
           :model-value="timing.verticalSyncOffset"
           @update:model-value="(v) => onNumber('verticalSyncOffset', v)"
         />
@@ -153,8 +182,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.verticalSyncWidth"
           :step="1"
-          :disabled="locked"
           :model-value="timing.verticalSyncWidth"
           @update:model-value="(v) => onNumber('verticalSyncWidth', v)"
         />
@@ -168,8 +197,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.horizontalImageSize"
           :step="1"
-          :disabled="cea861"
           :model-value="timing.horizontalImageSize"
           @update:model-value="(v) => onNumber('horizontalImageSize', v)"
         />
@@ -179,8 +208,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.verticalImageSize"
           :step="1"
-          :disabled="cea861"
           :model-value="timing.verticalImageSize"
           @update:model-value="(v) => onNumber('verticalImageSize', v)"
         />
@@ -190,8 +219,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.horizontalBorder"
           :step="1"
-          :disabled="locked"
           :model-value="timing.horizontalBorder"
           @update:model-value="(v) => onNumber('horizontalBorder', v)"
         />
@@ -201,8 +230,8 @@ function onFlag(flag: string, value: unknown) {
         <Input
           type="number"
           :min="0"
+          :max="FIELD_MAX.verticalBorder"
           :step="1"
-          :disabled="locked"
           :model-value="timing.verticalBorder"
           @update:model-value="(v) => onNumber('verticalBorder', v)"
         />
