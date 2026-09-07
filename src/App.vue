@@ -15,6 +15,8 @@ import {
 } from 'edidts'
 import { appendArrayItem, updateArrayItem, removeArrayItem } from '@/components/common/editorUtils'
 import {
+  blankingModeToMode,
+  DEFAULT_TIMING_BLANKING_MODE,
   generateTimingFromPreset,
   getTimingEditorState,
 } from '@/composables/useTimingEditorState'
@@ -130,21 +132,23 @@ function onDrop(e: DragEvent): void {
 
 /**
  * Add a detailed timing to the EDID base block, generated from a CVT preset
- * (default 1080p60 standard CVT — matching the EDID constructor's first
- * descriptor baseline). After appending, the new DTD's editor authoring mode
- * is pre-set to the preset's CVT variant (and the CVT refresh-rate input to the
- * preset's rate) so the card opens with field locking already applied — the
- * WeakMap-keyed state must be seeded against the reactive proxy that
+ * (default 1080p60 — matching the EDID constructor's first-descriptor
+ * baseline). The blanking variant is not part of the preset: a new DTD is
+ * created before any mode is user-selected, so it is generated with the
+ * defined default (standard CVT) and the editor mode is seeded from it. After
+ * appending, the CVT refresh-rate input is set to the preset's rate so the card
+ * opens with field locking already applied and regeneration stays in place —
+ * the WeakMap-keyed state must be seeded against the reactive proxy that
  * `detailedTimings` exposes after the array reassign, not the raw instance.
  */
 function addTiming(presetKey?: string) {
   if (!edidRef.value) return
-  const { timing, mode, refreshRate } = generateTimingFromPreset(presetKey)
+  const { timing, refreshRate } = generateTimingFromPreset(presetKey, DEFAULT_TIMING_BLANKING_MODE)
   const timings = appendArrayItem(edidRef.value.base.detailedTimings, timing)
   edidRef.value.base.detailedTimings = timings
   const proxy = edidRef.value.base.detailedTimings[timings.length - 1]
   const state = getTimingEditorState(proxy)
-  state.mode = mode
+  state.mode = blankingModeToMode(DEFAULT_TIMING_BLANKING_MODE)
   state.refreshRate = refreshRate
   activeSection.value = `edid-dtd-${timings.length - 1}`
 }
@@ -154,13 +158,13 @@ function addCeaTiming(presetKey?: string) {
   if (!edidRef.value) return
   const cea = getCEAExtension(edidRef.value)
   if (!cea) return
-  const { timing, mode, refreshRate } = generateTimingFromPreset(presetKey)
+  const { timing, refreshRate } = generateTimingFromPreset(presetKey, DEFAULT_TIMING_BLANKING_MODE)
   const ceaTiming = { ...timing, isNative: false }
   const timings = appendArrayItem(cea.detailedTimings, ceaTiming)
   cea.detailedTimings = timings
   const proxy = cea.detailedTimings[timings.length - 1]
   const state = getTimingEditorState(proxy)
-  state.mode = mode
+  state.mode = blankingModeToMode(DEFAULT_TIMING_BLANKING_MODE)
   state.refreshRate = refreshRate
   activeSection.value = 'cea-timings'
 }

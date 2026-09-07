@@ -150,58 +150,74 @@ export function getTimingEditorState(timing: DetailedTiming): TimingEditorState 
 }
 
 /**
- * A pick-list entry for the "Add → Detailed Timing" flow, derived from the
- * library's {@link CVT_PRESETS}. Each entry carries the preset key (for looking
- * up the generator inputs) and a human label that names the resolution, refresh
- * rate, and CVT variant. The first entry is the default (1080p60 standard CVT,
- * matching the EDID constructor's first-descriptor baseline).
+ * A timing-only pick-list entry derived from the library's {@link CVT_PRESETS}.
+ * The preset owns just the timing (resolution × refresh); the blanking variant
+ * is owned by the editor's Mode selector and passed in at generation time
+ * (TASK-100) — so the entry carries the generator inputs directly and neither
+ * its key nor its label names a CVT variant. The first entry is the default
+ * (1080p60, matching the EDID constructor's first-descriptor baseline).
  */
 export interface CVTPresetEntry {
-  key: keyof typeof CVT_PRESETS
+  key: string
   label: string
+  horizontalActive: number
+  verticalActive: number
+  refreshRate: number
 }
 
-export const CVT_PRESET_ENTRIES: ReadonlyArray<CVTPresetEntry> = [
-  { key: '1080p60', label: '1080p60 · CVT' },
-  { key: '1080p60_RB', label: '1080p60 · CVT-RB' },
-  { key: '1440p60', label: '1440p60 · CVT' },
-  { key: '1440p60_RB', label: '1440p60 · CVT-RB' },
-  { key: '1440p144_RBv2', label: '1440p144 · CVT-RBv2' },
-  { key: '4K30', label: '4K30 · CVT' },
-  { key: '4K60_RB', label: '4K60 · CVT-RB' },
-  { key: '4K60_RBv2', label: '4K60 · CVT-RBv2' },
-  { key: '4K120_RBv2', label: '4K120 · CVT-RBv2' },
-]
+/**
+ * Timing-only preset list: one entry per unique resolution/refresh in the
+ * library's {@link CVT_PRESETS}, with the `_RB`/`_RBv2` variant suffix stripped
+ * from the key (e.g. '4K60_RB' and '4K60_RBv2' collapse to one '4K60' entry).
+ * The generator inputs are taken from the lib preset itself so they stay
+ * single-sourced — only the variant, which the Mode selector supplies, differs
+ * between the collapsed lib entries.
+ */
+export const CVT_PRESET_ENTRIES: ReadonlyArray<CVTPresetEntry> = (() => {
+  const byTiming = new Map<string, CVTPresetEntry>()
+  for (const [key, preset] of Object.entries(CVT_PRESETS)) {
+    const id = `${preset.horizontalActive}x${preset.verticalActive}@${preset.refreshRate}`
+    if (byTiming.has(id)) continue
+    const timingKey = key.replace(/_RB(v2)?$/, '')
+    byTiming.set(id, {
+      key: timingKey,
+      label: timingKey,
+      horizontalActive: preset.horizontalActive,
+      verticalActive: preset.verticalActive,
+      refreshRate: preset.refreshRate,
+    })
+  }
+  return [...byTiming.values()]
+})()
 
 /** The default preset used when the add-timing flow is invoked without a pick. */
 export const DEFAULT_TIMING_PRESET: CVTPresetEntry = CVT_PRESET_ENTRIES[0]
 
 /**
+ * Default blanking variant for the add-timing flows (LeftNav "+ Add → Detailed
+ * Timing"): a new DTD is created before any mode is user-selected, so the flow
+ * generates with standard CVT and seeds the editor mode from it.
+ */
+export const DEFAULT_TIMING_BLANKING_MODE: CVTBlankingMode = 'cvt'
+
+/**
  * Build a CVT-generated DetailedTimingDescriptor from a preset key (defaulting
- * to {@link DEFAULT_TIMING_PRESET}), and return the editor authoring mode that
- * matches the preset's blanking variant. The caller appends the DTD to the
- * EDID/CEA detailed-timings array and then sets `getTimingEditorState(proxy)`
- * from the returned mode + the preset's refresh rate so the new card opens with
- * field locking already applied (TASK-87 AC #3).
+ * to {@link DEFAULT_TIMING_PRESET}) using the caller's blanking variant — the
+ * preset only supplies the timing; the variant comes from the editor's Mode
+ * selector (TASK-100). Returns the preset's refresh rate so callers seeding a
+ * fresh editor state can align the CVT refresh-rate input with the loaded
+ * timing; the mode itself is the caller's choice and is never changed here.
  */
 export function generateTimingFromPreset(
-  key?: string,
-): { timing: DetailedTimingDescriptor; mode: TimingEditorMode; refreshRate: number } {
+  key: string | undefined,
+  blankingMode: CVTBlankingMode,
+): { timing: DetailedTimingDescriptor; refreshRate: number } {
   const entry = CVT_PRESET_ENTRIES.find((e) => e.key === key) ?? DEFAULT_TIMING_PRESET
-  const preset = CVT_PRESETS[entry.key]
-  const blankingMode = ('blankingMode' in preset ? preset.blankingMode : 'cvt') as
-    | 'cvt'
-    | 'cvt-rb'
-    | 'cvt-rb2'
   const timing = generateCVTDetailedTiming({
-    horizontalActive: preset.horizontalActive,
-    verticalActive: preset.verticalActive,
-    refreshRate: preset.refreshRate,
+    horizontalActive: entry.horizontalActive,
+    verticalActive: entry.verticalActive,
+    refreshRate: entry.refreshRate,
     blankingMode,
   })
-  return {
-    timing,
-    mode: blankingModeToMode(blankingMode),
-    refreshRate: preset.refreshRate,
-  }
+  return { timing, refreshRate: entry.refreshRate }
 }

@@ -161,17 +161,21 @@ function regenerate(): void {
  * Load a CVT preset onto the current DTD as a complete starting point. Unlike
  * {@link regenerate} (which preserves the user-set free parameters), this
  * overwrites every DetailedTiming field with the preset's generated timing,
- * sets the editor authoring mode to the preset's CVT variant, seeds the CVT
- * refresh-rate input from the preset, then emits `update` for `pixelClock` so
- * the owning mutator reassigns the enclosing `detailedTimings` array (the
- * documented encode trigger). The picker resets to its placeholder afterwards —
- * it is a one-shot "load a starting point" control, not a persistent selection
- * (subsequent field edits would diverge from any fixed label).
+ * generated under the variant currently selected in the Mode selector — the
+ * preset owns only the timing (resolution/refresh), never the mode (TASK-100).
+ * Seeds the CVT refresh-rate input from the preset, then emits `update` for
+ * `pixelClock` so the owning mutator reassigns the enclosing `detailedTimings`
+ * array (the documented encode trigger). The picker resets to its placeholder
+ * afterwards — it is a one-shot "load a starting point" control, not a
+ * persistent selection (subsequent field edits would diverge from any fixed
+ * label).
  */
 function onPresetChange(event: Event): void {
   const key = (event.target as HTMLSelectElement).value
   if (!key) return
-  const { timing: gen, mode, refreshRate } = generateTimingFromPreset(key)
+  const blankingMode = modeToBlankingMode(state.mode)
+  if (!blankingMode) return // unreachable: the picker is disabled in Custom/CEA-861 modes
+  const { timing: gen, refreshRate } = generateTimingFromPreset(key, blankingMode)
 
   props.timing.pixelClock = gen.pixelClock
   props.timing.horizontalActive = gen.horizontalActive
@@ -192,7 +196,6 @@ function onPresetChange(event: Event): void {
   props.timing.flags.hSyncPolarity = gen.flags.hSyncPolarity
   props.timing.flags.vSyncPolarity = gen.flags.vSyncPolarity
 
-  state.mode = mode
   state.refreshRate = refreshRate
   state.margins = false
 
@@ -318,13 +321,16 @@ function applyFreeParam(field: string, value: unknown): void {
       <div class="ml-auto flex flex-col items-end gap-2">
         <div class="flex flex-wrap items-center gap-3">
           <!-- Preset picker: load a CVT preset onto the current DTD as a starting
-               point (overwrites all fields and sets the matching CVT mode). A
-               one-shot control — resets to the placeholder after each load. -->
+               point (overwrites all fields, generated under the currently
+               selected mode's CVT variant — the mode itself is untouched). Only
+               meaningful in a CVT mode, so it is disabled in Custom and CEA-861
+               modes. A one-shot control — resets to the placeholder after each
+               load. -->
           <select
             :class="modeSelectClass"
             aria-label="Load preset"
             :value="selectedPreset"
-            :disabled="cea861"
+            :disabled="!isCVTMode"
             @change="onPresetChange"
           >
             <option value="">Load preset…</option>
