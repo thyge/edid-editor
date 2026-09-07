@@ -38,6 +38,50 @@ function defaultTiming(): DisplayIdTypeVIIDetailedTiming {
 function updateBlock(index: number, block: DisplayIdTypeVIIDetailedTimingBlock, timings: DisplayIdTypeVIIDetailedTiming[]) {
   emit('updateBlock', index, { ...block, timings } as DisplayIdTypeVIIDetailedTimingBlock)
 }
+
+/**
+ * Encodable ranges of the Type VII 20-byte descriptor (DisplayID 2.0 §4.3.1,
+ * per the type-vii-timing codec — NOT the 18-byte DTD widths of TASK-99):
+ * values are stored with a −1 bias, so the maxima are the raw field widths
+ * plus one — pixel clock 24-bit kHz, H/V active/blanking/sync-width 16-bit,
+ * sync offsets 14-bit front-porch fields; aspect ratio is 4-bit, stereo 2-bit.
+ */
+const TYPE_VII_FIELD_MAX = {
+  pixelClockKHz: 16_777_216,
+  horizontalActive: 65_536,
+  horizontalBlanking: 65_536,
+  horizontalSyncOffset: 16_384,
+  horizontalSyncWidth: 65_536,
+  verticalActive: 65_536,
+  verticalBlanking: 65_536,
+  verticalSyncOffset: 16_384,
+  verticalSyncWidth: 65_536,
+  aspectRatio: 15,
+  stereo: 3,
+} as const
+
+type TypeVIINumberField = keyof typeof TYPE_VII_FIELD_MAX
+
+/** Clamp an edited value into the field's encodable range — the model never
+ *  receives a value the encoder would silently truncate or wrap (negatives
+ *  included, so masking can't wrap −1 into a large positive). TASK-107. */
+function clampVII(field: TypeVIINumberField, v: number): number {
+  const parsed = Math.round(v)
+  return Number.isFinite(parsed) ? Math.max(0, Math.min(TYPE_VII_FIELD_MAX[field], parsed)) : 0
+}
+
+/** Update one numeric field of one Type VII timing, clamped to its range. */
+function updateTiming(
+  index: number,
+  block: DisplayIdTypeVIIDetailedTimingBlock,
+  timingIndex: number,
+  field: TypeVIINumberField,
+  value: number,
+) {
+  const timing = block.timings[timingIndex]
+  if (!timing) return
+  updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, [field]: clampVII(field, value) }))
+}
 </script>
 
 <template>
@@ -61,16 +105,16 @@ function updateBlock(index: number, block: DisplayIdTypeVIIDetailedTimingBlock, 
             <Button variant="ghost" size="sm" class="text-destructive" @click="updateBlock(index, block, removeArrayItem(block.timings, timingIndex))">Remove</Button>
           </div>
           <div class="grid grid-cols-4 gap-3">
-            <Input type="number" :model-value="timing.pixelClockKHz" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, pixelClockKHz: numberFromEvent($event) }))" />
-            <Input type="number" min="0" max="15" :model-value="timing.aspectRatio" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, aspectRatio: numberFromEvent($event) }))" />
-            <Input type="number" :model-value="timing.horizontalActive" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, horizontalActive: numberFromEvent($event) }))" />
-            <Input type="number" :model-value="timing.horizontalBlanking" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, horizontalBlanking: numberFromEvent($event) }))" />
-            <Input type="number" :model-value="timing.horizontalSyncOffset" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, horizontalSyncOffset: numberFromEvent($event) }))" />
-            <Input type="number" :model-value="timing.horizontalSyncWidth" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, horizontalSyncWidth: numberFromEvent($event) }))" />
-            <Input type="number" :model-value="timing.verticalActive" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, verticalActive: numberFromEvent($event) }))" />
-            <Input type="number" :model-value="timing.verticalBlanking" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, verticalBlanking: numberFromEvent($event) }))" />
-            <Input type="number" :model-value="timing.verticalSyncOffset" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, verticalSyncOffset: numberFromEvent($event) }))" />
-            <Input type="number" :model-value="timing.verticalSyncWidth" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, verticalSyncWidth: numberFromEvent($event) }))" />
+            <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.pixelClockKHz" :model-value="timing.pixelClockKHz" @input="updateTiming(index, block, timingIndex, 'pixelClockKHz', numberFromEvent($event))" />
+            <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.aspectRatio" :model-value="timing.aspectRatio" @input="updateTiming(index, block, timingIndex, 'aspectRatio', numberFromEvent($event))" />
+            <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.horizontalActive" :model-value="timing.horizontalActive" @input="updateTiming(index, block, timingIndex, 'horizontalActive', numberFromEvent($event))" />
+            <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.horizontalBlanking" :model-value="timing.horizontalBlanking" @input="updateTiming(index, block, timingIndex, 'horizontalBlanking', numberFromEvent($event))" />
+            <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.horizontalSyncOffset" :model-value="timing.horizontalSyncOffset" @input="updateTiming(index, block, timingIndex, 'horizontalSyncOffset', numberFromEvent($event))" />
+            <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.horizontalSyncWidth" :model-value="timing.horizontalSyncWidth" @input="updateTiming(index, block, timingIndex, 'horizontalSyncWidth', numberFromEvent($event))" />
+            <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.verticalActive" :model-value="timing.verticalActive" @input="updateTiming(index, block, timingIndex, 'verticalActive', numberFromEvent($event))" />
+            <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.verticalBlanking" :model-value="timing.verticalBlanking" @input="updateTiming(index, block, timingIndex, 'verticalBlanking', numberFromEvent($event))" />
+            <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.verticalSyncOffset" :model-value="timing.verticalSyncOffset" @input="updateTiming(index, block, timingIndex, 'verticalSyncOffset', numberFromEvent($event))" />
+            <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.verticalSyncWidth" :model-value="timing.verticalSyncWidth" @input="updateTiming(index, block, timingIndex, 'verticalSyncWidth', numberFromEvent($event))" />
           </div>
           <div class="grid grid-cols-3 gap-3">
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
@@ -83,7 +127,7 @@ function updateBlock(index: number, block: DisplayIdTypeVIIDetailedTimingBlock, 
             </label>
             <div class="space-y-1">
               <label class="text-xs text-muted-foreground">3D Stereo (0–3)</label>
-              <Input type="number" min="0" max="3" :model-value="timing.stereo" @input="updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, stereo: numberFromEvent($event) }))" />
+              <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.stereo" :model-value="timing.stereo" @input="updateTiming(index, block, timingIndex, 'stereo', numberFromEvent($event))" />
             </div>
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
               <span>Hsync +</span>
