@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { DISPLAY_ID_BLOCK_LABELS, type DisplayIdDataBlock } from 'edidts'
+import type { DisplayIdDataBlock } from 'edidts'
+import { displayIdBlockLabel } from './displayIdLabels'
 import { Button } from '@/components/ui/button'
 
 defineProps<{
@@ -21,7 +22,7 @@ const emit = defineEmits<{
     >
       <div class="min-w-0">
         <div class="text-sm font-medium">
-          {{ DISPLAY_ID_BLOCK_LABELS[block.tag as keyof typeof DISPLAY_ID_BLOCK_LABELS] ?? `Unknown 0x${block.tag.toString(16)}` }}
+          {{ displayIdBlockLabel(block.tag) }}
         </div>
         <div class="text-xs text-muted-foreground">
           Tag 0x{{ block.tag.toString(16).padStart(2, '0') }} · {{ block.payloadLength }} bytes

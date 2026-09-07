@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { ChevronRight, X } from '@lucide/vue'
 import type { EDIDViewModel } from '@/types/edid'
-import { DISPLAY_ID_BLOCK_LABELS, getCEAExtension, getDisplayIdExtension, type DetailedTimingDescriptor, DISPLAY_DESCRIPTOR_OPTIONS, getDisplayDescriptorLabel } from 'edidts'
+import { getCEAExtension, getDisplayIdExtension, type DetailedTimingDescriptor, DISPLAY_DESCRIPTOR_OPTIONS, getDisplayDescriptorLabel } from 'edidts'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar,
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/collapsible'
 import {
   addableDisplayIdBlocks,
+  displayIdBlockLabel,
   displayIdBlockSectionByTag,
   displayIdSectionIds,
 } from '@/components/displayid/displayIdLabels'
@@ -244,7 +245,7 @@ const displayIdChildren = computed<DisplayIdNavChild[]>(() => {
     { id: displayIdSectionIds.header, label: 'Section Header' },
     ...displayId.section.blocks.map((block, index) => ({
       id: displayIdBlockSectionByTag[block.tag as number] ?? `${displayIdSectionIds.overview}-${index}`,
-      label: DISPLAY_ID_BLOCK_LABELS[block.tag as keyof typeof DISPLAY_ID_BLOCK_LABELS] ?? `Unknown 0x${block.tag.toString(16).padStart(2, '0')}`,
+      label: displayIdBlockLabel(block.tag),
       index,
     })),
   ]

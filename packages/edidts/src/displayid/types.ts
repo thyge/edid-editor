@@ -626,11 +626,34 @@ export type KnownDisplayIdV1DataBlock =
   | DisplayIdV1TiledDisplayTopologyBlock
   | DisplayIdV1VendorSpecificBlock;
 
+/**
+ * DisplayID 1.x data block labels for the FULL v1.x tag space (0x00–0x13 +
+ * 0x7f; 0x14–0x7e reserved). UI consumers need a label for every decodable
+ * tag even when no typed v1 codec exists — blocks without a codec decode as
+ * generic blocks and previously rendered as "Unknown 0xNN" (TASK-111). Names
+ * cross-checked against edid-decode parse-displayid-block.cpp:2455-2482.
+ */
 export const DISPLAY_ID_V1_BLOCK_LABELS: Record<number, string> = {
   [DISPLAY_ID_V1_BLOCK_TAGS.ProductIdentification]: 'Product Identification',
   [DISPLAY_ID_V1_BLOCK_TAGS.DisplayParameters]: 'Display Parameters',
+  0x02: 'Color Characteristics',
   [DISPLAY_ID_V1_BLOCK_TAGS.TypeIDetailedTiming]: 'Type 1 Detailed Timings',
+  0x04: 'Type 2 Detailed Timings',
+  0x05: 'Type 3 Short Timings',
+  0x06: 'Type 4 DMT Timings',
+  0x07: 'VESA DMT Timings',
+  0x08: 'CTA-861 Timings',
+  0x09: 'Video Timing Range',
+  0x0a: 'Product Serial Number',
+  0x0b: 'GP ASCII String',
+  0x0c: 'Display Device Data',
+  0x0d: 'Interface Power Sequencing',
+  0x0e: 'Transfer Characteristics',
+  0x0f: 'Display Interface Data',
+  0x10: 'Stereo Display Interface',
+  0x11: 'Type 5 Short Timings',
   [DISPLAY_ID_V1_BLOCK_TAGS.TiledDisplayTopology]: 'Tiled Display Topology',
+  0x13: 'Type 6 Detailed Timings',
   [DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific]: 'Vendor-Specific',
 };
 
