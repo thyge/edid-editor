@@ -4,6 +4,7 @@ import {
   analyzeDetailedTimingAgainstCTA,
   computeRefreshRate,
   generateCVTDetailedTiming,
+  generateCVTDetailedTimingForTarget,
   generateDetailedTimingFromVIC,
   type CVTTimingInput,
   type DetailedTiming,
@@ -14,7 +15,9 @@ import { Switch } from '@/components/ui/switch'
 import DetailedTimingFields from './DetailedTimingFields.vue'
 import VicPicker from './VicPicker.vue'
 import {
+  CVT_BLANKING_LABELS,
   CVT_PRESET_ENTRIES,
+  DTD_PIXEL_CLOCK_MAX,
   REFRESH_RATE_MAX,
   REFRESH_RATE_MIN,
   TIMING_MODE_OPTIONS,
@@ -93,6 +96,12 @@ const showMargins = computed(() => state.mode === 'cvt')
  *  rate is always ≥ target by a small amount (TASK-108 AC #4). */
 const refreshDelta = computed(() => round2(refresh.value - state.refreshRate))
 
+/** Blanking variant the target-rate solver last picked (TASK-120) — shown in
+ *  the target-mode readout so the variant that hit the rate is visible. */
+const targetVariantLabel = computed(() =>
+  state.targetBlankingMode ? CVT_BLANKING_LABELS[state.targetBlankingMode] : null,
+)
+
 // `disabled:` variants follow the shadcn-vue SelectTrigger pattern; only the
 // preset picker is ever disabled, the mode select sharing this class is not.
 const modeSelectClass =
@@ -126,52 +135,12 @@ function round2(n: number): number {
 }
 
 /**
- * Recompute the DTD's derived geometry from the current free parameters and the
- * editor CVT inputs (refresh rate, margins), writing the result onto the
- * existing reactive timing instance in place. No-ops (without throwing) when
- * the active resolution or target refresh rate is zero/invalid — e.g. a fresh
- * all-zero DTD before the user enters values.
- *
- * After mutating, emits a single `update` for `pixelClock` so the owning
- * component's `setByPath` reassigns the enclosing `detailedTimings` array — the
- * documented encode trigger (TASK-76 contract). The pure encode then re-reads
- * the mutated-in-place element and re-encodes.
+ * Write a generated timing's derived fields onto the reactive DTD proxy in
+ * place. The free parameters (active, image size, interlaced) are the generator
+ * inputs and are left as the user set them; everything else is owned by the
+ * generator.
  */
-function regenerate(): void {
-  pixelClockOverflow.value = false
-  const blankingMode = modeToBlankingMode(state.mode)
-  if (!blankingMode) return
-
-  const horizontalActive = Math.round(props.timing.horizontalActive)
-  const verticalActive = Math.round(props.timing.verticalActive)
-  const refreshRate = round2(state.refreshRate)
-  if (horizontalActive <= 0 || verticalActive <= 0 || refreshRate <= 0) return
-
-  const input: CVTTimingInput = {
-    horizontalActive,
-    verticalActive,
-    refreshRate,
-    blankingMode,
-    interlaced: props.timing.flags.interlaced,
-    margins: state.margins,
-    horizontalImageSize: Math.round(props.timing.horizontalImageSize),
-    verticalImageSize: Math.round(props.timing.verticalImageSize),
-  }
-  const gen = generateCVTDetailedTiming(input)
-
-  // The DTD pixel clock is a 16-bit 10 kHz field (max 655.35 MHz). The
-  // generator has no notion of that limit, so refuse an unencodable timing
-  // instead of writing a clock the encoder would silently truncate (the
-  // Custom-mode input already clamps to this range, TASK-99; TASK-108 AC #5
-  // extends it to the generative modes).
-  if (gen.pixelClock > 655.35) {
-    pixelClockOverflow.value = true
-    return
-  }
-
-  // Write the derived fields onto the reactive DTD proxy in place. The free
-  // parameters (active, image size, interlaced) are the generator inputs and
-  // are left as the user set them; everything else is owned by the generator.
+function writeDerivedFields(gen: DetailedTimingDescriptor): void {
   props.timing.pixelClock = gen.pixelClock
   props.timing.horizontalBlanking = gen.horizontalBlanking
   props.timing.verticalBlanking = gen.verticalBlanking
@@ -186,6 +155,69 @@ function regenerate(): void {
   props.timing.flags.stereoMode = gen.flags.stereoMode
   props.timing.flags.hSyncPolarity = gen.flags.hSyncPolarity
   props.timing.flags.vSyncPolarity = gen.flags.vSyncPolarity
+}
+
+/**
+ * Recompute the DTD's derived geometry from the current free parameters and the
+ * editor CVT inputs (refresh rate, margins), writing the result onto the
+ * existing reactive timing instance in place. No-ops (without throwing) when
+ * the active resolution or target refresh rate is zero/invalid — e.g. a fresh
+ * all-zero DTD before the user enters values.
+ *
+ * In "target refresh rate" mode the blanking variant is not fixed: the editor
+ * asks the CVT calculator to solve across all three variants (standard / RB /
+ * RBv2) under the 655.35 MHz DTD clock limit and writes the one whose achieved
+ * rate lands closest to the target (TASK-120). When no variant fits, the
+ * timing is left untouched and the overflow warning is shown.
+ *
+ * After mutating, emits a single `update` for `pixelClock` so the owning
+ * component's `setByPath` reassigns the enclosing `detailedTimings` array — the
+ * documented encode trigger (TASK-76 contract). The pure encode then re-reads
+ * the mutated-in-place element and re-encodes.
+ */
+function regenerate(): void {
+  pixelClockOverflow.value = false
+  const horizontalActive = Math.round(props.timing.horizontalActive)
+  const verticalActive = Math.round(props.timing.verticalActive)
+  const refreshRate = round2(state.refreshRate)
+  if (horizontalActive <= 0 || verticalActive <= 0 || refreshRate <= 0) return
+
+  const input: Omit<CVTTimingInput, 'blankingMode'> = {
+    horizontalActive,
+    verticalActive,
+    refreshRate,
+    interlaced: props.timing.flags.interlaced,
+    margins: state.margins,
+    horizontalImageSize: Math.round(props.timing.horizontalImageSize),
+    verticalImageSize: Math.round(props.timing.verticalImageSize),
+  }
+
+  if (targetMode.value) {
+    // Target-rate solve: the calculator picks the blanking variant; null means
+    // no variant hits the target within the DTD pixel-clock limit.
+    const gen = generateCVTDetailedTimingForTarget(input, DTD_PIXEL_CLOCK_MAX)
+    if (!gen) {
+      pixelClockOverflow.value = true
+      return
+    }
+    writeDerivedFields(gen.timing)
+    state.targetBlankingMode = gen.blankingMode
+  } else {
+    const blankingMode = modeToBlankingMode(state.mode)
+    if (!blankingMode) return
+    const gen = generateCVTDetailedTiming({ ...input, blankingMode })
+
+    // The DTD pixel clock is a 16-bit 10 kHz field (max 655.35 MHz). The
+    // generator has no notion of that limit, so refuse an unencodable timing
+    // instead of writing a clock the encoder would silently truncate (the
+    // Custom-mode input already clamps to this range, TASK-99; TASK-108 AC #5
+    // extends it to the generative modes).
+    if (gen.pixelClock > DTD_PIXEL_CLOCK_MAX) {
+      pixelClockOverflow.value = true
+      return
+    }
+    writeDerivedFields(gen)
+  }
 
   emit('update', 'pixelClock', props.timing.pixelClock)
 }
@@ -231,6 +263,11 @@ function onPresetChange(event: Event): void {
 
   state.refreshRate = refreshRate
   state.margins = false
+
+  // "Target refresh rate" mode re-solves the preset under the target rules:
+  // the preset write above uses standard CVT, but the mode's contract is the
+  // closest-achievable variant (e.g. a 4K120 preset lands on RBv2, TASK-120).
+  if (targetMode.value) regenerate()
 
   emit('update', 'pixelClock', props.timing.pixelClock)
   selectedPreset.value = ''
@@ -460,20 +497,22 @@ function applyFreeParam(field: string, value: unknown): void {
         </label>
       </div>
 
-      <!-- "Target refresh rate" mode readout (TASK-108 AC #4): the CVT
-           generator quantizes the pixel clock up to the next 0.25 MHz step,
-           so the achieved rate deviates slightly from the target — show both
-           so the deviation is visible, plus a warning when the target was so
-           high the generated clock would not fit the 16-bit DTD field. -->
+      <!-- "Target refresh rate" mode readout (TASK-108 AC #4, TASK-120): the
+           editor solves across the CVT blanking variants and writes the one
+           whose quantized pixel clock lands closest to the target — show the
+           chosen variant, the achieved rate and the deviation, plus a warning
+           when no variant can hit the target within the 16-bit DTD clock field. -->
       <div v-if="targetMode || pixelClockOverflow" class="mb-4 space-y-1">
         <p v-if="targetMode" class="text-xs text-muted-foreground">
           Achieved refresh rate: <span class="font-mono text-foreground">{{ refresh.toFixed(2) }} Hz</span>
           at target {{ state.refreshRate }} Hz
+          <template v-if="targetVariantLabel">via {{ targetVariantLabel }} blanking</template>
           (Δ {{ refreshDelta >= 0 ? '+' : '' }}{{ refreshDelta.toFixed(2) }} Hz from pixel-clock quantization)
         </p>
         <p v-if="pixelClockOverflow" class="text-xs text-destructive">
-          Target refresh rate too high: the CVT pixel clock exceeds the 655.35 MHz DTD limit —
-          the timing was left unchanged. Lower the target or the resolution.
+          Target refresh rate too high: no CVT blanking variant (CVT / CVT-RB / CVT-RBv2) hits the target
+          within the 655.35 MHz DTD pixel-clock limit — the timing was left unchanged.
+          Lower the target or the resolution.
         </p>
       </div>
 

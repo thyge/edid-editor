@@ -384,13 +384,24 @@ export function calculateCVTTiming(input: CVTTimingInput): CVTTimingResult {
 
 /**
  * Generate a DetailedTimingDescriptor from CVT parameters
- * 
+ *
  * @param input CVT timing input parameters
  * @returns DetailedTimingDescriptor ready for EDID encoding
  */
 export function generateCVTDetailedTiming(input: CVTTimingInput): DetailedTimingDescriptor {
   const result = calculateCVTTiming(input);
-  
+  return detailedTimingFromCVTResult(result, input);
+}
+
+/**
+ * Build a DetailedTimingDescriptor from an already-calculated CVT result. The
+ * image-size fields are the only inputs not owned by the CVT rules (they are
+ * display-specific and pass through from the caller).
+ */
+function detailedTimingFromCVTResult(
+  result: CVTTimingResult,
+  input: Pick<CVTTimingInput, 'horizontalImageSize' | 'verticalImageSize'>
+): DetailedTimingDescriptor {
   return new DetailedTimingDescriptor({
     pixelClock: result.pixelClock,
     horizontalActive: result.horizontalActive,
@@ -413,6 +424,129 @@ export function generateCVTDetailedTiming(input: CVTTimingInput): DetailedTiming
       vSyncPolarity: result.vSyncPolarity,
     },
   });
+}
+
+/**
+ * Evaluation order for the blanking variants when solving for a target refresh
+ * rate. Doubles as the tie-break preference: when two feasible variants land
+ * equally close to the target, the earlier one (standard CVT first) wins.
+ */
+const TARGET_BLANKING_MODES: CVTBlankingMode[] = ['cvt', 'cvt-rb', 'cvt-rb2'];
+
+/**
+ * One blanking variant evaluated against a target refresh rate.
+ */
+export interface CVTTargetCandidate {
+  /** Blanking variant this candidate was calculated with */
+  blankingMode: CVTBlankingMode;
+  /** The full CVT calculation for this variant */
+  timing: CVTTimingResult;
+  /** |achieved − target| in Hz (pixel-clock quantization keeps this small) */
+  refreshDelta: number;
+  /**
+   * Whether the calculated pixel clock fits `maxPixelClockMHz` (always true
+   * when no limit was given). Infeasible candidates cannot be selected.
+   */
+  withinPixelClockLimit: boolean;
+}
+
+/**
+ * The blanking variant selected for a target refresh rate.
+ */
+export interface CVTTargetTimingResult {
+  /** The selected variant's CVT calculation — the closest achievable rate */
+  result: CVTTimingResult;
+  /** Blanking variant that produced `result` */
+  blankingMode: CVTBlankingMode;
+  /** Every evaluated variant, in preference order (regardless of selection) */
+  candidates: CVTTargetCandidate[];
+}
+
+/**
+ * Calculate the CVT timing that hits a target refresh rate, adjusting the
+ * blanking across the CVT calculator's variants (standard, RB v1, RBv2).
+ *
+ * Every candidate is a fully CVT-compliant calculation — the calculator's
+ * rules are never bent to reach the target. The variants differ only in
+ * blanking, and because the pixel clock is quantized up to the next 0.25 MHz
+ * step, each variant's achieved rate lands slightly above the target; the
+ * variant whose achieved rate is closest to the target is selected (ties go
+ * to the earlier variant — standard CVT first).
+ *
+ * `maxPixelClockMHz` (e.g. the 16-bit 10 kHz DTD field's 655.35 MHz ceiling)
+ * marks variants as infeasible: at high target rates standard CVT's full
+ * blanking can push the clock past the limit, where reduced blanking makes
+ * the target achievable. Returns null only when no variant fits the limit.
+ *
+ * @param input CVT inputs minus `blankingMode` — the variant is chosen here
+ * @param maxPixelClockMHz Optional pixel-clock ceiling a variant must respect
+ * @returns The selected calculation plus all evaluated candidates, or null
+ */
+export function calculateCVTTimingForTarget(
+  input: Omit<CVTTimingInput, 'blankingMode'>,
+  maxPixelClockMHz?: number
+): CVTTargetTimingResult | null {
+  const candidates: CVTTargetCandidate[] = TARGET_BLANKING_MODES.map((blankingMode) => {
+    const timing = calculateCVTTiming({ ...input, blankingMode });
+    return {
+      blankingMode,
+      timing,
+      refreshDelta: Math.abs(timing.actualRefreshRate - input.refreshRate),
+      withinPixelClockLimit: maxPixelClockMHz === undefined || timing.pixelClock <= maxPixelClockMHz,
+    };
+  });
+
+  let best: CVTTargetCandidate | undefined;
+  for (const candidate of candidates) {
+    if (!candidate.withinPixelClockLimit) continue;
+    if (!best || candidate.refreshDelta < best.refreshDelta) best = candidate;
+  }
+  if (!best) return null;
+
+  return {
+    result: best.timing,
+    blankingMode: best.blankingMode,
+    candidates,
+  };
+}
+
+/**
+ * A DetailedTimingDescriptor generated for a target refresh rate, with the
+ * blanking variant the calculator settled on.
+ */
+export interface CVTTargetDetailedTimingResult {
+  /** The generated descriptor (built from the selected variant's calculation) */
+  timing: DetailedTimingDescriptor;
+  /** Blanking variant whose calculation was selected */
+  blankingMode: CVTBlankingMode;
+  /** Achieved refresh rate of the selected variant (Hz) */
+  actualRefreshRate: number;
+  /** Every evaluated variant, in preference order (regardless of selection) */
+  candidates: CVTTargetCandidate[];
+}
+
+/**
+ * Generate a DetailedTimingDescriptor that hits a target refresh rate,
+ * selecting the CVT blanking variant (standard / RB / RBv2) whose achieved
+ * rate lands closest to the target — see {@link calculateCVTTimingForTarget}.
+ *
+ * @param input CVT inputs minus `blankingMode` — the variant is chosen here
+ * @param maxPixelClockMHz Optional pixel-clock ceiling a variant must respect
+ * @returns The descriptor plus the selected variant, or null when no variant fits
+ */
+export function generateCVTDetailedTimingForTarget(
+  input: Omit<CVTTimingInput, 'blankingMode'>,
+  maxPixelClockMHz?: number
+): CVTTargetDetailedTimingResult | null {
+  const selection = calculateCVTTimingForTarget(input, maxPixelClockMHz);
+  if (!selection) return null;
+
+  return {
+    timing: detailedTimingFromCVTResult(selection.result, input),
+    blankingMode: selection.blankingMode,
+    actualRefreshRate: selection.result.actualRefreshRate,
+    candidates: selection.candidates,
+  };
 }
 
 /**

@@ -22,12 +22,14 @@ import {
  *  - `cvt`        — standard CVT blanking; margins toggle available.
  *  - `cvt-rb`     — CVT Reduced Blanking v1; margins ignored.
  *  - `cvt-rb2`    — CVT Reduced Blanking v2; margins ignored.
- *  - `target`     — "target refresh rate" authoring (TASK-108): the user
- *                  supplies H/V active plus a target Hz and the editor
- *                  generates a standard-CVT timing whose achieved rate lands
- *                  as close to the target as the calculator's pixel-clock
- *                  quantization allows. Geometry and clock are fully
- *                  generator-owned; the card shows the achieved rate and its
+ *  - `target`     — "target refresh rate" authoring (TASK-108/TASK-120): the
+ *                  user supplies H/V active plus a target Hz and the editor
+ *                  solves for it across the CVT calculator's blanking variants
+ *                  (standard / RB / RBv2 via
+ *                  {@link generateCVTDetailedTimingForTarget}), picking the
+ *                  encodable variant whose achieved rate lands closest to the
+ *                  target. Geometry and clock are fully generator-owned; the
+ *                  card shows the chosen variant, the achieved rate and its
  *                  deviation from the target. Margins ignored.
  *  - `cea-861`    — CTA-861 VIC owns every byte; a VIC picker is the only free
  *                  control and {@link generateDetailedTimingFromVIC} snaps the
@@ -59,6 +61,10 @@ export interface TimingEditorState {
   margins: boolean
   /** Selected CTA-861 VIC in `cea-861` mode (null = no selection / other modes). */
   selectedVic: number | null
+  /** Blanking variant the target-refresh-rate solver last selected (TASK-120).
+   *  Editor-only mirror of the generator's choice, kept for display; null
+   *  until a target-mode regeneration has succeeded. */
+  targetBlankingMode: CVTBlankingMode | null
 }
 
 /** Map an authoring mode to the CVT generator's blankingMode, or null for non-CVT. */
@@ -70,9 +76,10 @@ export function modeToBlankingMode(mode: TimingEditorMode): CVTBlankingMode | nu
       return 'cvt-rb'
     case 'cvt-rb2':
       return 'cvt-rb2'
-    // "Target refresh rate" mode generates a fully CVT-compliant standard
-    // blanking timing (TASK-108 AC #3) — the variant selectors stay on the
-    // dedicated CVT modes.
+    // "Target refresh rate" mode no longer generates under a fixed variant:
+    // the editor solves across all three (TASK-120), so this mapping is only
+    // reached by callers that need *a* CVT variant (e.g. seeding a preset
+    // before the target solve rewrites it).
     case 'target':
       return 'cvt'
     default:
@@ -88,6 +95,20 @@ export function modeToBlankingMode(mode: TimingEditorMode): CVTBlankingMode | nu
  */
 export const REFRESH_RATE_MIN = 1
 export const REFRESH_RATE_MAX = 1000
+
+/**
+ * Maximum encodable DTD pixel clock in MHz — the DTD clock field is 16 bits
+ * of 10 kHz units. The target-rate solver refuses targets whose pixel clock
+ * exceeds this under every CVT variant (TASK-120).
+ */
+export const DTD_PIXEL_CLOCK_MAX = 655.35
+
+/** Display labels for the CVT calculator's blanking variants. */
+export const CVT_BLANKING_LABELS: Record<CVTBlankingMode, string> = {
+  cvt: 'CVT',
+  'cvt-rb': 'CVT-RB',
+  'cvt-rb2': 'CVT-RBv2',
+}
 
 /**
  * Infer the editor authoring mode for a DTD from the lib classifiers, so the
@@ -165,6 +186,7 @@ export function getTimingEditorState(timing: DetailedTiming): TimingEditorState 
       selectedVic: inferred.selectedVic,
       refreshRate: round2(computeRefreshRate(timing)),
       margins: false,
+      targetBlankingMode: null,
     }) as TimingEditorState
     store.set(timing, state)
   }

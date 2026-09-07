@@ -29,14 +29,19 @@ export {
 } from './detailed-timing-descriptor';
 export {
   calculateCVTTiming,
+  calculateCVTTimingForTarget,
   generateCVTDetailedTiming,
+  generateCVTDetailedTimingForTarget,
   analyzeDetailedTimingWithCVT,
   CVT_PRESETS
 } from './cvt-timing-generator';
-export type { 
-  CVTBlankingMode, 
-  CVTTimingInput, 
+export type {
+  CVTBlankingMode,
+  CVTTimingInput,
   CVTTimingResult,
+  CVTTargetCandidate,
+  CVTTargetDetailedTimingResult,
+  CVTTargetTimingResult,
   CVTAnalysisOptions,
   CVTAnalysisResult,
   CVTAnalysisTolerances,

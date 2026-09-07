@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   calculateCVTTiming,
+  calculateCVTTimingForTarget,
   generateCVTDetailedTiming,
+  generateCVTDetailedTimingForTarget,
   CVT_PRESETS,
   type CVTTimingInput
 } from '../src/common/cvt-timing-generator'
@@ -271,6 +273,94 @@ describe('CVT Timing Calculator', () => {
       expect(result.horizontalActive).toBe(3440)
       expect(result.verticalActive).toBe(1440)
       expect(result.actualRefreshRate).toBeCloseTo(60, 0)
+    })
+  })
+
+  describe('Target refresh rate variant selection', () => {
+    it('selects the blanking variant whose achieved rate lands closest to the target', () => {
+      // 1080p60: all three variants fit the 655.35 MHz DTD clock field;
+      // RBv2's quantized clock lands closest to 60 Hz.
+      const selection = calculateCVTTimingForTarget({
+        horizontalActive: 1920,
+        verticalActive: 1080,
+        refreshRate: 60,
+      }, 655.35)
+
+      expect(selection).not.toBeNull()
+      expect(selection!.blankingMode).toBe('cvt-rb2')
+      expect(selection!.candidates).toHaveLength(3)
+      expect(selection!.result.blankingMode).toBe('cvt-rb2')
+      expect(selection!.result.actualRefreshRate).toBeGreaterThanOrEqual(60)
+      // Every evaluated variant is itself a valid CVT calculation
+      for (const candidate of selection!.candidates) {
+        expect(candidate.timing.actualRefreshRate).toBeGreaterThan(0)
+      }
+    })
+
+    it('can pick standard CVT when it fits and lands closest', () => {
+      // 1080p165: standard CVT fits the DTD limit and its quantized clock
+      // lands closest to the target — it should win over reduced blanking.
+      const selection = calculateCVTTimingForTarget({
+        horizontalActive: 1920,
+        verticalActive: 1080,
+        refreshRate: 165,
+      }, 655.35)
+
+      expect(selection!.blankingMode).toBe('cvt')
+      expect(selection!.result.pixelClock).toBeLessThanOrEqual(655.35)
+    })
+
+    it('falls back to reduced blanking when standard CVT exceeds the pixel clock limit', () => {
+      // 1440p144: standard CVT needs ~810 MHz (unencodable in a 16-bit
+      // 10 kHz DTD clock field), so the target is only reachable via
+      // reduced blanking — RBv2 fits and lands closest.
+      const selection = calculateCVTTimingForTarget({
+        horizontalActive: 2560,
+        verticalActive: 1440,
+        refreshRate: 144,
+      }, 655.35)
+
+      expect(selection!.blankingMode).toBe('cvt-rb2')
+      expect(selection!.result.pixelClock).toBeLessThanOrEqual(655.35)
+      expect(selection!.result.actualRefreshRate).toBeCloseTo(144, 1)
+      const std = selection!.candidates.find((c) => c.blankingMode === 'cvt')!
+      expect(std.withinPixelClockLimit).toBe(false)
+    })
+
+    it('returns null when no variant fits the pixel clock limit', () => {
+      // 4K240 needs >2 GHz even with RBv2 — nothing fits the DTD limit.
+      const selection = calculateCVTTimingForTarget({
+        horizontalActive: 3840,
+        verticalActive: 2160,
+        refreshRate: 240,
+      }, 655.35)
+
+      expect(selection).toBeNull()
+    })
+
+    it('generates a descriptor carrying the selected variant and achieved rate', () => {
+      const generated = generateCVTDetailedTimingForTarget({
+        horizontalActive: 2560,
+        verticalActive: 1440,
+        refreshRate: 144,
+        horizontalImageSize: 600,
+        verticalImageSize: 340,
+      }, 655.35)
+
+      expect(generated).not.toBeNull()
+      expect(generated!.blankingMode).toBe('cvt-rb2')
+      expect(generated!.timing.pixelClock).toBeCloseTo(
+        calculateCVTTimingForTarget({
+          horizontalActive: 2560,
+          verticalActive: 1440,
+          refreshRate: 144,
+        }, 655.35)!.result.pixelClock, 2)
+      expect(generated!.timing.horizontalImageSize).toBe(600)
+      expect(generated!.timing.verticalImageSize).toBe(340)
+      // The descriptor's geometry reproduces the achieved refresh rate
+      const dtd = generated!.timing
+      expect(dtd.refreshRate).toBeCloseTo(generated!.actualRefreshRate, 4)
+      expect(dtd.refreshRate).toBeGreaterThanOrEqual(144)
     })
   })
 })
