@@ -10,6 +10,7 @@ import {
   isKnownVIC,
   isVIC4K,
   isVIC8K,
+  isVICDtdEncodable,
   getAudioFormatName,
   getAudioFormatShortName,
   getExtendedAudioFormatName,
@@ -326,6 +327,53 @@ describe('VIC Table', () => {
     expect(vic97?.width).toBe(3840);
     expect(vic97?.height).toBe(2160);
     expect(vic97?.refreshRate).toBe(60);
+  });
+
+  describe('isVICDtdEncodable (TASK-122)', () => {
+    it('passes a VIC whose geometry fits an 18-byte DTD', () => {
+      expect(isVICDtdEncodable(16)).toBe(true); // 1080p60
+      expect(isVICDtdEncodable(97)).toBe(true); // 4K60 — 3840 wide, 594 MHz
+      expect(isVICDtdEncodable(19)).toBe(true); // 720p50 — 440-pixel front porch fits 10-bit
+    });
+
+    it('rejects VICs wider than the 12-bit active field (4096/5120/7680/10240)', () => {
+      expect(isVICDtdEncodable(98)).toBe(false); // 4096x2160p24
+      expect(isVICDtdEncodable(115)).toBe(false); // 4096x2160p48
+      expect(isVICDtdEncodable(121)).toBe(false); // 5120x2160p24
+      expect(isVICDtdEncodable(194)).toBe(false); // 7680x4320p24
+      expect(isVICDtdEncodable(210)).toBe(false); // 10240x4320p24
+      expect(isVICDtdEncodable(218)).toBe(false); // 4096x2160p100
+    });
+
+    it('rejects VICs whose pixel clock exceeds the 16-bit 10 kHz field', () => {
+      expect(isVICDtdEncodable(117)).toBe(false); // 4K100, 1188 MHz
+      expect(isVICDtdEncodable(118)).toBe(false); // 4K120, 1188 MHz
+      expect(isVICDtdEncodable(120)).toBe(false); // 4K120 64:27, 1188 MHz
+    });
+
+    it('rejects VICs with a horizontal front porch wider than the 10-bit sync-offset field', () => {
+      expect(isVICDtdEncodable(60)).toBe(false); // 720p24, 1760-pixel front porch
+      expect(isVICDtdEncodable(61)).toBe(false); // 720p25, 2420-pixel front porch
+      expect(isVICDtdEncodable(93)).toBe(false); // 4K24, 1276-pixel front porch
+      expect(isVICDtdEncodable(96)).toBe(false); // 4K50, 1056-pixel front porch
+    });
+
+    it('returns false for unknown/reserved VIC numbers', () => {
+      expect(isVICDtdEncodable(0)).toBe(false);
+      expect(isVICDtdEncodable(128)).toBe(false);
+    });
+
+    it('excludes exactly the 60 DTD-unencodable VICs from the table', () => {
+      // Derived from the field-width rule alone (no hand-list): the count is a
+      // regression tripwire for table edits that introduce new overflow classes.
+      const unencodable = VIC_TABLE.filter((vic) => !isVICDtdEncodable(vic));
+      expect(unencodable).toHaveLength(60);
+      // 4K60 stays selectable (176-pixel porch, 594 MHz); 4K50/4K48 (VIC 96/114)
+      // legitimately drop out via their 1056/1276-pixel front porches.
+      expect(isVICDtdEncodable(97)).toBe(true);
+      expect(isVICDtdEncodable(96)).toBe(false);
+      expect(isVICDtdEncodable(114)).toBe(false);
+    });
   });
 
   it('should identify 4K VICs correctly', () => {

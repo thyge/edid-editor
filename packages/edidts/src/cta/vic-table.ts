@@ -1,4 +1,4 @@
-import { DetailedTimingDescriptor } from '../common/detailed-timing-descriptor';
+import { DetailedTimingDescriptor, isDetailedTimingEncodable } from '../common/detailed-timing-descriptor';
 
 /**
  * VIC (Video Identification Code) Table
@@ -349,6 +349,33 @@ export function isVIC8K(vic: number): boolean {
   const def = VIC_MAP.get(vic);
   if (!def) return false;
   return def.width >= 7680 && def.height >= 4320;
+}
+
+/**
+ * True iff the VIC's canonical geometry (as built by
+ * {@link generateDetailedTimingFromVIC}) fits in an 18-byte DTD without any
+ * field being silently truncated (TASK-122). Three overflow classes exist in
+ * the CTA-861-G table:
+ *  - 4096/5120/7680/10240-wide formats exceed the 12-bit active field
+ *    (4095) — e.g. VIC 98–102, 218–219 are 4096x2160;
+ *  - the high-rate 4K/8K/10K formats exceed the 16-bit 10 kHz pixel-clock
+ *    field (655.35 MHz) — e.g. VIC 117–120 need 1188 MHz;
+ *  - a number of formats (VIC 60/61/62, the 3840x2160 24/25/50Hz family)
+ *    have horizontal front porches wider than the 10-bit sync-offset field
+ *    (1023).
+ *
+ * The rule is the field-width check single-sourced with the encoder
+ * ({@link isDetailedTimingEncodable} over {@link DTD_FIELD_MAX}), never a
+ * hand-list of VIC numbers. Unknown/reserved VIC numbers return false.
+ *
+ * Note: this is about representing a VIC as a DTD (cea-861 authoring mode).
+ * A VIC that fails here is still perfectly valid inside a Video Data Block,
+ * where it is carried as a 7-bit code.
+ */
+export function isVICDtdEncodable(vic: number | VICDefinition): boolean {
+  const def = typeof vic === 'number' ? VIC_MAP.get(vic) : vic;
+  if (!def) return false;
+  return isDetailedTimingEncodable(generateDetailedTimingFromVIC(def));
 }
 
 export interface CTATolerances {

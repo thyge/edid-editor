@@ -249,6 +249,64 @@ export function computePixelClockForTargetRate(
   return quantized;
 }
 
+/**
+ * Maximum value of every 18-byte DTD field, from the packing in
+ * {@link encodeEdidCtaDetailedTiming}: a 16-bit 10 kHz pixel clock, 12-bit
+ * active/blanking and image-size fields, 10-bit H sync offset/width (low byte
+ * plus the top 2 bits of byte 11), 6-bit V sync offset/width (nibbles of bytes
+ * 10/11), and 8-bit borders. The encoder MASKS rather than rejects, so a value
+ * beyond its field's max is silently truncated — callers that cannot afford a
+ * truncated DTD (e.g. building one from a CTA-861 VIC, TASK-122) must check
+ * with {@link isDetailedTimingEncodable} first.
+ */
+export const DTD_FIELD_MAX = {
+  /** Pixel clock in MHz (16-bit field of 10 kHz units). */
+  pixelClockMhz: 655.35,
+  horizontalActive: 4095,
+  horizontalBlanking: 4095,
+  verticalActive: 4095,
+  verticalBlanking: 4095,
+  horizontalSyncOffset: 1023,
+  horizontalSyncWidth: 1023,
+  verticalSyncOffset: 63,
+  verticalSyncWidth: 63,
+  horizontalImageSize: 4095,
+  verticalImageSize: 4095,
+  horizontalBorder: 255,
+  verticalBorder: 255,
+} as const;
+
+function dtdFieldFits(value: number, max: number): boolean {
+  return Number.isFinite(value) && value >= 0 && value <= max;
+}
+
+/**
+ * True iff every timing field fits its DTD field width (see
+ * {@link DTD_FIELD_MAX}), i.e. {@link encodeEdidCtaDetailedTiming} would emit
+ * the timing as-is without silently truncating any field. The pixel clock is
+ * compared in 10 kHz units so a value like 655.351 is correctly rejected even
+ * though the float compare against 655.35 could go either way.
+ */
+export function isDetailedTimingEncodable(timing: DetailedTiming): boolean {
+  const clockUnits = Math.round(timing.pixelClock * 100);
+  return (
+    clockUnits >= 0 &&
+    clockUnits <= Math.round(DTD_FIELD_MAX.pixelClockMhz * 100) &&
+    dtdFieldFits(timing.horizontalActive, DTD_FIELD_MAX.horizontalActive) &&
+    dtdFieldFits(timing.horizontalBlanking, DTD_FIELD_MAX.horizontalBlanking) &&
+    dtdFieldFits(timing.verticalActive, DTD_FIELD_MAX.verticalActive) &&
+    dtdFieldFits(timing.verticalBlanking, DTD_FIELD_MAX.verticalBlanking) &&
+    dtdFieldFits(timing.horizontalSyncOffset, DTD_FIELD_MAX.horizontalSyncOffset) &&
+    dtdFieldFits(timing.horizontalSyncWidth, DTD_FIELD_MAX.horizontalSyncWidth) &&
+    dtdFieldFits(timing.verticalSyncOffset, DTD_FIELD_MAX.verticalSyncOffset) &&
+    dtdFieldFits(timing.verticalSyncWidth, DTD_FIELD_MAX.verticalSyncWidth) &&
+    dtdFieldFits(timing.horizontalImageSize, DTD_FIELD_MAX.horizontalImageSize) &&
+    dtdFieldFits(timing.verticalImageSize, DTD_FIELD_MAX.verticalImageSize) &&
+    dtdFieldFits(timing.horizontalBorder, DTD_FIELD_MAX.horizontalBorder) &&
+    dtdFieldFits(timing.verticalBorder, DTD_FIELD_MAX.verticalBorder)
+  );
+}
+
 export function decodeEdidCtaDetailedTimingFlags(byte: number): TimingFlags {
   const interlaced = (byte & 0x80) !== 0;
 

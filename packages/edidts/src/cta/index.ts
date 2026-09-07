@@ -7,6 +7,7 @@ export {
   getVICDescription,
   isVIC4K,
   isVIC8K,
+  isVICDtdEncodable,
   analyzeDetailedTimingAgainstCTA,
   generateDetailedTimingFromVIC,
 } from './vic-table';

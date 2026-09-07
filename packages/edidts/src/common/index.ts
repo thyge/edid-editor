@@ -20,6 +20,8 @@ export {
   normalizeTimingFlags,
   computeRefreshRate,
   computePixelClockForTargetRate,
+  DTD_FIELD_MAX,
+  isDetailedTimingEncodable,
 } from './detailed-timing-descriptor';
 export type { DetailedTiming, DetailedTimingBase, DetailedTimingInput, StereoMode, SyncType, TimingFlags } from './detailed-timing-descriptor';
 export {

@@ -3,6 +3,7 @@ import {
   DetailedTimingDescriptor,
   computePixelClockForTargetRate,
   computeRefreshRate,
+  isDetailedTimingEncodable,
   decodeEdidCtaDetailedTiming,
   encodeEdidCtaDetailedTiming,
   type DetailedTiming,
@@ -328,6 +329,75 @@ describe('DetailedTimingBase shared supertype (TASK-84)', () => {
     expect(clock).toBeUndefined();
     expect(interlaced).toBeUndefined();
     expect(stereo).toBeUndefined();
+  });
+});
+
+describe('isDetailedTimingEncodable (TASK-122)', () => {
+  const encodable = {
+    pixelClock: 148.5,
+    horizontalActive: 1920,
+    horizontalBlanking: 280,
+    verticalActive: 1080,
+    verticalBlanking: 45,
+    horizontalSyncOffset: 88,
+    horizontalSyncWidth: 44,
+    verticalSyncOffset: 4,
+    verticalSyncWidth: 5,
+    horizontalImageSize: 530,
+    verticalImageSize: 300,
+    horizontalBorder: 0,
+    verticalBorder: 0,
+    flags: {
+      interlaced: false,
+      stereoMode: 'none' as const,
+      syncType: 'digital-separate' as const,
+      hSyncPolarity: 'positive' as const,
+      vSyncPolarity: 'positive' as const,
+    },
+  } as DetailedTiming;
+
+  it('accepts a timing whose every field fits its DTD width', () => {
+    expect(isDetailedTimingEncodable(encodable)).toBe(true);
+    // The field maxima themselves (12-bit active/blanking, 10-bit H sync,
+    // 6-bit V sync, 8-bit border, 16-bit clock) must all pass.
+    expect(isDetailedTimingEncodable({
+      ...encodable,
+      pixelClock: 655.35,
+      horizontalActive: 4095,
+      horizontalBlanking: 4095,
+      verticalActive: 4095,
+      verticalBlanking: 4095,
+      horizontalSyncOffset: 1023,
+      horizontalSyncWidth: 1023,
+      verticalSyncOffset: 63,
+      verticalSyncWidth: 63,
+      horizontalImageSize: 4095,
+      verticalImageSize: 4095,
+      horizontalBorder: 255,
+      verticalBorder: 255,
+    } as DetailedTiming)).toBe(true);
+  });
+
+  it('rejects each field at one unit past its DTD width', () => {
+    const over = (overrides: Partial<DetailedTiming>): DetailedTiming =>
+      ({ ...encodable, ...overrides } as DetailedTiming);
+    expect(isDetailedTimingEncodable(over({ pixelClock: 655.36 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ horizontalActive: 4096 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ horizontalBlanking: 4096 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ verticalActive: 4096 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ verticalBlanking: 4096 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ horizontalSyncOffset: 1024 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ horizontalSyncWidth: 1024 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ verticalSyncOffset: 64 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ verticalSyncWidth: 64 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ horizontalImageSize: 4096 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ verticalImageSize: 4096 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ horizontalBorder: 256 }))).toBe(false);
+    expect(isDetailedTimingEncodable(over({ verticalBorder: 256 }))).toBe(false);
+  });
+
+  it('rejects negative fields', () => {
+    expect(isDetailedTimingEncodable({ ...encodable, horizontalActive: -1 } as DetailedTiming)).toBe(false);
   });
 });
 

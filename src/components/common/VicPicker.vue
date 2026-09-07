@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { VIC_TABLE, getVICDefinition } from 'edidts'
+import { VIC_TABLE, getVICDefinition, isVICDtdEncodable } from 'edidts'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
@@ -19,11 +19,22 @@ import { ChevronsUpDown, Check } from '@lucide/vue'
  * filters on each item's rendered text content, so the user can search by VIC
  * number, resolution, or refresh rate. Emits the selected VIC number (or null);
  * controlled by `modelValue`.
+ *
+ * Only VICs the DTD can hold byte-exactly are selectable: writing a
+ * DTD-unencodable VIC (e.g. 4096-wide 4K, 1188 MHz 4K120, or a wide-front-porch
+ * format) would silently truncate DTD fields on encode, so the dropdown list is
+ * filtered by {@link isVICDtdEncodable} (TASK-122) — the field-width rule lives
+ * in edidts, single-sourced with the encoder. A DTD loaded from a file may
+ * still MATCH an excluded VIC; the preselect label renders via
+ * {@link getVICDefinition} regardless of filtering.
  */
 const props = defineProps<{ modelValue: number | null }>()
 const emit = defineEmits<{ 'update:modelValue': [value: number | null] }>()
 
 const open = ref(false)
+
+/** Selectable VICs only — the DTD-encodable subset of the table. */
+const selectableVics = VIC_TABLE.filter((vic) => isVICDtdEncodable(vic))
 
 const selectedLabel = computed(() => {
   if (props.modelValue == null) return 'Select VIC…'
@@ -59,7 +70,7 @@ function selectVic(vic: number): void {
           <CommandEmpty>No matching VIC.</CommandEmpty>
           <CommandGroup>
             <CommandItem
-              v-for="vic in VIC_TABLE"
+              v-for="vic in selectableVics"
               :key="vic.vic"
               :value="String(vic.vic)"
               @select="() => selectVic(vic.vic)"
