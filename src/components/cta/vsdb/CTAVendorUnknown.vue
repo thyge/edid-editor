@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { VendorSpecificDataBlock } from 'edidts'
+import { ouiLabel } from '../vendorLabels'
 
-const props = defineProps<{ block: VendorSpecificDataBlock }>()
-
-function ouiLabel(oui: number): string {
-  return oui.toString(16).toUpperCase().padStart(6, '0').match(/.{2}/g)!.join('-')
-}
+/**
+ * Raw-bytes fallback card for vendor blocks without a structured editor —
+ * unregistered tag-0x03 VSDBs and tag-0x07 VSVDBs alike (the carriers share
+ * the { ieeeOui, vendorPayload } shape), so the prop is structural.
+ */
+const props = defineProps<{ block: { ieeeOui: number; vendorPayload: Uint8Array } }>()
 
 function hexDump(bytes: Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ')

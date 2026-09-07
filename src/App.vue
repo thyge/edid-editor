@@ -37,11 +37,11 @@ import CTAVideoBlock from '@/components/cta/CTAVideoBlock.vue'
 import CTAAudioBlock from '@/components/cta/CTAAudioBlock.vue'
 import CTASpeakerBlock from '@/components/cta/CTASpeakerBlock.vue'
 import CTAVendorBlock from '@/components/cta/CTAVendorBlock.vue'
+import CTAVendorChild from '@/components/cta/CTAVendorChild.vue'
 import CTAHDRColorimetry from '@/components/cta/CTAHDRColorimetry.vue'
 import CTAVideoCapability from '@/components/cta/CTAVideoCapability.vue'
 import CTADetailedTimings from '@/components/cta/CTADetailedTimings.vue'
 import CTAVideoFormatPreference from '@/components/cta/CTAVideoFormatPreference.vue'
-import CTAVendorAudioBlock from '@/components/cta/CTAVendorAudioBlock.vue'
 import CTARoomConfiguration from '@/components/cta/CTARoomConfiguration.vue'
 import CTASpeakerLocation from '@/components/cta/CTASpeakerLocation.vue'
 import CTAInfoFrame from '@/components/cta/CTAInfoFrame.vue'
@@ -284,7 +284,11 @@ function addCEADataBlock(blockType: string) {
   const block = createDefaultCEADataBlock(blockType as CEADefaultBlockType)
   if (!block) return
   cea.dataBlocks = appendArrayItem(cea.dataBlocks, block)
-  const section = ceaBlockActiveSection[blockType]
+  // Vendor-audio blocks live in the vendor sub-group: land on the freshly
+  // appended block's per-child section instead of a flat section id.
+  const section = blockType === 'vendor-audio'
+    ? `cea-vendor-block-${cea.dataBlocks.length - 1}`
+    : ceaBlockActiveSection[blockType]
   if (section) activeSection.value = section
 }
 
@@ -297,7 +301,6 @@ const ceaBlockActiveSection: Record<string, string> = {
   'colorimetry': 'cea-hdr-color',
   'hdr-static': 'cea-hdr-color',
   'video-format-preference': 'cea-video-format-pref',
-  'vendor-audio': 'cea-vendor-audio',
   'room-config': 'cea-room-config',
   'speaker-location': 'cea-speaker-location',
   'infoframe': 'cea-infoframe',
@@ -320,6 +323,31 @@ function removeCEADataBlock(blockTag: number, extendedTag?: number) {
     activeSection.value = 'cea-overview'
   }
 }
+
+/**
+ * Remove one CEA data block by its dataBlocks index — the per-child removal
+ * contract of the vendor sub-group (LeftNav emits the index; TASK-102). The
+ * per-child section ids (cea-vendor-block-<idx>) shift on removal, so land
+ * back on the combined vendor view instead of a stale id.
+ */
+function removeCeaDataBlockByIndex(index: number) {
+  if (!edidRef.value) return
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
+  if (index < 0 || index >= cea.dataBlocks.length) return
+  cea.dataBlocks = removeArrayItem(cea.dataBlocks, index)
+  if (activeSection.value.startsWith('cea-vendor-block-')) {
+    activeSection.value = 'cea-vendor'
+  }
+}
+
+/** dataBlocks index of the active vendor child section, or -1 when none. */
+const activeVendorBlockIndex = computed(() => {
+  const prefix = 'cea-vendor-block-'
+  if (!activeSection.value.startsWith(prefix)) return -1
+  const index = Number(activeSection.value.slice(prefix.length))
+  return Number.isInteger(index) && index >= 0 ? index : -1
+})
 
 function addDisplayIdExtension() {
   if (!edidRef.value) return
@@ -429,6 +457,7 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
         @remove-cea="removeCEAExtension"
         @add-cea-block="addCEADataBlock"
         @remove-cea-block="removeCEADataBlock"
+        @remove-cea-block-by-index="removeCeaDataBlockByIndex"
         @add-cea-timing="(k?: string) => addCeaTiming(k)"
         @add-display-id="addDisplayIdExtension"
         @remove-display-id="removeDisplayIdExtension"
@@ -474,10 +503,15 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
           <CTAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <CTASpeakerBlock v-else-if="activeSection === 'cea-speakers' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <CTAVendorBlock v-else-if="activeSection === 'cea-vendor' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAVendorChild
+            v-else-if="activeSection.startsWith('cea-vendor-block-') && ceaExtension && activeVendorBlockIndex >= 0"
+            :cea="ceaExtension"
+            :index="activeVendorBlockIndex"
+            @update="setCeaField"
+          />
           <CTAHDRColorimetry v-else-if="activeSection === 'cea-hdr-color' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <CTAVideoCapability v-else-if="activeSection === 'cea-video-cap' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <CTAVideoFormatPreference v-else-if="activeSection === 'cea-video-format-pref' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
-          <CTAVendorAudioBlock v-else-if="activeSection === 'cea-vendor-audio' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <CTARoomConfiguration v-else-if="activeSection === 'cea-room-config' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <CTASpeakerLocation v-else-if="activeSection === 'cea-speaker-location' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <CTAInfoFrame v-else-if="activeSection === 'cea-infoframe' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
