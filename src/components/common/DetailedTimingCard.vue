@@ -76,8 +76,10 @@ const cea861 = computed(() => state.mode === 'cea-861')
 /** Margins only applies to standard CVT — RB modes ignore it. */
 const showMargins = computed(() => state.mode === 'cvt')
 
+// `disabled:` variants follow the shadcn-vue SelectTrigger pattern; only the
+// preset picker is ever disabled, the mode select sharing this class is not.
 const modeSelectClass =
-  'h-7 rounded-md border border-input bg-transparent dark:bg-input/30 px-2 text-xs shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
+  'h-7 rounded-md border border-input bg-transparent dark:bg-input/30 px-2 text-xs shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50'
 
 /** Controlled value of the Preset `<select>` — held only to reset the picker to
  * its placeholder after a load (it is a one-shot "load a starting point"
