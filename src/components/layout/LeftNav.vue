@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, type Ref } from 'vue'
 import { ChevronRight, X } from '@lucide/vue'
 import type { EDIDViewModel } from '@/types/edid'
 import {
@@ -33,13 +33,12 @@ import {
   displayIdBlockSectionByTag,
   displayIdSectionIds,
 } from '@/components/displayid/displayIdLabels'
-import { isVendorBlock, vendorBlockLabel } from '@/components/cta/vendorLabels'
+import { ctaBlockFamily, ctaBlockNavLabel, type CtaBlockFamily } from '@/components/cta/ctaBlockOrder'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -58,7 +57,6 @@ const emit = defineEmits<{
   removeCea: []
   addCeaTiming: [presetKey?: string]
   addCeaBlock: [blockType: string]
-  removeCeaBlock: [blockTag: number, extendedTag?: number]
   removeCeaBlockByIndex: [index: number]
   addDisplayId: []
   removeDisplayId: []
@@ -170,72 +168,76 @@ const ceaExt = computed(() => props.edid ? getCEAExtension(props.edid) : null)
 
 const hasCEA = computed(() => ceaExt.value !== null)
 
-/**
- * Vendor-specific blocks of ALL carriers as first-class, removable nav
- * children of one sub-group (TASK-102): tag 0x03 VSDBs, tag 0x07 ext 0x01
- * VSVDBs (Dolby Vision, HDR10+), and tag 0x07 ext 0x11 Vendor-Specific Audio.
- * `index` is the block's dataBlocks index — the root of the per-block edit
- * path (dataBlocks.<idx>…) and the by-index removal contract.
- */
-const vendorChildren = computed(() => {
-  const cea = ceaExt.value
-  if (!cea) return []
-  return cea.dataBlocks.flatMap((b, index) =>
-    isVendorBlock(b)
-      ? [{ id: `cea-vendor-block-${index}`, label: vendorBlockLabel(b), index }]
-      : [])
-})
+/** One per-block nav entry — `index` is the block's dataBlocks index, the
+ *  root of its per-block edit path and by-index removal contract. */
+interface CeaBlockChild {
+  id: string
+  label: string
+  index: number
+}
 
-/** True when the active section is the combined vendor view or any individual
- *  vendor block — used to highlight the sub-group header. */
-const isVendorSection = computed(() =>
-  props.activeSection === 'cea-vendor' ||
-  props.activeSection.startsWith('cea-vendor-block-')
-)
+/** Render model for the CTA nav (TASK-114): the extension is a collection of
+ *  blocks, so entries mirror the encoded (dataBlocks) order verbatim —
+ *  Header & Flags first, every data block in its decoded position, Detailed
+ *  Timings last (per Table 53 the DTDs follow the entire Data Block
+ *  Collection). VSDB and VCDB-family blocks render as children of collapsible
+ *  sub-group callouts, placed at the family's first occurrence; a family
+ *  whose members interleave with other blocks is still collected under the
+ *  one header (nav presentation only — the data order is untouched). */
+type CeaNavNode =
+  | { kind: 'header'; key: 'header' }
+  | { kind: 'block'; key: string; child: CeaBlockChild }
+  | { kind: 'family'; key: string; family: CtaBlockFamily; label: string; children: CeaBlockChild[] }
+  | { kind: 'timings'; key: 'timings' }
 
-const ceaChildren = computed(() => {
+const CTA_FAMILY_LABELS: Readonly<Record<CtaBlockFamily, string>> = {
+  vsdb: 'Vendor-Specific Data Blocks',
+  vcdb: 'Video Capability Data Blocks',
+}
+
+const ceaNavItems = computed<CeaNavNode[]>(() => {
   const cea = ceaExt.value
-  if (!cea) return []
-  const items: { id: string; label: string }[] = [
-    { id: 'cea-header', label: 'Header & Flags' },
-  ]
-  const blocks = cea.dataBlocks
-  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x02)) items.push({ id: 'cea-video', label: 'Video (SVDs)' })
-  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x01)) items.push({ id: 'cea-audio', label: 'Audio (SADs)' })
-  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x04)) items.push({ id: 'cea-speakers', label: 'Speaker Allocation' })
-  const hasHdrOrColor = blocks.some((b: import('edidts').CEADataBlock) =>
-    b.tag === 0x07 && ((b as { extendedTag?: number }).extendedTag === 0x05 ||
-    (b as { extendedTag?: number }).extendedTag === 0x06 ||
-    (b as { extendedTag?: number }).extendedTag === 0x07 ||
-    (b as { extendedTag?: number }).extendedTag === 0x0E ||
-    (b as { extendedTag?: number }).extendedTag === 0x0F)
-  )
-  if (hasHdrOrColor) items.push({ id: 'cea-hdr-color', label: 'HDR & Colorimetry' })
-  const hasVideoCap = blocks.some((b: import('edidts').CEADataBlock) =>
-    b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x00
-  )
-  if (hasVideoCap) items.push({ id: 'cea-video-cap', label: 'Video Capability' })
-  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x0D))
-    items.push({ id: 'cea-video-format-pref', label: 'Video Format Preference' })
-  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x13))
-    items.push({ id: 'cea-room-config', label: 'Room Configuration' })
-  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x14))
-    items.push({ id: 'cea-speaker-location', label: 'Speaker Location' })
-  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x20))
-    items.push({ id: 'cea-infoframe', label: 'InfoFrame' })
-  if (blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x05))
-    items.push({ id: 'cea-vesa-transfer', label: 'VESA Transfer Characteristic' })
-  if (cea.detailedTimings.length > 0) items.push({ id: 'cea-timings', label: 'Detailed Timings' })
+  if (!cea) return [{ kind: 'header', key: 'header' }]
+  const items: CeaNavNode[] = [{ kind: 'header', key: 'header' }]
+  const families = new Map<CtaBlockFamily, CeaBlockChild[]>()
+  cea.dataBlocks.forEach((block, index) => {
+    const family = ctaBlockFamily(block)
+    if (family) {
+      let children = families.get(family)
+      if (!children) {
+        children = []
+        families.set(family, children)
+        items.push({ kind: 'family', key: `family-${family}`, family, label: CTA_FAMILY_LABELS[family], children })
+      }
+      children.push({ id: `cea-block-${index}`, label: ctaBlockNavLabel(block), index })
+      return
+    }
+    items.push({
+      kind: 'block',
+      key: `block-${index}`,
+      child: { id: `cea-block-${index}`, label: ctaBlockNavLabel(block), index },
+    })
+  })
+  if (cea.detailedTimings.length > 0) items.push({ kind: 'timings', key: 'timings' })
   return items
 })
 
-/**
- * One "+ Add Block" option: the default-block factory discriminator, its menu
- * label, and whether its default block still fits the remaining payload area
- * (TASK-110 — non-fitting options render disabled with the reason in the
- * label suffix, they are not silently hidden).
- */
-type CeaAddBlockOption = { type: CEADefaultBlockType; label: string; fits: boolean }
+/** dataBlocks index of the active per-block section (cea-block-<idx>), or -1. */
+const activeCeaBlockIndex = computed(() => {
+  const prefix = 'cea-block-'
+  if (!props.activeSection.startsWith(prefix)) return -1
+  const index = Number(props.activeSection.slice(prefix.length))
+  return Number.isInteger(index) && index >= 0 ? index : -1
+})
+
+/** Family of the active per-block section — highlights its callout header. */
+const activeCeaBlockFamily = computed<CtaBlockFamily | null>(() => {
+  const cea = ceaExt.value
+  const index = activeCeaBlockIndex.value
+  if (!cea || index < 0) return null
+  const block = cea.dataBlocks[index]
+  return block ? ctaBlockFamily(block) : null
+})
 
 /** True when the default block for `type` fits the free payload area. */
 function defaultBlockFits(type: CEADefaultBlockType): boolean {
@@ -244,33 +246,48 @@ function defaultBlockFits(type: CEADefaultBlockType): boolean {
   return ExtensionBlockParser.getCeaEncodedBlockBytes(block) <= ceaFreeBytes.value
 }
 
-const addableBlocks = computed(() => {
-  const cea = ceaExt.value
-  if (!cea) return []
-  const blocks = cea.dataBlocks
-  const options: { type: CEADefaultBlockType; label: string }[] = []
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x02)) options.push({ type: 'video', label: 'Video Data Block' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x01)) options.push({ type: 'audio', label: 'Audio Data Block' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x04)) options.push({ type: 'speakers', label: 'Speaker Allocation' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x00))
-    options.push({ type: 'video-capability', label: 'Video Capability' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x05))
-    options.push({ type: 'colorimetry', label: 'Colorimetry' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x06))
-    options.push({ type: 'hdr-static', label: 'HDR Static Metadata' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x0D))
-    options.push({ type: 'video-format-preference', label: 'Video Format Preference' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x11))
-    options.push({ type: 'vendor-audio', label: 'Vendor-Specific Audio' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x13))
-    options.push({ type: 'room-config', label: 'Room Configuration' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x14))
-    options.push({ type: 'speaker-location', label: 'Speaker Location' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x20))
-    options.push({ type: 'infoframe', label: 'InfoFrame' })
-  if (!blocks.some((b: import('edidts').CEADataBlock) => b.tag === 0x05))
-    options.push({ type: 'vesa-transfer', label: 'VESA Transfer Characteristic' })
-  return options.map((o) => ({ ...o, fits: defaultBlockFits(o.type) }))
+/**
+ * One "+ Add Block" menu item in canonical order (TASK-114): the factory
+ * discriminator, its menu label, whether its default block still fits the
+ * remaining payload area (TASK-110 — non-fitting options render disabled with
+ * the reason in the label suffix, they are not silently hidden), and an
+ * optional group label rendered as a menu section header before the item.
+ */
+type CeaAddBlockMenuItem = { type: CEADefaultBlockType; label: string; fits: boolean; group?: string }
+
+/** Short blocks are single-instance: an option is offered only while no block
+ *  of that type is present. VSDBs are exempt (multiple legal, TASK-109). */
+function hasBlock(pred: (b: import('edidts').CEADataBlock) => boolean): boolean {
+  return !!ceaExt.value?.dataBlocks.some(pred)
+}
+
+const addBlockMenu = computed<CeaAddBlockMenuItem[]>(() => {
+  if (!ceaExt.value) return []
+  const items: CeaAddBlockMenuItem[] = []
+  const add = (type: CEADefaultBlockType, label: string, present: boolean, group?: string) => {
+    if (present) return
+    items.push({ type, label, fits: defaultBlockFits(type), group })
+  }
+  // Canonical add order (TASK-114): Video, Audio, Speaker Allocation, VSDBs
+  // (grouped), Colorimetry, the VCDB family (Video Capability, Vendor-Specific
+  // Audio, InfoFrame, Video Format Preference, HDR Static), Room Configuration,
+  // Speaker Location, then unlisted types (VESA Display Device).
+  add('video', 'Video Data Block', hasBlock(b => b.tag === 0x02))
+  add('audio', 'Audio Data Block', hasBlock(b => b.tag === 0x01))
+  add('speakers', 'Speaker Allocation', hasBlock(b => b.tag === 0x04))
+  for (const opt of VSDB_ADD_OPTIONS) {
+    items.push({ ...opt, fits: defaultBlockFits(opt.type), group: 'Vendor-Specific Data Blocks' })
+  }
+  add('colorimetry', 'Colorimetry', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x05))
+  add('video-capability', 'Video Capability', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x00))
+  add('vendor-audio', 'Vendor-Specific Audio', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x11))
+  add('infoframe', 'InfoFrame', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x20))
+  add('video-format-preference', 'Video Format Preference', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x0D))
+  add('hdr-static', 'HDR Static Metadata', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x06))
+  add('room-config', 'Room Configuration', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x13))
+  add('speaker-location', 'Speaker Location', hasBlock(b => b.tag === 0x07 && (b as { extendedTag?: number }).extendedTag === 0x14))
+  add('vesa-transfer', 'VESA Transfer Characteristic', hasBlock(b => b.tag === 0x05))
+  return items
 })
 
 /** Vendor-specific data blocks (tag 0x03, TASK-109): multiple VSDBs may
@@ -284,11 +301,6 @@ const VSDB_ADD_OPTIONS: ReadonlyArray<{ type: CEADefaultBlockType; label: string
   { type: 'vsdb-amd', label: 'Vendor Block: AMD FreeSync' },
   { type: 'vsdb-mhl', label: 'Vendor Block: MHL' },
 ]
-
-const addableVsdbBlocks = computed<CeaAddBlockOption[]>(() => {
-  if (!ceaExt.value) return []
-  return VSDB_ADD_OPTIONS.map((o) => ({ ...o, fits: defaultBlockFits(o.type) }))
-})
 
 const displayIdExt = computed(() => props.edid ? getDisplayIdExtension(props.edid) : null)
 
@@ -314,25 +326,6 @@ const displayIdChildren = computed<DisplayIdNavChild[]>(() => {
   ]
 })
 
-/** CTA child section id → (block tag, optional extended tag) for removal. */
-const ceaChildRemoveMap: Record<string, [number, number?]> = {
-  'cea-video': [0x02],
-  'cea-audio': [0x01],
-  'cea-speakers': [0x04],
-  'cea-hdr-color': [0x07, 0x05],
-  'cea-video-cap': [0x07, 0x00],
-  'cea-video-format-pref': [0x07, 0x0D],
-  'cea-room-config': [0x07, 0x13],
-  'cea-speaker-location': [0x07, 0x14],
-  'cea-infoframe': [0x07, 0x20],
-  'cea-vesa-transfer': [0x05],
-}
-
-function removeCeaChild(id: string) {
-  const r = ceaChildRemoveMap[id]
-  if (r) emit('removeCeaBlock', r[0], r[1])
-}
-
 function selectSection(id: string) {
   emit('update:activeSection', id)
 }
@@ -341,8 +334,15 @@ function selectSection(id: string) {
 const edidOpen = ref(true)
 const edidDescriptorsOpen = ref(true)
 const ceaOpen = ref(true)
-const ceaVendorOpen = ref(true)
+const ceaVsdbOpen = ref(true)
+const ceaVcdbOpen = ref(true)
 const displayIdOpen = ref(true)
+
+/** Collapsible open-state per CTA block family callout. */
+const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
+  vsdb: ceaVsdbOpen,
+  vcdb: ceaVcdbOpen,
+}
 </script>
 
 <template>
@@ -519,82 +519,110 @@ const displayIdOpen = ref(true)
             </div>
             <CollapsibleContent>
               <SidebarMenuSub>
-                <SidebarMenuSubItem
-                  v-for="child in ceaChildren"
-                  :key="child.id"
-                  class="group/cea-child"
-                >
-                  <div class="flex items-center">
+                <!-- One nav entry per encoded block in dataBlocks order
+                     (TASK-114): Header & Flags, each data block at its
+                     decoded position (VSDB / VCDB-family blocks collected
+                     under collapsible callouts), Detailed Timings last. -->
+                <template v-for="node in ceaNavItems" :key="node.key">
+                  <!-- Header & Flags: fixed, not removable -->
+                  <SidebarMenuSubItem v-if="node.kind === 'header'">
                     <SidebarMenuSubButton
                       as="button"
-                      class="flex-1"
-                      :is-active="activeSection === child.id"
-                      @click="selectSection(child.id)"
+                      class="w-full"
+                      :is-active="activeSection === 'cea-header'"
+                      @click="selectSection('cea-header')"
                     >
-                      {{ child.label }}
+                      Header & Flags
                     </SidebarMenuSubButton>
-                    <button
-                      v-if="child.id !== 'cea-header'"
-                      class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/cea-child:opacity-100 focus:opacity-100 transition-opacity"
-                      :title="`Remove ${child.label}`"
-                      @click.stop="removeCeaChild(child.id)"
-                    >
-                      <X class="size-3" />
-                    </button>
-                  </div>
-                </SidebarMenuSubItem>
+                  </SidebarMenuSubItem>
 
-                <!-- Vendor-specific blocks (VSDB / VSVDB / vendor audio): one
-                     collapsible sub-group mirroring the EDID Descriptors
-                     pattern. The header opens the combined vendor view; each
-                     child row is one vendor block (labeled by vendor/OUI) with
-                     its own by-index remove (TASK-102). -->
-                <SidebarMenuSubItem v-if="vendorChildren.length > 0">
-                  <Collapsible v-model:open="ceaVendorOpen">
-                    <div class="flex items-center gap-1">
-                      <CollapsibleTrigger
-                        class="flex h-7 w-5 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        :aria-label="ceaVendorOpen ? 'Collapse vendor blocks' : 'Expand vendor blocks'"
+                  <!-- Flat data block entry with hover-reveal by-index remove -->
+                  <SidebarMenuSubItem
+                    v-else-if="node.kind === 'block'"
+                    class="group/cea-child"
+                  >
+                    <div class="flex items-center">
+                      <SidebarMenuSubButton
+                        as="button"
+                        class="flex-1"
+                        :is-active="activeSection === node.child.id"
+                        @click="selectSection(node.child.id)"
                       >
-                        <ChevronRight class="size-3.5 transition-transform" :class="{ 'rotate-90': ceaVendorOpen }" />
-                      </CollapsibleTrigger>
+                        {{ node.child.label }}
+                      </SidebarMenuSubButton>
                       <button
-                        class="flex-1 text-left rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        :class="{ 'text-sidebar-accent-foreground font-semibold': isVendorSection }"
-                        @click="selectSection('cea-vendor')"
+                        class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/cea-child:opacity-100 focus:opacity-100 transition-opacity"
+                        :title="`Remove ${node.child.label}`"
+                        @click.stop="emit('removeCeaBlockByIndex', node.child.index)"
                       >
-                        Vendor Blocks
+                        <X class="size-3" />
                       </button>
                     </div>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        <SidebarMenuSubItem
-                          v-for="child in vendorChildren"
-                          :key="child.id"
-                          class="group/cea-vendor-child"
+                  </SidebarMenuSubItem>
+
+                  <!-- Family sub-group callout (VSDBs / VCDB family): the
+                       header is a pure callout (collapse toggle, no section);
+                       each child is one block with by-index remove. -->
+                  <SidebarMenuSubItem v-else-if="node.kind === 'family'">
+                    <Collapsible v-model:open="ceaFamilyOpen[node.family].value">
+                      <CollapsibleTrigger
+                        class="flex w-full items-center gap-1 rounded-md text-left hover:bg-sidebar-accent"
+                        :aria-label="ceaFamilyOpen[node.family].value ? `Collapse ${node.label}` : `Expand ${node.label}`"
+                      >
+                        <span class="flex h-7 w-5 shrink-0 items-center justify-center text-sidebar-foreground/60">
+                          <ChevronRight class="size-3.5 transition-transform" :class="{ 'rotate-90': ceaFamilyOpen[node.family].value }" />
+                        </span>
+                        <span
+                          class="flex-1 rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground"
+                          :class="{ 'text-sidebar-accent-foreground font-semibold': activeCeaBlockFamily === node.family }"
                         >
-                          <div class="flex items-center">
-                            <SidebarMenuSubButton
-                              as="button"
-                              class="flex-1"
-                              :is-active="activeSection === child.id"
-                              @click="selectSection(child.id)"
-                            >
-                              {{ child.label }}
-                            </SidebarMenuSubButton>
-                            <button
-                              class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/cea-vendor-child:opacity-100 focus:opacity-100 transition-opacity"
-                              :title="`Remove ${child.label}`"
-                              @click.stop="emit('removeCeaBlockByIndex', child.index)"
-                            >
-                              <X class="size-3" />
-                            </button>
-                          </div>
-                        </SidebarMenuSubItem>
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </SidebarMenuSubItem>
+                          {{ node.label }}
+                        </span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          <SidebarMenuSubItem
+                            v-for="child in node.children"
+                            :key="child.id"
+                            class="group/cea-vendor-child"
+                          >
+                            <div class="flex items-center">
+                              <SidebarMenuSubButton
+                                as="button"
+                                class="flex-1"
+                                :is-active="activeSection === child.id"
+                                @click="selectSection(child.id)"
+                              >
+                                {{ child.label }}
+                              </SidebarMenuSubButton>
+                              <button
+                                class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/cea-vendor-child:opacity-100 focus:opacity-100 transition-opacity"
+                                :title="`Remove ${child.label}`"
+                                @click.stop="emit('removeCeaBlockByIndex', child.index)"
+                              >
+                                <X class="size-3" />
+                              </button>
+                            </div>
+                          </SidebarMenuSubItem>
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </SidebarMenuSubItem>
+
+                  <!-- Detailed Timings: always the last entry — per CTA-861-G
+                       Table 53 the DTDs follow the entire Data Block
+                       Collection. -->
+                  <SidebarMenuSubItem v-else-if="node.kind === 'timings'">
+                    <SidebarMenuSubButton
+                      as="button"
+                      class="w-full"
+                      :is-active="activeSection === 'cea-timings'"
+                      @click="selectSection('cea-timings')"
+                    >
+                      Detailed Timings
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </template>
 
                 <!-- Add CTA detailed timing: adds a default 1080p60 standard-CVT
                      DTD. Pick a different preset from inside the timing card's
@@ -614,13 +642,14 @@ const displayIdOpen = ref(true)
                   </Button>
                 </SidebarMenuSubItem>
 
-                <!-- Add data block: short blocks are deduped (single-instance)
-                     and VSDBs are always offered (multiple legal, TASK-109) in
-                     their own group. Options whose default block would not fit
+                <!-- Add data block: options in the canonical order (TASK-114);
+                     short blocks are deduped (single-instance) and VSDBs are
+                     always offered (multiple legal, TASK-109) under their own
+                     group label. Options whose default block would not fit
                      the remaining payload area render disabled with a
                      "(no space)" suffix instead of silently vanishing
                      (TASK-110). -->
-                <SidebarMenuSubItem v-if="addableBlocks.length > 0 || addableVsdbBlocks.length > 0">
+                <SidebarMenuSubItem v-if="addBlockMenu.length > 0">
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
                       <Button variant="ghost" size="sm" class="w-full text-xs text-muted-foreground h-7">
@@ -628,20 +657,11 @@ const displayIdOpen = ref(true)
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
-                      <DropdownMenuItem
-                        v-for="opt in addableBlocks"
-                        :key="opt.type"
-                        :disabled="!opt.fits"
-                        @click="emit('addCeaBlock', opt.type)"
-                      >
-                        {{ opt.label }}{{ opt.fits ? '' : ' (no space)' }}
-                      </DropdownMenuItem>
-                      <template v-if="addableVsdbBlocks.length > 0">
-                        <DropdownMenuSeparator v-if="addableBlocks.length > 0" />
-                        <DropdownMenuLabel>Vendor-Specific Data Blocks</DropdownMenuLabel>
+                      <template v-for="(opt, i) in addBlockMenu" :key="opt.type">
+                        <DropdownMenuLabel v-if="opt.group && (i === 0 || addBlockMenu[i - 1].group !== opt.group)">
+                          {{ opt.group }}
+                        </DropdownMenuLabel>
                         <DropdownMenuItem
-                          v-for="opt in addableVsdbBlocks"
-                          :key="opt.type"
                           :disabled="!opt.fits"
                           @click="emit('addCeaBlock', opt.type)"
                         >

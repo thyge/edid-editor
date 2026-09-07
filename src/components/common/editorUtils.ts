@@ -4,9 +4,9 @@ import type { CEAExtensionBlock, DisplayIdDataBlock, DisplayIdExtension } from '
  * Cross-extension editor helpers shared by the EDID base-block, CTA-861, and
  * DisplayID view components.
  *
- * Generic (extension-agnostic): {@link appendArrayItem}, {@link updateArrayItem},
- * {@link removeArrayItem}, {@link bytesToHex}, {@link hexToBytes},
- * {@link numberFromEvent}, {@link stringFromEvent}.
+ * Generic (extension-agnostic): {@link appendArrayItem}, {@link insertArrayItem},
+ * {@link updateArrayItem}, {@link removeArrayItem}, {@link bytesToHex},
+ * {@link hexToBytes}, {@link numberFromEvent}, {@link stringFromEvent}.
  *
  * DisplayID-specific: {@link blocksByTag} (typed to DisplayIdExtension /
  * DisplayIdDataBlock). It lives here so the displayid components have a single
@@ -49,6 +49,14 @@ export function findExtendedDataBlockIndex(cea: CEAExtensionBlock, extendedTag: 
 /** Append an item, returning a new array (immutable append for reactive arrays). */
 export function appendArrayItem<T>(items: T[], item: T): T[] {
   return [...items, item]
+}
+
+/**
+ * Insert an item at `index`, returning a new array (immutable insert for
+ * reactive arrays — used by the CTA canonical add order, TASK-114).
+ */
+export function insertArrayItem<T>(items: T[], index: number, item: T): T[] {
+  return [...items.slice(0, index), item, ...items.slice(index)]
 }
 
 export function updateArrayItem<T>(items: T[], index: number, item: T): T[] {
