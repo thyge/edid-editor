@@ -432,7 +432,7 @@ const displayIdOpen = ref(true)
             <div class="flex items-center gap-1">
               <CollapsibleTrigger
                 class="flex h-8 w-6 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                :aria-label="ceaOpen ? 'Collapse CEA' : 'Expand CEA'"
+                :aria-label="ceaOpen ? 'Collapse CTA-861' : 'Expand CTA-861'"
               >
                 <ChevronRight class="size-4 transition-transform" :class="{ 'rotate-90': ceaOpen }" />
               </CollapsibleTrigger>
@@ -441,13 +441,13 @@ const displayIdOpen = ref(true)
                 :is-active="activeSection === 'cea-overview'"
                 @click="selectSection('cea-overview')"
               >
-                CEA
+                CTA-861
               </SidebarMenuButton>
               <Button
                 variant="ghost"
                 size="sm"
                 class="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-6 p-0 shrink-0"
-                title="Remove CEA extension"
+                title="Remove CTA-861 extension"
                 @click="emit('removeCea')"
               >
                 <X class="size-3.5" />
@@ -572,7 +572,7 @@ const displayIdOpen = ref(true)
 
         <SidebarGroup v-else>
           <Button variant="outline" size="sm" class="w-full text-xs" @click="emit('addCea')">
-            Add CEA Extension
+            Add CTA-861 Extension
           </Button>
         </SidebarGroup>
 

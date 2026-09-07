@@ -8,6 +8,7 @@ import {
   getCEAExtension,
   getDisplayIdExtension,
   type CEADefaultBlockType,
+  type CEADetailedTiming,
   type DisplayDescriptor,
   type CEAExtension,
   type DisplayIdDataBlock,
@@ -173,6 +174,21 @@ function removeTiming(index: number) {
   if (!edidRef.value) return
   edidRef.value.base.detailedTimings = removeArrayItem(edidRef.value.base.detailedTimings, index)
   if (activeSection.value.startsWith('edid-dtd-')) activeSection.value = 'overview'
+}
+
+/**
+ * CTA-861 native-DTD selection (TASK-103): CTAOverview's picker emits the
+ * reordered detailedTimings array (selected DTDs moved to the leading prefix,
+ * relative order preserved) plus the derived byte-3 bits 3:0 count. Both are
+ * written with array/field-level assignments — same pattern as add/remove
+ * timing, not a setByPath write.
+ */
+function setCeaNativeTimings(timings: CEADetailedTiming[], nativeCount: number) {
+  if (!edidRef.value) return
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
+  cea.detailedTimings = timings
+  cea.nativeFormats = nativeCount
 }
 
 function addDescriptor(tag: number) {
@@ -497,7 +513,12 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
           />
 
           <!-- CEA sections -->
-          <CTAOverview v-else-if="activeSection === 'cea-overview' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
+          <CTAOverview
+            v-else-if="activeSection === 'cea-overview' && ceaExtension"
+            :cea="ceaExtension"
+            @update="setCeaField"
+            @reorder-native="setCeaNativeTimings"
+          />
           <CTAHeaderFlags v-else-if="activeSection === 'cea-header' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <CTAVideoBlock v-else-if="activeSection === 'cea-video' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <CTAAudioBlock v-else-if="activeSection === 'cea-audio' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />

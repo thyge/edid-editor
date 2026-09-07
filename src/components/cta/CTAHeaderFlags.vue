@@ -18,12 +18,12 @@ const switchRowClass = 'flex items-center justify-between gap-2 rounded-md borde
 <template>
   <Card>
     <CardHeader>
-      <CardTitle>CEA Header & Flags</CardTitle>
+      <CardTitle>CTA-861 Header & Flags</CardTitle>
     </CardHeader>
     <CardContent class="space-y-6 text-sm">
       <section>
         <div class="max-w-xs space-y-1">
-          <label class="text-xs text-muted-foreground">CEA Version</label>
+          <label class="text-xs text-muted-foreground">CTA-861 Version</label>
           <select
             :value="cea.revision"
             :class="selectClass"

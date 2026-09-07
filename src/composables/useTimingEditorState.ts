@@ -34,7 +34,7 @@ export const TIMING_MODE_OPTIONS: ReadonlyArray<{ value: TimingEditorMode; label
   { value: 'cvt', label: 'CVT' },
   { value: 'cvt-rb', label: 'CVT-RB' },
   { value: 'cvt-rb2', label: 'CVT-RBv2' },
-  { value: 'cea-861', label: 'CEA-861' },
+  { value: 'cea-861', label: 'CTA-861' },
 ]
 
 /**

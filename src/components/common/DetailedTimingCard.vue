@@ -54,7 +54,10 @@ const props = withDefaults(defineProps<{
   forceExpand?: boolean
   /** Show the "Show/Hide details" toggle button. */
   showToggle?: boolean
-}>(), { forceExpand: false, showToggle: true })
+  /** Positional "Native" badge (CTA-861: the first nativeFormats DTDs are
+   *  native — CTAOverview's picker owns the declaration). */
+  native?: boolean
+}>(), { forceExpand: false, showToggle: true, native: false })
 
 const emit = defineEmits<{
   update: [field: string, value: unknown]
@@ -314,7 +317,13 @@ function applyFreeParam(field: string, value: unknown): void {
   <div class="rounded-2xl border border-border/60 bg-card shadow-sm scroll-mt-6">
     <div class="flex flex-wrap items-start gap-4 border-b border-border/40 p-4">
       <div>
-        <p class="text-[11px] uppercase tracking-wide text-muted-foreground">Timing {{ index + 1 }}</p>
+        <p class="text-[11px] uppercase tracking-wide text-muted-foreground">
+          Timing {{ index + 1 }}
+          <span
+            v-if="native"
+            class="ml-1.5 inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
+          >Native</span>
+        </p>
         <p class="text-lg font-semibold text-foreground">
           {{ timing.horizontalActive }}×{{ timing.verticalActive }}{{ timing.flags.interlaced ? 'i' : 'p' }} ·
           {{ refresh.toFixed(2) }} Hz
