@@ -1,23 +1,25 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Icon } from '@iconify/vue'
 import ModeToggle from '@/components/ModeToggle.vue'
 import { Separator } from '@/components/ui/separator'
 import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from '@/components/ui/navigation-menu'
+  Menubar,
+  MenubarCheckboxItem,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarTrigger,
+} from '@/components/ui/menubar'
 
 const emit = defineEmits<{
   (e: 'import-file', payload: File): void
   (e: 'load-hex', payload: string): void
   (e: 'new-edid'): void
 }>()
+
+/** Hex viewer visibility, owned by App.vue (persisted there). */
+const hexViewer = defineModel<boolean>('hexViewer', { default: true })
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
@@ -42,23 +44,9 @@ const handleLoadHex = () => {
   emit('load-hex', hex)
 }
 
-const fileActions = [
-  {
-    label: 'New EDID',
-    description: 'Start from a blank 128-byte block',
-    handler: () => emit('new-edid'),
-  },
-  {
-    label: 'Import from file',
-    description: 'Upload .edid, .bin, .raw, .dat, or .txt',
-    handler: () => fileInputRef.value?.click(),
-  },
-  {
-    label: 'Import from hex string',
-    description: 'Paste raw hexadecimal data',
-    handler: () => handleLoadHex(),
-  },
-]
+const scrollToOverview = () => {
+  document.getElementById('overview')?.scrollIntoView({ behavior: 'smooth' })
+}
 </script>
 
 <template>
@@ -66,54 +54,39 @@ const fileActions = [
     <div class="flex items-center gap-4">
       <h1 class="text-lg font-semibold">EDID</h1>
       <Separator orientation="vertical" class="h-6" />
-      <nav aria-label="Primary" class="text-sm text-muted-foreground">
-        <NavigationMenu class="max-w-none">
-          <NavigationMenuList>
-            <NavigationMenuItem>
-              <NavigationMenuTrigger :class="navigationMenuTriggerStyle()">
-                File
-              </NavigationMenuTrigger>
-                <NavigationMenuContent>
-                <ul class="grid w-[320px] gap-3 p-4 md:w-[360px]" role="menu">
-                  <li v-for="action in fileActions" :key="action.label" role="none">
-                    <NavigationMenuLink as-child>
-                      <button
-                        type="button"
-                        class="select-none space-y-1 rounded-lg border border-transparent px-3 py-2 text-left no-underline outline-none transition-colors hover:border-border hover:bg-muted focus-visible:border-primary focus-visible:bg-muted"
-                        role="menuitem"
-                        @click="action.handler()"
-                      >
-                        <div class="text-sm font-semibold leading-none text-foreground">
-                          {{ action.label }}
-                        </div>
-                        <p class="text-xs text-muted-foreground">
-                          {{ action.description }}
-                        </p>
-                      </button>
-                    </NavigationMenuLink>
-                  </li>
-                </ul>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <NavigationMenuLink :class="navigationMenuTriggerStyle()" as-child>
-                <a href="#overview" class="text-sm font-medium">
-                  View
-                </a>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <NavigationMenuLink :class="navigationMenuTriggerStyle()" as-child>
-                <button type="button" class="text-sm font-medium">
-                  Help
-                </button>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-          </NavigationMenuList>
-        </NavigationMenu>
-      </nav>
+      <Menubar class="border-0 shadow-none">
+        <MenubarMenu>
+          <MenubarTrigger>File</MenubarTrigger>
+          <MenubarContent>
+            <MenubarItem @click="emit('new-edid')">New EDID</MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem @click="fileInputRef?.click()">
+              Import from file…
+            </MenubarItem>
+            <MenubarItem @click="handleLoadHex()">
+              Import from hex string…
+            </MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
+        <MenubarMenu>
+          <MenubarTrigger>View</MenubarTrigger>
+          <MenubarContent>
+            <MenubarCheckboxItem
+              :model-value="hexViewer"
+              @update:model-value="(v: boolean | 'indeterminate') => (hexViewer = v === true)"
+            >
+              Hex Viewer
+            </MenubarCheckboxItem>
+            <MenubarSeparator />
+            <MenubarItem @click="scrollToOverview">Overview</MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
+      </Menubar>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-4">
+      <p class="hidden md:block text-xs text-muted-foreground">
+        Drag &amp; drop an EDID file anywhere to load it
+      </p>
       <ModeToggle />
     </div>
     <input

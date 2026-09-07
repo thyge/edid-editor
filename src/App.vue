@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useLocalStorage } from '@vueuse/core'
 import {
   DisplayIdDataBlockTag,
   createDefaultDisplayIdBlock,
@@ -109,6 +110,10 @@ const activeSection = ref('overview')
  */
 const isDragging = ref(false)
 const dragDepth = ref(0)
+
+/** Hex viewer visibility, toggled from the top nav and persisted so the
+ * preference survives reloads. */
+const hexViewerEnabled = useLocalStorage('edid-editor:hex-viewer', true)
 
 function hasFiles(e: DragEvent): boolean {
   return Array.from(e.dataTransfer?.types ?? []).includes('Files')
@@ -483,6 +488,7 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
       </div>
     </div>
     <TopNav
+      v-model:hex-viewer="hexViewerEnabled"
       @import-file="loadFromFile"
       @load-hex="loadFromHex"
       @new-edid="createBlankEdid"
@@ -665,7 +671,7 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
           />
         </div>
       </SidebarInset>
-      <section id="hex-viewer" class="h-full scroll-mt-24">
+      <section id="hex-viewer" v-show="hexViewerEnabled" class="h-full scroll-mt-24">
         <HexViewer :data="edidData" :regions="hexRegions" />
       </section>
     </SidebarProvider>
