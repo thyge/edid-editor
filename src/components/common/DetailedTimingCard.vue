@@ -61,7 +61,7 @@ const props = withDefaults(defineProps<{
   /** Show the "Show/Hide details" toggle button. */
   showToggle?: boolean
   /** Positional "Native" badge (CTA-861: the first nativeFormats DTDs are
-   *  native — CTAOverview's picker owns the declaration). */
+   *  native — CTAHeaderFlags's picker owns the declaration). */
   native?: boolean
 }>(), { forceExpand: false, showToggle: true, native: false })
 

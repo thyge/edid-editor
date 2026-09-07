@@ -221,7 +221,7 @@ function removeTiming(index: number) {
 }
 
 /**
- * CTA-861 native-DTD selection (TASK-103): CTAOverview's picker emits the
+ * CTA-861 native-DTD selection (TASK-103): CTAHeaderFlags's picker emits the
  * reordered detailedTimings array (selected DTDs moved to the leading prefix,
  * relative order preserved) plus the derived byte-3 bits 3:0 count. Both are
  * written with array/field-level assignments — same pattern as add/remove
@@ -548,10 +548,13 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
           <CTAOverview
             v-else-if="activeSection === 'cea-overview' && ceaExtension"
             :cea="ceaExtension"
+          />
+          <CTAHeaderFlags
+            v-else-if="activeSection === 'cea-header' && ceaExtension"
+            :cea="ceaExtension"
             @update="setCeaField"
             @reorder-native="setCeaNativeTimings"
           />
-          <CTAHeaderFlags v-else-if="activeSection === 'cea-header' && ceaExtension" :cea="ceaExtension" @update="setCeaField" />
           <!-- Per-block sections (cea-block-<idx>): one uniform section id for
                every data block; the editor is picked by looking up the block
                at the active index (TASK-114). -->
