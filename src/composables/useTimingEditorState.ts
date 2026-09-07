@@ -22,18 +22,26 @@ import {
  *  - `cvt`        — standard CVT blanking; margins toggle available.
  *  - `cvt-rb`     — CVT Reduced Blanking v1; margins ignored.
  *  - `cvt-rb2`    — CVT Reduced Blanking v2; margins ignored.
+ *  - `target`     — "target refresh rate" authoring (TASK-108): the user
+ *                  supplies H/V active plus a target Hz and the editor
+ *                  generates a standard-CVT timing whose achieved rate lands
+ *                  as close to the target as the calculator's pixel-clock
+ *                  quantization allows. Geometry and clock are fully
+ *                  generator-owned; the card shows the achieved rate and its
+ *                  deviation from the target. Margins ignored.
  *  - `cea-861`    — CTA-861 VIC owns every byte; a VIC picker is the only free
  *                  control and {@link generateDetailedTimingFromVIC} snaps the
  *                  DTD to the VIC's exact bytes. Distinct from the generative
  *                  CVT modes — VICs are a fixed enumerated set (1-127, 193-219).
  */
-export type TimingEditorMode = 'custom' | 'cvt' | 'cvt-rb' | 'cvt-rb2' | 'cea-861'
+export type TimingEditorMode = 'custom' | 'cvt' | 'cvt-rb' | 'cvt-rb2' | 'target' | 'cea-861'
 
 export const TIMING_MODE_OPTIONS: ReadonlyArray<{ value: TimingEditorMode; label: string }> = [
   { value: 'custom', label: 'Custom' },
   { value: 'cvt', label: 'CVT' },
   { value: 'cvt-rb', label: 'CVT-RB' },
   { value: 'cvt-rb2', label: 'CVT-RBv2' },
+  { value: 'target', label: 'Target Refresh Rate' },
   { value: 'cea-861', label: 'CTA-861' },
 ]
 
@@ -62,10 +70,24 @@ export function modeToBlankingMode(mode: TimingEditorMode): CVTBlankingMode | nu
       return 'cvt-rb'
     case 'cvt-rb2':
       return 'cvt-rb2'
+    // "Target refresh rate" mode generates a fully CVT-compliant standard
+    // blanking timing (TASK-108 AC #3) — the variant selectors stay on the
+    // dedicated CVT modes.
+    case 'target':
+      return 'cvt'
     default:
       return null
   }
 }
+
+/**
+ * Sensible bounds for the editor's refresh-rate generator input (TASK-108
+ * AC #5). The low bound keeps the input in the generator's valid range; the
+ * high bound is far beyond any rate whose pixel clock still fits the 16-bit
+ * 10 kHz DTD field — the card's regenerate() guard refuses those outright.
+ */
+export const REFRESH_RATE_MIN = 1
+export const REFRESH_RATE_MAX = 1000
 
 /**
  * Infer the editor authoring mode for a DTD from the lib classifiers, so the
