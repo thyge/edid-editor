@@ -6,8 +6,10 @@ import {
   getCEAExtension,
   getDisplayIdExtension,
   createDefaultCEADataBlock,
+  computeRefreshRate,
   ExtensionBlockParser,
   type CEADefaultBlockType,
+  type CEADetailedTiming,
   type DetailedTimingDescriptor,
   DISPLAY_DESCRIPTOR_OPTIONS,
   getDisplayDescriptorLabel,
@@ -56,6 +58,7 @@ const emit = defineEmits<{
   addCea: []
   removeCea: []
   addCeaTiming: [presetKey?: string]
+  removeCeaTimingByIndex: [index: number]
   addCeaBlock: [blockType: string]
   removeCeaBlockByIndex: [index: number]
   addDisplayId: []
@@ -218,7 +221,10 @@ const ceaNavItems = computed<CeaNavNode[]>(() => {
       child: { id: `cea-block-${index}`, label: ctaBlockNavLabel(block), index },
     })
   })
-  if (cea.detailedTimings.length > 0) items.push({ kind: 'timings', key: 'timings' })
+  // Detailed Timings sub-group (TASK-112): always present when a CEA
+  // extension exists, last per Table 53 (DTDs follow the entire Data Block
+  // Collection).
+  items.push({ kind: 'timings', key: 'timings' })
   return items
 })
 
@@ -238,6 +244,37 @@ const activeCeaBlockFamily = computed<CtaBlockFamily | null>(() => {
   const block = cea.dataBlocks[index]
   return block ? ctaBlockFamily(block) : null
 })
+
+/** Friendly label for a CTA detailed timing — same "1920×1080p60" shape as
+ *  {@link timingNavLabel}, but CTA timings are plain DetailedTiming records
+ *  (no refreshRate getter), so derive the rate via the shared helper. */
+function ceaTimingNavLabel(t: CEADetailedTiming, i: number): string {
+  if (t.horizontalActive > 0 && t.verticalActive > 0) {
+    const scan = t.flags.interlaced ? 'i' : 'p'
+    return `${t.horizontalActive}×${t.verticalActive}${scan}${Math.round(computeRefreshRate(t))}`
+  }
+  return `Timing ${i + 1}`
+}
+
+/** One per-timing nav entry of the "Detailed Timings" sub-group (TASK-112):
+ *  `index` is the timing's detailedTimings index, the root of its per-child
+ *  edit path and by-index removal contract. */
+const ceaTimingChildren = computed(() => {
+  const cea = ceaExt.value
+  if (!cea) return []
+  return cea.detailedTimings.map((t, i) => ({
+    id: `cea-dtd-${i}`,
+    label: ceaTimingNavLabel(t, i),
+    index: i,
+  }))
+})
+
+/** True when the active section is the combined timings view or any
+ *  individual DTD entry — used to highlight the sub-group header. */
+const isCeaTimingSection = computed(() =>
+  props.activeSection === 'cea-timings' ||
+  props.activeSection.startsWith('cea-dtd-')
+)
 
 /** True when the default block for `type` fits the free payload area. */
 function defaultBlockFits(type: CEADefaultBlockType): boolean {
@@ -336,6 +373,7 @@ const edidDescriptorsOpen = ref(true)
 const ceaOpen = ref(true)
 const ceaVsdbOpen = ref(true)
 const ceaVcdbOpen = ref(true)
+const ceaTimingsOpen = ref(true)
 const displayIdOpen = ref(true)
 
 /** Collapsible open-state per CTA block family callout. */
@@ -609,38 +647,77 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                     </Collapsible>
                   </SidebarMenuSubItem>
 
-                  <!-- Detailed Timings: always the last entry — per CTA-861-G
-                       Table 53 the DTDs follow the entire Data Block
-                       Collection. -->
+                  <!-- Detailed Timings sub-group (TASK-112): always the last
+                       entry — per CTA-861-G Table 53 the DTDs follow the
+                       entire Data Block Collection. The header opens the
+                       combined timings view; each child is one DTD with its
+                       own per-child section and by-index remove; the Add
+                       Timing action lives inside the group. -->
                   <SidebarMenuSubItem v-else-if="node.kind === 'timings'">
-                    <SidebarMenuSubButton
-                      as="button"
-                      class="w-full"
-                      :is-active="activeSection === 'cea-timings'"
-                      @click="selectSection('cea-timings')"
-                    >
-                      Detailed Timings
-                    </SidebarMenuSubButton>
+                    <Collapsible v-model:open="ceaTimingsOpen">
+                      <div class="flex items-center gap-1">
+                        <CollapsibleTrigger
+                          class="flex h-7 w-5 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          :aria-label="ceaTimingsOpen ? 'Collapse detailed timings' : 'Expand detailed timings'"
+                        >
+                          <ChevronRight class="size-3.5 transition-transform" :class="{ 'rotate-90': ceaTimingsOpen }" />
+                        </CollapsibleTrigger>
+                        <button
+                          class="flex-1 text-left rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          :class="{ 'text-sidebar-accent-foreground font-semibold': isCeaTimingSection }"
+                          @click="selectSection('cea-timings')"
+                        >
+                          Detailed Timings
+                        </button>
+                      </div>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          <SidebarMenuSubItem
+                            v-for="child in ceaTimingChildren"
+                            :key="child.id"
+                            class="group/cea-timing-child"
+                          >
+                            <div class="flex items-center">
+                              <SidebarMenuSubButton
+                                as="button"
+                                class="flex-1"
+                                :is-active="activeSection === child.id"
+                                @click="selectSection(child.id)"
+                              >
+                                {{ child.label }}
+                              </SidebarMenuSubButton>
+                              <button
+                                class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/cea-timing-child:opacity-100 focus:opacity-100 transition-opacity"
+                                :title="`Remove ${child.label}`"
+                                @click.stop="emit('removeCeaTimingByIndex', child.index)"
+                              >
+                                <X class="size-3" />
+                              </button>
+                            </div>
+                          </SidebarMenuSubItem>
+                          <!-- Adds a default 1080p60 standard-CVT DTD; pick a
+                               different preset from inside the timing card's
+                               Preset row. Disabled (with the reason as hover
+                               hint) when the payload area shared with the
+                               data blocks can't hold another 18-byte DTD
+                               (TASK-110). -->
+                          <SidebarMenuSubItem>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              class="w-full text-xs text-muted-foreground h-7"
+                              :disabled="!ceaCanAddTiming"
+                              :title="addTimingTitle"
+                              @click="emit('addCeaTiming')"
+                            >
+                              + Add Timing
+                            </Button>
+                          </SidebarMenuSubItem>
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </SidebarMenuSubItem>
                 </template>
-
-                <!-- Add CTA detailed timing: adds a default 1080p60 standard-CVT
-                     DTD. Pick a different preset from inside the timing card's
-                     Preset row. Disabled (with the reason as hover hint) when
-                     the payload area shared with the data blocks can't hold
-                     another 18-byte DTD (TASK-110). -->
-                <SidebarMenuSubItem>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    class="w-full text-xs text-muted-foreground h-7"
-                    :disabled="!ceaCanAddTiming"
-                    :title="addTimingTitle"
-                    @click="emit('addCeaTiming')"
-                  >
-                    + Add Timing
-                  </Button>
-                </SidebarMenuSubItem>
 
                 <!-- Add data block: options in the canonical order (TASK-114);
                      short blocks are deduped (single-instance) and VSDBs are

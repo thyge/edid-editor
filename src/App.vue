@@ -49,6 +49,7 @@ import CTAYCbCr420CapabilityMap from '@/components/cta/CTAYCbCr420CapabilityMap.
 import CTARawBlock from '@/components/cta/CTARawBlock.vue'
 import CTAVideoCapability from '@/components/cta/CTAVideoCapability.vue'
 import CTADetailedTimings from '@/components/cta/CTADetailedTimings.vue'
+import CTADetailedTiming from '@/components/cta/CTADetailedTiming.vue'
 import CTAVideoFormatPreference from '@/components/cta/CTAVideoFormatPreference.vue'
 import CTARoomConfiguration from '@/components/cta/CTARoomConfiguration.vue'
 import CTASpeakerLocation from '@/components/cta/CTASpeakerLocation.vue'
@@ -179,8 +180,34 @@ function addCeaTiming(presetKey?: string) {
   const state = getTimingEditorState(proxy)
   state.mode = blankingModeToMode(DEFAULT_TIMING_BLANKING_MODE)
   state.refreshRate = refreshRate
-  activeSection.value = 'cea-timings'
+  // Land on the freshly added timing's per-child section (TASK-112).
+  activeSection.value = `cea-dtd-${timings.length - 1}`
 }
+
+/**
+ * Remove one CTA-861 detailed timing by its detailedTimings index — the
+ * per-child removal contract of the "Detailed Timings" sub-group (TASK-112).
+ * Per-child section ids (cea-dtd-<idx>) shift on removal, so land on the
+ * combined timings view instead of a stale id.
+ */
+function removeCeaTimingByIndex(index: number) {
+  if (!edidRef.value) return
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
+  if (index < 0 || index >= cea.detailedTimings.length) return
+  cea.detailedTimings = removeArrayItem(cea.detailedTimings, index)
+  if (activeSection.value.startsWith('cea-dtd-')) {
+    activeSection.value = 'cea-timings'
+  }
+}
+
+/** detailedTimings index of the active per-child section (cea-dtd-<idx>), or -1. */
+const activeCeaTimingIndex = computed(() => {
+  const prefix = 'cea-dtd-'
+  if (!activeSection.value.startsWith(prefix)) return -1
+  const index = Number(activeSection.value.slice(prefix.length))
+  return Number.isInteger(index) && index >= 0 ? index : -1
+})
 
 function removeTiming(index: number) {
   if (!edidRef.value) return
@@ -473,6 +500,7 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
         @add-cea-block="addCEADataBlock"
         @remove-cea-block-by-index="removeCeaDataBlockByIndex"
         @add-cea-timing="(k?: string) => addCeaTiming(k)"
+        @remove-cea-timing-by-index="removeCeaTimingByIndex"
         @add-display-id="addDisplayIdExtension"
         @remove-display-id="removeDisplayIdExtension"
         @add-display-id-block="addDisplayIdBlock"
@@ -549,6 +577,15 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
                  reserved and unknown tags): read-only hex fallback. -->
             <CTARawBlock v-else :cea="ceaExtension" :index="activeCeaBlockIndex" />
           </template>
+          <!-- Per-timing sections (cea-dtd-<idx>) of the Detailed Timings
+               sub-group (TASK-112): single-timing editor by index. -->
+          <CTADetailedTiming
+            v-else-if="activeSection.startsWith('cea-dtd-') && ceaExtension && activeCeaTimingIndex >= 0"
+            :cea="ceaExtension"
+            :index="activeCeaTimingIndex"
+            @update="setCeaField"
+          />
+          <!-- Combined group view reached from the sub-group header. -->
           <CTADetailedTimings
             v-else-if="activeSection === 'cea-timings' && ceaExtension"
             :cea="ceaExtension"
