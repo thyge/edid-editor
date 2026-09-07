@@ -19,6 +19,7 @@ export {
   normalizeDetailedTiming,
   normalizeTimingFlags,
   computeRefreshRate,
+  computePixelClockForTargetRate,
 } from './detailed-timing-descriptor';
 export type { DetailedTiming, DetailedTimingBase, DetailedTimingInput, StereoMode, SyncType, TimingFlags } from './detailed-timing-descriptor';
 export {

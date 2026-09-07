@@ -210,6 +210,45 @@ export function computeRefreshRate(timing: DetailedTiming): number {
   return rate;
 }
 
+/**
+ * Inverse of {@link computeRefreshRate} for authoring (TASK-121): the pixel
+ * clock (MHz, quantized to the DTD's 10 kHz field resolution) that makes
+ * `refreshRate` the timing's rate given its current geometry. The geometry
+ * itself is untouched — in a user-owned (Custom) mode only the clock is
+ * derived, unlike the CVT generator which owns the blanking too.
+ *
+ * For interlaced timings `refreshRate` is the field rate (the user-facing
+ * convention, same as computeRefreshRate), so the required clock is halved.
+ *
+ * Returns null when the timing has no usable geometry, the rate is not
+ * positive, or the quantized clock would fall outside (0, `maxClockMhz`] —
+ * the DTD's 16-bit 10 kHz clock field tops out at 655.35 MHz, which callers
+ * pass as their bound. A null result must leave the timing unchanged.
+ */
+export function computePixelClockForTargetRate(
+  timing: DetailedTiming,
+  refreshRate: number,
+  maxClockMhz: number,
+): number | null {
+  const horizontalTotal = timing.horizontalActive + timing.horizontalBlanking;
+  const verticalTotal = timing.verticalActive + timing.verticalBlanking;
+  if (horizontalTotal <= 0 || verticalTotal <= 0 || !(refreshRate > 0)) {
+    return null;
+  }
+
+  // computeRefreshRate: rate = clock * 1e6 / (hTotal * vTotal), doubled when
+  // interlaced — solve for the clock with the matching field factor.
+  const interlaceFields = timing.flags.interlaced ? 2 : 1;
+  const clockMhz = (refreshRate * horizontalTotal * verticalTotal) / (interlaceFields * 1_000_000);
+
+  // Quantize to the DTD's 10 kHz field resolution (0.01 MHz).
+  const quantized = Math.round(clockMhz * 100) / 100;
+  if (quantized <= 0 || quantized > maxClockMhz) {
+    return null;
+  }
+  return quantized;
+}
+
 export function decodeEdidCtaDetailedTimingFlags(byte: number): TimingFlags {
   const interlaced = (byte & 0x80) !== 0;
 

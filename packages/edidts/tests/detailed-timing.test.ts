@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DetailedTimingDescriptor,
+  computePixelClockForTargetRate,
+  computeRefreshRate,
   decodeEdidCtaDetailedTiming,
   encodeEdidCtaDetailedTiming,
   type DetailedTiming,
@@ -326,5 +328,47 @@ describe('DetailedTimingBase shared supertype (TASK-84)', () => {
     expect(clock).toBeUndefined();
     expect(interlaced).toBeUndefined();
     expect(stereo).toBeUndefined();
+  });
+});
+
+describe('computePixelClockForTargetRate (TASK-121)', () => {
+  // 1080p60-ish geometry: hTotal 2200, vTotal 1125 -> exact 60 Hz needs 148.50 MHz.
+  const progressive = {
+    pixelClock: 148.5,
+    horizontalActive: 1920,
+    horizontalBlanking: 280,
+    verticalActive: 1080,
+    verticalBlanking: 45,
+    flags: { interlaced: false },
+  } as unknown as DetailedTiming;
+
+  it('computes the exact clock for an integral rate and quantizes to 10 kHz', () => {
+    expect(computePixelClockForTargetRate(progressive, 60, 655.35)).toBe(148.5);
+    // 75 Hz needs 185.625 MHz -> quantizes to 185.63 (up; a down-round would
+    // be 185.62, both within the 10 kHz grid).
+    expect(computePixelClockForTargetRate(progressive, 75, 655.35)).toBe(185.63);
+  });
+
+  it('keeps the achieved rate within one quantization step of the target', () => {
+    const clock = computePixelClockForTargetRate(progressive, 59.94, 655.35)!;
+    expect(clock).toBeGreaterThan(0);
+    const achieved = computeRefreshRate({ ...progressive, pixelClock: clock });
+    expect(Math.abs(achieved - 59.94)).toBeLessThan(0.01);
+  });
+
+  it('halves the clock for interlaced field rates, mirroring computeRefreshRate', () => {
+    const interlaced = { ...progressive, flags: { interlaced: true } } as unknown as DetailedTiming;
+    // 1080i60: field rate 60 with the same totals needs half the clock.
+    const clock = computePixelClockForTargetRate(interlaced, 60, 655.35)!;
+    expect(clock).toBe(74.25);
+    expect(computeRefreshRate({ ...interlaced, pixelClock: clock })).toBeCloseTo(60, 5);
+  });
+
+  it('returns null for unusable geometry, non-positive rates, and overflow', () => {
+    expect(computePixelClockForTargetRate({ ...progressive, horizontalBlanking: -1920 }, 60, 655.35)).toBeNull();
+    expect(computePixelClockForTargetRate(progressive, 0, 655.35)).toBeNull();
+    expect(computePixelClockForTargetRate(progressive, -60, 655.35)).toBeNull();
+    // 8K120 over 1080p totals blows past the 16-bit clock field.
+    expect(computePixelClockForTargetRate(progressive, 600, 655.35)).toBeNull();
   });
 });
