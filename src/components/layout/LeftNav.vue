@@ -375,11 +375,11 @@ const addBlockMenu = computed<CeaAddBlockMenuNode[]>(() => {
  *  are always offered — the dropdown item itself picks the vendor type to
  *  instantiate. */
 const VSDB_ADD_OPTIONS: ReadonlyArray<{ type: CEADefaultBlockType; label: string }> = [
-  { type: 'vsdb-hdmi14', label: 'Vendor Block: HDMI 1.4' },
-  { type: 'vsdb-hdmi-forum', label: 'Vendor Block: HDMI Forum' },
-  { type: 'vsdb-microsoft-hmd', label: 'Vendor Block: Microsoft HMD' },
-  { type: 'vsdb-amd', label: 'Vendor Block: AMD FreeSync' },
-  { type: 'vsdb-mhl', label: 'Vendor Block: MHL' },
+  { type: 'vsdb-hdmi14', label: 'HDMI 1.4' },
+  { type: 'vsdb-hdmi-forum', label: 'HDMI Forum' },
+  { type: 'vsdb-microsoft-hmd', label: 'Microsoft HMD' },
+  { type: 'vsdb-amd', label: 'AMD FreeSync' },
+  { type: 'vsdb-mhl', label: 'MHL' },
 ]
 
 const displayIdExt = computed(() => props.edid ? getDisplayIdExtension(props.edid) : null)
@@ -504,24 +504,22 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
   <Sidebar collapsible="none" side="left" class="border-r border-sidebar-border">
     <SidebarContent>
       <template v-if="edid">
-        <!-- EDID base-block group -->
+        <!-- EDID base-block group: the header row itself is the collapsible
+             trigger (sidebar-07 pattern, TASK-133) — chevron on the right —
+             and clicking it also selects the EDID overview. -->
         <SidebarGroup>
           <Collapsible v-model:open="edidOpen">
-            <div class="flex items-center gap-1">
-              <CollapsibleTrigger
-                class="flex h-8 w-6 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                :aria-label="edidOpen ? 'Collapse EDID' : 'Expand EDID'"
-              >
-                <ChevronRight class="size-4 transition-transform" :class="{ 'rotate-90': edidOpen }" />
-              </CollapsibleTrigger>
+            <CollapsibleTrigger as-child>
               <SidebarMenuButton
-                class="flex-1 font-semibold"
+                class="font-semibold"
                 :is-active="activeSection === 'overview'"
+                title="EDID Overview"
                 @click="selectSection('overview')"
               >
-                EDID
+                <span class="truncate">EDID</span>
+                <ChevronRight class="ml-auto transition-transform" :class="{ 'rotate-90': edidOpen }" />
               </SidebarMenuButton>
-            </div>
+            </CollapsibleTrigger>
             <CollapsibleContent>
               <SidebarMenuSub>
                 <!-- Fixed base-block sections -->
@@ -543,24 +541,21 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                      sub-group. The four shared 18-byte slots are the add
                      budget; the "+ Add" dropdown offers a DTD or any
                      descriptor type. -->
+                <!-- Descriptors sub-group styled like the top-level rows
+                     (TASK-133); hierarchy comes from the sub-list indent. -->
                 <SidebarMenuSubItem>
                   <Collapsible v-model:open="edidDescriptorsOpen">
-                    <div class="flex items-center gap-1">
-                      <CollapsibleTrigger
-                        class="flex h-7 w-5 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        :aria-label="edidDescriptorsOpen ? 'Collapse descriptors' : 'Expand descriptors'"
-                      >
-                        <ChevronRight class="size-3.5 transition-transform" :class="{ 'rotate-90': edidDescriptorsOpen }" />
-                      </CollapsibleTrigger>
-                      <button
-                        class="flex-1 min-w-0 truncate text-left rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        :class="{ 'text-sidebar-accent-foreground font-semibold': isEdidDescriptorSection }"
+                    <CollapsibleTrigger as-child>
+                      <SidebarMenuButton
+                        class="font-semibold"
+                        :is-active="isEdidDescriptorSection"
                         title="Descriptors"
                         @click="selectSection('edid-descriptors')"
                       >
-                        Descriptors
-                      </button>
-                    </div>
+                        <span class="truncate">Descriptors</span>
+                        <ChevronRight class="ml-auto transition-transform" :class="{ 'rotate-90': edidDescriptorsOpen }" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
                         <!-- Detailed timings (removable) -->
@@ -649,23 +644,23 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
           </Collapsible>
         </SidebarGroup>
 
-        <!-- CTA-861 extension group -->
+        <!-- CTA-861 extension group: header row is the trigger (chevron on
+             the right, TASK-133); the extension-remove X stays at the row's
+             right edge. -->
         <SidebarGroup v-if="hasCEA">
           <Collapsible v-model:open="ceaOpen">
             <div class="flex items-center gap-1">
-              <CollapsibleTrigger
-                class="flex h-8 w-6 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                :aria-label="ceaOpen ? 'Collapse CTA-861' : 'Expand CTA-861'"
-              >
-                <ChevronRight class="size-4 transition-transform" :class="{ 'rotate-90': ceaOpen }" />
+              <CollapsibleTrigger as-child class="min-w-0 flex-1">
+                <SidebarMenuButton
+                  class="font-semibold"
+                  :is-active="activeSection === 'cea-overview'"
+                  title="CTA-861 Overview"
+                  @click="selectSection('cea-overview')"
+                >
+                  <span class="truncate">CTA-861</span>
+                  <ChevronRight class="ml-auto transition-transform" :class="{ 'rotate-90': ceaOpen }" />
+                </SidebarMenuButton>
               </CollapsibleTrigger>
-              <SidebarMenuButton
-                class="flex-1 font-semibold"
-                :is-active="activeSection === 'cea-overview'"
-                @click="selectSection('cea-overview')"
-              >
-                CTA-861
-              </SidebarMenuButton>
               <Button
                 variant="ghost"
                 size="sm"
@@ -724,22 +719,21 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                   <!-- Family sub-group callout (VSDBs / VCDB family): the
                        header is a pure callout (collapse toggle, no section);
                        each child is one block with by-index remove. -->
+                  <!-- Family sub-group callout (VSDBs / VCDB family): styled
+                       like the top-level rows (TASK-133) — a pure callout, the
+                       header only toggles; each child is one block with
+                       by-index remove. -->
                   <SidebarMenuSubItem v-else-if="node.kind === 'family'">
                     <Collapsible v-model:open="ceaFamilyOpen[node.family].value">
-                      <CollapsibleTrigger
-                        class="flex w-full items-center gap-1 rounded-md text-left hover:bg-sidebar-accent"
-                        :aria-label="ceaFamilyOpen[node.family].value ? `Collapse ${node.label}` : `Expand ${node.label}`"
-                      >
-                        <span class="flex h-7 w-5 shrink-0 items-center justify-center text-sidebar-foreground/60">
-                          <ChevronRight class="size-3.5 transition-transform" :class="{ 'rotate-90': ceaFamilyOpen[node.family].value }" />
-                        </span>
-                        <span
-                          class="flex-1 min-w-0 truncate rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground"
-                          :class="{ 'text-sidebar-accent-foreground font-semibold': activeCeaBlockFamily === node.family }"
+                      <CollapsibleTrigger as-child>
+                        <SidebarMenuButton
+                          class="font-semibold"
+                          :is-active="activeCeaBlockFamily === node.family"
                           :title="node.label"
                         >
-                          {{ node.label }}
-                        </span>
+                          <span class="truncate">{{ node.label }}</span>
+                          <ChevronRight class="ml-auto transition-transform" :class="{ 'rotate-90': ceaFamilyOpen[node.family].value }" />
+                        </SidebarMenuButton>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <SidebarMenuSub>
@@ -780,22 +774,17 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                        Timing action lives inside the group. -->
                   <SidebarMenuSubItem v-else-if="node.kind === 'timings'">
                     <Collapsible v-model:open="ceaTimingsOpen">
-                      <div class="flex items-center gap-1">
-                        <CollapsibleTrigger
-                          class="flex h-7 w-5 items-center justify-center rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                          :aria-label="ceaTimingsOpen ? 'Collapse detailed timings' : 'Expand detailed timings'"
-                        >
-                          <ChevronRight class="size-3.5 transition-transform" :class="{ 'rotate-90': ceaTimingsOpen }" />
-                        </CollapsibleTrigger>
-                        <button
-                          class="flex-1 min-w-0 truncate text-left rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                          :class="{ 'text-sidebar-accent-foreground font-semibold': isCeaTimingSection }"
+                      <CollapsibleTrigger as-child>
+                        <SidebarMenuButton
+                          class="font-semibold"
+                          :is-active="isCeaTimingSection"
                           title="Detailed Timings"
                           @click="selectSection('cea-timings')"
                         >
-                          Detailed Timings
-                        </button>
-                      </div>
+                          <span class="truncate">Detailed Timings</span>
+                          <ChevronRight class="ml-auto transition-transform" :class="{ 'rotate-90': ceaTimingsOpen }" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
                       <CollapsibleContent>
                         <SidebarMenuSub>
                           <SidebarMenuSubItem
@@ -900,23 +889,23 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
           </Button>
         </SidebarGroup>
 
-        <!-- DisplayID extension group -->
+        <!-- DisplayID extension group: header row is the trigger (chevron on
+             the right, TASK-133); the extension-remove X stays at the row's
+             right edge. -->
         <SidebarGroup v-if="hasDisplayID">
           <Collapsible v-model:open="displayIdOpen">
             <div class="flex items-center gap-1">
-              <CollapsibleTrigger
-                class="flex h-8 w-6 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                :aria-label="displayIdOpen ? 'Collapse DisplayID' : 'Expand DisplayID'"
-              >
-                <ChevronRight class="size-4 transition-transform" :class="{ 'rotate-90': displayIdOpen }" />
+              <CollapsibleTrigger as-child class="min-w-0 flex-1">
+                <SidebarMenuButton
+                  class="font-semibold"
+                  :is-active="activeSection === displayIdSectionIds.overview(0)"
+                  title="DisplayID Overview"
+                  @click="selectSection(displayIdSectionIds.overview(0))"
+                >
+                  <span class="truncate">DisplayID</span>
+                  <ChevronRight class="ml-auto transition-transform" :class="{ 'rotate-90': displayIdOpen }" />
+                </SidebarMenuButton>
               </CollapsibleTrigger>
-              <SidebarMenuButton
-                class="flex-1 font-semibold"
-                :is-active="activeSection === displayIdSectionIds.overview(0)"
-                @click="selectSection(displayIdSectionIds.overview(0))"
-              >
-                DisplayID
-              </SidebarMenuButton>
               <Button
                 variant="ghost"
                 size="sm"
@@ -935,15 +924,14 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                 <template v-for="group in displayIdSectionGroups" :key="group.sectionIndex">
                   <SidebarMenuSubItem class="group/did-sec">
                     <div class="flex items-center">
-                      <SidebarMenuSubButton
-                        as="button"
-                        class="flex-1 font-medium"
+                      <SidebarMenuButton
+                        class="flex-1 font-semibold"
                         :is-active="activeSection === displayIdSectionIds.overview(group.sectionIndex)"
                         :title="group.label"
                         @click="selectSection(displayIdSectionIds.overview(group.sectionIndex))"
                       >
                         <span class="truncate">{{ group.label }}</span>
-                      </SidebarMenuSubButton>
+                      </SidebarMenuButton>
                       <button
                         v-if="group.canRemove"
                         class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/did-sec:opacity-100 focus:opacity-100 transition-opacity"
