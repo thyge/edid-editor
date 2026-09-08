@@ -559,9 +559,9 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
                every data block; the editor is picked by looking up the block
                at the active index (TASK-114). -->
           <template v-else-if="activeCeaBlock && ceaExtension">
-            <CEAVideoBlock v-if="activeCeaBlock.tag === 0x02" :cea="ceaExtension" @update="setCeaField" />
-            <CEAAudioBlock v-else-if="activeCeaBlock.tag === 0x01" :cea="ceaExtension" @update="setCeaField" />
-            <CEASpeakerBlock v-else-if="activeCeaBlock.tag === 0x04" :cea="ceaExtension" @update="setCeaField" />
+            <CTAVideoBlock v-if="activeCeaBlock.tag === 0x02" :cea="ceaExtension" @update="setCeaField" />
+            <CTAAudioBlock v-else-if="activeCeaBlock.tag === 0x01" :cea="ceaExtension" @update="setCeaField" />
+            <CTASpeakerBlock v-else-if="activeCeaBlock.tag === 0x04" :cea="ceaExtension" @update="setCeaField" />
             <CTAVesaTransferCharacteristic v-else-if="activeCeaBlock.tag === 0x05" :cea="ceaExtension" @update="setCeaField" />
             <!-- Vendor carriers (tag 0x03 VSDB, tag 0x07 ext 0x01 VSVDB /
                  ext 0x11 vendor audio) all edit through the per-block vendor
