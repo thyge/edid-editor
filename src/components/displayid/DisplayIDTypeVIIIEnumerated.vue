@@ -21,6 +21,33 @@ const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBloc
 function updateBlock(index: number, block: DisplayIdTypeVIIIEnumeratedTimingCodeBlock, timingCodes: number[]) {
   emit('updateBlock', index, { ...block, timingCodes } as DisplayIdTypeVIIIEnumeratedTimingCodeBlock)
 }
+
+/** The code type (2 bits) and code size (bit 0) live in the block header flags
+ *  byte, which the header encoder round-trips — patch them alongside the
+ *  decoded fields so decode stays in sync (Type VIII codec: codeType =
+ *  (flags >> 3) & 0x03, codeSize = flags & 1). */
+function updateCodeType(index: number, block: DisplayIdTypeVIIIEnumeratedTimingCodeBlock, codeType: number) {
+  emit('updateBlock', index, {
+    ...block,
+    codeType,
+    flags: (block.flags & ~0x18) | (codeType << 3),
+  } as DisplayIdTypeVIIIEnumeratedTimingCodeBlock)
+}
+
+/** Switching to 1-byte codes clamps existing values into the 8-bit encodable
+ *  range instead of letting the encoder silently truncate them (TASK-107
+ *  convention); the inputs immediately show the clamped values. */
+function updateCodeSize(index: number, block: DisplayIdTypeVIIIEnumeratedTimingCodeBlock, codeSize: number) {
+  const clamped = codeSize === 1
+    ? block.timingCodes.map(code => Math.min(255, Math.max(0, code)))
+    : block.timingCodes
+  emit('updateBlock', index, {
+    ...block,
+    codeSize,
+    flags: codeSize === 2 ? (block.flags | 0x01) : (block.flags & ~0x01),
+    timingCodes: clamped,
+  } as DisplayIdTypeVIIIEnumeratedTimingCodeBlock)
+}
 </script>
 
 <template>
@@ -34,10 +61,31 @@ function updateBlock(index: number, block: DisplayIdTypeVIIIEnumeratedTimingCode
         :key="index"
         class="space-y-3"
       >
-        <p class="text-xs text-muted-foreground">
-          Code type: {{ DISPLAY_ID_TIMING_CODE_TYPE_LABELS[block.codeType] ?? block.codeType }}
-          ({{ block.codeSize }}-byte codes)
-        </p>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-xs text-muted-foreground">Timing code type</label>
+            <select
+              :value="block.codeType"
+              class="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+              @change="updateCodeType(index, block, numberFromEvent($event))"
+            >
+              <option v-for="(label, value) in DISPLAY_ID_TIMING_CODE_TYPE_LABELS" :key="value" :value="value">
+                {{ label }}
+              </option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-xs text-muted-foreground">Code size (bytes)</label>
+            <select
+              :value="block.codeSize"
+              class="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+              @change="updateCodeSize(index, block, numberFromEvent($event))"
+            >
+              <option :value="1">1</option>
+              <option :value="2">2</option>
+            </select>
+          </div>
+        </div>
         <div v-for="(code, codeIndex) in block.timingCodes" :key="codeIndex" class="flex items-center gap-2">
           <Input type="number" min="0" :max="block.codeSize === 2 ? 65535 : 255" :model-value="code" @input="updateBlock(index, block, updateArrayItem(block.timingCodes, codeIndex, numberFromEvent($event)))" />
           <Button variant="ghost" size="sm" class="text-destructive" @click="updateBlock(index, block, removeArrayItem(block.timingCodes, codeIndex))">Remove</Button>

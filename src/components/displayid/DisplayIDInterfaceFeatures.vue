@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { blocksByTag, numberFromEvent, updateArrayItem, removeArrayItem } from '../common/editorUtils'
+import { blocksByTag, bytesToHex, numberFromEvent, updateArrayItem, removeArrayItem } from '../common/editorUtils'
 
 const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
@@ -147,6 +147,14 @@ function updateCombination(block: DisplayIdDisplayInterfaceFeaturesBlock, index:
             </div>
             <Button variant="ghost" size="sm" class="text-destructive" @click="update(index, block, { additionalColorSpaceEotfCombinations: removeArrayItem(block.additionalColorSpaceEotfCombinations, comboIndex) })">Remove</Button>
           </div>
+        </section>
+
+        <!-- Reserved bytes the codec has no modeled fields for (past the
+             declared combination count). The encoder preserves them verbatim,
+             so they are shown read-only rather than editable. -->
+        <section v-if="block.trailing.length > 0" class="space-y-1">
+          <p class="text-xs text-muted-foreground">Reserved/trailing bytes (preserved verbatim on re-encode):</p>
+          <p class="break-all font-mono text-xs">{{ bytesToHex(block.trailing) }}</p>
         </section>
       </div>
     </CardContent>

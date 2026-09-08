@@ -91,6 +91,16 @@ function updateChromaticity(
 
         <section class="grid grid-cols-2 gap-x-6 gap-y-2">
           <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
+            <span>Image Size in Whole mm</span>
+            <!-- The precision flag lives in the block header flags byte (bit 4,
+                 DisplayID 2.0 §4.2: 0 = 0.1 mm, 1 = 1 mm), which the header
+                 encoder round-trips; patch both it and the decoded label field. -->
+            <Switch
+              :model-value="block.imageSizeInMm"
+              @update:model-value="(value: boolean) => update(index, block, { imageSizeInMm: value, flags: value ? block.flags | 0x10 : block.flags & ~0x10 })"
+            />
+          </label>
+          <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
             <span>Color Info CIE 1976</span>
             <Switch :model-value="block.colorInformationCie1976" @update:model-value="(value: boolean) => update(index, block, { colorInformationCie1976: value })" />
           </label>
