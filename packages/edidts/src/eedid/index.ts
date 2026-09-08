@@ -8,6 +8,8 @@ export {
   decodeCtaExtensionBlock,
   getCEAExtension,
   getDisplayIdExtension,
+  getDisplayIdFreePayloadBytes,
+  DISPLAY_ID_PAYLOAD_CAPACITY_BYTES,
 } from './extension';
 export type {
   Extension,

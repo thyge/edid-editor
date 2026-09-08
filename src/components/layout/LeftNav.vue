@@ -5,7 +5,11 @@ import type { EDIDViewModel } from '@/types/edid'
 import {
   getCEAExtension,
   getDisplayIdExtension,
+  getDisplayIdFreePayloadBytes,
+  DISPLAY_ID_PAYLOAD_CAPACITY_BYTES,
   createDefaultCEADataBlock,
+  createDefaultDisplayIdBlock,
+  encodeDisplayIdBlock,
   ExtensionBlockParser,
   type CEADefaultBlockType,
   type CEADetailedTiming,
@@ -387,6 +391,18 @@ interface DisplayIdNavChild {
   label: string
   index: number
 }
+/** One DisplayID Add Block option: the version-scoped tag/label (TASK-130)
+ *  plus the payload-capacity guard (TASK-131) — a non-fitting option renders
+ *  disabled with a "(no space)" suffix and the reason as hover hint, mirroring
+ *  the CTA add menu. */
+interface DisplayIdAddOption {
+  tag: number
+  label: string
+  fits: boolean
+  /** Hover hint for a disabled (non-fitting) option. */
+  noSpaceTitle?: string
+}
+
 /** One nav group per chained DisplayID section (TASK-127). The base section
  *  (index 0) cannot be removed; only v2.0 chains support extra sections, so
  *  the Add Section affordance is gated on the base section's version. */
@@ -398,13 +414,39 @@ interface DisplayIdSectionNav {
   canRemove: boolean
   /** Version-scoped Add Block menu (TASK-130): v1.x tags for a v1.x
    *  section, v2.0 tags for a v2.0 section — no cross-version adds. */
-  addableBlocks: { tag: number; label: string }[]
+  addableBlocks: DisplayIdAddOption[]
 }
 
 /** All chained sections; decoders populate `sections`, but extensions built
  *  programmatically may only carry the legacy `section` alias. */
 function chainedDisplayIdSections(displayId: { section: DisplayIdSection; sections?: DisplayIdSection[] }): DisplayIdSection[] {
   return displayId.sections && displayId.sections.length > 0 ? displayId.sections : [displayId.section]
+}
+
+/** Bytes still free in the 0x70 extension payload (bytes 1..126) after every
+ *  chained section and the verbatim trailing bytes — the one shared Add Block
+ *  / Add Section budget, the DisplayID counterpart of ceaFreeBytes
+ *  (TASK-131). Derived from the reactive tree, so any block/section edit
+ *  immediately re-evaluates it. */
+const displayIdFreeBytes = computed(() => {
+  const displayId = displayIdExt.value
+  return displayId ? getDisplayIdFreePayloadBytes(displayId) : 0
+})
+
+/** Guard one Add Block option against the shared payload budget (TASK-131):
+ *  the option's default block needs its full wire bytes (3-byte header +
+ *  payload) inside the remaining space. */
+function displayIdAddOption(opt: { tag: number; label: string }): DisplayIdAddOption {
+  const block = createDefaultDisplayIdBlock(opt.tag)
+  const needed = encodeDisplayIdBlock(block).length
+  const free = displayIdFreeBytes.value
+  return needed <= free
+    ? { ...opt, fits: true }
+    : {
+        ...opt,
+        fits: false,
+        noSpaceTitle: `Needs ${needed} bytes; only ${free} of ${DISPLAY_ID_PAYLOAD_CAPACITY_BYTES} free — remove a block or section first`,
+      }
 }
 
 const displayIdSectionGroups = computed<DisplayIdSectionNav[]>(() => {
@@ -425,7 +467,7 @@ const displayIdSectionGroups = computed<DisplayIdSectionNav[]>(() => {
       index,
     })),
     canRemove: sectionIndex > 0,
-    addableBlocks: addableDisplayIdBlocksForSection(section.versionByte),
+    addableBlocks: addableDisplayIdBlocksForSection(section.versionByte).map(displayIdAddOption),
   }))
 })
 
@@ -955,12 +997,18 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
+                        <!-- Options whose default block would not fit the
+                             remaining payload area render disabled with a
+                             "(no space)" suffix and hover reason instead of
+                             being silently added (TASK-131). -->
                         <DropdownMenuItem
                           v-for="opt in group.addableBlocks"
                           :key="opt.tag"
+                          :disabled="!opt.fits"
+                          :title="opt.fits ? undefined : opt.noSpaceTitle"
                           @click="emit('addDisplayIdBlock', group.sectionIndex, opt.tag)"
                         >
-                          {{ opt.label }}
+                          {{ opt.label }}{{ opt.fits ? '' : ' (no space)' }}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

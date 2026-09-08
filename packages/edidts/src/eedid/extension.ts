@@ -284,6 +284,28 @@ export function getCEAExtension(eedid: { extensions: Extension[] }): CEAExtensio
   return eedid.extensions.find((ext) => isCEAExtension(ext)) ?? null;
 }
 
+/** Section-content capacity of the 0x70 DisplayID extension payload: bytes
+ *  1..126 of the 128-byte EDID extension block (byte 0 is the 0x70 tag,
+ *  byte 127 is the EDID block checksum, which is not part of any section).
+ *  `encodeDisplayId` silently truncates section content beyond this, so the
+ *  editor gates every Add Block / Add Section action on it (TASK-131). */
+export const DISPLAY_ID_PAYLOAD_CAPACITY_BYTES = 126;
+
+/** Bytes still free in the 0x70 payload for additional section content:
+ *  capacity minus every chained section's encoded length and the verbatim
+ *  trailing bytes. Adding a data block (or a whole section) consumes from
+ *  this one shared budget regardless of which section it lands in — the
+ *  DisplayID counterpart of `ExtensionBlockParser.getCeaFreePayloadBytes`
+ *  (TASK-131). */
+export function getDisplayIdFreePayloadBytes(ext: DisplayIdExtension): number {
+  const sections = ext.sections && ext.sections.length > 0 ? ext.sections : [ext.section];
+  const used = sections.reduce(
+    (sum, section) => sum + encodeDisplayIdSection(section).length,
+    0,
+  ) + (ext.trailingBytes?.length ?? 0);
+  return DISPLAY_ID_PAYLOAD_CAPACITY_BYTES - used;
+}
+
 /**
  * Find the first DisplayID extension in an EEDID's extension list, or null.
  */

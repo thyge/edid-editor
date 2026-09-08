@@ -7,9 +7,11 @@ import {
   createDefaultDisplayIdBlock,
   createDefaultDescriptor,
   createDefaultCEADataBlock,
+  encodeDisplayIdBlock,
   ExtensionBlockParser,
   getCEAExtension,
   getDisplayIdExtension,
+  getDisplayIdFreePayloadBytes,
   type CEADefaultBlockType,
   type CEADetailedTiming,
   type DisplayDescriptor,
@@ -20,7 +22,7 @@ import {
 } from 'edidts'
 import { isVendorBlock } from '@/components/cta/vendorLabels'
 import { ctaInsertionIndex } from '@/components/cta/ctaBlockOrder'
-import { appendArrayItem, insertArrayItem, updateArrayItem, removeArrayItem, displayIdSectionWireLength } from '@/components/common/editorUtils'
+import { appendArrayItem, insertArrayItem, updateArrayItem, removeArrayItem } from '@/components/common/editorUtils'
 import {
   blankingModeToMode,
   DEFAULT_TIMING_BLANKING_MODE,
@@ -483,7 +485,13 @@ function addDisplayIdBlock(sectionIndex: number, tag: number) {
   const displayId = displayIdExtension.value
   const section = displayId ? displayIdSections(displayId)[sectionIndex] : null
   if (!displayId || !section) return
-  section.blocks = appendArrayItem(section.blocks, createDefaultDisplayIdBlock(tag))
+  const block = createDefaultDisplayIdBlock(tag)
+  // TASK-131 backstop: refuse a block whose default wire bytes would not fit
+  // the shared 0x70 payload. LeftNav disables non-fitting options, but
+  // encodeDisplayId silently truncates beyond the payload, so a stale UI
+  // must not reach that state.
+  if (encodeDisplayIdBlock(block).length > getDisplayIdFreePayloadBytes(displayId)) return
+  section.blocks = appendArrayItem(section.blocks, block)
   // Route to the newly appended block's per-index section (TASK-123).
   activeSection.value = displayIdBlockSectionId(sectionIndex, section.blocks.length - 1)
 }
@@ -529,9 +537,10 @@ function addDisplayIdSection() {
   if (!displayId) return
   const sections = displayIdSections(displayId)
   // DisplayID 2.0 chains sections inside one 128-byte extension block; the
-  // decoder only reads payload bytes 1..126, so keep the chain within that.
-  const used = sections.reduce((sum, s) => sum + displayIdSectionWireLength(s), 0)
-  if (used + 5 > 126) return // a minimal new section no longer fits
+  // decoder only reads payload bytes 1..126, so keep the chain within that
+  // shared budget (TASK-131 helper — unlike the old inline math it also
+  // accounts for verbatim trailing bytes). A minimal new section needs 5 bytes.
+  if (getDisplayIdFreePayloadBytes(displayId) < 5) return
   // Extension sections carry no primary use case and no extension count
   // (DisplayID 2.0 Table 2-1: both are base-section-only, cleared to 0).
   const section: DisplayIdSection = {

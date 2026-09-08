@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   decodeExtension,
   encodeExtension,
+  getDisplayIdFreePayloadBytes,
+  DISPLAY_ID_PAYLOAD_CAPACITY_BYTES,
   type DisplayIdExtension,
 } from '../src/eedid/extension';
 import { checksum8, isChecksum8Valid } from '../src/common/checksum';
@@ -126,5 +128,58 @@ describe('DisplayID multi-section chain-walk in the 0x70 extension arm', () => {
 
     const redecoded = decodeExtension(encoded) as DisplayIdExtension;
     expect(redecoded.sections).toHaveLength(3);
+  });
+});
+describe('getDisplayIdFreePayloadBytes (TASK-131)', () => {
+  /** Build a DisplayID extension model from decoded sections (decodeExtension
+   *  preserves the zero fill after a short section as trailingBytes, which
+   *  would consume the budget — for a pure budget test, build the model
+   *  directly the way the editor does). */
+  function extModel(
+    sections: Uint8Array[],
+    trailingBytes?: Uint8Array,
+  ): DisplayIdExtension {
+    const decoded = sections.map(decodeDisplayIdSection);
+    return {
+      kind: 'displayid',
+      tag: 0x70,
+      revision: 1,
+      section: decoded[0],
+      sections: decoded,
+      trailingBytes,
+      checksum: 0,
+    };
+  }
+
+  it('reports the shared 126-byte budget minus every chained section', () => {
+    // One empty section = its 5-byte header only.
+    expect(getDisplayIdFreePayloadBytes(extModel([buildSection(0x04, 0)]))).toBe(
+      DISPLAY_ID_PAYLOAD_CAPACITY_BYTES - 5,
+    );
+
+    // A 5-byte data block (3-byte header + 2-byte payload) consumes 5 more.
+    expect(
+      getDisplayIdFreePayloadBytes(
+        extModel([buildSection(0x04, 0, [0x7e, 0x00, 0x02, 0xaa, 0xbb])]),
+      ),
+    ).toBe(DISPLAY_ID_PAYLOAD_CAPACITY_BYTES - 10);
+
+    // Every section draws from the same budget.
+    expect(
+      getDisplayIdFreePayloadBytes(
+        extModel([
+          buildSection(0x04, 1, [0x7e, 0x00, 0x02, 0xaa, 0xbb]),
+          buildSection(0x00, 0),
+        ]),
+      ),
+    ).toBe(DISPLAY_ID_PAYLOAD_CAPACITY_BYTES - 10 - 5);
+  });
+
+  it('accounts for verbatim trailingBytes in the shared budget', () => {
+    expect(
+      getDisplayIdFreePayloadBytes(
+        extModel([buildSection(0x04, 0)], new Uint8Array([0xde, 0xad])),
+      ),
+    ).toBe(DISPLAY_ID_PAYLOAD_CAPACITY_BYTES - 5 - 2);
   });
 });
