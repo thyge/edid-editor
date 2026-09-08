@@ -13,6 +13,7 @@ import { blocksByTag, numberFromEvent } from '../common/editorUtils'
 
 const props = defineProps<{
   displayId: DisplayIdExtension
+  index?: number
 }>()
 
 const emit = defineEmits<{
@@ -42,7 +43,7 @@ function updateChromaticity(
     </CardHeader>
     <CardContent class="space-y-6 text-sm">
       <div
-        v-for="{ block, index } in blocksByTag<DisplayIdDisplayParametersBlock>(props.displayId, DisplayIdDataBlockTag.DisplayParameters)"
+        v-for="{ block, index } in blocksByTag<DisplayIdDisplayParametersBlock>(props.displayId, DisplayIdDataBlockTag.DisplayParameters, props.index)"
         :key="index"
         class="space-y-6"
       >

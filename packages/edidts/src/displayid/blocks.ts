@@ -459,6 +459,17 @@ export function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
   return (DISPLAYID_BLOCK_CODECS[block.tag] ?? OPAQUE_DISPLAYID_BLOCK).encode(block);
 }
 
+/**
+ * True when a structured codec is registered for `tag` (merged v1.x + v2.0 tag
+ * space). UI raw-payload editors use this to decide editability: a block with a
+ * codec re-encodes from its structured fields, so a raw payload edit would be
+ * silently dropped; blocks without a codec pass the payload through verbatim
+ * (opaque default entry) and a raw edit round-trips.
+ */
+export function hasDisplayIdBlockCodec(tag: number): boolean {
+  return Object.prototype.hasOwnProperty.call(DISPLAYID_BLOCK_CODECS, tag);
+}
+
 function isTypedProductIdentificationBlock(block: DisplayIdDataBlock): block is DisplayIdProductIdentificationBlock {
   const maybeBlock = block as Partial<DisplayIdProductIdentificationBlock>;
 

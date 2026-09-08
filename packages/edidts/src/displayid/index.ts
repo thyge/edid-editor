@@ -1,6 +1,7 @@
 export {
   decodeDisplayIdBlocks,
   encodeDisplayIdBlock,
+  hasDisplayIdBlockCodec,
 } from './blocks';
 export {
   decodeDisplayParametersBlock,

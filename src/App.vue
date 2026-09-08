@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
 import {
   DisplayIdDataBlockTag,
+  DISPLAY_ID_V1_BLOCK_TAGS,
   createDefaultDisplayIdBlock,
   createDefaultDescriptor,
   createDefaultCEADataBlock,
@@ -58,7 +59,7 @@ import CTAInfoFrame from '@/components/cta/CTAInfoFrame.vue'
 import CTAVesaTransferCharacteristic from '@/components/cta/CTAVesaTransferCharacteristic.vue'
 import { useEDID } from '@/composables/useEDID'
 import { computeHexBlockRegions, type HexRegion } from '@/composables/useHexBlockRegions'
-import { displayIdSectionIds, displayIdBlockSectionByTag } from '@/components/displayid/displayIdLabels'
+import { displayIdSectionIds, displayIdBlockSectionId } from '@/components/displayid/displayIdLabels'
 import DisplayIDOverview from '@/components/displayid/DisplayIDOverview.vue'
 import DisplayIDHeader from '@/components/displayid/DisplayIDHeader.vue'
 import DisplayIDProductIdentification from '@/components/displayid/DisplayIDProductIdentification.vue'
@@ -72,6 +73,7 @@ import DisplayIDStereoInterface from '@/components/displayid/DisplayIDStereoInte
 import DisplayIDTiledTopology from '@/components/displayid/DisplayIDTiledTopology.vue'
 import DisplayIDContainerId from '@/components/displayid/DisplayIDContainerId.vue'
 import DisplayIDVendorSpecific from '@/components/displayid/DisplayIDVendorSpecific.vue'
+import DisplayIDRawBlock from '@/components/displayid/DisplayIDRawBlock.vue'
 import DisplayIDCTA from '@/components/displayid/DisplayIDCTA.vue'
 
 const edidStore = useEDID()
@@ -396,6 +398,22 @@ const activeCeaBlockExtendedTag = computed(() => {
   return (block as { extendedTag?: number }).extendedTag
 })
 
+/** Section-blocks index of the active per-block section (displayid-block-<idx>), or -1. */
+const activeDisplayIdBlockIndex = computed(() => {
+  const prefix = displayIdSectionIds.blockPrefix
+  if (!activeSection.value.startsWith(prefix)) return -1
+  const index = Number(activeSection.value.slice(prefix.length))
+  return Number.isInteger(index) && index >= 0 ? index : -1
+})
+
+/** The DisplayID data block the active per-block section refers to, or null. */
+const activeDisplayIdBlock = computed(() => {
+  const displayId = displayIdExtension.value
+  const index = activeDisplayIdBlockIndex.value
+  if (!displayId || index < 0 || index >= displayId.section.blocks.length) return null
+  return displayId.section.blocks[index] ?? null
+})
+
 function addDisplayIdExtension() {
   if (!edidRef.value) return
   const displayId: DisplayIdExtension = {
@@ -433,13 +451,23 @@ function addDisplayIdBlock(tag: number) {
   const displayId = displayIdExtension.value
   if (!displayId) return
   displayId.section.blocks = appendArrayItem(displayId.section.blocks, createDefaultDisplayIdBlock(tag as DisplayIdDataBlockTag))
-  activeSection.value = displayIdBlockSectionByTag[tag] ?? displayIdSectionIds.overview
+  // Route to the newly appended block's per-index section (TASK-123).
+  activeSection.value = displayIdBlockSectionId(displayId.section.blocks.length - 1)
 }
 
 function removeDisplayIdBlock(index: number) {
   const displayId = displayIdExtension.value
   if (!displayId) return
   displayId.section.blocks = removeArrayItem(displayId.section.blocks, index)
+  // Keep the active per-block section pointing at the same block: removing an
+  // earlier block shifts indices down, removing the active block itself has no
+  // target anymore.
+  const activeIndex = activeDisplayIdBlockIndex.value
+  if (activeIndex >= 0) {
+    activeSection.value = activeIndex === index
+      ? displayIdSectionIds.overview
+      : displayIdBlockSectionId(Math.max(0, activeIndex - (index < activeIndex ? 1 : 0)))
+  }
 }
 
 function moveDisplayIdBlock(index: number, direction: -1 | 1) {
@@ -612,66 +640,93 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
             :display-id="displayIdExtension"
             @update="setDisplayIdField"
           />
-          <DisplayIDProductIdentification
-            v-else-if="activeSection === displayIdSectionIds.product && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDDisplayParameters
-            v-else-if="activeSection === displayIdSectionIds.parameters && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDTypeVIITimings
-            v-else-if="activeSection === displayIdSectionIds.typeVII && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDTypeVIIIEnumerated
-            v-else-if="activeSection === displayIdSectionIds.typeVIII && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDTypeIXFormula
-            v-else-if="activeSection === displayIdSectionIds.typeIX && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDDynamicRange
-            v-else-if="activeSection === displayIdSectionIds.dynamicRange && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDInterfaceFeatures
-            v-else-if="activeSection === displayIdSectionIds.interfaceFeatures && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDStereoInterface
-            v-else-if="activeSection === displayIdSectionIds.stereo && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDTiledTopology
-            v-else-if="activeSection === displayIdSectionIds.tiled && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDContainerId
-            v-else-if="activeSection === displayIdSectionIds.container && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDVendorSpecific
-            v-else-if="activeSection === displayIdSectionIds.vendor && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
-          <DisplayIDCTA
-            v-else-if="activeSection === displayIdSectionIds.cta && displayIdExtension"
-            :display-id="displayIdExtension"
-            @update-block="updateDisplayIdBlock"
-          />
+          <!-- Per-block sections (displayid-block-<idx>): one uniform section id
+               for every data block; the editor is picked by looking up the block
+               at the active index (TASK-123, mirroring the cea-block-<idx>
+               pattern from TASK-114). v1.x and v2.0 tags without a structured
+               editor land in the raw fallback. -->
+          <template v-else-if="activeDisplayIdBlock && displayIdExtension">
+            <DisplayIDProductIdentification
+              v-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.ProductIdentification"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDDisplayParameters
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.DisplayParameters"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDTypeVIITimings
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.TypeVIIDetailedTiming"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDTypeVIIIEnumerated
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDTypeIXFormula
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.TypeIXFormulaBasedTiming"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDDynamicRange
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDInterfaceFeatures
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.DisplayInterfaceFeatures"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDStereoInterface
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.StereoDisplayInterface"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDTiledTopology
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.TiledDisplayTopology"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDContainerId
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.ContainerId"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <!-- Vendor-specific: v2.0 (tag 0x7e) and v1.x (tag 0x7f). -->
+            <DisplayIDVendorSpecific
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.VendorSpecific
+                || activeDisplayIdBlock.tag === DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDCTA
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.CtaDisplayId"
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDRawBlock
+              v-else
+              :display-id="displayIdExtension"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+          </template>
         </div>
       </SidebarInset>
       <section id="hex-viewer" v-show="hexViewerEnabled" class="h-full scroll-mt-24">

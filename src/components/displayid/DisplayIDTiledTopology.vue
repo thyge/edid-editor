@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, stringFromEvent } from '../common/editorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtension }>()
+const props = defineProps<{ displayId: DisplayIdExtension; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 // Capabilities byte semantics (Table 4-38) sourced from the edidts lib
@@ -29,7 +29,7 @@ function update(index: number, block: DisplayIdTiledDisplayTopologyBlock, patch:
   <Card>
     <CardHeader><CardTitle>Tiled Display Topology</CardTitle></CardHeader>
     <CardContent class="space-y-5 text-sm">
-      <div v-for="{ block, index } in blocksByTag<DisplayIdTiledDisplayTopologyBlock>(props.displayId, DisplayIdDataBlockTag.TiledDisplayTopology)" :key="index" class="space-y-5">
+      <div v-for="{ block, index } in blocksByTag<DisplayIdTiledDisplayTopologyBlock>(props.displayId, DisplayIdDataBlockTag.TiledDisplayTopology, props.index)" :key="index" class="space-y-5">
         <section class="space-y-3">
           <h4 class="text-xs font-medium text-muted-foreground">Capabilities</h4>
           <div class="space-y-1">

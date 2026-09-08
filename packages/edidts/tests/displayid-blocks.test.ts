@@ -8,6 +8,7 @@ import {
   displayIdLuminanceToCdM2,
   encodeDisplayIdBlock,
   encodeDisplayIdSection,
+  hasDisplayIdBlockCodec,
   type DisplayIdDisplayParametersBlock,
   type DisplayIdDisplayInterfaceFeaturesBlock,
   type DisplayIdDynamicVideoTimingRangeLimitsBlock,
@@ -1113,5 +1114,25 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(Array.from(reparsedBlock.payload)).toEqual([0x01, 0x02, 0x03, 0x04]);
     expect('containerId' in reparsedBlock).toBe(false);
     expect(isChecksum8Valid(encoded)).toBe(true);
+  });
+});
+
+describe('hasDisplayIdBlockCodec', () => {
+  it('reports true for tags with a registered codec in either tag space', () => {
+    // v2.0 structured blocks
+    expect(hasDisplayIdBlockCodec(DisplayIdDataBlockTag.ProductIdentification)).toBe(true);
+    expect(hasDisplayIdBlockCodec(DisplayIdDataBlockTag.BrightnessLuminanceRange)).toBe(true);
+    expect(hasDisplayIdBlockCodec(DisplayIdDataBlockTag.VendorSpecific)).toBe(true);
+    // v1.x structured blocks
+    expect(hasDisplayIdBlockCodec(0x00)).toBe(true); // Product Identification
+    expect(hasDisplayIdBlockCodec(0x12)).toBe(true); // Tiled Display Topology
+    expect(hasDisplayIdBlockCodec(0x7f)).toBe(true); // Vendor-Specific
+  });
+
+  it('reports false for tags without a codec (raw edits round-trip)', () => {
+    expect(hasDisplayIdBlockCodec(0x02)).toBe(false); // v1.x Color Characteristics
+    expect(hasDisplayIdBlockCodec(0x05)).toBe(false); // v1.x Type 3 Short Timings
+    expect(hasDisplayIdBlockCodec(0x7d)).toBe(false); // reserved v2.0 tag
+    expect(hasDisplayIdBlockCodec(0xff)).toBe(false);
   });
 });

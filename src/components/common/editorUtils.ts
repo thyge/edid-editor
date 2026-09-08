@@ -21,10 +21,12 @@ export interface IndexedBlock<T extends DisplayIdDataBlock> {
 export function blocksByTag<T extends DisplayIdDataBlock>(
   displayId: DisplayIdExtension,
   tag: number,
+  /** When given, scope the result to the block at this section-blocks index. */
+  onlyIndex?: number,
 ): IndexedBlock<T>[] {
   return displayId.section.blocks
     .map((block, index) => ({ block, index }))
-    .filter(({ block }) => block.tag === tag) as IndexedBlock<T>[]
+    .filter(({ block, index }) => block.tag === tag && (onlyIndex === undefined || index === onlyIndex)) as IndexedBlock<T>[]
 }
 
 /**

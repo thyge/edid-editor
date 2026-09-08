@@ -12,6 +12,7 @@ import { blocksByTag, numberFromEvent, stringFromEvent } from '../common/editorU
 
 const props = defineProps<{
   displayId: DisplayIdExtension
+  index?: number
 }>()
 
 const emit = defineEmits<{
@@ -39,7 +40,7 @@ function updateName(index: number, block: DisplayIdProductIdentificationBlock, v
     </CardHeader>
     <CardContent class="space-y-6 text-sm">
       <div
-        v-for="{ block, index } in blocksByTag<DisplayIdProductIdentificationBlock>(props.displayId, DisplayIdDataBlockTag.ProductIdentification)"
+        v-for="{ block, index } in blocksByTag<DisplayIdProductIdentificationBlock>(props.displayId, DisplayIdDataBlockTag.ProductIdentification, props.index)"
         :key="index"
         class="grid grid-cols-2 gap-x-6 gap-y-4"
       >

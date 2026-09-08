@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { blocksByTag, bytesToHex, hexToBytes, numberFromEvent, stringFromEvent } from '../common/editorUtils'
 import DisplayIDVendorVesaDisplayPort from './DisplayIDVendorVesaDisplayPort.vue'
 
-const props = defineProps<{ displayId: DisplayIdExtension }>()
+const props = defineProps<{ displayId: DisplayIdExtension; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 // Unknown/raw fallback: patch a top-level field (OUI or raw payload). Used for
@@ -37,7 +37,7 @@ function updateVesa(index: number, block: DisplayIdVendorSpecificBlock, field: s
   <Card>
     <CardHeader><CardTitle>Vendor-specific</CardTitle></CardHeader>
     <CardContent class="space-y-4 text-sm">
-      <div v-for="{ block, index } in blocksByTag<DisplayIdVendorSpecificBlock>(props.displayId, DisplayIdDataBlockTag.VendorSpecific)" :key="index">
+      <div v-for="{ block, index } in blocksByTag<DisplayIdVendorSpecificBlock>(props.displayId, DisplayIdDataBlockTag.VendorSpecific, props.index)" :key="index">
         <!-- VESA DisplayPort (OUI 0x3a0292) — structured editor -->
         <DisplayIDVendorVesaDisplayPort
           v-if="block.vesaDisplayPort"

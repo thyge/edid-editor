@@ -32,7 +32,7 @@ import {
 import {
   addableDisplayIdBlocks,
   displayIdBlockLabel,
-  displayIdBlockSectionByTag,
+  displayIdBlockSectionId,
   displayIdSectionIds,
 } from '@/components/displayid/displayIdLabels'
 import { ctaBlockFamily, ctaBlockNavLabel, type CtaBlockFamily } from '@/components/cta/ctaBlockOrder'
@@ -391,8 +391,11 @@ const displayIdChildren = computed<DisplayIdNavChild[]>(() => {
 
   return [
     { id: displayIdSectionIds.header, label: 'Section Header' },
+    // One section id per block index (displayid-block-<idx>) so every tag —
+    // v1.x or v2.0, known or unknown, duplicated or not — has its own routable
+    // section (TASK-123, mirroring the cea-block-<idx> pattern from TASK-114).
     ...displayId.section.blocks.map((block, index) => ({
-      id: displayIdBlockSectionByTag[block.tag as number] ?? `${displayIdSectionIds.overview}-${index}`,
+      id: displayIdBlockSectionId(index),
       label: displayIdBlockLabel(block.tag),
       index,
     })),
