@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checksum8 } from '../src/common';
 import {
   DISPLAY_ID_V1_BLOCK_TAGS,
+  createDefaultDisplayIdBlock,
   decodeDisplayIdSection,
   encodeDisplayIdBlock,
   encodeDisplayIdSection,
@@ -426,5 +427,54 @@ describe('DisplayID 1.x Vendor-Specific block (tag 0x7f, 3-byte OUI + raw body)'
     expect(isV1VendorSpecificPayloadLengthValid(7)).toBe(true);
     expect(isV1VendorSpecificPayloadLengthValid(2)).toBe(false);
     expect(isV1VendorSpecificPayloadLengthValid(0)).toBe(false);
+  });
+});
+describe('createDefaultDisplayIdBlock — DisplayID 1.x defaults (TASK-130)', () => {
+  it('creates a default for every v1.x tag offered by the Add Block menu, satisfying the codec length gates', () => {
+    const defaults = Object.values(DISPLAY_ID_V1_BLOCK_TAGS).map(
+      (tag) => createDefaultDisplayIdBlock(tag),
+    );
+
+    const byTag = new Map(defaults.map((block) => [block.tag, block]));
+    expect(byTag.size).toBe(5);
+
+    const productId = byTag.get(DISPLAY_ID_V1_BLOCK_TAGS.ProductIdentification);
+    expect(productId?.payloadLength).toBe(12);
+    expect(isV1ProductIdentificationPayloadLengthValid(productId!.payloadLength)).toBe(true);
+
+    const displayParameters = byTag.get(DISPLAY_ID_V1_BLOCK_TAGS.DisplayParameters);
+    expect(displayParameters?.payloadLength).toBe(12);
+    expect(isV1DisplayParametersPayloadLengthValid(displayParameters!.payloadLength)).toBe(true);
+
+    const typeI = byTag.get(DISPLAY_ID_V1_BLOCK_TAGS.TypeIDetailedTiming);
+    expect(typeI?.payloadLength).toBe(0);
+    expect(isV1TypeITimingPayloadLengthValid(typeI!.payloadLength)).toBe(true);
+
+    const tiled = byTag.get(DISPLAY_ID_V1_BLOCK_TAGS.TiledDisplayTopology);
+    expect(tiled?.payloadLength).toBe(22);
+    expect(isV1TiledDisplayTopologyPayloadLengthValid(tiled!.payloadLength)).toBe(true);
+
+    const vendor = byTag.get(DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific);
+    expect(vendor?.payloadLength).toBe(3);
+    expect(isV1VendorSpecificPayloadLengthValid(vendor!.payloadLength)).toBe(true);
+  });
+
+  it('round-trips each v1.x default byte-exactly through block encode + section decode', () => {
+    for (const tag of Object.values(DISPLAY_ID_V1_BLOCK_TAGS)) {
+      const block = createDefaultDisplayIdBlock(tag);
+      const wire = encodeDisplayIdBlock(block);
+      const section = decodeDisplayIdSection(v1SectionWith(Array.from(wire)));
+
+      expect(section.blocks).toHaveLength(1);
+      const decoded = section.blocks[0];
+      expect(decoded.tag).toBe(tag);
+      // The decoded block must be the same structured type as the default, and
+      // re-encoding it must be byte-identical (no field lost or silently changed).
+      expect(Array.from(encodeDisplayIdBlock(decoded))).toEqual(Array.from(wire));
+    }
+  });
+
+  it('throws for tags outside both DisplayID tag spaces', () => {
+    expect(() => createDefaultDisplayIdBlock(0x42)).toThrow('No default DisplayID block for tag 0x42');
   });
 });

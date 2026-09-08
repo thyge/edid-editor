@@ -1,6 +1,7 @@
 import {
   DISPLAY_ID_BLOCK_LABELS,
   DISPLAY_ID_V1_BLOCK_LABELS,
+  DISPLAY_ID_V1_BLOCK_TAGS,
 } from 'edidts'
 
 /**
@@ -60,3 +61,17 @@ export const addableDisplayIdBlocks = Object.entries(DISPLAY_ID_BLOCK_LABELS).ma
   tag: Number(tag),
   label,
 }))
+
+/** Add Block menu entries for DisplayID 1.x sections (TASK-130): only the
+ *  five tags with structured codecs and editors (TASK-125) — everything else
+ *  in the v1.x tag space has no structured editor yet. */
+export const addableDisplayIdV1Blocks = Object.values(DISPLAY_ID_V1_BLOCK_TAGS).map(tag => ({
+  tag,
+  label: DISPLAY_ID_V1_BLOCK_LABELS[tag] ?? `Unknown 0x${tag.toString(16).padStart(2, '0')}`,
+}))
+
+/** The Add Block menu is version-scoped (TASK-130): a v1.x section offers the
+ *  v1.x tags, a v2.0 section the v2.0 tags — never a cross-version add. */
+export function addableDisplayIdBlocksForSection(versionByte: number): { tag: number; label: string }[] {
+  return versionByte < 0x20 ? addableDisplayIdV1Blocks : addableDisplayIdBlocks
+}

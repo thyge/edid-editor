@@ -677,7 +677,96 @@ export const DISPLAY_ID_BLOCK_LABELS: Record<DisplayIdDataBlockTag, string> = {
   [DisplayIdDataBlockTag.CtaDisplayId]: 'CTA DisplayID',
 };
 
-export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDisplayIdDataBlock {
+export function createDefaultDisplayIdBlock(
+  tag: number,
+): KnownDisplayIdDataBlock | KnownDisplayIdV1DataBlock {
+  // DisplayID 1.x tags first — the v1.x tag space (0x00–0x13 + 0x7f) has no
+  // overlap with the v2.0 tag space, so a numeric switch is unambiguous.
+  // Defaults mirror each v1 codec's decode shape (v1-codecs.ts) so a freshly
+  // added block round-trips through encode and lands in its structured
+  // editor with sensible values.
+  switch (tag) {
+    case DISPLAY_ID_V1_BLOCK_TAGS.ProductIdentification:
+      return {
+        // Fixed 12-byte header part (v1-codecs PRODUCT_ID_FIXED_LENGTH).
+        ...createDefaultBlock(tag, 12),
+        tag,
+        vendorId: '',
+        productCode: 0,
+        serialNumber: 0,
+        manufactureWeek: undefined,
+        year: undefined,
+        isModelYear: false,
+        productNameLength: 0,
+        productNameBytes: new Uint8Array(0),
+        productName: '',
+      };
+    case DISPLAY_ID_V1_BLOCK_TAGS.DisplayParameters:
+      return {
+        // Fixed 12-byte payload (v1-codecs DISPLAY_PARAMETERS_PAYLOAD_LENGTH).
+        ...createDefaultBlock(tag, 12),
+        tag,
+        horizontalImageSizeTenthsMm: 0,
+        verticalImageSizeTenthsMm: 0,
+        horizontalPixelCount: 0,
+        verticalPixelCount: 0,
+        featureSupportFlags: 0,
+        gamma: 0xff,
+        aspectRatio: 0x64,
+        nativeColorDepthCode: 0,
+        overallColorDepthCode: 0,
+      };
+    case DISPLAY_ID_V1_BLOCK_TAGS.TypeIDetailedTiming:
+      return {
+        ...createDefaultBlock(tag, 0),
+        tag,
+        timings: [],
+      };
+    case DISPLAY_ID_V1_BLOCK_TAGS.TiledDisplayTopology:
+      // Human 1-based values (1 tile, 1×1, location 1/1, 1-pixel tile size)
+      // encode to all-zero bytes — the codec stores value-1.
+      return {
+        // Fixed 22-byte payload (v1-codecs TILED_TOPOLOGY_PAYLOAD_LENGTH).
+        ...createDefaultBlock(tag, 22),
+        tag,
+        singleTileBehavior: 0,
+        subsetTileBehavior: 0,
+        bezelInfoPresent: false,
+        singleEnclosure: false,
+        tileCountHorizontal: 1,
+        tileCountVertical: 1,
+        tileLocationHorizontal: 1,
+        tileLocationVertical: 1,
+        tileWidthPixels: 1,
+        tileHeightPixels: 1,
+        pixelMultiplier: 0,
+        topBezelSize: 0,
+        bottomBezelSize: 0,
+        rightBezelSize: 0,
+        leftBezelSize: 0,
+        vendorId: '',
+        productId: 0,
+        serialNumber: 0,
+      };
+    case DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific:
+      return {
+        // Minimum 3-byte OUI-only payload (v1-codecs V1_VENDOR_SPECIFIC_MIN_PAYLOAD_LENGTH).
+        ...createDefaultBlock(tag, 3),
+        tag,
+        ieeeOui: 0,
+        vendorPayload: new Uint8Array(0),
+      };
+  }
+  return createDefaultDisplayIdV2Block(tag as DisplayIdDataBlockTag);
+}
+
+/**
+ * DisplayID 2.0 default blocks (private arm of
+ * {@link createDefaultDisplayIdBlock}; kept as its own function so the v2
+ * case literals check against `KnownDisplayIdDataBlock` exactly as before
+ * the v1 tags were added).
+ */
+function createDefaultDisplayIdV2Block(tag: DisplayIdDataBlockTag): KnownDisplayIdDataBlock {
   switch (tag) {
     case DisplayIdDataBlockTag.ProductIdentification:
       return {
@@ -855,6 +944,11 @@ export function createDefaultDisplayIdBlock(tag: DisplayIdDataBlockTag): KnownDi
         dataBlocks: [],
         trailing: new Uint8Array(0),
       };
+    default:
+      // Unreachable per the enum, but the public factory casts a raw number
+      // to the enum, so an unknown tag must fail loudly rather than return
+      // undefined into the section's blocks array.
+      throw new Error(`No default DisplayID block for tag 0x${(tag as number).toString(16).padStart(2, '0')}`);
   }
 }
 
@@ -893,7 +987,7 @@ export class DisplayIdDecodeError extends Error {
   }
 }
 
-function createDefaultBlock(tag: DisplayIdDataBlockTag, payloadLength: number): DisplayIdDataBlock {
+function createDefaultBlock(tag: number, payloadLength: number): DisplayIdDataBlock {
   return {
     tag,
     revision: 0,

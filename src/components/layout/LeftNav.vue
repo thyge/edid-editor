@@ -31,7 +31,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import {
-  addableDisplayIdBlocks,
+  addableDisplayIdBlocksForSection,
   displayIdBlockLabel,
   displayIdBlockSectionId,
   displayIdSectionIds,
@@ -396,6 +396,9 @@ interface DisplayIdSectionNav {
   headerId: string
   children: DisplayIdNavChild[]
   canRemove: boolean
+  /** Version-scoped Add Block menu (TASK-130): v1.x tags for a v1.x
+   *  section, v2.0 tags for a v2.0 section — no cross-version adds. */
+  addableBlocks: { tag: number; label: string }[]
 }
 
 /** All chained sections; decoders populate `sections`, but extensions built
@@ -422,6 +425,7 @@ const displayIdSectionGroups = computed<DisplayIdSectionNav[]>(() => {
       index,
     })),
     canRemove: sectionIndex > 0,
+    addableBlocks: addableDisplayIdBlocksForSection(section.versionByte),
   }))
 })
 
@@ -952,7 +956,7 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
                         <DropdownMenuItem
-                          v-for="opt in addableDisplayIdBlocks"
+                          v-for="opt in group.addableBlocks"
                           :key="opt.tag"
                           @click="emit('addDisplayIdBlock', group.sectionIndex, opt.tag)"
                         >

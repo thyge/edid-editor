@@ -483,7 +483,7 @@ function addDisplayIdBlock(sectionIndex: number, tag: number) {
   const displayId = displayIdExtension.value
   const section = displayId ? displayIdSections(displayId)[sectionIndex] : null
   if (!displayId || !section) return
-  section.blocks = appendArrayItem(section.blocks, createDefaultDisplayIdBlock(tag as DisplayIdDataBlockTag))
+  section.blocks = appendArrayItem(section.blocks, createDefaultDisplayIdBlock(tag))
   // Route to the newly appended block's per-index section (TASK-123).
   activeSection.value = displayIdBlockSectionId(sectionIndex, section.blocks.length - 1)
 }
