@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import {
   hasDisplayIdBlockCodec,
   type DisplayIdDataBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,10 +12,10 @@ import { displayIdBlockLabel } from './displayIdLabels'
 
 /**
  * Fallback view for DisplayID data blocks without a structured editor:
- * unknown tags, v1.x tags other than vendor-specific, and the v2.0 tags whose
- * codecs exist but whose editors don't yet (Type X, Adaptive-Sync, AR/VR
- * HMD/Layer, Brightness). Per-block nav entries exist for every decoded block
- * (TASK-123), so these need a view even when their bytes can't be structured.
+ * unknown tags, v1.x tags without a typed editor, and the v2.0 tags whose
+ * codecs exist but whose editors don't yet. Per-block nav entries exist for
+ * every decoded block (TASK-123), so these need a view even when their bytes
+ * can't be structured.
  *
  * Payload editability follows hasDisplayIdBlockCodec: a tag with a codec
  * re-encodes from its structured fields, so a raw payload edit would be
@@ -23,14 +23,14 @@ import { displayIdBlockLabel } from './displayIdLabels'
  * payload through verbatim (opaque default entry), so raw edits round-trip.
  */
 const props = defineProps<{
-  displayId: DisplayIdExtension
-  /** Index of the block within displayId.section.blocks. */
+  section: DisplayIdSection
+  /** Index of the block within section.blocks. */
   index: number
 }>()
 
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
-const block = computed(() => props.displayId.section.blocks[props.index] as DisplayIdDataBlock | undefined)
+const block = computed(() => props.section.blocks[props.index] as DisplayIdDataBlock | undefined)
 
 const editable = computed(() => !hasDisplayIdBlockCodec(block.value?.tag ?? -1))
 

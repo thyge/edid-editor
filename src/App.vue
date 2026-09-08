@@ -16,10 +16,11 @@ import {
   type CEAExtension,
   type DisplayIdDataBlock,
   type DisplayIdExtension,
+  type DisplayIdSection,
 } from 'edidts'
 import { isVendorBlock } from '@/components/cta/vendorLabels'
 import { ctaInsertionIndex } from '@/components/cta/ctaBlockOrder'
-import { appendArrayItem, insertArrayItem, updateArrayItem, removeArrayItem } from '@/components/common/editorUtils'
+import { appendArrayItem, insertArrayItem, updateArrayItem, removeArrayItem, displayIdSectionWireLength } from '@/components/common/editorUtils'
 import {
   blankingModeToMode,
   DEFAULT_TIMING_BLANKING_MODE,
@@ -59,7 +60,7 @@ import CTAInfoFrame from '@/components/cta/CTAInfoFrame.vue'
 import CTAVesaTransferCharacteristic from '@/components/cta/CTAVesaTransferCharacteristic.vue'
 import { useEDID } from '@/composables/useEDID'
 import { computeHexBlockRegions, type HexRegion } from '@/composables/useHexBlockRegions'
-import { displayIdSectionIds, displayIdBlockSectionId } from '@/components/displayid/displayIdLabels'
+import { displayIdSectionIds, displayIdBlockSectionId, parseDisplayIdSectionId } from '@/components/displayid/displayIdLabels'
 import DisplayIDOverview from '@/components/displayid/DisplayIDOverview.vue'
 import DisplayIDHeader from '@/components/displayid/DisplayIDHeader.vue'
 import DisplayIDProductIdentification from '@/components/displayid/DisplayIDProductIdentification.vue'
@@ -73,6 +74,15 @@ import DisplayIDStereoInterface from '@/components/displayid/DisplayIDStereoInte
 import DisplayIDTiledTopology from '@/components/displayid/DisplayIDTiledTopology.vue'
 import DisplayIDContainerId from '@/components/displayid/DisplayIDContainerId.vue'
 import DisplayIDVendorSpecific from '@/components/displayid/DisplayIDVendorSpecific.vue'
+import DisplayIDV1ProductIdentification from '@/components/displayid/DisplayIDV1ProductIdentification.vue'
+import DisplayIDV1DisplayParameters from '@/components/displayid/DisplayIDV1DisplayParameters.vue'
+import DisplayIDV1TypeITimings from '@/components/displayid/DisplayIDV1TypeITimings.vue'
+import DisplayIDV1TiledTopology from '@/components/displayid/DisplayIDV1TiledTopology.vue'
+import DisplayIDTypeXTimings from '@/components/displayid/DisplayIDTypeXTimings.vue'
+import DisplayIDAdaptiveSync from '@/components/displayid/DisplayIDAdaptiveSync.vue'
+import DisplayIDArvrHmd from '@/components/displayid/DisplayIDArvrHmd.vue'
+import DisplayIDArvrLayer from '@/components/displayid/DisplayIDArvrLayer.vue'
+import DisplayIDBrightnessLuminance from '@/components/displayid/DisplayIDBrightnessLuminance.vue'
 import DisplayIDRawBlock from '@/components/displayid/DisplayIDRawBlock.vue'
 import DisplayIDCTA from '@/components/displayid/DisplayIDCTA.vue'
 
@@ -398,45 +408,67 @@ const activeCeaBlockExtendedTag = computed(() => {
   return (block as { extendedTag?: number }).extendedTag
 })
 
-/** Section-blocks index of the active per-block section (displayid-block-<idx>), or -1. */
-const activeDisplayIdBlockIndex = computed(() => {
-  const prefix = displayIdSectionIds.blockPrefix
-  if (!activeSection.value.startsWith(prefix)) return -1
-  const index = Number(activeSection.value.slice(prefix.length))
-  return Number.isInteger(index) && index >= 0 ? index : -1
+/** All chained DisplayID sections (TASK-127). Decoders populate `sections`,
+ *  but extensions built programmatically may only carry the legacy `section`
+ *  alias; fall back to a single-element array for those. */
+function displayIdSections(displayId: DisplayIdExtension): DisplayIdSection[] {
+  return displayId.sections && displayId.sections.length > 0 ? displayId.sections : [displayId.section]
+}
+
+/** Parsed active route (displayid-s<sec>-overview/-header/-b<idx>), or null. */
+const displayIdRoute = computed(() => parseDisplayIdSectionId(activeSection.value))
+
+/** Chain index of the section the active route refers to, or -1. */
+const activeDisplayIdSectionIndex = computed(() => displayIdRoute.value?.sectionIndex ?? -1)
+
+/** The chained section the active route refers to, or null. */
+const activeDisplayIdSection = computed(() => {
+  const displayId = displayIdExtension.value
+  const route = displayIdRoute.value
+  if (!displayId || !route) return null
+  return displayIdSections(displayId)[route.sectionIndex] ?? null
 })
 
-/** The DisplayID data block the active per-block section refers to, or null. */
+/** Section-blocks index of the active per-block route (displayid-s<sec>-b<idx>), or -1. */
+const activeDisplayIdBlockIndex = computed(() =>
+  typeof displayIdRoute.value?.target === 'number' ? displayIdRoute.value.target : -1,
+)
+
+/** The DisplayID data block the active per-block route refers to, or null. */
 const activeDisplayIdBlock = computed(() => {
-  const displayId = displayIdExtension.value
+  const section = activeDisplayIdSection.value
   const index = activeDisplayIdBlockIndex.value
-  if (!displayId || index < 0 || index >= displayId.section.blocks.length) return null
-  return displayId.section.blocks[index] ?? null
+  if (!section || index < 0 || index >= section.blocks.length) return null
+  return section.blocks[index] ?? null
 })
 
 function addDisplayIdExtension() {
   if (!edidRef.value) return
+  const section: DisplayIdSection = {
+    version: 2,
+    revision: 0,
+    versionByte: 0x20,
+    bytesInSection: 0,
+    totalLength: 5,
+    primaryUseCase: 0x04,
+    extensionCount: 0,
+    blocks: [],
+    fillBytes: 0,
+    checksum: 0,
+    isChecksumValid: true,
+  }
   const displayId: DisplayIdExtension = {
     kind: 'displayid',
     tag: 0x70,
     revision: 0,
     checksum: 0,
-    section: {
-      version: 2,
-      revision: 0,
-      versionByte: 0x20,
-      bytesInSection: 0,
-      totalLength: 5,
-      primaryUseCase: 0x04,
-      extensionCount: 0,
-      blocks: [],
-      fillBytes: 0,
-      checksum: 0,
-      isChecksumValid: true,
-    },
+    // `section` stays the object identity of sections[0] (the decoder does the
+    // same), so legacy consumers reading `.section` see every edit.
+    section,
+    sections: [section],
   }
   edidRef.value.extensions = appendArrayItem(edidRef.value.extensions, displayId)
-  activeSection.value = displayIdSectionIds.overview
+  activeSection.value = displayIdSectionIds.overview(0)
 }
 
 function removeDisplayIdExtension() {
@@ -447,33 +479,37 @@ function removeDisplayIdExtension() {
   }
 }
 
-function addDisplayIdBlock(tag: number) {
+function addDisplayIdBlock(sectionIndex: number, tag: number) {
   const displayId = displayIdExtension.value
-  if (!displayId) return
-  displayId.section.blocks = appendArrayItem(displayId.section.blocks, createDefaultDisplayIdBlock(tag as DisplayIdDataBlockTag))
+  const section = displayId ? displayIdSections(displayId)[sectionIndex] : null
+  if (!displayId || !section) return
+  section.blocks = appendArrayItem(section.blocks, createDefaultDisplayIdBlock(tag as DisplayIdDataBlockTag))
   // Route to the newly appended block's per-index section (TASK-123).
-  activeSection.value = displayIdBlockSectionId(displayId.section.blocks.length - 1)
+  activeSection.value = displayIdBlockSectionId(sectionIndex, section.blocks.length - 1)
 }
 
-function removeDisplayIdBlock(index: number) {
+function removeDisplayIdBlock(sectionIndex: number, index: number) {
   const displayId = displayIdExtension.value
-  if (!displayId) return
-  displayId.section.blocks = removeArrayItem(displayId.section.blocks, index)
+  const section = displayId ? displayIdSections(displayId)[sectionIndex] : null
+  if (!displayId || !section) return
+  section.blocks = removeArrayItem(section.blocks, index)
   // Keep the active per-block section pointing at the same block: removing an
   // earlier block shifts indices down, removing the active block itself has no
   // target anymore.
+  const activeSectionIndex = activeDisplayIdSectionIndex.value
   const activeIndex = activeDisplayIdBlockIndex.value
-  if (activeIndex >= 0) {
+  if (activeSectionIndex === sectionIndex && activeIndex >= 0) {
     activeSection.value = activeIndex === index
-      ? displayIdSectionIds.overview
-      : displayIdBlockSectionId(Math.max(0, activeIndex - (index < activeIndex ? 1 : 0)))
+      ? displayIdSectionIds.overview(sectionIndex)
+      : displayIdBlockSectionId(sectionIndex, Math.max(0, activeIndex - (index < activeIndex ? 1 : 0)))
   }
 }
 
-function moveDisplayIdBlock(index: number, direction: -1 | 1) {
+function moveDisplayIdBlock(sectionIndex: number, index: number, direction: -1 | 1) {
   const displayId = displayIdExtension.value
-  if (!displayId) return
-  const blocks = displayId.section.blocks
+  const section = displayId ? displayIdSections(displayId)[sectionIndex] : null
+  if (!displayId || !section) return
+  const blocks = section.blocks
   const nextIndex = index + direction
   if (nextIndex < 0 || nextIndex >= blocks.length) return
   const [block] = blocks.splice(index, 1)
@@ -481,9 +517,58 @@ function moveDisplayIdBlock(index: number, direction: -1 | 1) {
 }
 
 function updateDisplayIdBlock(index: number, block: DisplayIdDataBlock) {
+  // Block editors only render for the active route's section, so the section
+  // is the active one; the editors' [index, block] emit stays as-is.
+  const section = activeDisplayIdSection.value
+  if (!section) return
+  section.blocks = updateArrayItem(section.blocks, index, block)
+}
+
+function addDisplayIdSection() {
   const displayId = displayIdExtension.value
   if (!displayId) return
-  displayId.section.blocks = updateArrayItem(displayId.section.blocks, index, block)
+  const sections = displayIdSections(displayId)
+  // DisplayID 2.0 chains sections inside one 128-byte extension block; the
+  // decoder only reads payload bytes 1..126, so keep the chain within that.
+  const used = sections.reduce((sum, s) => sum + displayIdSectionWireLength(s), 0)
+  if (used + 5 > 126) return // a minimal new section no longer fits
+  // Extension sections carry no primary use case and no extension count
+  // (DisplayID 2.0 Table 2-1: both are base-section-only, cleared to 0).
+  const section: DisplayIdSection = {
+    version: 2,
+    revision: 0,
+    versionByte: 0x20,
+    bytesInSection: 0,
+    totalLength: 5,
+    primaryUseCase: 0,
+    extensionCount: 0,
+    blocks: [],
+    fillBytes: 0,
+    checksum: 0,
+    isChecksumValid: true,
+  }
+  displayId.sections = appendArrayItem(sections, section)
+  // The base section's byte 3 carries the number of extension sections in the
+  // chain (DisplayID 2.0 Table 2-1); keep it in sync with the chain length.
+  sections[0].extensionCount = displayId.sections.length - 1
+  activeSection.value = displayIdSectionIds.overview(displayId.sections.length - 1)
+}
+
+function removeDisplayIdSection(sectionIndex: number) {
+  const displayId = displayIdExtension.value
+  if (!displayId || sectionIndex <= 0) return // the base section cannot be removed
+  const sections = displayIdSections(displayId)
+  const updated = sections.filter((_, i) => i !== sectionIndex)
+  if (updated.length === 0) return
+  displayId.sections = updated
+  // Keep the legacy alias pointing at the base section object.
+  displayId.section = updated[0]
+  updated[0].extensionCount = updated.length - 1
+  // Re-route any active view that pointed at the removed section or beyond.
+  const activeIndex = activeDisplayIdSectionIndex.value
+  if (activeIndex >= sectionIndex) {
+    activeSection.value = displayIdSectionIds.overview(Math.min(sectionIndex - 1, updated.length - 1))
+  }
 }
 
 /** One setByPath per prop-root (TASK-76): every CTA field edit lands as a
@@ -492,8 +577,9 @@ function updateDisplayIdBlock(index: number, block: DisplayIdDataBlock) {
 const setCeaField = (path: string, value: unknown) => setByPath(ceaExtension.value, path, value)
 
 /** One setByPath per prop-root (TASK-76): every DisplayID section-level edit
- *  lands as a prop-relative dotted path rooted at the DisplayID section. */
-const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdExtension.value?.section, path, value)
+ *  lands as a prop-relative dotted path rooted at the active chained section
+ *  (TASK-127). */
+const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisplayIdSection.value, path, value)
 </script>
 
 <template>
@@ -540,6 +626,8 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
         @add-display-id-block="addDisplayIdBlock"
         @remove-display-id-block="removeDisplayIdBlock"
         @move-display-id-block="moveDisplayIdBlock"
+        @add-display-id-section="addDisplayIdSection"
+        @remove-display-id-section="removeDisplayIdSection"
       />
       <SidebarInset class="p-4 overflow-auto">
         <div v-if="error" class="mb-4 p-4 bg-destructive/10 border border-destructive rounded-lg text-destructive">
@@ -630,79 +718,83 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
           />
 
           <DisplayIDOverview
-            v-else-if="activeSection === displayIdSectionIds.overview && displayIdExtension"
+            v-else-if="displayIdRoute?.target === 'overview' && displayIdExtension && activeDisplayIdSection"
             :display-id="displayIdExtension"
+            :section-index="activeDisplayIdSectionIndex"
+            @add-section="addDisplayIdSection"
+            @remove-section="removeDisplayIdSection"
             @remove-block="removeDisplayIdBlock"
             @move-block="moveDisplayIdBlock"
+            @select-section="(sectionId: string) => activeSection = sectionId"
           />
           <DisplayIDHeader
-            v-else-if="activeSection === displayIdSectionIds.header && displayIdExtension"
-            :display-id="displayIdExtension"
+            v-else-if="displayIdRoute?.target === 'header' && activeDisplayIdSection"
+            :section="activeDisplayIdSection"
             @update="setDisplayIdField"
           />
-          <!-- Per-block sections (displayid-block-<idx>): one uniform section id
+          <!-- Per-block sections (displayid-s<sec>-b<idx>): one uniform section id
                for every data block; the editor is picked by looking up the block
                at the active index (TASK-123, mirroring the cea-block-<idx>
                pattern from TASK-114). v1.x and v2.0 tags without a structured
                editor land in the raw fallback. -->
-          <template v-else-if="activeDisplayIdBlock && displayIdExtension">
+          <template v-else-if="activeDisplayIdBlock && activeDisplayIdSection">
             <DisplayIDProductIdentification
               v-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.ProductIdentification"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDDisplayParameters
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.DisplayParameters"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDTypeVIITimings
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.TypeVIIDetailedTiming"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDTypeVIIIEnumerated
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDTypeIXFormula
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.TypeIXFormulaBasedTiming"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDDynamicRange
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDInterfaceFeatures
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.DisplayInterfaceFeatures"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDStereoInterface
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.StereoDisplayInterface"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDTiledTopology
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.TiledDisplayTopology"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDContainerId
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.ContainerId"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
@@ -710,19 +802,79 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(displayIdE
             <DisplayIDVendorSpecific
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.VendorSpecific
                 || activeDisplayIdBlock.tag === DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <!-- v1.x structured editors (TASK-125): the v1.x tag space
+                 (0x00–0x13, 0x7f) doesn't overlap the v2.0 tags, so routing on
+                 the numeric tag alone is unambiguous. -->
+            <DisplayIDV1ProductIdentification
+              v-else-if="activeDisplayIdBlock.tag === DISPLAY_ID_V1_BLOCK_TAGS.ProductIdentification"
+              :section="activeDisplayIdSection"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDV1DisplayParameters
+              v-else-if="activeDisplayIdBlock.tag === DISPLAY_ID_V1_BLOCK_TAGS.DisplayParameters"
+              :section="activeDisplayIdSection"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDV1TypeITimings
+              v-else-if="activeDisplayIdBlock.tag === DISPLAY_ID_V1_BLOCK_TAGS.TypeIDetailedTiming"
+              :section="activeDisplayIdSection"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDV1TiledTopology
+              v-else-if="activeDisplayIdBlock.tag === DISPLAY_ID_V1_BLOCK_TAGS.TiledDisplayTopology"
+              :section="activeDisplayIdSection"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <!-- v2.0/2.1 tags whose codecs existed before their editors
+                 (TASK-126): Type X, Adaptive-Sync, AR/VR HMD, AR/VR Layer,
+                 Brightness Luminance Range. -->
+            <DisplayIDTypeXTimings
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.TypeXTiming"
+              :section="activeDisplayIdSection"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDAdaptiveSync
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.AdaptiveSync"
+              :section="activeDisplayIdSection"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDArvrHmd
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.ArvrHmd"
+              :section="activeDisplayIdSection"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDArvrLayer
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.ArvrLayer"
+              :section="activeDisplayIdSection"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
+            <DisplayIDBrightnessLuminance
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.BrightnessLuminanceRange"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDCTA
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.CtaDisplayId"
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
             <DisplayIDRawBlock
               v-else
-              :display-id="displayIdExtension"
+              :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />

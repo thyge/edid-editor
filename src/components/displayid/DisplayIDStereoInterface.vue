@@ -6,7 +6,7 @@ import {
   STEREO_TIMING_SUPPORT_LABELS,
   DISPLAY_ID_TIMING_CODE_TYPE_LABELS,
   type DisplayIdDataBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
   type DisplayIdStereoDisplayInterfaceBlock,
   type DisplayIdStereoTimingCodeDescriptor,
 } from 'edidts'
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { blocksByTag, bytesToHex, hexToBytes, numberFromEvent, stringFromEvent } from '../common/editorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtension; index?: number }>()
+const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 // Stereo interface method codes, parameter counts, 3D timing support, and the
@@ -89,7 +89,7 @@ function removeDescriptor(block: DisplayIdStereoDisplayInterfaceBlock, index: nu
   <Card>
     <CardHeader><CardTitle>Stereo Display Interface</CardTitle></CardHeader>
     <CardContent class="space-y-5 text-sm">
-      <div v-for="{ block, index } in blocksByTag<DisplayIdStereoDisplayInterfaceBlock>(props.displayId, DisplayIdDataBlockTag.StereoDisplayInterface, props.index)" :key="index" class="space-y-5">
+      <div v-for="{ block, index } in blocksByTag<DisplayIdStereoDisplayInterfaceBlock>(props.section, DisplayIdDataBlockTag.StereoDisplayInterface, props.index)" :key="index" class="space-y-5">
         <section class="space-y-1">
           <label class="text-xs text-muted-foreground">3D Stereo Timing Support</label>
           <select :value="block.timingSupport" @change="(event) => setTimingSupport(index, block, numberFromEvent(event))" class="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">

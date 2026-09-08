@@ -5,13 +5,13 @@ import {
   getCEADataBlockLabel,
   type DisplayIdCtaBlock,
   type DisplayIdDataBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { blocksByTag, bytesToHex, hexToBytes, stringFromEvent } from '../common/editorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtension; index?: number }>()
+const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 // Encode rebuilds the CTA DisplayID payload from `dataBlocks` (+ `trailing`),
@@ -30,7 +30,7 @@ function setPayload(index: number, block: DisplayIdCtaBlock, hex: string) {
   <Card>
     <CardHeader><CardTitle>CTA DisplayID</CardTitle></CardHeader>
     <CardContent class="space-y-4 text-sm">
-      <div v-for="{ block, index } in blocksByTag<DisplayIdCtaBlock>(props.displayId, DisplayIdDataBlockTag.CtaDisplayId, props.index)" :key="index" class="space-y-3">
+      <div v-for="{ block, index } in blocksByTag<DisplayIdCtaBlock>(props.section, DisplayIdDataBlockTag.CtaDisplayId, props.index)" :key="index" class="space-y-3">
         <div class="space-y-1">
           <label class="text-xs text-muted-foreground">CTA Payload (hex — re-parses embedded short blocks)</label>
           <Input :model-value="bytesToHex(block.ctaPayload)" @input="setPayload(index, block, stringFromEvent($event))" />

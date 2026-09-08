@@ -2,7 +2,7 @@
 import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
   type DisplayIdTypeIXFormulaBasedTiming,
   type DisplayIdTypeIXFormulaBasedTimingBlock,
 } from 'edidts'
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtension; index?: number }>()
+const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 function defaultTiming(): DisplayIdTypeIXFormulaBasedTiming {
@@ -38,7 +38,7 @@ function updateBlock(index: number, block: DisplayIdTypeIXFormulaBasedTimingBloc
     </CardHeader>
     <CardContent class="space-y-4 text-sm">
       <section
-        v-for="{ block, index } in blocksByTag<DisplayIdTypeIXFormulaBasedTimingBlock>(props.displayId, DisplayIdDataBlockTag.TypeIXFormulaBasedTiming, props.index)"
+        v-for="{ block, index } in blocksByTag<DisplayIdTypeIXFormulaBasedTimingBlock>(props.section, DisplayIdDataBlockTag.TypeIXFormulaBasedTiming, props.index)"
         :key="index"
         class="space-y-3"
       >

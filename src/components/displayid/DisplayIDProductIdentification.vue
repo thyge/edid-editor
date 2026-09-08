@@ -2,7 +2,7 @@
 import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
   type DisplayIdProductIdentificationBlock,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, stringFromEvent } from '../common/editorUtils'
 
 const props = defineProps<{
-  displayId: DisplayIdExtension
+  section: DisplayIdSection
   index?: number
 }>()
 
@@ -40,7 +40,7 @@ function updateName(index: number, block: DisplayIdProductIdentificationBlock, v
     </CardHeader>
     <CardContent class="space-y-6 text-sm">
       <div
-        v-for="{ block, index } in blocksByTag<DisplayIdProductIdentificationBlock>(props.displayId, DisplayIdDataBlockTag.ProductIdentification, props.index)"
+        v-for="{ block, index } in blocksByTag<DisplayIdProductIdentificationBlock>(props.section, DisplayIdDataBlockTag.ProductIdentification, props.index)"
         :key="index"
         class="grid grid-cols-2 gap-x-6 gap-y-4"
       >

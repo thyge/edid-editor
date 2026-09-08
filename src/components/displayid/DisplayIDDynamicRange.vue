@@ -3,14 +3,14 @@ import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
   type DisplayIdDynamicVideoTimingRangeLimitsBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent } from '../common/editorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtension; index?: number }>()
+const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 function update(index: number, block: DisplayIdDynamicVideoTimingRangeLimitsBlock, patch: Partial<DisplayIdDynamicVideoTimingRangeLimitsBlock>) {
@@ -22,7 +22,7 @@ function update(index: number, block: DisplayIdDynamicVideoTimingRangeLimitsBloc
   <Card>
     <CardHeader><CardTitle>Dynamic Range Limits</CardTitle></CardHeader>
     <CardContent class="space-y-4 text-sm">
-      <div v-for="{ block, index } in blocksByTag<DisplayIdDynamicVideoTimingRangeLimitsBlock>(props.displayId, DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits, props.index)" :key="index" class="space-y-4">
+      <div v-for="{ block, index } in blocksByTag<DisplayIdDynamicVideoTimingRangeLimitsBlock>(props.section, DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits, props.index)" :key="index" class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
           <Input type="number" :model-value="block.minimumPixelClockKHz" @input="update(index, block, { minimumPixelClockKHz: numberFromEvent($event) })" />
           <Input type="number" :model-value="block.maximumPixelClockKHz" @input="update(index, block, { maximumPixelClockKHz: numberFromEvent($event) })" />

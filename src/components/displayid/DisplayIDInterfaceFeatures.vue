@@ -8,7 +8,7 @@ import {
   type DisplayIdColorSpaceEotfCombination,
   type DisplayIdDataBlock,
   type DisplayIdDisplayInterfaceFeaturesBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { blocksByTag, numberFromEvent, updateArrayItem, removeArrayItem } from '../common/editorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtension; index?: number }>()
+const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 // Color-depth bit tables and the Table 4-27 color space / EOTF label maps are
@@ -58,7 +58,7 @@ function updateCombination(block: DisplayIdDisplayInterfaceFeaturesBlock, index:
   <Card>
     <CardHeader><CardTitle>Display Interface Features</CardTitle></CardHeader>
     <CardContent class="space-y-6 text-sm">
-      <div v-for="{ block, index } in blocksByTag<DisplayIdDisplayInterfaceFeaturesBlock>(props.displayId, DisplayIdDataBlockTag.DisplayInterfaceFeatures, props.index)" :key="index" class="space-y-5">
+      <div v-for="{ block, index } in blocksByTag<DisplayIdDisplayInterfaceFeaturesBlock>(props.section, DisplayIdDataBlockTag.DisplayInterfaceFeatures, props.index)" :key="index" class="space-y-5">
         <section class="space-y-3">
           <h4 class="text-xs font-medium text-muted-foreground">Supported color depths (bits per primary color)</h4>
           <div class="space-y-1">

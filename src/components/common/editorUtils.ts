@@ -1,4 +1,4 @@
-import type { CEAExtensionBlock, DisplayIdDataBlock, DisplayIdExtension } from 'edidts'
+import type { CEAExtensionBlock, DisplayIdDataBlock, DisplayIdSection } from 'edidts'
 
 /**
  * Cross-extension editor helpers shared by the EDID base-block, CTA-861, and
@@ -8,7 +8,7 @@ import type { CEAExtensionBlock, DisplayIdDataBlock, DisplayIdExtension } from '
  * {@link updateArrayItem}, {@link removeArrayItem}, {@link bytesToHex},
  * {@link hexToBytes}, {@link numberFromEvent}, {@link stringFromEvent}.
  *
- * DisplayID-specific: {@link blocksByTag} (typed to DisplayIdExtension /
+ * DisplayID-specific: {@link blocksByTag} (typed to DisplayIdSection /
  * DisplayIdDataBlock). It lives here so the displayid components have a single
  * util import, but it is not used by the EDID/CTA layers.
  */
@@ -19,14 +19,27 @@ export interface IndexedBlock<T extends DisplayIdDataBlock> {
 }
 
 export function blocksByTag<T extends DisplayIdDataBlock>(
-  displayId: DisplayIdExtension,
+  section: DisplayIdSection,
   tag: number,
   /** When given, scope the result to the block at this section-blocks index. */
   onlyIndex?: number,
 ): IndexedBlock<T>[] {
-  return displayId.section.blocks
+  return section.blocks
     .map((block, index) => ({ block, index }))
     .filter(({ block, index }) => block.tag === tag && (onlyIndex === undefined || index === onlyIndex)) as IndexedBlock<T>[]
+}
+
+/**
+ * Wire length a DisplayID section will encode to: 4-byte header + block
+ * headers/payloads (3 + payload each) + fill bytes + trailing section
+ * checksum. Mirrors encodeDisplayIdSection's derivation, which recomputes
+ * bytesInSection from the model rather than trusting the decoded field
+ * (TASK-127).
+ */
+export function displayIdSectionWireLength(section: DisplayIdSection): number {
+  const fill = section.fillBytesRaw ? section.fillBytesRaw.length : section.fillBytes
+  const blocksLength = section.blocks.reduce((sum, block) => sum + 3 + block.payload.length, 0)
+  return 5 + fill + blocksLength
 }
 
 /**

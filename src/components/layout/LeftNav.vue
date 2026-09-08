@@ -12,6 +12,7 @@ import {
   type DetailedTimingDescriptor,
   DISPLAY_DESCRIPTOR_OPTIONS,
   getDisplayDescriptorLabel,
+  type DisplayIdSection,
 } from 'edidts'
 import { timingNameLabel } from '@/components/common/timingLabels'
 import { Button } from '@/components/ui/button'
@@ -65,9 +66,11 @@ const emit = defineEmits<{
   removeCeaBlockByIndex: [index: number]
   addDisplayId: []
   removeDisplayId: []
-  addDisplayIdBlock: [tag: number]
-  removeDisplayIdBlock: [index: number]
-  moveDisplayIdBlock: [index: number, direction: -1 | 1]
+  addDisplayIdBlock: [sectionIndex: number, tag: number]
+  removeDisplayIdBlock: [sectionIndex: number, index: number]
+  moveDisplayIdBlock: [sectionIndex: number, index: number, direction: -1 | 1]
+  addDisplayIdSection: []
+  removeDisplayIdSection: [sectionIndex: number]
 }>()
 
 // Fixed base-block sections — always present, not addable/removable.
@@ -382,24 +385,53 @@ const hasDisplayID = computed(() => displayIdExt.value !== null)
 interface DisplayIdNavChild {
   id: string
   label: string
-  index?: number
+  index: number
+}
+/** One nav group per chained DisplayID section (TASK-127). The base section
+ *  (index 0) cannot be removed; only v2.0 chains support extra sections, so
+ *  the Add Section affordance is gated on the base section's version. */
+interface DisplayIdSectionNav {
+  sectionIndex: number
+  label: string
+  headerId: string
+  children: DisplayIdNavChild[]
+  canRemove: boolean
 }
 
-const displayIdChildren = computed<DisplayIdNavChild[]>(() => {
+/** All chained sections; decoders populate `sections`, but extensions built
+ *  programmatically may only carry the legacy `section` alias. */
+function chainedDisplayIdSections(displayId: { section: DisplayIdSection; sections?: DisplayIdSection[] }): DisplayIdSection[] {
+  return displayId.sections && displayId.sections.length > 0 ? displayId.sections : [displayId.section]
+}
+
+const displayIdSectionGroups = computed<DisplayIdSectionNav[]>(() => {
   const displayId = displayIdExt.value
   if (!displayId) return []
+  const sections = chainedDisplayIdSections(displayId)
 
-  return [
-    { id: displayIdSectionIds.header, label: 'Section Header' },
-    // One section id per block index (displayid-block-<idx>) so every tag —
+  return sections.map((section, sectionIndex) => ({
+    sectionIndex,
+    label: sectionIndex === 0 ? 'Base Section' : `Section ${sectionIndex + 1}`,
+    headerId: displayIdSectionIds.header(sectionIndex),
+    // One section id per block index (displayid-s<sec>-b<idx>) so every tag —
     // v1.x or v2.0, known or unknown, duplicated or not — has its own routable
     // section (TASK-123, mirroring the cea-block-<idx> pattern from TASK-114).
-    ...displayId.section.blocks.map((block, index) => ({
-      id: displayIdBlockSectionId(index),
+    children: section.blocks.map((block, index) => ({
+      id: displayIdBlockSectionId(sectionIndex, index),
       label: displayIdBlockLabel(block.tag),
       index,
     })),
-  ]
+    canRemove: sectionIndex > 0,
+  }))
+})
+
+/** DisplayID 2.0 chains sections via the base section's extension count;
+ *  v1.x extensions are single-section, so sections can only be added to a
+ *  v2.0 chain. */
+const canAddDisplayIdSection = computed(() => {
+  const displayId = displayIdExt.value
+  if (!displayId) return false
+  return chainedDisplayIdSections(displayId)[0].versionByte >= 0x20
 })
 
 function selectSection(id: string) {
@@ -834,8 +866,8 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
               </CollapsibleTrigger>
               <SidebarMenuButton
                 class="flex-1 font-semibold"
-                :is-active="activeSection === displayIdSectionIds.overview"
-                @click="selectSection(displayIdSectionIds.overview)"
+                :is-active="activeSection === displayIdSectionIds.overview(0)"
+                @click="selectSection(displayIdSectionIds.overview(0))"
               >
                 DisplayID
               </SidebarMenuButton>
@@ -851,49 +883,95 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
             </div>
             <CollapsibleContent>
               <SidebarMenuSub>
-                <SidebarMenuSubItem
-                  v-for="child in displayIdChildren"
-                  :key="`${child.id}-${child.index ?? 'header'}`"
-                  class="group/did-child"
-                >
-                  <div class="flex items-center">
+                <!-- One sub-tree per chained section (TASK-127): the section
+                     label routes to that section's overview, then its header
+                     and per-block rows follow. -->
+                <template v-for="group in displayIdSectionGroups" :key="group.sectionIndex">
+                  <SidebarMenuSubItem class="group/did-sec">
+                    <div class="flex items-center">
+                      <SidebarMenuSubButton
+                        as="button"
+                        class="flex-1 font-medium"
+                        :is-active="activeSection === displayIdSectionIds.overview(group.sectionIndex)"
+                        :title="group.label"
+                        @click="selectSection(displayIdSectionIds.overview(group.sectionIndex))"
+                      >
+                        <span class="truncate">{{ group.label }}</span>
+                      </SidebarMenuSubButton>
+                      <button
+                        v-if="group.canRemove"
+                        class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/did-sec:opacity-100 focus:opacity-100 transition-opacity"
+                        :title="`Remove ${group.label.toLowerCase()}`"
+                        @click.stop="emit('removeDisplayIdSection', group.sectionIndex)"
+                      >
+                        <X class="size-3" />
+                      </button>
+                    </div>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
                     <SidebarMenuSubButton
                       as="button"
                       class="flex-1"
-                      :is-active="activeSection === child.id"
-                      :title="child.label"
-                      @click="selectSection(child.id)"
+                      :is-active="activeSection === group.headerId"
+                      title="Section Header"
+                      @click="selectSection(group.headerId)"
                     >
-                      <span class="truncate">{{ child.label }}</span>
+                      <span class="truncate">Section Header</span>
                     </SidebarMenuSubButton>
-                    <button
-                      v-if="child.index !== undefined"
-                      class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/did-child:opacity-100 focus:opacity-100 transition-opacity"
-                      :title="`Remove ${child.label}`"
-                      @click.stop="emit('removeDisplayIdBlock', child.index)"
-                    >
-                      <X class="size-3" />
-                    </button>
-                  </div>
-                </SidebarMenuSubItem>
-
-                <SidebarMenuSubItem>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger as-child>
-                      <Button variant="ghost" size="sm" class="w-full text-xs text-muted-foreground h-7">
-                        + Add Block
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem
-                        v-for="opt in addableDisplayIdBlocks"
-                        :key="opt.tag"
-                        @click="emit('addDisplayIdBlock', opt.tag)"
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem
+                    v-for="child in group.children"
+                    :key="child.id"
+                    class="group/did-child"
+                  >
+                    <div class="flex items-center">
+                      <SidebarMenuSubButton
+                        as="button"
+                        class="flex-1"
+                        :is-active="activeSection === child.id"
+                        :title="child.label"
+                        @click="selectSection(child.id)"
                       >
-                        {{ opt.label }}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <span class="truncate">{{ child.label }}</span>
+                      </SidebarMenuSubButton>
+                      <button
+                        class="text-destructive hover:text-destructive/80 h-5 w-5 flex items-center justify-center shrink-0 text-xs opacity-0 group-hover/did-child:opacity-100 focus:opacity-100 transition-opacity"
+                        :title="`Remove ${child.label}`"
+                        @click.stop="emit('removeDisplayIdBlock', group.sectionIndex, child.index)"
+                      >
+                        <X class="size-3" />
+                      </button>
+                    </div>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger as-child>
+                        <Button variant="ghost" size="sm" class="w-full text-xs text-muted-foreground h-7">
+                          + Add Block
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem
+                          v-for="opt in addableDisplayIdBlocks"
+                          :key="opt.tag"
+                          @click="emit('addDisplayIdBlock', group.sectionIndex, opt.tag)"
+                        >
+                          {{ opt.label }}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </SidebarMenuSubItem>
+                </template>
+
+                <SidebarMenuSubItem v-if="canAddDisplayIdSection">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="w-full text-xs"
+                    @click="emit('addDisplayIdSection')"
+                  >
+                    + Add Section
+                  </Button>
                 </SidebarMenuSubItem>
               </SidebarMenuSub>
             </CollapsibleContent>

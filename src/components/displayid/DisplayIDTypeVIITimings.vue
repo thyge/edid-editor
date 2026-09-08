@@ -2,7 +2,7 @@
 import {
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
   type DisplayIdTypeVIIDetailedTiming,
   type DisplayIdTypeVIIDetailedTimingBlock,
 } from 'edidts'
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtension; index?: number }>()
+const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 function defaultTiming(): DisplayIdTypeVIIDetailedTiming {
@@ -91,7 +91,7 @@ function updateTiming(
     </CardHeader>
     <CardContent class="space-y-6 text-sm">
       <section
-        v-for="{ block, index } in blocksByTag<DisplayIdTypeVIIDetailedTimingBlock>(props.displayId, DisplayIdDataBlockTag.TypeVIIDetailedTiming, props.index)"
+        v-for="{ block, index } in blocksByTag<DisplayIdTypeVIIDetailedTimingBlock>(props.section, DisplayIdDataBlockTag.TypeVIIDetailedTiming, props.index)"
         :key="index"
         class="space-y-3"
       >

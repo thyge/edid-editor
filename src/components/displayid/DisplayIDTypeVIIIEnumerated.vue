@@ -3,7 +3,7 @@ import {
   DisplayIdDataBlockTag,
   DISPLAY_ID_TIMING_CODE_TYPE_LABELS,
   type DisplayIdDataBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
   type DisplayIdTypeVIIIEnumeratedTimingCodeBlock,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
 
-const props = defineProps<{ displayId: DisplayIdExtension; index?: number }>()
+const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 // Timing-code-type labels are the shared DISPLAY_ID_TIMING_CODE_TYPE_LABELS
@@ -30,7 +30,7 @@ function updateBlock(index: number, block: DisplayIdTypeVIIIEnumeratedTimingCode
     </CardHeader>
     <CardContent class="space-y-4 text-sm">
       <section
-        v-for="{ block, index } in blocksByTag<DisplayIdTypeVIIIEnumeratedTimingCodeBlock>(props.displayId, DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode, props.index)"
+        v-for="{ block, index } in blocksByTag<DisplayIdTypeVIIIEnumeratedTimingCodeBlock>(props.section, DisplayIdDataBlockTag.TypeVIIIEnumeratedTimingCode, props.index)"
         :key="index"
         class="space-y-3"
       >

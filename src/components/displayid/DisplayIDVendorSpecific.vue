@@ -4,7 +4,7 @@ import {
   DISPLAY_ID_V1_BLOCK_TAGS,
   DisplayIdDataBlockTag,
   type DisplayIdDataBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
   type DisplayIdV1VendorSpecificBlock,
   type DisplayIdVendorSpecificBlock,
   type DisplayIdVesaDisplayPortData,
@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { blocksByTag, bytesToHex, hexToBytes, numberFromEvent, stringFromEvent, type IndexedBlock } from '../common/editorUtils'
 import DisplayIDVendorVesaDisplayPort from './DisplayIDVendorVesaDisplayPort.vue'
 
-const props = defineProps<{ displayId: DisplayIdExtension; index?: number }>()
+const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
 
 /**
@@ -36,15 +36,15 @@ interface VendorBlock extends DisplayIdDataBlock {
 
 const vendorBlocks = computed<IndexedBlock<VendorBlock>[]>(() => {
   if (props.index !== undefined) {
-    const block = props.displayId.section.blocks[props.index] as VendorBlock | undefined
+    const block = props.section.blocks[props.index] as VendorBlock | undefined
     if (!block || (block.tag !== DisplayIdDataBlockTag.VendorSpecific && block.tag !== DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific)) {
       return []
     }
     return [{ block, index: props.index }]
   }
   return [
-    ...blocksByTag<VendorBlock>(props.displayId, DisplayIdDataBlockTag.VendorSpecific),
-    ...blocksByTag<VendorBlock>(props.displayId, DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific),
+    ...blocksByTag<VendorBlock>(props.section, DisplayIdDataBlockTag.VendorSpecific),
+    ...blocksByTag<VendorBlock>(props.section, DISPLAY_ID_V1_BLOCK_TAGS.VendorSpecific),
   ]
 })
 

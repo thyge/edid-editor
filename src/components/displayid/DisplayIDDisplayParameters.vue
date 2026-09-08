@@ -4,7 +4,7 @@ import {
   type DisplayIdChromaticity,
   type DisplayIdDataBlock,
   type DisplayIdDisplayParametersBlock,
-  type DisplayIdExtension,
+  type DisplayIdSection,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent } from '../common/editorUtils'
 
 const props = defineProps<{
-  displayId: DisplayIdExtension
+  section: DisplayIdSection
   index?: number
 }>()
 
@@ -43,7 +43,7 @@ function updateChromaticity(
     </CardHeader>
     <CardContent class="space-y-6 text-sm">
       <div
-        v-for="{ block, index } in blocksByTag<DisplayIdDisplayParametersBlock>(props.displayId, DisplayIdDataBlockTag.DisplayParameters, props.index)"
+        v-for="{ block, index } in blocksByTag<DisplayIdDisplayParametersBlock>(props.section, DisplayIdDataBlockTag.DisplayParameters, props.index)"
         :key="index"
         class="space-y-6"
       >

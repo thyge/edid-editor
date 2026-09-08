@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import {
   DISPLAY_ID_PRIMARY_USE_CASES,
   DISPLAY_ID_RESERVED_USE_CASES,
-  type DisplayIdExtension,
+  type DisplayIdSection,
 } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select'
 
 const props = defineProps<{
-  displayId: DisplayIdExtension
+  section: DisplayIdSection
 }>()
 
 const emit = defineEmits<{
@@ -31,7 +31,7 @@ const emit = defineEmits<{
 const PRIMARY_USE_CASES = DISPLAY_ID_PRIMARY_USE_CASES
 const RESERVED_USE_CASES = DISPLAY_ID_RESERVED_USE_CASES
 
-const primaryUseCase = computed(() => props.displayId.section.primaryUseCase)
+const primaryUseCase = computed(() => props.section.primaryUseCase)
 const primaryUseCaseValue = computed(() => String(primaryUseCase.value))
 
 // Value outside the spec's 0x0–0xF nibble (e.g. a corrupt byte); preserved as a
@@ -40,10 +40,10 @@ const outOfRange = computed(() => primaryUseCase.value > 0xf)
 const outOfRangeLabel = computed(() => `0x${primaryUseCase.value.toString(16).toUpperCase()} — Out of range`)
 
 const primaryUseCaseInvalid = computed(() =>
-  props.displayId.section.primaryUseCase < 0 || props.displayId.section.primaryUseCase > 255
+  props.section.primaryUseCase < 0 || props.section.primaryUseCase > 255
 )
 const extensionCountInvalid = computed(() =>
-  props.displayId.section.extensionCount < 0 || props.displayId.section.extensionCount > 255
+  props.section.extensionCount < 0 || props.section.extensionCount > 255
 )
 
 function onPrimaryUseCaseChange(value: unknown) {
@@ -68,15 +68,15 @@ function emitNumber(field: string, event: Event) {
         <div class="grid grid-cols-3 gap-x-6 gap-y-2">
           <div class="space-y-1">
             <label class="text-xs text-muted-foreground">Version</label>
-            <Input :model-value="displayId.section.version" disabled />
+            <Input :model-value="section.version" disabled />
           </div>
           <div class="space-y-1">
             <label class="text-xs text-muted-foreground">Revision</label>
-            <Input :model-value="displayId.section.revision" disabled />
+            <Input :model-value="section.revision" disabled />
           </div>
           <div class="space-y-1">
             <label class="text-xs text-muted-foreground">Version Byte</label>
-            <Input :model-value="`0x${displayId.section.versionByte.toString(16).padStart(2, '0')}`" disabled />
+            <Input :model-value="`0x${section.versionByte.toString(16).padStart(2, '0')}`" disabled />
           </div>
         </div>
       </section>
@@ -135,7 +135,7 @@ function emitNumber(field: string, event: Event) {
               min="0"
               max="255"
               :aria-invalid="extensionCountInvalid"
-              :model-value="displayId.section.extensionCount"
+              :model-value="section.extensionCount"
               @input="emitNumber('extensionCount', $event)"
             />
             <p v-if="extensionCountInvalid" class="text-xs text-destructive">Value must fit in one byte.</p>
