@@ -38,3 +38,4 @@ packages/*/tests/fixtures_proprietary.ts
 /tests/
 # Documented location the fixture loader reads from:
 packages/*/tests/fixtures-linuxhw/
+SPEC_COVERAGE.md
