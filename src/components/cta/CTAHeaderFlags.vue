@@ -12,8 +12,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   update: [field: string, value: unknown]
-  /** Native-DTD selection change (TASK-103, moved here from CTAOverview in
-   *  TASK-116): the reordered detailedTimings array (selected DTDs moved to
+  /** Native-DTD selection change (moved here from CTAOverview):
+   *  the reordered detailedTimings array (selected DTDs moved to
    *  the leading prefix) plus the derived byte-3 bits 3:0 count. Handled in
    *  App.vue with an array-level reassignment (like add/remove timing), not
    *  a setByPath write. */

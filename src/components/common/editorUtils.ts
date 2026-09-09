@@ -33,8 +33,7 @@ export function blocksByTag<T extends DisplayIdDataBlock>(
  * Wire length a DisplayID section will encode to: 4-byte header + block
  * headers/payloads (3 + payload each) + fill bytes + trailing section
  * checksum. Mirrors encodeDisplayIdSection's derivation, which recomputes
- * bytesInSection from the model rather than trusting the decoded field
- * (TASK-127).
+ * bytesInSection from the model rather than trusting the decoded field.
  */
 export function displayIdSectionWireLength(section: DisplayIdSection): number {
   const fill = section.fillBytesRaw ? section.fillBytesRaw.length : section.fillBytes
@@ -68,7 +67,7 @@ export function appendArrayItem<T>(items: T[], item: T): T[] {
 
 /**
  * Insert an item at `index`, returning a new array (immutable insert for
- * reactive arrays — used by the CTA canonical add order, TASK-114).
+ * reactive arrays — used by the CTA canonical add order).
  */
 export function insertArrayItem<T>(items: T[], index: number, item: T): T[] {
   return [...items.slice(0, index), item, ...items.slice(index)]

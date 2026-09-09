@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 /**
  * YCbCr 4:2:0 Video Data Block editor (tag 0x07 ext 0x0E) — the 4:2:0-only
  * formats section of the former combined "HDR & Colorimetry" view, split per
- * block so each block has its own nav placement (TASK-114).
+ * block so each block has its own nav placement.
  */
 const props = defineProps<{
   cea: CEAExtensionBlock

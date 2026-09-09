@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent } from '../common/editorUtils'
 
 /**
- * DisplayID 2.1 AR/VR HMD (tag 0x2c, 79-byte payload, TASK-126). Fixed-point
+ * DisplayID 2.1 AR/VR HMD (tag 0x2c, 79-byte payload). Fixed-point
  * fields (3.13, 16.16) and the IEEE-754 center-of-projection floats are stored
  * as their raw integer bit patterns by the edidts codec (exact round-trip, no
  * float conversion error); this editor edits the raw values and shows the

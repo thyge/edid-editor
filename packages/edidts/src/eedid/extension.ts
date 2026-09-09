@@ -101,7 +101,7 @@ export function isOpaqueExtension(ext: Extension): ext is OpaqueExtension {
 
 // ---------------------------------------------------------------------------
 // Tag → {decode, encode} registry — the single dispatch site for EEDID
-// extension blocks (TASK-68 AC#1). Only CTA-861 (0x02) and DisplayID (0x70)
+// extension blocks. Only CTA-861 (0x02) and DisplayID (0x70)
 // have first-class dispatch entries; every other tag, plus any 0x02/0x70
 // block whose structured parse failed or was refused, falls through to the
 // opaque default entry. Mirrors mp4box BoxRegistry: the per-spec codecs stay
@@ -288,15 +288,14 @@ export function getCEAExtension(eedid: { extensions: Extension[] }): CEAExtensio
  *  1..126 of the 128-byte EDID extension block (byte 0 is the 0x70 tag,
  *  byte 127 is the EDID block checksum, which is not part of any section).
  *  `encodeDisplayId` silently truncates section content beyond this, so the
- *  editor gates every Add Block / Add Section action on it (TASK-131). */
+ *  editor gates every Add Block / Add Section action on it. */
 export const DISPLAY_ID_PAYLOAD_CAPACITY_BYTES = 126;
 
 /** Bytes still free in the 0x70 payload for additional section content:
  *  capacity minus every chained section's encoded length and the verbatim
  *  trailing bytes. Adding a data block (or a whole section) consumes from
  *  this one shared budget regardless of which section it lands in — the
- *  DisplayID counterpart of `ExtensionBlockParser.getCeaFreePayloadBytes`
- *  (TASK-131). */
+ *  DisplayID counterpart of `ExtensionBlockParser.getCeaFreePayloadBytes`. */
 export function getDisplayIdFreePayloadBytes(ext: DisplayIdExtension): number {
   const sections = ext.sections && ext.sections.length > 0 ? ext.sections : [ext.section];
   const used = sections.reduce(

@@ -1,6 +1,6 @@
 /**
- * Vendor-specific block labels for the CEA nav sub-group and per-block views
- * (TASK-102). Covers all three vendor carriers — tag 0x03 VSDBs, tag 0x07
+ * Vendor-specific block labels for the CEA nav sub-group and per-block views.
+ * Covers all three vendor carriers — tag 0x03 VSDBs, tag 0x07
  * ext 0x01 VSVDBs, and tag 0x07 ext 0x11 Vendor-Specific Audio — keyed by the
  * decoded `block.vendor.kind`, with OUI-rooted fallbacks for unregistered
  * vendors. Mirrors the displayIdLabels.ts label-map pattern.

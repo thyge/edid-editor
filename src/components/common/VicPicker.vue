@@ -23,7 +23,7 @@ import { ChevronsUpDown, Check } from '@lucide/vue'
  * Only VICs the DTD can hold byte-exactly are selectable: writing a
  * DTD-unencodable VIC (e.g. 4096-wide 4K, 1188 MHz 4K120, or a wide-front-porch
  * format) would silently truncate DTD fields on encode, so the dropdown list is
- * filtered by {@link isVICDtdEncodable} (TASK-122) — the field-width rule lives
+ * filtered by {@link isVICDtdEncodable} — the field-width rule lives
  * in edidts, single-sourced with the encoder. A DTD loaded from a file may
  * still MATCH an excluded VIC; the preselect label renders via
  * {@link getVICDefinition} regardless of filtering.

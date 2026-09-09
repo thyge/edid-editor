@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, stringFromEvent } from '../common/editorUtils'
 
 /**
- * DisplayID 1.x Product Identification (tag 0x00, TASK-125). Unlike the v2.0
+ * DisplayID 1.x Product Identification (tag 0x00). Unlike the v2.0
  * block (tag 0x20) the vendor ID is a 3-character ASCII string, not an IEEE
  * OUI; the product name is a length-prefixed ASCII string after 12 fixed
  * bytes (edidts v1-codecs.ts encodeV1ProductIdentificationBlock).

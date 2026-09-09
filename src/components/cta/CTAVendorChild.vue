@@ -16,8 +16,8 @@ import CTAVendorDolby from './vsvdb/CTAVendorDolby.vue'
 import CTAVendorAudioBlock from './CTAVendorAudioBlock.vue'
 
 /**
- * Single-block vendor editor: the view behind one "Vendor" nav child row
- * (TASK-102). Renders exactly one vendor-specific block from the CEA
+ * Single-block vendor editor: the view behind one "Vendor" nav child row.
+ * Renders exactly one vendor-specific block from the CEA
  * dataBlocks array — a tag-0x03 VSDB (structured card or raw fallback), a
  * tag-0x07 ext 0x01 VSVDB (Dolby card or raw fallback for HDR10+/unknown),
  * or a tag-0x07 ext 0x11 Vendor-Specific Audio block — keyed by its

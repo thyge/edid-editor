@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch'
 /**
  * HDR Static Metadata Data Block editor (tag 0x07 ext 0x06) — the HDR static
  * section of the former combined "HDR & Colorimetry" view, split per block so
- * each block has its own nav placement (TASK-114).
+ * each block has its own nav placement.
  */
 const props = defineProps<{
   cea: CEAExtensionBlock

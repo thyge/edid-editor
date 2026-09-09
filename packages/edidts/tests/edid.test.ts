@@ -409,7 +409,7 @@ describe('Color point descriptors', () => {
     expect(descriptor?.colorPoints[1].gamma).toBe(0)
   })
 
-  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
     // The corpus has zero supplemental color-point descriptors surfaced as
     // editable structures, so this synthetic mutation test is the only safety
     // net for the encode path.

@@ -15,7 +15,7 @@ const props = defineProps<{
 /**
  * Read-only effective native count: per CTA-861-G the first N DTDs are native.
  * A malformed count beyond the list length degrades gracefully to "all native".
- * The interactive picker lives in CTAHeaderFlags (TASK-116).
+ * The interactive picker lives in CTAHeaderFlags.
  */
 const nativeCount = computed(() => Math.min(props.cea.nativeFormats, props.cea.detailedTimings.length))
 

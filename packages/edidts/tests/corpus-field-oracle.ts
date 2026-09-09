@@ -1,4 +1,4 @@
-// One-off streamed corpus cross-parser oracle (TASK-58 AC #3/#5).
+// One-off streamed corpus cross-parser oracle.
 //
 // Walks the linuxhw/EDID corpus one file at a time (async opendir, not recursive
 // readdir, so 175k files don't trip EMFILE) and, for every edid-decode dump,

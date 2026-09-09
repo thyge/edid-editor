@@ -58,7 +58,7 @@ const isAnalog = computed(() =>
  * 3.21/3.22): 12-bit fields cap at 4095, H sync offset/width at 1023 (8+2
  * bits), V sync offset/width at 63 (4+2 bits), and borders at 255 (8 bits).
  * The encoder masks every field into its fixed bit width, so anything above
- * these would silently truncate — clamp here instead (TASK-99).
+ * these would silently truncate — clamp here instead.
  */
 const FIELD_MAX = {
   horizontalActive: 4095,

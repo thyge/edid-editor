@@ -103,8 +103,8 @@ export interface TimingFlags {
  * and leaves `pixelClockKHz` absent). Consumers that need the clock, interlace,
  * stereo, or polarity must handle `undefined` or read the family-specific
  * field (`pixelClock` / `flags` for EDID). This is a type-level contract only
- * — the on-wire codecs are unchanged (TASK-62 structural freeze preserved, and
- * reference parsers keep the on-wire structs separate; see TASK-73/84).
+ * — the on-wire codecs are unchanged, and reference parsers keep the
+ * on-wire structs separate.
  *
  * Type IX (6-byte formula) and Type X (6-8 byte delta) timings do NOT carry the
  * full DTD field set and are deliberately NOT modeled as extending this base.
@@ -211,7 +211,7 @@ export function computeRefreshRate(timing: DetailedTiming): number {
 }
 
 /**
- * Inverse of {@link computeRefreshRate} for authoring (TASK-121): the pixel
+ * Inverse of {@link computeRefreshRate} for authoring: the pixel
  * clock (MHz, quantized to the DTD's 10 kHz field resolution) that makes
  * `refreshRate` the timing's rate given its current geometry. The geometry
  * itself is untouched — in a user-owned (Custom) mode only the clock is
@@ -256,7 +256,7 @@ export function computePixelClockForTargetRate(
  * plus the top 2 bits of byte 11), 6-bit V sync offset/width (nibbles of bytes
  * 10/11), and 8-bit borders. The encoder MASKS rather than rejects, so a value
  * beyond its field's max is silently truncated — callers that cannot afford a
- * truncated DTD (e.g. building one from a CTA-861 VIC, TASK-122) must check
+ * truncated DTD (e.g. building one from a CTA-861 VIC) must check
  * with {@link isDetailedTimingEncodable} first.
  */
 export const DTD_FIELD_MAX = {

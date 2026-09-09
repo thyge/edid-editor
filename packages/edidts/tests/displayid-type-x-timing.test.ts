@@ -144,7 +144,7 @@ describe('DisplayID Type X Timing (tag 0x2A)', () => {
     expect(Array.from(encoded)).toEqual(Array.from(originalPayload));
   });
 
-  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
     // The corpus has zero Type X Timing fixtures, so this synthetic mutation
     // test is the only safety net for the encode path.
     const block = buildBlock(0, [

@@ -204,7 +204,7 @@ export function encodeDisplayIdBlock(block: DisplayIdDataBlock): Uint8Array {
 
 // ---------------------------------------------------------------------------
 // Tag → {decode, encode} registry — the single dispatch site for DisplayID
-// data blocks (TASK-68 AC#1). The v1.x (0x00–0x12) and v2.0 (0x20+) tag spaces
+// data blocks. The v1.x (0x00–0x12) and v2.0 (0x20+) tag spaces
 // do not overlap, so one merged registry serves both the v2.0 walker
 // (decodeDisplayIdBlocks) and the v1.x walker (decodeDisplayIdBlocksV1). Each
 // decode entry gates on its payload-length validator (flags-aware where the

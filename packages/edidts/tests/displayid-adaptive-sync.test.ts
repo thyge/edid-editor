@@ -87,7 +87,7 @@ describe('DisplayID Adaptive Sync (0x2B) codec', () => {
     expect(Array.from(encoded)).toEqual(original);
   });
 
-  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
     // The corpus has zero Adaptive-Sync fixtures, so this synthetic mutation
     // test is the only safety net for the encode path.
     const block = makeBlock([

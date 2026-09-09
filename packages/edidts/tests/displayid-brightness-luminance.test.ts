@@ -84,7 +84,7 @@ describe('encodeBrightnessLuminanceRangeBlock', () => {
   });
 });
 
-describe('Brightness Luminance Range field mutation (TASK-61)', () => {
+describe('Brightness Luminance Range field mutation', () => {
   it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
     // The corpus has zero Brightness Luminance Range fixtures, so this synthetic
     // mutation test is the only safety net for the encode path.

@@ -2,7 +2,7 @@ import type { DisplayIdTypeXTimingBlock } from './type-x-timing';
 import type { DisplayIdAdaptiveSyncBlock } from './adaptive-sync';
 import type { DisplayIdArvrHmdBlock, DisplayIdArvrLayerBlock } from './ar-vr';
 import type { DisplayIdBrightnessLuminanceRangeBlock } from './brightness-luminance';
-// Shared detailed-timing field contract (TASK-73/84). Type-only import: erased
+// Shared detailed-timing field contract. Type-only import: erased
 // at runtime, so no runtime dependency on the common module; `common` is a
 // lower-level leaf, so there is no cycle.
 import type { DetailedTimingBase } from '../common/detailed-timing-descriptor';
@@ -630,7 +630,7 @@ export type KnownDisplayIdV1DataBlock =
  * DisplayID 1.x data block labels for the FULL v1.x tag space (0x00–0x13 +
  * 0x7f; 0x14–0x7e reserved). UI consumers need a label for every decodable
  * tag even when no typed v1 codec exists — blocks without a codec decode as
- * generic blocks and previously rendered as "Unknown 0xNN" (TASK-111). Names
+ * generic blocks and previously rendered as "Unknown 0xNN". Names
  * cross-checked against edid-decode parse-displayid-block.cpp:2455-2482.
  */
 export const DISPLAY_ID_V1_BLOCK_LABELS: Record<number, string> = {

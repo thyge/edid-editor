@@ -354,7 +354,7 @@ export function isVIC8K(vic: number): boolean {
 /**
  * True iff the VIC's canonical geometry (as built by
  * {@link generateDetailedTimingFromVIC}) fits in an 18-byte DTD without any
- * field being silently truncated (TASK-122). Three overflow classes exist in
+ * field being silently truncated. Three overflow classes exist in
  * the CTA-861-G table:
  *  - 4096/5120/7680/10240-wide formats exceed the 12-bit active field
  *    (4095) — e.g. VIC 98–102, 218–219 are 4096x2160;

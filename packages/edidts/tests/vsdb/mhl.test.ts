@@ -49,7 +49,7 @@ describe('MHL VSDB registry', () => {
   });
 
   it('end-to-end mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
-    // Field-level decode → edit → encode → re-decode (TASK-61): the corpus has
+    // Field-level decode → edit → encode → re-decode: the corpus has
     // zero MHL VSDB fixtures, so this synthetic mutation test is the only safety
     // net for the MHL encode path.
     const block = reassembleVsdbBlock(OUI.MHL, new Uint8Array([0x20, 0x40, 0xAA, 0xBB]));

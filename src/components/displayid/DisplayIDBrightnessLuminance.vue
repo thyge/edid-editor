@@ -10,8 +10,8 @@ import { Input } from '@/components/ui/input'
 import { blocksByTag, numberFromEvent } from '../common/editorUtils'
 
 /**
- * DisplayID 2.1 Brightness Luminance Range (tag 0x2e, fixed 6-byte payload,
- * TASK-126). Three 16-bit little-endian luminance values in 0.01 cd/m² units
+ * DisplayID 2.1 Brightness Luminance Range (tag 0x2e, fixed 6-byte payload).
+ * Three 16-bit little-endian luminance values in 0.01 cd/m² units
  * (edid-decode parse_displayid_brightness_luminance_range); the raw values are
  * edited with the derived cd/m² display in the label.
  */

@@ -1,5 +1,5 @@
 /**
- * Cross-parser field oracle (TASK-58 AC #3).
+ * Cross-parser field oracle.
  *
  * For every linuxhw corpus fixture that carries an edid-decode text dump, assert
  * our decoded field values match edid-decode's printed values for the defined
@@ -98,7 +98,7 @@ const cases = await loadCases(sampleLimit)
  * Update this map only after re-running the full corpus
  * (npx tsx tests/corpus-field-oracle.ts <corpus> 0) and confirming the counts.
  *
- * Empty as of TASK-63: the previous `base.dtds`: 275 entry (all SPWG Notebook
+ * Currently empty: the previous `base.dtds`: 275 entry (all SPWG Notebook
  * Panel EDIDs — AU Optronics / HannStar laptop panels) was resolved by
  * implementing SPWG detection and DTD 2 sync-flags relocation
  * (edid-decode parse-base-block.cpp:973). A full-corpus run now reports 0 hard
@@ -106,7 +106,7 @@ const cases = await loadCases(sampleLimit)
  */
 const BASELINE: Record<string, number> = {}
 
-describe('Cross-parser field oracle (TASK-58)', () => {
+describe('Cross-parser field oracle', () => {
   // Vacuous pass when no corpus is available (no linuxhw clone present).
   if (cases.length === 0) {
     it('skips when no edid-decode text fixtures are available', () => {

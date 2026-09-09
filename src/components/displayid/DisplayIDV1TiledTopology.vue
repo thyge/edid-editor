@@ -13,8 +13,8 @@ import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, stringFromEvent } from '../common/editorUtils'
 
 /**
- * DisplayID 1.x Tiled Display Topology (tag 0x12, fixed 22-byte payload,
- * TASK-125). Bit-packing is identical to the v2.0 block (tag 0x28); the one
+ * DisplayID 1.x Tiled Display Topology (tag 0x12, fixed 22-byte payload).
+ * Bit-packing is identical to the v2.0 block (tag 0x28); the one
  * field difference is the topology ID: v1.x carries a 3-character ASCII
  * vendor ID where v2.0 carries a big-endian IEEE OUI (edidts v1-codecs.ts
  * encodeV1TiledDisplayTopologyBlock).

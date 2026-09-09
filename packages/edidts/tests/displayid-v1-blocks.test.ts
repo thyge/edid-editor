@@ -429,7 +429,7 @@ describe('DisplayID 1.x Vendor-Specific block (tag 0x7f, 3-byte OUI + raw body)'
     expect(isV1VendorSpecificPayloadLengthValid(0)).toBe(false);
   });
 });
-describe('createDefaultDisplayIdBlock — DisplayID 1.x defaults (TASK-130)', () => {
+describe('createDefaultDisplayIdBlock — DisplayID 1.x defaults', () => {
   it('creates a default for every v1.x tag offered by the Add Block menu, satisfying the codec length gates', () => {
     const defaults = Object.values(DISPLAY_ID_V1_BLOCK_TAGS).map(
       (tag) => createDefaultDisplayIdBlock(tag),

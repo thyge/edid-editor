@@ -54,7 +54,7 @@ describe('Room Environment Data Block (Extended Tag 0x15) — EXPERIMENTAL', () 
   });
 
   it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
-    // Field-level decode → edit → encode → re-decode (TASK-61): the corpus has
+    // Field-level decode → edit → encode → re-decode: the corpus has
     // zero Room Environment fixtures, so this synthetic mutation test is the
     // only safety net for the encode path.
     const data = new Uint8Array([0x15, 0x00, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD]);

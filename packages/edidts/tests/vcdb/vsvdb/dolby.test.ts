@@ -107,7 +107,7 @@ describe('VSVDB registry', () => {
 
 // Carrier-level behaviour: the CTA extended-block decode/encode path must
 // surface the registered Dolby decoder's structured shape on the carrier and
-// re-encode from it. This is the TASK-59 contract.
+// re-encode from it, byte-identically.
 describe('Dolby VSVDB carrier (CTA extended tag 0x01)', () => {
   // Dolby OUI is 00-D0-46; on-wire (LE) the three OUI bytes are 46 D0 00.
   const dolbyWire = (postOui: number[]) =>

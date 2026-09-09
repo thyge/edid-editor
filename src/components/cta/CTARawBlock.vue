@@ -8,7 +8,7 @@ import { ctaBlockNavLabel } from '@/components/cta/ctaBlockOrder'
  * Read-only fallback view for CTA data blocks the editor has no structured
  * editor for: VESA VTB (ext 0x03), HDMI Video (ext 0x04), CTA Misc Audio
  * (ext 0x10), HDMI Audio (ext 0x12), reserved tag codes, and unknown extended
- * tags. Per-block nav entries exist for every decoded block (TASK-114), so
+ * tags. Per-block nav entries exist for every decoded block, so
  * these need a view even though their bytes are preserved verbatim rather
  * than structured — the hex dump shows exactly what will be re-encoded.
  */

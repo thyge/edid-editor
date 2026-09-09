@@ -35,8 +35,8 @@ function updateCodeType(index: number, block: DisplayIdTypeVIIIEnumeratedTimingC
 }
 
 /** Switching to 1-byte codes clamps existing values into the 8-bit encodable
- *  range instead of letting the encoder silently truncate them (TASK-107
- *  convention); the inputs immediately show the clamped values. */
+ *  range instead of letting the encoder silently truncate them
+ *  (clamp-on-switch convention); the inputs immediately show the clamped values. */
 function updateCodeSize(index: number, block: DisplayIdTypeVIIIEnumeratedTimingCodeBlock, codeSize: number) {
   const clamped = codeSize === 1
     ? block.timingCodes.map(code => Math.min(255, Math.max(0, code)))

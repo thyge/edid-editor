@@ -296,7 +296,7 @@ describe('VIC Table', () => {
     expect(getVICDefinition(118)).toBeDefined(); // 4K120
   });
 
-  describe('isKnownVIC (TASK-4)', () => {
+  describe('isKnownVIC', () => {
     it('returns true for in-range VICs in the table', () => {
       expect(isKnownVIC(1)).toBe(true);
       expect(isKnownVIC(16)).toBe(true);
@@ -329,7 +329,7 @@ describe('VIC Table', () => {
     expect(vic97?.refreshRate).toBe(60);
   });
 
-  describe('isVICDtdEncodable (TASK-122)', () => {
+  describe('isVICDtdEncodable', () => {
     it('passes a VIC whose geometry fits an 18-byte DTD', () => {
       expect(isVICDtdEncodable(16)).toBe(true); // 1080p60
       expect(isVICDtdEncodable(97)).toBe(true); // 4K60 — 3840 wide, 594 MHz
@@ -451,7 +451,7 @@ describe('Audio Format Codes', () => {
   });
 });
 
-describe('CEA DTD shared model and native association (TASK-8)', () => {
+describe('CEA DTD shared model and native association', () => {
   it('associates the native DTD count with specific DTD objects (first N are native)', () => {
     const dtd = () => new DetailedTimingDescriptor({
       pixelClock: 74.25,
@@ -511,7 +511,7 @@ describe('CEA DTD shared model and native association (TASK-8)', () => {
   });
 });
 
-describe('VESA extended tag 0x02 (Video Display Device Data Block) — TASK-9', () => {
+describe('VESA extended tag 0x02 (Video Display Device Data Block)', () => {
   // 30-byte payload exercising a representative set of fields.
   // x[0]=0x92 → DisplayPort (cat 9), 2 channels; x[1]=0x12 → std v1.2;
   // x[2]=0x01 → HDCP; x[3]=0x22,x[4]=0x21 → min 8 MHz, max ((2)<<8)|0x21 = 545 MHz;
@@ -585,7 +585,7 @@ describe('VESA extended tag 0x02 (Video Display Device Data Block) — TASK-9', 
     expect(Array.from(reencoded)).toEqual(Array.from(blockData));
   });
 
-  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
     // The corpus has zero VDDB fixtures, so this synthetic mutation test is the
     // only safety net for the field-driven encode path.
     const blockData = new Uint8Array([0x02, ...payload]);
@@ -623,7 +623,7 @@ describe('VESA extended tag 0x02 (Video Display Device Data Block) — TASK-9', 
   });
 });
 
-describe('VESA extended tag 0x03 (Video Timing Block Extension) — TASK-9', () => {
+describe('VESA extended tag 0x03 (Video Timing Block Extension)', () => {
   it('decodes as a structured opaque-payload block and round-trips verbatim', () => {
     const blockData = new Uint8Array([0x03, 0x10, 0x20, 0x30, 0x40, 0x50]);
     const block = decodeExtendedDataBlock(blockData) as VESAVideoTimingBlockExtensionDataBlock;
@@ -633,7 +633,7 @@ describe('VESA extended tag 0x03 (Video Timing Block Extension) — TASK-9', () 
     expect(Array.from(reencoded)).toEqual(Array.from(blockData));
   });
 
-  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
     // The corpus has zero VTB-Extension fixtures, so this synthetic mutation
     // test is the only safety net for the encode path. The block is an opaque
     // payload wrapper, so the modeled "field" is the payload bytes themselves.
@@ -658,7 +658,7 @@ describe('VESA extended tag 0x03 (Video Timing Block Extension) — TASK-9', () 
   });
 });
 
-describe('VIC Table per-VIC short-form fields + generateDetailedTimingFromVIC (TASK-88)', () => {
+describe('VIC Table per-VIC short-form fields + generateDetailedTimingFromVIC', () => {
   it('every VIC_TABLE entry has all new fields populated with valid values', () => {
     expect(VIC_TABLE.length).toBeGreaterThan(100);
     for (const vic of VIC_TABLE) {
@@ -687,7 +687,7 @@ describe('VIC Table per-VIC short-form fields + generateDetailedTimingFromVIC (T
   // assertion: analyzeDetailedTimingAgainstCTA compares the DTD's full-frame
   // verticalTotal (active + blanking, e.g. 1125 for 1080i) against the VIC
   // table's per-field vTotal (562.5), a pre-existing ~2× mismatch that is out
-  // of scope for TASK-88 (AC #5: the analyzer stays unchanged).
+  // of scope here (the analyzer stays unchanged).
   const REPS_PROGRESSIVE = [1, 4, 16, 91, 93, 194];
 
   for (const vicNum of REPS) {

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 /**
  * YCbCr 4:2:0 Capability Map Data Block view (tag 0x07 ext 0x0F) — the
  * display-only bitmap section of the former combined "HDR & Colorimetry"
- * view, split per block so each block has its own nav placement (TASK-114).
+ * view, split per block so each block has its own nav placement.
  */
 const props = defineProps<{
   cea: CEAExtensionBlock

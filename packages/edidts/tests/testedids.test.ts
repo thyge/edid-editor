@@ -19,7 +19,7 @@ const edidFixtures = await loadEdidFixtures()
  * OUI integer values that have a registered VSDB decoder. A tag-0x03 VSDB
  * whose on-wire OUI (block.data[0..2], little-endian) is in this set MUST
  * decode to a structured vendor kind — never the 'unknown' fallback. This
- * guards the TASK-56 regression where an OUI byte-shift made every known
+ * guards the regression where an OUI byte-shift made every known
  * VSDB decode as opaque/unknown.
  */
 const KNOWN_VSDB_OUIS = new Set(Object.keys(VENDOR_DECODERS).map(Number))
@@ -149,12 +149,12 @@ describe('Test EDID content extraction', () => {
 })
 
 /**
- * Structured-field regression guards (TASK-47).
+ * Structured-field regression guards.
  *
  * The byte-level round-trip suite above passes even when a structured decoder
  * silently falls back to opaque (the opaque path preserves bytes), so it
- * cannot catch classes of regressions like the VSDB OUI-shift (TASK-56) or the
- * DTD stereo bug (TASK-32). These assertions inspect decoded *structure*, not
+ * cannot catch classes of regressions like the VSDB OUI-shift or the
+ * DTD stereo bug. These assertions inspect decoded *structure*, not
  * bytes, so a structured→opaque regression or a field-misdecode fails here.
  */
 describe('Structured-field regression guards', () => {
@@ -193,7 +193,7 @@ describe('Structured-field regression guards', () => {
               break
             }
             // Known OUIs must decode to their vendor kind, not the 'unknown'
-            // fallback — guards the TASK-56 OUI-shift regression.
+            // fallback — guards the OUI-shift regression.
             if (KNOWN_VSDB_OUIS.has(ouiFromVsdbData(block.payload)) && vendor.kind === 'unknown') {
               violations.push(`${label} (vsdb) known OUI decoded as unknown kind`)
             }
@@ -237,13 +237,13 @@ describe('Structured-field regression guards', () => {
     expect((block as { productName?: string }).productName).toBe('Panel')
   })
 
-  it('DisplayID 1.x sections decode to structured v1.x section blocks (TASK-57)', () => {
+  it('DisplayID 1.x sections decode to structured v1.x section blocks', () => {
     // The in-module committed corpus has no v1.x DisplayID fixture (the v1.x
     // samples live in the gitignored proprietary fixtures), so construct a v1.x
     // section carrying a Type I Detailed Timing block (tag 0x03) and assert it
     // decodes to structured DTDs, not an opaque/raw block. This guards the
-    // TASK-57 change that routes v1.x sections through the v1.x codec instead
-    // of the opaque fallback.
+    // routing of v1.x sections through the v1.x codec instead of the opaque
+    // fallback.
     //
     // The 20-byte Type I descriptor encodes a 1920x1080@60 timing:
     //   pixelClockKHz = 10 * (1 + raw24)  →  raw24 = 148500/10 - 1 = 14849
@@ -297,7 +297,7 @@ describe('Structured-field regression guards', () => {
     expect(Array.from(reencoded)).toEqual(Array.from(sectionBytes))
   })
 
-  it('corpus DisplayID 1.x sections are not opaque (TASK-57)', () => {
+  it('corpus DisplayID 1.x sections are not opaque', () => {
     // Walk every loaded fixture; any DisplayID extension whose carried section
     // is v1.x (version byte 0x10–0x1F) MUST decode to a structured
     // DisplayIdExtension, not fall back to OpaqueExtension. On a checkout
@@ -325,8 +325,8 @@ describe('Structured-field regression guards', () => {
     expect(violations, violations.join('\n')).toEqual([])
   })
 
-  it('a constructed stereo DTD round-trips its stereo mode (guards TASK-32 fix)', () => {
-    // The TASK-32 broken decode short-circuited field-sequential-right (code
+  it('a constructed stereo DTD round-trips its stereo mode (stereo regression guard)', () => {
+    // The previously broken decode short-circuited field-sequential-right (code
     // 001) to 'none', and the broken encode emitted scrambled bits. A DTD
     // constructed with that mode MUST round-trip to the same mode — under the
     // broken maps this assertion fails.

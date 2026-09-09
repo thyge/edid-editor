@@ -7,7 +7,7 @@ import DisplayIDSectionChain from './DisplayIDSectionChain.vue'
 import { displayIdSectionWireLength } from '../common/editorUtils'
 
 /**
- * Overview of one chained DisplayID section (TASK-127): the section the
+ * Overview of one chained DisplayID section: the section the
  * `sectionIndex` prop points at, plus the extension-wide section chain.
  */
 const props = defineProps<{

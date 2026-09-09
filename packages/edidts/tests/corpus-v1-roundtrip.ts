@@ -1,4 +1,4 @@
-// One-off streamed corpus round-trip for DisplayID 1.x (TASK-57 AC #2/#3).
+// One-off streamed corpus round-trip for DisplayID 1.x.
 //
 // Walks the linuxhw/EDID corpus one file at a time (async opendir iterator, not
 // recursive readdir, so 175k files don't trip EMFILE) and, for every fixture
@@ -202,7 +202,7 @@ async function main() {
     for (const f of stats.failures) console.log(`  ${f}`)
   }
 
-  // The TASK-57 bar: every v1.x section decodes structured (not opaque) AND
+  // The bar: every v1.x section decodes structured (not opaque) AND
   // every v1.x block's CONTENT round-trips byte-exactly (known blocks AC #2 +
   // unknown tags AC #3). Checksum normalization on invalid-source fixtures is
   // shared with the v2.0 encoder and excluded from the gate.

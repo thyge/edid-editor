@@ -68,8 +68,8 @@ function defaultEotf(): Record<string, boolean> {
  * its OUI, and default `fields`: the fields are encoded through the kind's
  * registered `VENDOR_ENCODERS` codec, and the carrier `payload` is built as
  * OUI (3 bytes, LE wire order) + encoded vendor body — the same shape
- * `decodeVendorSpecificBlock` produces, so the block round-trips immediately
- * (TASK-109). `fields` must be a fresh object per call: the block becomes the
+ * `decodeVendorSpecificBlock` produces, so the block round-trips immediately.
+ * `fields` must be a fresh object per call: the block becomes the
  * live edit target in the Vue editor, so the exported `*_DEFAULT` literals
  * must never be handed over by reference.
  */
@@ -185,7 +185,7 @@ export function createDefaultCEADataBlock(type: CEADefaultBlockType): CEADataBlo
         numEntries: 8,
         gammaValues: new Array(8).fill(0),
       } as unknown as CEADataBlock;
-    // Vendor-specific data blocks (tag 0x03, TASK-109): unlike the short
+    // Vendor-specific data blocks (tag 0x03): unlike the short
     // blocks above, multiple VSDBs may legally coexist, and each needs its
     // vendor type chosen at instantiation. Defaults are fresh copies of the
     // codecs' own `*_DEFAULT` field literals (never the shared constants —

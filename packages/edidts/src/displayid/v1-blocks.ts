@@ -9,7 +9,7 @@
 // reference them without an import cycle. This file holds only the block
 // walker; `decodeKnownV1Block`/`encodeV1KnownPayload` are thin delegates to the
 // shared registry so v1.x dispatch is the same `Record<tag, {decode, encode}>`
-// single dispatch site as v2.0 (TASK-68 AC#1).
+// single dispatch site as v2.0.
 //
 // All field layouts cross-checked against edid-decode parse-displayid-block.cpp
 // (the `version < 0x20` arm of each parser, where the v1.x and v2.0 paths split).
@@ -98,7 +98,7 @@ export function decodeDisplayIdBlocksV1(
 // ---------------------------------------------------------------------------
 // Dispatch delegates — thin wrappers over the shared registry in blocks.ts.
 // Kept as the public entry points so the package index surface is unchanged;
-// the actual dispatch is one `Record<tag, {decode, encode}>` lookup (TASK-68).
+// the actual dispatch is one `Record<tag, {decode, encode}>` lookup.
 // ---------------------------------------------------------------------------
 
 /**

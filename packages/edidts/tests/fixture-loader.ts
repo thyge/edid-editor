@@ -14,7 +14,7 @@ export interface EdidFixtureCase {
    * decoded text after the `edid-decode (hex):` block), retained only when the
    * loader is asked for it via `includeText`. Undefined for in-module fixtures
    * (which are raw bytes, not edid-decode dumps) and when `includeText` is
-   * false. Used by the cross-parser oracle (TASK-58) to assert decoded field
+   * false. Used by the cross-parser oracle to assert decoded field
    * values match edid-decode.
    */
   text?: string
@@ -196,7 +196,7 @@ export interface LoadFixturesOptions {
   /**
    * When true, retain the edid-decode text portion on linuxhw fixture cases
    * (populates `EdidFixtureCase.text`). In-module fixtures never carry text.
-   * Used by the cross-parser oracle (TASK-58).
+   * Used by the cross-parser oracle.
    */
   includeText?: boolean
 }

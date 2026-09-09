@@ -181,12 +181,12 @@ function addTiming(presetKey?: string) {
   activeSection.value = `edid-dtd-${timings.length - 1}`
 }
 
-/** Add a CTA-861 detailed timing via the same CVT-preset flow (TASK-87 AC #4). */
+/** Add a CTA-861 detailed timing via the same CVT-preset flow. */
 function addCeaTiming(presetKey?: string) {
   if (!edidRef.value) return
   const cea = getCEAExtension(edidRef.value)
   if (!cea) return
-  // TASK-110 backstop: an 18-byte DTD must fit the remaining payload area
+  // Payload-area backstop: an 18-byte DTD must fit the remaining payload area
   // (bytes 4..126, shared with the data blocks). LeftNav disables the add
   // button when full, but a stale UI must not reach the encoder's silent
   // DTD-truncation path.
@@ -199,13 +199,13 @@ function addCeaTiming(presetKey?: string) {
   const state = getTimingEditorState(proxy)
   state.mode = blankingModeToMode(DEFAULT_TIMING_BLANKING_MODE)
   state.refreshRate = refreshRate
-  // Land on the freshly added timing's per-child section (TASK-112).
+  // Land on the freshly added timing's per-child section.
   activeSection.value = `cea-dtd-${timings.length - 1}`
 }
 
 /**
  * Remove one CTA-861 detailed timing by its detailedTimings index — the
- * per-child removal contract of the "Detailed Timings" sub-group (TASK-112).
+ * per-child removal contract of the "Detailed Timings" sub-group.
  * Per-child section ids (cea-dtd-<idx>) shift on removal, so land on the
  * combined timings view instead of a stale id.
  */
@@ -235,7 +235,7 @@ function removeTiming(index: number) {
 }
 
 /**
- * CTA-861 native-DTD selection (TASK-103): CTAHeaderFlags's picker emits the
+ * CTA-861 native-DTD selection: CTAHeaderFlags's picker emits the
  * reordered detailedTimings array (selected DTDs moved to the leading prefix,
  * relative order preserved) plus the derived byte-3 bits 3:0 count. Both are
  * written with array/field-level assignments — same pattern as add/remove
@@ -284,7 +284,7 @@ function updateDescriptor(index: number, descriptor: DisplayDescriptor) {
  *  After the in-place set, the OUTERMOST array ancestor in the path is
  *  reassigned (a shallow copy). This is defensive: reactive() deep-tracks
  *  nested property sets, but reassigning the enclosing array also covers
- *  shallowRef-wrapped roots and matches the TASK-76 contract (array-element
+ *  shallowRef-wrapped roots and matches the reactivity contract (array-element
  *  edits reassign the array). The encode is pure, so re-reading the copied
  *  array (same element refs, mutated in place) reproduces identical bytes. */
 function setByPath(root: object | undefined | null, path: string, value: unknown): void {
@@ -312,7 +312,7 @@ function setByPath(root: object | undefined | null, path: string, value: unknown
   }
 }
 
-/** One setByPath per prop-root (TASK-76): every EDID-base field edit lands as a
+/** One setByPath per prop-root: every EDID-base field edit lands as a
  *  prop-relative dotted path rooted at the base block. */
 const setEdidField = (path: string, value: unknown) => setByPath(edidRef.value?.base, path, value)
 
@@ -357,11 +357,11 @@ function addCEADataBlock(blockType: string) {
   if (!cea) return
   const block = createDefaultCEADataBlock(blockType as CEADefaultBlockType)
   if (!block) return
-  // TASK-110 backstop: refuse a block that would overflow the payload area.
+  // Payload-area backstop: refuse a block that would overflow the payload area.
   // LeftNav already disables non-fitting options, but the encoder throws on
   // data-block overflow, so a stale UI must not reach that state.
   if (ExtensionBlockParser.getCeaEncodedBlockBytes(block) > ExtensionBlockParser.getCeaFreePayloadBytes(cea)) return
-  // Canonical add order (TASK-114): insert before the first existing block
+  // Canonical add order: insert before the first existing block
   // whose rank is greater, so the encoded stream lands in the order the add
   // menu lists; same-rank blocks keep their seniority.
   const insertAt = ctaInsertionIndex(cea.dataBlocks, block)
@@ -410,7 +410,7 @@ const activeCeaBlockExtendedTag = computed(() => {
   return (block as { extendedTag?: number }).extendedTag
 })
 
-/** All chained DisplayID sections (TASK-127). Decoders populate `sections`,
+/** All chained DisplayID sections. Decoders populate `sections`,
  *  but extensions built programmatically may only carry the legacy `section`
  *  alias; fall back to a single-element array for those. */
 function displayIdSections(displayId: DisplayIdExtension): DisplayIdSection[] {
@@ -486,13 +486,13 @@ function addDisplayIdBlock(sectionIndex: number, tag: number) {
   const section = displayId ? displayIdSections(displayId)[sectionIndex] : null
   if (!displayId || !section) return
   const block = createDefaultDisplayIdBlock(tag)
-  // TASK-131 backstop: refuse a block whose default wire bytes would not fit
+  // Payload backstop: refuse a block whose default wire bytes would not fit
   // the shared 0x70 payload. LeftNav disables non-fitting options, but
   // encodeDisplayId silently truncates beyond the payload, so a stale UI
   // must not reach that state.
   if (encodeDisplayIdBlock(block).length > getDisplayIdFreePayloadBytes(displayId)) return
   section.blocks = appendArrayItem(section.blocks, block)
-  // Route to the newly appended block's per-index section (TASK-123).
+  // Route to the newly appended block's per-index section.
   activeSection.value = displayIdBlockSectionId(sectionIndex, section.blocks.length - 1)
 }
 
@@ -538,7 +538,7 @@ function addDisplayIdSection() {
   const sections = displayIdSections(displayId)
   // DisplayID 2.0 chains sections inside one 128-byte extension block; the
   // decoder only reads payload bytes 1..126, so keep the chain within that
-  // shared budget (TASK-131 helper — unlike the old inline math it also
+  // shared budget (unlike the old inline math it also
   // accounts for verbatim trailing bytes). A minimal new section needs 5 bytes.
   if (getDisplayIdFreePayloadBytes(displayId) < 5) return
   // Extension sections carry no primary use case and no extension count
@@ -580,14 +580,13 @@ function removeDisplayIdSection(sectionIndex: number) {
   }
 }
 
-/** One setByPath per prop-root (TASK-76): every CTA field edit lands as a
+/** One setByPath per prop-root: every CTA field edit lands as a
  *  prop-relative dotted path rooted at the CEA extension (e.g. "revision",
  *  "dataBlocks.1.vics", "detailedTimings.0.flags.interlaced"). */
 const setCeaField = (path: string, value: unknown) => setByPath(ceaExtension.value, path, value)
 
-/** One setByPath per prop-root (TASK-76): every DisplayID section-level edit
- *  lands as a prop-relative dotted path rooted at the active chained section
- *  (TASK-127). */
+/** One setByPath per prop-root: every DisplayID section-level edit
+ *  lands as a prop-relative dotted path rooted at the active chained section. */
 const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisplayIdSection.value, path, value)
 </script>
 
@@ -682,7 +681,7 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
           />
           <!-- Per-block sections (cea-block-<idx>): one uniform section id for
                every data block; the editor is picked by looking up the block
-               at the active index (TASK-114). -->
+               at the active index. -->
           <template v-else-if="activeCeaBlock && ceaExtension">
             <CTAVideoBlock v-if="activeCeaBlock.tag === 0x02" :cea="ceaExtension" @update="setCeaField" />
             <CTAAudioBlock v-else-if="activeCeaBlock.tag === 0x01" :cea="ceaExtension" @update="setCeaField" />
@@ -712,7 +711,7 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
             <CTARawBlock v-else :cea="ceaExtension" :index="activeCeaBlockIndex" />
           </template>
           <!-- Per-timing sections (cea-dtd-<idx>) of the Detailed Timings
-               sub-group (TASK-112): single-timing editor by index. -->
+               sub-group: single-timing editor by index. -->
           <CTADetailedTiming
             v-else-if="activeSection.startsWith('cea-dtd-') && ceaExtension && activeCeaTimingIndex >= 0"
             :cea="ceaExtension"
@@ -743,8 +742,8 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
           />
           <!-- Per-block sections (displayid-s<sec>-b<idx>): one uniform section id
                for every data block; the editor is picked by looking up the block
-               at the active index (TASK-123, mirroring the cea-block-<idx>
-               pattern from TASK-114). v1.x and v2.0 tags without a structured
+               at the active index (mirroring the cea-block-<idx>
+               pattern). v1.x and v2.0 tags without a structured
                editor land in the raw fallback. -->
           <template v-else-if="activeDisplayIdBlock && activeDisplayIdSection">
             <DisplayIDProductIdentification
@@ -815,7 +814,7 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
-            <!-- v1.x structured editors (TASK-125): the v1.x tag space
+            <!-- v1.x structured editors: the v1.x tag space
                  (0x00–0x13, 0x7f) doesn't overlap the v2.0 tags, so routing on
                  the numeric tag alone is unambiguous. -->
             <DisplayIDV1ProductIdentification
@@ -842,8 +841,8 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
             />
-            <!-- v2.0/2.1 tags whose codecs existed before their editors
-                 (TASK-126): Type X, Adaptive-Sync, AR/VR HMD, AR/VR Layer,
+            <!-- v2.0/2.1 tags whose codecs existed before their editors:
+                 Type X, Adaptive-Sync, AR/VR HMD, AR/VR Layer,
                  Brightness Luminance Range. -->
             <DisplayIDTypeXTimings
               v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.TypeXTiming"

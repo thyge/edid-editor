@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
 
 /**
- * DisplayID 2.0 Type X Timing (tag 0x2a, TASK-126) — a list of compact
+ * DisplayID 2.0 Type X Timing (tag 0x2a) — a list of compact
  * formula-argument descriptors whose size (6–8 bytes) is carried in the block
  * flags; the codec (edidts type-x-timing.ts) stores `descriptorSize` decoded.
  * Fields beyond byte 5 only exist for the larger descriptor sizes; they render

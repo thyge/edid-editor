@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { blocksByTag, numberFromEvent } from '../common/editorUtils'
 
 /**
- * DisplayID 1.x Display Parameters (tag 0x01, fixed 12-byte payload, TASK-125).
+ * DisplayID 1.x Display Parameters (tag 0x01, fixed 12-byte payload).
  * The model stores raw wire values (edidts v1-codecs.ts); labels document the
  * derived units — image size in 0.1 mm, gamma and aspect ratio as
  * (100 + byte) / 100, color depth nibbles as code + 1.

@@ -61,7 +61,7 @@ describe('HDMI14Encoder', () => {
   });
 });
 
-describe('HDMI 1.4 VSDB optional sections (TASK-7)', () => {
+describe('HDMI 1.4 VSDB optional sections', () => {
   function roundTrip(payload: number[]) {
     const decoded = new HDMI14Decoder().decode(new Uint8Array(payload));
     const reencoded = new HDMI14Encoder().encode(decoded);

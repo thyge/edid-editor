@@ -6,6 +6,9 @@ packages/*/dist
 .claude/
 backlog/
 
+# Local AI-assistant instructions (kept out of the repo)
+CLAUDE.md
+
 
 # local env files
 .env.local

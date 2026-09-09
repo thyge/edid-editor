@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
 
 /**
- * DisplayID 2.0 Adaptive Sync (tag 0x2b, TASK-126) — a list of 6-byte
+ * DisplayID 2.0 Adaptive Sync (tag 0x2b) — a list of 6-byte
  * operation-range descriptors (the only defined descriptor length, code 0 in
  * the block flags). Raw fields are edited directly: the 6.2 fixed-point bytes
  * (value = raw / 4 ms) and the 10-bit max refresh rate (Hz = raw + 1) get

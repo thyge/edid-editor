@@ -87,7 +87,7 @@ const edidFixedChildren = [
 
 const edidBase = computed(() => props.edid?.base ?? null)
 
-// Friendly label for a detailed timing: "1920×1080p60" (TASK-119 shared
+// Friendly label for a detailed timing: "1920×1080p60" (shared
 // helper). Falls back to "Timing N" for blank/zeroed DTDs (e.g. a freshly
 // added empty slot).
 function timingNavLabel(t: DetailedTimingDescriptor, i: number): string {
@@ -144,7 +144,7 @@ const edidAddOptions = computed<EdidAddOption[]>(() => {
 
 /**
  * Bytes still free in the CTA payload area (bytes 4..126) after the encoded
- * data-block stream and the existing 18-byte DTDs (TASK-110). Both "+ Add"
+ * data-block stream and the existing 18-byte DTDs. Both "+ Add"
  * paths draw from this shared budget. Derived from the reactive CEA tree, so
  * adding/removing any data block or timing immediately re-evaluates it.
  */
@@ -155,7 +155,7 @@ const ceaFreeBytes = computed(() => {
 })
 
 /** CTA detailed timings are addable while an 18-byte DTD fits the remaining
- *  payload area shared with the data blocks (TASK-110). */
+ *  payload area shared with the data blocks. */
 const ceaCanAddTiming = computed(() => ceaFreeBytes.value >= ExtensionBlockParser.CEA_DTD_SIZE)
 
 /** Hover hint for the + Add Timing action, explaining why it is disabled when full. */
@@ -185,7 +185,7 @@ interface CeaBlockChild {
   index: number
 }
 
-/** Render model for the CTA nav (TASK-114): the extension is a collection of
+/** Render model for the CTA nav: the extension is a collection of
  *  blocks, so entries mirror the encoded (dataBlocks) order verbatim —
  *  Header & Flags first, every data block in its decoded position, Detailed
  *  Timings last (per Table 53 the DTDs follow the entire Data Block
@@ -227,7 +227,7 @@ const ceaNavItems = computed<CeaNavNode[]>(() => {
       child: { id: `cea-block-${index}`, label: ctaBlockNavLabel(block), index },
     })
   })
-  // Detailed Timings sub-group (TASK-112): always present when a CEA
+  // Detailed Timings sub-group: always present when a CEA
   // extension exists, last per Table 53 (DTDs follow the entire Data Block
   // Collection).
   items.push({ kind: 'timings', key: 'timings' })
@@ -252,13 +252,13 @@ const activeCeaBlockFamily = computed<CtaBlockFamily | null>(() => {
 })
 
 /** Friendly label for a CTA detailed timing — same "1920×1080p60" shape as
- *  {@link timingNavLabel} via the TASK-119 shared helper (CTA timings are
+ *  {@link timingNavLabel} via the shared helper (CTA timings are
  *  plain DetailedTiming records, no refreshRate getter). */
 function ceaTimingNavLabel(t: CEADetailedTiming, i: number): string {
   return timingNameLabel(t, `Timing ${i + 1}`)
 }
 
-/** One per-timing nav entry of the "Detailed Timings" sub-group (TASK-112):
+/** One per-timing nav entry of the "Detailed Timings" sub-group:
  *  `index` is the timing's detailedTimings index, the root of its per-child
  *  edit path and by-index removal contract. */
 const ceaTimingChildren = computed(() => {
@@ -280,7 +280,7 @@ const isCeaTimingSection = computed(() =>
 
 /**
  * One "+ Add Block" option: the factory discriminator, its menu label, whether
- * its default block still fits the remaining payload area (TASK-110 —
+ * its default block still fits the remaining payload area (
  * non-fitting options render disabled with a "(no space)" label suffix and
  * the reason as hover hint, they are not silently hidden).
  */
@@ -293,7 +293,7 @@ interface CeaAddOption {
 }
 
 /** Short blocks are single-instance: an option is offered only while no block
- *  of that type is present. VSDBs are exempt (multiple legal, TASK-109). */
+ *  of that type is present. VSDBs are exempt (multiple legal). */
 function hasBlock(pred: (b: import('edidts').CEADataBlock) => boolean): boolean {
   return !!ceaExt.value?.dataBlocks.some(pred)
 }
@@ -320,7 +320,7 @@ function addOption(type: CEADefaultBlockType, label: string): CeaAddOption {
 }
 
 /**
- * One node of the Add Block menu (TASK-117): a direct item, or a cascading
+ * One node of the Add Block menu: a direct item, or a cascading
  * sub-menu holding one family's options.
  */
 type CeaAddBlockMenuNode =
@@ -333,8 +333,8 @@ const addBlockMenu = computed<CeaAddBlockMenuNode[]>(() => {
   const add = (type: CEADefaultBlockType, label: string, present: boolean) => {
     if (!present) nodes.push({ kind: 'item', key: type, option: addOption(type, label) })
   }
-  // Canonical add order (TASK-114): Video, Audio, Speaker Allocation, VSDBs
-  // (cascade, TASK-117), Colorimetry, the VCDB family (cascade, TASK-117:
+  // Canonical add order: Video, Audio, Speaker Allocation, VSDBs
+  // (cascade), Colorimetry, the VCDB family (cascade:
   // Video Capability, Vendor-Specific Audio, InfoFrame, Video Format
   // Preference, HDR Static), Room Configuration, Speaker Location, then
   // unlisted types (VESA Display Device).
@@ -346,7 +346,7 @@ const addBlockMenu = computed<CeaAddBlockMenuNode[]>(() => {
     key: 'sub-vsdb',
     family: 'vsdb',
     label: CTA_FAMILY_LABELS.vsdb,
-    // VSDBs are always offered — multiple may legally coexist (TASK-109).
+    // VSDBs are always offered — multiple may legally coexist.
     options: VSDB_ADD_OPTIONS.map((opt) => addOption(opt.type, opt.label)),
   })
   add('colorimetry', 'Colorimetry', hasExtBlock(0x05))
@@ -370,7 +370,7 @@ const addBlockMenu = computed<CeaAddBlockMenuNode[]>(() => {
   return nodes
 })
 
-/** Vendor-specific data blocks (tag 0x03, TASK-109): multiple VSDBs may
+/** Vendor-specific data blocks (tag 0x03): multiple VSDBs may
  *  legally coexist, so unlike the deduped short blocks above these options
  *  are always offered — the dropdown item itself picks the vendor type to
  *  instantiate. */
@@ -391,8 +391,8 @@ interface DisplayIdNavChild {
   label: string
   index: number
 }
-/** One DisplayID Add Block option: the version-scoped tag/label (TASK-130)
- *  plus the payload-capacity guard (TASK-131) — a non-fitting option renders
+/** One DisplayID Add Block option: the version-scoped tag/label
+ *  plus the payload-capacity guard — a non-fitting option renders
  *  disabled with a "(no space)" suffix and the reason as hover hint, mirroring
  *  the CTA add menu. */
 interface DisplayIdAddOption {
@@ -403,7 +403,7 @@ interface DisplayIdAddOption {
   noSpaceTitle?: string
 }
 
-/** One nav group per chained DisplayID section (TASK-127). The base section
+/** One nav group per chained DisplayID section. The base section
  *  (index 0) cannot be removed; only v2.0 chains support extra sections, so
  *  the Add Section affordance is gated on the base section's version. */
 interface DisplayIdSectionNav {
@@ -412,7 +412,7 @@ interface DisplayIdSectionNav {
   headerId: string
   children: DisplayIdNavChild[]
   canRemove: boolean
-  /** Version-scoped Add Block menu (TASK-130): v1.x tags for a v1.x
+  /** Version-scoped Add Block menu: v1.x tags for a v1.x
    *  section, v2.0 tags for a v2.0 section — no cross-version adds. */
   addableBlocks: DisplayIdAddOption[]
 }
@@ -425,15 +425,15 @@ function chainedDisplayIdSections(displayId: { section: DisplayIdSection; sectio
 
 /** Bytes still free in the 0x70 extension payload (bytes 1..126) after every
  *  chained section and the verbatim trailing bytes — the one shared Add Block
- *  / Add Section budget, the DisplayID counterpart of ceaFreeBytes
- *  (TASK-131). Derived from the reactive tree, so any block/section edit
+ *  / Add Section budget, the DisplayID counterpart of ceaFreeBytes.
+ *  Derived from the reactive tree, so any block/section edit
  *  immediately re-evaluates it. */
 const displayIdFreeBytes = computed(() => {
   const displayId = displayIdExt.value
   return displayId ? getDisplayIdFreePayloadBytes(displayId) : 0
 })
 
-/** Guard one Add Block option against the shared payload budget (TASK-131):
+/** Guard one Add Block option against the shared payload budget:
  *  the option's default block needs its full wire bytes (3-byte header +
  *  payload) inside the remaining space. */
 function displayIdAddOption(opt: { tag: number; label: string }): DisplayIdAddOption {
@@ -460,7 +460,7 @@ const displayIdSectionGroups = computed<DisplayIdSectionNav[]>(() => {
     headerId: displayIdSectionIds.header(sectionIndex),
     // One section id per block index (displayid-s<sec>-b<idx>) so every tag —
     // v1.x or v2.0, known or unknown, duplicated or not — has its own routable
-    // section (TASK-123, mirroring the cea-block-<idx> pattern from TASK-114).
+    // section.
     children: section.blocks.map((block, index) => ({
       id: displayIdBlockSectionId(sectionIndex, index),
       label: displayIdBlockLabel(block.tag),
@@ -505,7 +505,7 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
     <SidebarContent>
       <template v-if="edid">
         <!-- EDID base-block group: the header row itself is the collapsible
-             trigger (sidebar-07 pattern, TASK-133) — chevron on the right —
+             trigger (sidebar-07 pattern) — chevron on the right —
              and clicking it also selects the EDID overview. -->
         <SidebarGroup>
           <Collapsible v-model:open="edidOpen">
@@ -541,8 +541,8 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                      sub-group. The four shared 18-byte slots are the add
                      budget; the "+ Add" dropdown offers a DTD or any
                      descriptor type. -->
-                <!-- Descriptors sub-group styled like the top-level rows
-                     (TASK-133); hierarchy comes from the sub-list indent. -->
+                <!-- Descriptors sub-group styled like the top-level rows;
+                    hierarchy comes from the sub-list indent. -->
                 <SidebarMenuSubItem>
                   <Collapsible v-model:open="edidDescriptorsOpen">
                     <CollapsibleTrigger as-child>
@@ -645,7 +645,7 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
         </SidebarGroup>
 
         <!-- CTA-861 extension group: header row is the trigger (chevron on
-             the right, TASK-133); the extension-remove X stays at the row's
+             the right); the extension-remove X stays at the row's
              right edge. -->
         <SidebarGroup v-if="hasCEA">
           <Collapsible v-model:open="ceaOpen">
@@ -673,8 +673,8 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
             </div>
             <CollapsibleContent>
               <SidebarMenuSub>
-                <!-- One nav entry per encoded block in dataBlocks order
-                     (TASK-114): Header & Flags, each data block at its
+                <!-- One nav entry per encoded block in dataBlocks order:
+                    Header & Flags, each data block at its
                      decoded position (VSDB / VCDB-family blocks collected
                      under collapsible callouts), Detailed Timings last. -->
                 <template v-for="node in ceaNavItems" :key="node.key">
@@ -720,7 +720,7 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                        header is a pure callout (collapse toggle, no section);
                        each child is one block with by-index remove. -->
                   <!-- Family sub-group callout (VSDBs / VCDB family): styled
-                       like the top-level rows (TASK-133) — a pure callout, the
+                       like the top-level rows — a pure callout, the
                        header only toggles; each child is one block with
                        by-index remove. -->
                   <SidebarMenuSubItem v-else-if="node.kind === 'family'">
@@ -766,7 +766,7 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                     </Collapsible>
                   </SidebarMenuSubItem>
 
-                  <!-- Detailed Timings sub-group (TASK-112): always the last
+                  <!-- Detailed Timings sub-group: always the last
                        entry — per CTA-861-G Table 53 the DTDs follow the
                        entire Data Block Collection. The header opens the
                        combined timings view; each child is one DTD with its
@@ -815,8 +815,7 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                                different preset from inside the timing card's
                                Preset row. Disabled (with the reason as hover
                                hint) when the payload area shared with the
-                               data blocks can't hold another 18-byte DTD
-                               (TASK-110). -->
+                               data blocks can't hold another 18-byte DTD. -->
                           <SidebarMenuSubItem>
                             <Button
                               variant="ghost"
@@ -835,14 +834,14 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                   </SidebarMenuSubItem>
                 </template>
 
-                <!-- Add data block: options in the canonical order (TASK-114)
+                <!-- Add data block: options in the canonical order
                      with the VSDB and VCDB families as cascading sub-menus at
-                     their canonical positions (TASK-117). Short blocks are
+                     their canonical positions. Short blocks are
                      deduped (single-instance) and VSDBs are always offered
-                     (multiple legal, TASK-109). Options whose default block
+                     (multiple legal). Options whose default block
                      would not fit the remaining payload area render disabled
                      with a "(no space)" suffix and hover reason instead of
-                     silently vanishing (TASK-110). -->
+                     silently vanishing. -->
                 <SidebarMenuSubItem v-if="addBlockMenu.length > 0">
                   <DropdownMenu>
                     <DropdownMenuTrigger as-child>
@@ -890,7 +889,7 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
         </SidebarGroup>
 
         <!-- DisplayID extension group: header row is the trigger (chevron on
-             the right, TASK-133); the extension-remove X stays at the row's
+             the right); the extension-remove X stays at the row's
              right edge. -->
         <SidebarGroup v-if="hasDisplayID">
           <Collapsible v-model:open="displayIdOpen">
@@ -918,7 +917,7 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
             </div>
             <CollapsibleContent>
               <SidebarMenuSub>
-                <!-- One sub-tree per chained section (TASK-127): the section
+                <!-- One sub-tree per chained section: the section
                      label routes to that section's overview, then its header
                      and per-block rows follow. -->
                 <template v-for="group in displayIdSectionGroups" :key="group.sectionIndex">
@@ -988,7 +987,7 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                         <!-- Options whose default block would not fit the
                              remaining payload area render disabled with a
                              "(no space)" suffix and hover reason instead of
-                             being silently added (TASK-131). -->
+                             being silently added. -->
                         <DropdownMenuItem
                           v-for="opt in group.addableBlocks"
                           :key="opt.tag"

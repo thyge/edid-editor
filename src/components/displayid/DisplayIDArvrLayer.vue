@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent } from '../common/editorUtils'
 
 /**
- * DisplayID 2.1 AR/VR Layer (tag 0x2d, 20-byte payload, TASK-126). Layout per
+ * DisplayID 2.1 AR/VR Layer (tag 0x2d, 20-byte payload). Layout per
  * the edidts codec (ar-vr.ts, sourced from edid-decode parse_displayid_arvr_layer);
  * the 3.5 fixed-point scaling-non-listed bytes are edited raw with a derived
  * display (value = raw / 32).

@@ -1,7 +1,7 @@
-// Cross-parser field-value oracle (TASK-58).
+// Cross-parser field-value oracle.
 //
 // Each linuxhw/EDID corpus file is an `edid-decode` dump: a hex block plus the
-// full human-readable decoded text. `testedids.test.ts` (TASK-47) only asserts
+// full human-readable decoded text. `testedids.test.ts` only asserts
 // that blocks decode to the right structured *type*; it never checks that our
 // decoded field *values* agree with edid-decode. This module mines the decoded
 // text to turn every corpus fixture into a field-level oracle.
@@ -735,7 +735,7 @@ export function extractOurReport(eedid: EEDID): OracleReport {
 export const ALLOWLIST: string[] = [
   // edid-decode recomputes and normalises block checksums; we do too, but
   // invalid-source fixtures then differ on the checksum byte. Checksum is a
-  // structural-integrity concern (covered by the TASK-57 round-trip gate), not a
+  // structural-integrity concern (covered by the round-trip gate), not a
   // decoded field value, so it is not asserted here.
   'base.checksum',
   'cta.checksum',

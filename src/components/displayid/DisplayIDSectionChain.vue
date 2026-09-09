@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { bytesToHex, displayIdSectionWireLength } from '../common/editorUtils'
 
 /**
- * Section-chain summary for a DisplayID extension (TASK-127): one row per
+ * Section-chain summary for a DisplayID extension: one row per
  * chained section with its live wire length and a remove affordance for
  * extension sections, plus the post-chain trailing bytes (read-only — they
  * are preserved verbatim on re-encode). Rows route to the section's

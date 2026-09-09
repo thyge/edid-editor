@@ -743,7 +743,7 @@ export class ExtensionBlockParser {
    * Bytes still free in the payload area after the current data-block stream
    * and existing DTDs. The editor gates its "+ Add Block"/"+ Add Timing"
    * actions on this so the encoder's DTD-truncation / data-block-overflow
-   * paths stay unreachable (TASK-110).
+   * paths stay unreachable.
    */
   public static getCeaFreePayloadBytes(cea: CEAExtensionBlock): number {
     let used = 0;

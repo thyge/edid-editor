@@ -1,5 +1,5 @@
 /**
- * Shared user-facing timing-name helpers (TASK-119): one rounding convention
+ * Shared user-facing timing-name helpers: one rounding convention
  * for every timing name/label so a 59.94/59.95/59.99 Hz timing always reads
  * as "60" (and 119.88 as "120). Purely technical readouts — e.g. the timing
  * card's achieved-vs-target quantization Δ — keep their 2-decimal precision

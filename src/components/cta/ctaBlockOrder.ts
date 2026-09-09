@@ -1,6 +1,6 @@
 /**
  * Canonical CTA-861 data-block ordering shared by the left nav (display,
- * add-menu order) and App.vue (add-insertion position) — TASK-114.
+ * add-menu order) and App.vue (add-insertion position).
  *
  * CTA-861-G Section 7.1.2 states "The order of the Data Blocks is not
  * constrained", so this order is an editor convention only: the nav displays
@@ -17,7 +17,7 @@ import { isVendorBlock, vendorBlockLabel } from '@/components/cta/vendorLabels'
 export type CtaBlockFamily = 'vsdb' | 'vcdb'
 
 /** Extended tags of the Video Capability Data Block family (user-defined
- *  grouping, TASK-114): VCDB itself, Vendor-Specific Video/Audio carriers,
+ *  grouping): VCDB itself, Vendor-Specific Video/Audio carriers,
  *  InfoFrame, the YCbCr 4:2:0 pair, Video Format Preference, and HDR Static
  *  Metadata. */
 const VCDB_FAMILY_EXT_TAGS: ReadonlySet<number> = new Set([0x00, 0x01, 0x11, 0x20, 0x0e, 0x0f, 0x0d, 0x06])
@@ -34,7 +34,7 @@ export function ctaBlockFamily(block: CEADataBlock): CtaBlockFamily | null {
 }
 
 /**
- * Position in the canonical add order (TASK-114). Lower = earlier. VSDBs share
+ * Position in the canonical add order. Lower = earlier. VSDBs share
  * rank 5: a newly added VSDB lands after existing VSDBs but before higher-
  * ranked blocks. Unlisted types (VESA Display Device 0x05, VESA VTB ext 0x03,
  * HDMI Video ext 0x04, CTA Misc Audio ext 0x10, HDMI Audio ext 0x12,

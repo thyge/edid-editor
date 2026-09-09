@@ -79,7 +79,7 @@ function buildBase(opts: { spwg: boolean; dtd2Byte17: number }): Uint8Array {
   return bytes
 }
 
-describe('SPWG Notebook Panel EDID (TASK-63)', () => {
+describe('SPWG Notebook Panel EDID', () => {
   it('detectSPWG matches edid-decode criteria for an SPWG base block', () => {
     const spwg = buildBase({ spwg: true, dtd2Byte17: MODULE_REV })
     expect(detectSPWG(spwg)).toBe(true)

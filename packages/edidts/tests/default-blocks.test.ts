@@ -1,7 +1,7 @@
 /**
  * Tests for the CEA data-block default-value factory (`default-blocks.ts`):
- * the VSDB addable-block factories (TASK-109) and the payload-area capacity
- * accounting used by the editor's "+ Add" guards (TASK-110).
+ * the VSDB addable-block factories and the payload-area capacity
+ * accounting used by the editor's "+ Add" guards.
  */
 import { describe, it, expect } from 'vitest';
 import { createDefaultCEADataBlock } from '../src/cta/default-blocks';
@@ -28,7 +28,7 @@ const VSDB_KINDS: Record<VsdbType, Exclude<VendorSpecificDecoded['kind'], 'unkno
   'vsdb-mhl': 'mhl',
 };
 
-describe('createDefaultCEADataBlock VSDB factories (TASK-109)', () => {
+describe('createDefaultCEADataBlock VSDB factories', () => {
   it.each(Object.keys(VSDB_OUIS) as VsdbType[])('%s produces a well-formed tag-0x03 block', (type) => {
     const block = createDefaultCEADataBlock(type) as VendorSpecificDataBlock | undefined;
     expect(block).toBeDefined();
@@ -114,7 +114,7 @@ describe('createDefaultCEADataBlock VSDB factories (TASK-109)', () => {
   });
 });
 
-describe('CEA payload-area capacity accounting (TASK-110)', () => {
+describe('CEA payload-area capacity accounting', () => {
   it('reports the full 123-byte budget for an empty extension', () => {
     expect(ExtensionBlockParser.CEA_PAYLOAD_CAPACITY).toBe(123);
     expect(ExtensionBlockParser.getCeaFreePayloadBytes(buildCeaExtension())).toBe(123);

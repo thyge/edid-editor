@@ -59,7 +59,7 @@ describe('EstablishedTiming decode/encode (Section 3.8)', () => {
     expect(decoded[0].width).toBe(1152)
   })
 
-  it('skips reserved timing IDs (17..23) on encode (TASK-46)', () => {
+  it('skips reserved timing IDs (17..23) on encode', () => {
     // Reserved IDs occupy byte 2 bits 6..0; EDID 1.4 §3.8 / Table 3.18 requires
     // these bits to be written as 0, so the encoder must not set them even if a
     // reserved id appears in the input.

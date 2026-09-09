@@ -4,7 +4,7 @@
  * When a CEA data block has tag 7 (Extended Tag), the first byte of the
  * payload contains the Extended Tag Code that identifies the specific block type.
  *
- * TASK-115: the VCDB-family blocks (Video Capability 0x00, VSVDB 0x01,
+ * Note: the VCDB-family blocks (Video Capability 0x00, VSVDB 0x01,
  * HDR Static 0x06, Video Format Preference 0x0D, YCbCr 4:2:0 Video 0x0E /
  * Capability Map 0x0F, VSADB 0x11, InfoFrame 0x20) live in `./vcdb/`; this
  * module holds the non-family blocks plus the tag-keyed
@@ -544,7 +544,7 @@ export type CTAExtendedDataBlock =
 
 // The VCDB-family members of the union above (Video Capability, HDR Static,
 // Video Format Preference, YCbCr 4:2:0 Video / Capability Map, VSVDB, VSADB,
-// InfoFrame) are defined in `./vcdb/` (TASK-115); only the non-family blocks
+// InfoFrame) are defined in `./vcdb/`; only the non-family blocks
 // in this list are declared in this module.
 
 /**
@@ -552,9 +552,9 @@ export type CTAExtendedDataBlock =
  * Data Blocks (CTA-861-G §7.5, tag 0x07). Each entry pairs a free-standing
  * decode/encode function pair; the opaque fallback is one `OPAQUE_EXTENDED_BLOCK`
  * default entry rather than a switch `default:` branch. Adding a block type is
- * a registry entry, not a dispatcher edit (TASK-68). Mirrors mp4box BoxRegistry.
+ * a registry entry, not a dispatcher edit. Mirrors mp4box BoxRegistry.
  * The VCDB-family codecs (0x00/0x01/0x06/0x0D/0x0E/0x0F/0x11/0x20) are
- * imported from `./vcdb/` (TASK-115).
+ * imported from `./vcdb/`.
  */
 interface CTAExtendedBlockCodec {
   decode(base: ExtendedDataBlock, payload: Uint8Array): CTAExtendedDataBlock;

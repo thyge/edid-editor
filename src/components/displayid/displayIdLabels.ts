@@ -5,7 +5,7 @@ import {
 } from 'edidts'
 
 /**
- * Label for a DisplayID data block of either tag space (TASK-111): v2.0
+ * Label for a DisplayID data block of either tag space: v2.0
  * (DISPLAY_ID_BLOCK_LABELS) first, then v1.x (DISPLAY_ID_V1_BLOCK_LABELS),
  * else a padded-hex fallback. The v1.x and v2.0 tag spaces don't overlap,
  * so order is only for lookup clarity.
@@ -20,7 +20,7 @@ export function displayIdBlockLabel(tag: number): string {
 
 /**
  * Section ids are namespaced by the section's position in the DisplayID
- * extension's section chain (TASK-127): `displayid-s<sec>-overview` /
+ * extension's section chain: `displayid-s<sec>-overview` /
  * `displayid-s<sec>-header` / `displayid-s<sec>-b<block>` where `<sec>` is the
  * index into `DisplayIdExtension.sections` (0 = base section). This replaces
  * the pre-multi-section flat ids (`displayid-overview`, `displayid-header`,
@@ -62,15 +62,15 @@ export const addableDisplayIdBlocks = Object.entries(DISPLAY_ID_BLOCK_LABELS).ma
   label,
 }))
 
-/** Add Block menu entries for DisplayID 1.x sections (TASK-130): only the
- *  five tags with structured codecs and editors (TASK-125) — everything else
+/** Add Block menu entries for DisplayID 1.x sections: only the
+ *  five tags with structured codecs and editors — everything else
  *  in the v1.x tag space has no structured editor yet. */
 export const addableDisplayIdV1Blocks = Object.values(DISPLAY_ID_V1_BLOCK_TAGS).map(tag => ({
   tag,
   label: DISPLAY_ID_V1_BLOCK_LABELS[tag] ?? `Unknown 0x${tag.toString(16).padStart(2, '0')}`,
 }))
 
-/** The Add Block menu is version-scoped (TASK-130): a v1.x section offers the
+/** The Add Block menu is version-scoped: a v1.x section offers the
  *  v1.x tags, a v2.0 section the v2.0 tags — never a cross-version add. */
 export function addableDisplayIdBlocksForSection(versionByte: number): { tag: number; label: string }[] {
   return versionByte < 0x20 ? addableDisplayIdV1Blocks : addableDisplayIdBlocks

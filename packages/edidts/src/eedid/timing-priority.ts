@@ -66,7 +66,7 @@ export type TimingSource = keyof typeof TIMING_PRIORITY_RANK;
 /**
  * A single video timing mode resolved from an EEDID, tagged with the §5
  * priority rank it was collected at. Kept local to this policy module; a
- * shared cross-format timing abstraction is tracked separately (TASK-29).
+ * shared cross-format timing abstraction is tracked separately.
  */
 export interface TimingEntry {
   /** §5 priority rank (1 = highest). See `TIMING_PRIORITY_RANK`. */

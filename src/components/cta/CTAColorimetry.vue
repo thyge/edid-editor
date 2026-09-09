@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch'
 /**
  * Colorimetry Data Block editor (tag 0x07 ext 0x05) — the colorimetry section
  * of the former combined "HDR & Colorimetry" view, split per block so each
- * block has its own nav placement (TASK-114).
+ * block has its own nav placement.
  */
 const props = defineProps<{
   cea: CEAExtensionBlock

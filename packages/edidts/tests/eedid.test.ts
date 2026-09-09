@@ -396,7 +396,7 @@ describe('EEDID extension checksum validity (Section 3.11)', () => {
   })
 })
 
-describe('EEDID per-block checksum validity + diagnostics (TASK-1)', () => {
+describe('EEDID per-block checksum validity + diagnostics', () => {
   // Build a base block + one CTA extension block, both with correct checksums.
   function buildBlob(): Uint8Array {
     const base = EDID.encode(EDID.blank())
@@ -450,7 +450,7 @@ describe('EEDID per-block checksum validity + diagnostics (TASK-1)', () => {
   })
 })
 
-describe('EEDID extension count and opaque preservation (TASK-24)', () => {
+describe('EEDID extension count and opaque preservation', () => {
   // Base block + one opaque (unknown-tag) extension. byte 126 (the declared
   // extension count) is set to `declaredCount`, which may exceed the number of
   // 128-byte blocks actually present. The base checksum is re-fixed afterward

@@ -1,7 +1,7 @@
 // packages/edidts/src/cta/vcdb/index.ts
 
-// VCDB family (TASK-115): the CTA-861 extended-tag blocks grouped under the
-// Video Capability Data Block family in the TASK-114 left-nav taxonomy —
+// VCDB family: the CTA-861 extended-tag blocks grouped under the
+// Video Capability Data Block family in the left-nav taxonomy —
 // Video Capability (0x00), VSVDB (0x01), HDR Static (0x06), Video Format
 // Preference (0x0D), YCbCr 4:2:0 Video (0x0E) / Capability Map (0x0F),
 // VSADB (0x11), and InfoFrame (0x20). The tag-0x03 VSDBs are NOT part of this

@@ -115,7 +115,7 @@ describe('CEA extension block container', () => {
     });
   });
 
-  describe('DTD offset edge cases (TASK-3)', () => {
+  describe('DTD offset edge cases', () => {
     // Encode rule (extension-block.ts): dtdOffset = (detailedTimings.length > 0
     // || offset > 4) ? offset : 0 — i.e. 0 only when there are no data blocks and
     // no DTDs; otherwise it points at the end of the data-block collection (the
@@ -347,7 +347,7 @@ describe('CEA extension block container', () => {
       );
     });
 
-    it('0x13 Room Configuration mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+    it('0x13 Room Configuration mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
       // The corpus has zero Room Configuration fixtures, so this synthetic
       // mutation test is the only safety net for the encode path.
       const original = new Uint8Array([0x13, 0x05, 0x03]);
@@ -413,7 +413,7 @@ describe('CEA extension block container', () => {
       expect(Array.from(encodeExtendedDataBlock(decoded))).toEqual(Array.from(original));
     });
 
-    it('0x14 Speaker Location mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+    it('0x14 Speaker Location mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
       // The corpus has zero Speaker Location fixtures, so this synthetic mutation
       // test is the only safety net for the encode path.
       const original = new Uint8Array([0x14, 0x21, 0x02, 0x60, 0x03, 0x20, 0xf0, 0x00]);
@@ -477,7 +477,7 @@ describe('CEA extension block container', () => {
   });
 });
 
-describe('Audio SAD maxBitrate and format-extension round-trip (TASK-5)', () => {
+describe('Audio SAD maxBitrate and format-extension round-trip', () => {
   /** All 7 sampling-rate bits set, for a stable byte 2 across cases. */
   const allRates = {
     sr32kHz: true, sr44_1kHz: true, sr48kHz: true, sr88_2kHz: true,
@@ -530,7 +530,7 @@ describe('Audio SAD maxBitrate and format-extension round-trip (TASK-5)', () => 
   );
 });
 
-describe('CEA tag-0x02 validation (TASK-2)', () => {
+describe('CEA tag-0x02 validation', () => {
   /** Minimal valid 128-byte CEA block: tag 0x02, rev 3, dtdOffset 4, no blocks. */
   function validCeaBytes(): Uint8Array {
     const bytes = new Uint8Array(128);
@@ -580,7 +580,7 @@ describe('CEA tag-0x02 validation (TASK-2)', () => {
   });
 });
 
-describe('Video Data Block VIC validation (TASK-4)', () => {
+describe('Video Data Block VIC validation', () => {
   /** CEA block carrying one Video Data Block (tag 0x02) with the given VIC bytes. */
   function ceaWithVideoDataBlock(vicBytes: number[]): Uint8Array {
     const bytes = new Uint8Array(128);
@@ -620,7 +620,7 @@ describe('Video Data Block VIC validation (TASK-4)', () => {
   });
 });
 
-describe('CEA speaker allocation full bit model (TASK-6)', () => {
+describe('CEA speaker allocation full bit model', () => {
   /** Speaker Allocation Data Block with every spec-defined bit off. */
   function speakerBlock(overrides: Partial<SpeakerAllocationBlock['speakers']> = {}): SpeakerAllocationBlock {
     const speakers: SpeakerAllocationBlock['speakers'] = {
@@ -677,7 +677,7 @@ describe('CEA speaker allocation full bit model (TASK-6)', () => {
   });
 });
 
-describe('unifySpeakerLayout: SADB + Speaker Location (TASK-6)', () => {
+describe('unifySpeakerLayout: SADB + Speaker Location', () => {
   function locationBlock(descriptors: SpeakerLocationDataBlock['descriptors']): SpeakerLocationDataBlock {
     return {
       tag: 0x07,

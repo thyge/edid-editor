@@ -106,7 +106,7 @@ describe('common Video Timing Block codec', () => {
     expect(bytes.reduce((sum, byte) => sum + byte, 0) & 0xff).toBe(0);
   });
 
-  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+  it('mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
     // The corpus has zero standalone VTB (0x10) extension fixtures, so this
     // synthetic mutation test is the only safety net for the encode path.
     const detailedTiming = new DetailedTimingDescriptor({

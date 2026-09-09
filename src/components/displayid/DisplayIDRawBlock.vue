@@ -14,7 +14,7 @@ import { displayIdBlockLabel } from './displayIdLabels'
  * Fallback view for DisplayID data blocks without a structured editor:
  * unknown tags, v1.x tags without a typed editor, and the v2.0 tags whose
  * codecs exist but whose editors don't yet. Per-block nav entries exist for
- * every decoded block (TASK-123), so these need a view even when their bytes
+ * every decoded block, so these need a view even when their bytes
  * can't be structured.
  *
  * Payload editability follows hasDisplayIdBlockCodec: a tag with a codec

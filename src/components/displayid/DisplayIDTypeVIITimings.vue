@@ -41,7 +41,7 @@ function updateBlock(index: number, block: DisplayIdTypeVIIDetailedTimingBlock, 
 
 /**
  * Encodable ranges of the Type VII 20-byte descriptor (DisplayID 2.0 §4.3.1,
- * per the type-vii-timing codec — NOT the 18-byte DTD widths of TASK-99):
+ * per the type-vii-timing codec — NOT the 18-byte DTD widths):
  * values are stored with a −1 bias, so the maxima are the raw field widths
  * plus one — pixel clock 24-bit kHz, H/V active/blanking/sync-width 16-bit,
  * sync offsets 14-bit front-porch fields; aspect ratio is 4-bit, stereo 2-bit.
@@ -64,7 +64,7 @@ type TypeVIINumberField = keyof typeof TYPE_VII_FIELD_MAX
 
 /** Clamp an edited value into the field's encodable range — the model never
  *  receives a value the encoder would silently truncate or wrap (negatives
- *  included, so masking can't wrap −1 into a large positive). TASK-107. */
+ *  included, so masking can't wrap −1 into a large positive). */
 function clampVII(field: TypeVIINumberField, v: number): number {
   const parsed = Math.round(v)
   return Number.isFinite(parsed) ? Math.max(0, Math.min(TYPE_VII_FIELD_MAX[field], parsed)) : 0

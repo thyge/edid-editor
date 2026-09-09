@@ -37,7 +37,7 @@ export type { AudioFormatDefinition } from './audio-format-codes';
 // CTA-861-G Extended Tag Data Blocks — the non-family blocks and the
 // tag-keyed codec registry live in cta-extended-blocks.ts; the VCDB-family
 // blocks (Video Capability, VSVDB, HDR Static, Video Format Preference,
-// YCbCr 4:2:0 Video/Capability Map, VSADB, InfoFrame) live in vcdb/ (TASK-115).
+// YCbCr 4:2:0 Video/Capability Map, VSADB, InfoFrame) live in vcdb/.
 export { decodeExtendedDataBlock, encodeExtendedDataBlock } from './cta-extended-blocks';
 export {
   SPEAKER_PLACEMENT,
@@ -160,7 +160,7 @@ export {
 export type { VendorDecoder, VendorEncoder } from './vsdb/registry';
 
 // Vendor-Specific Video Data Blocks (tag 0x07 ext 0x01, e.g., Dolby Vision) —
-// part of the VCDB family (vcdb/, TASK-115)
+// part of the VCDB family (vcdb/)
 export type { DolbyVSDB, HDR10PlusVSDB, VSVDBVendorDecoded } from './vcdb/vsvdb/types';
 export {
   decodeVSVDB,

@@ -126,7 +126,7 @@ describe('common detailed timing model and EDID/CTA codec', () => {
     }
   });
 
-  // ---- Combinatorial stereo / sync / border coverage (TASK-23) ----
+  // ---- Combinatorial stereo / sync / border coverage ----
   //
   // byte[17] packs four independent fields: interlaced (bit 7), stereo mode
   // (bits 6,5,0), and sync type + sub-flags (bits 4:1). Because the bit groups
@@ -301,7 +301,7 @@ describe('common detailed timing model and EDID/CTA codec', () => {
   });
 });
 
-describe('DetailedTimingBase shared supertype (TASK-84)', () => {
+describe('DetailedTimingBase shared supertype', () => {
   // Compile-time assignability checks: the cast-assignment below only type-
   // checks if each detailed-timing interface is assignable to DetailedTimingBase.
   // Both interfaces `extends DetailedTimingBase`, so the common 8 geometry
@@ -332,7 +332,7 @@ describe('DetailedTimingBase shared supertype (TASK-84)', () => {
   });
 });
 
-describe('isDetailedTimingEncodable (TASK-122)', () => {
+describe('isDetailedTimingEncodable', () => {
   const encodable = {
     pixelClock: 148.5,
     horizontalActive: 1920,
@@ -401,7 +401,7 @@ describe('isDetailedTimingEncodable (TASK-122)', () => {
   });
 });
 
-describe('computePixelClockForTargetRate (TASK-121)', () => {
+describe('computePixelClockForTargetRate', () => {
   // 1080p60-ish geometry: hTotal 2200, vTotal 1125 -> exact 60 Hz needs 148.50 MHz.
   const progressive = {
     pixelClock: 148.5,

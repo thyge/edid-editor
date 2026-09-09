@@ -20,7 +20,7 @@ const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBloc
 /**
  * The vendor-specific block(s) to edit, across both tag spaces: v2.0 (tag 0x7e)
  * and DisplayID 1.x (tag 0x7f). When the per-block `index` prop is set (the
- * displayid-block-<idx> sections from TASK-123) the editor scopes to exactly
+ * displayid-block-<idx> sections) the editor scopes to exactly
  * that block; otherwise it falls back to every vendor block in the section.
  *
  * `VendorBlock` is the template-facing shape: each arm of the v2.0/v1.x union

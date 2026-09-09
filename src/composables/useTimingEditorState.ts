@@ -22,7 +22,7 @@ import {
  *  - `cvt`        — standard CVT blanking; margins toggle available.
  *  - `cvt-rb`     — CVT Reduced Blanking v1; margins ignored.
  *  - `cvt-rb2`    — CVT Reduced Blanking v2; margins ignored.
- *  - `target`     — "target refresh rate" authoring (TASK-108/TASK-120): the
+ *  - `target`     — "target refresh rate" authoring: the
  *                  user supplies H/V active plus a target Hz and the editor
  *                  solves for it across the CVT calculator's blanking variants
  *                  (standard / RB / RBv2 via
@@ -61,7 +61,7 @@ export interface TimingEditorState {
   margins: boolean
   /** Selected CTA-861 VIC in `cea-861` mode (null = no selection / other modes). */
   selectedVic: number | null
-  /** Blanking variant the target-refresh-rate solver last selected (TASK-120).
+  /** Blanking variant the target-refresh-rate solver last selected.
    *  Editor-only mirror of the generator's choice, kept for display; null
    *  until a target-mode regeneration has succeeded. */
   targetBlankingMode: CVTBlankingMode | null
@@ -77,7 +77,7 @@ export function modeToBlankingMode(mode: TimingEditorMode): CVTBlankingMode | nu
     case 'cvt-rb2':
       return 'cvt-rb2'
     // "Target refresh rate" mode no longer generates under a fixed variant:
-    // the editor solves across all three (TASK-120), so this mapping is only
+    // the editor solves across all three, so this mapping is only
     // reached by callers that need *a* CVT variant (e.g. seeding a preset
     // before the target solve rewrites it).
     case 'target':
@@ -88,8 +88,8 @@ export function modeToBlankingMode(mode: TimingEditorMode): CVTBlankingMode | nu
 }
 
 /**
- * Sensible bounds for the editor's refresh-rate generator input (TASK-108
- * AC #5). The low bound keeps the input in the generator's valid range; the
+ * Sensible bounds for the editor's refresh-rate generator input.
+ * The low bound keeps the input in the generator's valid range; the
  * high bound is far beyond any rate whose pixel clock still fits the 16-bit
  * 10 kHz DTD field — the card's regenerate() guard refuses those outright.
  */
@@ -99,7 +99,7 @@ export const REFRESH_RATE_MAX = 1000
 /**
  * Maximum encodable DTD pixel clock in MHz — the DTD clock field is 16 bits
  * of 10 kHz units. The target-rate solver refuses targets whose pixel clock
- * exceeds this under every CVT variant (TASK-120).
+ * exceeds this under every CVT variant.
  */
 export const DTD_PIXEL_CLOCK_MAX = 655.35
 
@@ -112,13 +112,13 @@ export const CVT_BLANKING_LABELS: Record<CVTBlankingMode, string> = {
 
 /**
  * Infer the editor authoring mode for a DTD from the lib classifiers, so the
- * selector and reality agree on load (TASK-89 AC #4). CEA-861 first — a DTD
+ * selector and reality agree on load. CEA-861 first — a DTD
  * matching a CTA-861 VIC snaps to `cea-861` with that VIC selected — then the
  * CVT family, else `custom`.
  *
  * Note: {@link analyzeDetailedTimingAgainstCTA} compares the DTD's full-frame
  * verticalTotal against the VIC table's per-field vTotal for interlaced VICs,
- * a pre-existing ~2× mismatch (see TASK-88), so interlaced CEA DTDs fall
+ * a pre-existing ~2× mismatch, so interlaced CEA DTDs fall
  * through to CVT/custom here. The user can still pick `cea-861` + the VIC by
  * hand.
  */
@@ -197,7 +197,7 @@ export function getTimingEditorState(timing: DetailedTiming): TimingEditorState 
  * A timing-only pick-list entry derived from the library's {@link CVT_PRESETS}.
  * The preset owns just the timing (resolution × refresh); the blanking variant
  * is owned by the editor's Mode selector and passed in at generation time
- * (TASK-100) — so the entry carries the generator inputs directly and neither
+ * — so the entry carries the generator inputs directly and neither
  * its key nor its label names a CVT variant. The first entry is the default
  * (1080p60, matching the EDID constructor's first-descriptor baseline).
  */
@@ -248,7 +248,7 @@ export const DEFAULT_TIMING_BLANKING_MODE: CVTBlankingMode = 'cvt'
  * Build a CVT-generated DetailedTimingDescriptor from a preset key (defaulting
  * to {@link DEFAULT_TIMING_PRESET}) using the caller's blanking variant — the
  * preset only supplies the timing; the variant comes from the editor's Mode
- * selector (TASK-100). Returns the preset's refresh rate so callers seeding a
+ * selector. Returns the preset's refresh rate so callers seeding a
  * fresh editor state can align the CVT refresh-rate input with the loaded
  * timing; the mode itself is the caller's choice and is never changed here.
  */

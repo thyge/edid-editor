@@ -130,7 +130,7 @@ describe('DisplayID multi-section chain-walk in the 0x70 extension arm', () => {
     expect(redecoded.sections).toHaveLength(3);
   });
 });
-describe('getDisplayIdFreePayloadBytes (TASK-131)', () => {
+describe('getDisplayIdFreePayloadBytes', () => {
   /** Build a DisplayID extension model from decoded sections (decodeExtension
    *  preserves the zero fill after a short section as trailingBytes, which
    *  would consume the budget — for a pure budget test, build the model

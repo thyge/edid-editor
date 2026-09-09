@@ -8,7 +8,7 @@ import { ouiLabel } from './vendorLabels'
  * Per-block editor for one Vendor-Specific Audio Data Block (tag 0x07 ext
  * 0x11). The block's position in the CEA dataBlocks array is passed in so the
  * edit path is index-rooted (dataBlocks.<index>.vendorPayload) — multiple
- * vendor-audio blocks each get their own editor (TASK-102). The post-OUI
+ * vendor-audio blocks each get their own editor. The post-OUI
  * payload is edited as raw bytes; the 3-byte OUI is fixed at decode time.
  */
 const props = defineProps<{

@@ -27,7 +27,7 @@ describe('DisplayDescriptorParser encode symmetry', () => {
     expect(decoded).toEqual(descriptor)
   })
 
-  it('DCM (0xF9) mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+  it('DCM (0xF9) mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
     // The corpus has zero DCM descriptors in active use, so this synthetic
     // mutation test is the only safety net for the encode path.
     const descriptor: DCMDescriptor = {
@@ -91,7 +91,7 @@ describe('DisplayDescriptorParser encode symmetry', () => {
     expect(decoded).toEqual(descriptor)
   })
 
-  it('CVT (0xF8) mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable (TASK-61)', () => {
+  it('CVT (0xF8) mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
     // The corpus has zero CVT 3-byte timing descriptors, so this synthetic
     // mutation test is the only safety net for the encode path.
     const descriptor: CVTTimingDescriptor = {
@@ -257,7 +257,7 @@ describe('DisplayDescriptorParser unknown-tag opaque preservation', () => {
   })
 })
 
-describe('CVT 3-byte aspect code 3 = 5:4 (not 15:9) — TASK-46', () => {
+describe('CVT 3-byte aspect code 3 = 5:4 (not 15:9)', () => {
   it('round-trips a CVT 3-byte timing with the 5:4 aspect', () => {
     const descriptor: CVTTimingDescriptor = {
       tag: 0xf8,

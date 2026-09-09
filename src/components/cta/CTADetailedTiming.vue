@@ -6,10 +6,10 @@ import DetailedTimingCard from '../common/DetailedTimingCard.vue'
 
 /**
  * Single CTA-861 detailed timing editor — the per-child view of the
- * "Detailed Timings" nav sub-group (TASK-112). Reuses the shared timing
+ * "Detailed Timings" nav sub-group. Reuses the shared timing
  * card (expanded, no toggle) with the same positional native badge as the
  * combined view: CTA-861-G byte 3 bits 3:0 declare the first N DTDs native
- * and the CTAHeaderFlags picker owns that count (TASK-103).
+ * and the CTAHeaderFlags picker owns that count.
  */
 const props = defineProps<{
   cea: CEAExtensionBlock

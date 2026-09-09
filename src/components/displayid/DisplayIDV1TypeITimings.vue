@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
 
 /**
- * DisplayID 1.x Type 1 Detailed Timings (tag 0x03, TASK-125). The 20-byte
+ * DisplayID 1.x Type 1 Detailed Timings (tag 0x03). The 20-byte
  * descriptor layout is identical to the v2.0 Type VII block — the model reuses
  * DisplayIdTypeVIIDetailedTiming — except the pixel clock is 10 kHz
  * resolution: the codec stores `pixelClockKHz = 10 * (1 + raw24)` and reverses
@@ -80,7 +80,7 @@ function clampField(field: TypeINumberField, value: number): number {
 }
 
 /** Pixel clock: quantize to the codec's 10 kHz resolution and clamp to the
- *  24-bit raw range (TASK-107-style overflow guard, scaled for Type 1). */
+ *  24-bit raw range. */
 function clampPixelClockKHz(value: number): number {
   const parsed = Math.round(value)
   if (!Number.isFinite(parsed)) return 10

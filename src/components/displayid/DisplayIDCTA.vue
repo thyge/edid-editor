@@ -36,7 +36,7 @@ const ctaBlocks = computed(() =>
   blocksByTag<DisplayIdCtaBlock>(props.section, DisplayIdDataBlockTag.CtaDisplayId, props.index),
 )
 
-// --- Embedded-block selection (TASK-129) -------------------------------
+// --- Embedded-block selection -------------------------------
 // One embedded block of one 0x81 block is editable at a time, keyed
 // "<blockIndex>:<dbIndex>" so multiple CTA blocks stay independent.
 const selectedDbKey = ref<string | null>(null)

@@ -114,8 +114,8 @@ describe('HDR10+ VSVDB end-to-end carrier', () => {
   });
 });
 
-// Carrier-level behaviour through the CTA extended-block decode/encode path
-// (TASK-59): the registered HDR10+ decoder's structured shape must be surfaced
+// Carrier-level behaviour through the CTA extended-block decode/encode path:
+// the registered HDR10+ decoder's structured shape must be surfaced
 // on the carrier and re-encoded from it, byte-identically.
 describe('HDR10+ VSVDB carrier (CTA extended tag 0x01)', () => {
   // HDR10+ OUI 90-84-8B; on-wire (LE) the three OUI bytes are 8B 84 90.

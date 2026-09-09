@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { decodeDisplayIdBlocks, encodeDisplayIdBlock } from '../src/displayid';
 
 /**
- * Dispatcher integration tests for the DisplayID 2.0 data blocks added in
- * TASK-33..36 (tags 0x2A–0x2E). These exercise the shared dispatcher in
+ * Dispatcher integration tests for the DisplayID 2.0 data blocks with
+ * tags 0x2A–0x2E. These exercise the shared dispatcher in
  * blocks.ts end-to-end: decodeDisplayIdBlocks must route each tag to its
  * structured decoder, and encodeDisplayIdBlock must route the typed block
  * back to its structured encoder, producing byte-identical output. Malformed-

@@ -134,7 +134,7 @@ describe('First descriptor validation (Section 3.10.1)', () => {
   })
 })
 
-describe('First descriptor diagnostics (Section 3.10.1, TASK-25)', () => {
+describe('First descriptor diagnostics (Section 3.10.1)', () => {
   it('emits no baseDiagnostics when slot 0 is populated (DTD)', () => {
     const dtd = new DetailedTimingDescriptor({
       pixelClock: 25.175,
