@@ -19,7 +19,9 @@ import {
  * preserved regardless of the selected mode.
  *
  *  - `custom`     — every field is freely editable (legacy behaviour).
- *  - `cvt`        — standard CVT blanking; margins toggle available.
+ *  - `cvt`        — standard CVT blanking; refresh rate, H/V active are the
+ *                  free inputs (see {@link isTimingFieldEditable}); margins
+ *                  toggle available.
  *  - `cvt-rb`     — CVT Reduced Blanking v1; margins ignored.
  *  - `cvt-rb2`    — CVT Reduced Blanking v2; margins ignored.
  *  - `target`     — "target refresh rate" authoring: the
@@ -46,6 +48,32 @@ export const TIMING_MODE_OPTIONS: ReadonlyArray<{ value: TimingEditorMode; label
   { value: 'target', label: 'Target Refresh Rate' },
   { value: 'cea-861', label: 'CTA-861' },
 ]
+
+/**
+ * DTD fields the user may edit in the generative authoring modes (CVT /
+ * CVT-RB / CVT-RBv2 / Target Refresh Rate). Everything else is owned by the
+ * CVT generator (or the VIC in CEA-861 mode) and shown disabled. The refresh
+ * rate is not in this set — it lives on the card's controls row, not in the
+ * DetailedTimingFields grid.
+ */
+export const TIMING_FREE_PARAM_FIELDS: ReadonlySet<string> = new Set([
+  'horizontalActive',
+  'verticalActive',
+])
+
+/**
+ * Editable-field policy per authoring mode: `custom` owns every field;
+ * `cea-861` owns none (the VIC's bytes are authoritative); the generative
+ * CVT modes (incl. Target Refresh Rate) expose only
+ * {@link TIMING_FREE_PARAM_FIELDS} — the generator derives the rest.
+ * Single source shared by the card (update gating) and the field grid
+ * (disabled state).
+ */
+export function isTimingFieldEditable(mode: TimingEditorMode, field: string): boolean {
+  if (mode === 'custom') return true
+  if (mode === 'cea-861') return false
+  return TIMING_FREE_PARAM_FIELDS.has(field)
+}
 
 /**
  * Per-DTD editor state. `refreshRate` and `margins` are CVT generator inputs

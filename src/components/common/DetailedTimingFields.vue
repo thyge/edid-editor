@@ -4,7 +4,7 @@ import type { DetailedTiming } from 'edidts'
 import { STEREO_MODE_OPTIONS, SYNC_TYPE_OPTIONS } from 'edidts'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import type { TimingEditorMode } from '@/composables/useTimingEditorState'
+import { isTimingFieldEditable, type TimingEditorMode } from '@/composables/useTimingEditorState'
 
 /**
  * Shared field-level editor for the 18-byte Detailed Timing Descriptor geometry,
@@ -17,10 +17,13 @@ import type { TimingEditorMode } from '@/composables/useTimingEditorState'
  * "flags.vSyncPolarity") and the new value. The owning component mutates the
  * matching DetailedTiming instance; the useEDID computed re-encodes.
  *
- * When `mode` is a CVT mode, the fields the CVT generator derives are locked
- * (`:disabled`); only the free parameters (H/V active, H/V image size, and
- * interlaced) remain editable — refresh rate and margins live on the card, not
- * here, since they are generator inputs with no direct DTD field counterpart.
+ * Fields are laid out in paired-axes rows (Horizontal left, Vertical right per
+ * parameter). Editability follows the shared mode policy
+ * ({@link isTimingFieldEditable}): outside Custom mode only H/V Active remain
+ * editable (in CEA-861 mode nothing does — the VIC owns every byte); all
+ * other inputs are disabled and greyed so derived values read as such.
+ * Refresh rate and margins live on the card, not here, since they are
+ * generator inputs with no direct DTD field counterpart.
  */
 const props = withDefaults(defineProps<{
   timing: DetailedTiming
@@ -33,18 +36,18 @@ const emit = defineEmits<{
 }>()
 
 const selectClass =
-  'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
+  'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50'
 
 /** App-standard Switch row treatment (matches CTAHeaderFlags / CTAVideoCapability):
  * transparent border, hover wash, non-uppercase muted label. */
 const switchRowClass =
   'flex items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2 hover:bg-muted/50 transition-colors'
 
-/** True when a CVT mode owns the derived geometry — disable those inputs. */
-const locked = computed(() => props.mode !== 'custom')
-/** True in CEA-861 mode — the VIC owns every byte, so even the CVT free
- *  parameters (H/V active, image size, interlaced) are read-only. */
-const cea861 = computed(() => props.mode === 'cea-861')
+/** H/V Active are free parameters in every generative mode — locked only in
+ *  CEA-861 mode, where the VIC owns every byte. */
+const activeLocked = computed(() => !isTimingFieldEditable(props.mode, 'horizontalActive'))
+/** Every other field is generator/VIC-owned outside Custom mode. */
+const locked = computed(() => !isTimingFieldEditable(props.mode, 'horizontalBlanking'))
 
 const isDigitalSeparate = computed(() => props.timing.flags.syncType === 'digital-separate')
 const isDigitalComposite = computed(() => props.timing.flags.syncType === 'digital-composite')
@@ -107,6 +110,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.horizontalActive"
           :step="1"
+          :disabled="activeLocked"
           :model-value="timing.horizontalActive"
           @update:model-value="(v) => onNumber('horizontalActive', v)"
         />
@@ -118,6 +122,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.verticalActive"
           :step="1"
+          :disabled="activeLocked"
           :model-value="timing.verticalActive"
           @update:model-value="(v) => onNumber('verticalActive', v)"
         />
@@ -129,6 +134,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.horizontalBlanking"
           :step="1"
+          :disabled="locked"
           :model-value="timing.horizontalBlanking"
           @update:model-value="(v) => onNumber('horizontalBlanking', v)"
         />
@@ -140,6 +146,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.verticalBlanking"
           :step="1"
+          :disabled="locked"
           :model-value="timing.verticalBlanking"
           @update:model-value="(v) => onNumber('verticalBlanking', v)"
         />
@@ -151,6 +158,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.horizontalSyncOffset"
           :step="1"
+          :disabled="locked"
           :model-value="timing.horizontalSyncOffset"
           @update:model-value="(v) => onNumber('horizontalSyncOffset', v)"
         />
@@ -162,6 +170,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.verticalSyncOffset"
           :step="1"
+          :disabled="locked"
           :model-value="timing.verticalSyncOffset"
           @update:model-value="(v) => onNumber('verticalSyncOffset', v)"
         />
@@ -173,6 +182,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.horizontalSyncWidth"
           :step="1"
+          :disabled="locked"
           :model-value="timing.horizontalSyncWidth"
           @update:model-value="(v) => onNumber('horizontalSyncWidth', v)"
         />
@@ -184,6 +194,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.verticalSyncWidth"
           :step="1"
+          :disabled="locked"
           :model-value="timing.verticalSyncWidth"
           @update:model-value="(v) => onNumber('verticalSyncWidth', v)"
         />
@@ -195,6 +206,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.horizontalImageSize"
           :step="1"
+          :disabled="locked"
           :model-value="timing.horizontalImageSize"
           @update:model-value="(v) => onNumber('horizontalImageSize', v)"
         />
@@ -206,6 +218,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.verticalImageSize"
           :step="1"
+          :disabled="locked"
           :model-value="timing.verticalImageSize"
           @update:model-value="(v) => onNumber('verticalImageSize', v)"
         />
@@ -217,6 +230,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.horizontalBorder"
           :step="1"
+          :disabled="locked"
           :model-value="timing.horizontalBorder"
           @update:model-value="(v) => onNumber('horizontalBorder', v)"
         />
@@ -228,6 +242,7 @@ function onFlag(flag: string, value: unknown) {
           :min="0"
           :max="FIELD_MAX.verticalBorder"
           :step="1"
+          :disabled="locked"
           :model-value="timing.verticalBorder"
           @update:model-value="(v) => onNumber('verticalBorder', v)"
         />
@@ -262,7 +277,7 @@ function onFlag(flag: string, value: unknown) {
         <span class="text-xs text-muted-foreground">Interlaced</span>
         <Switch
           :model-value="timing.flags.interlaced"
-          :disabled="cea861"
+          :disabled="locked"
           @update:model-value="(v: boolean) => onFlag('interlaced', v)"
         />
       </label>

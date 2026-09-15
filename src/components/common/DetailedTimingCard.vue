@@ -25,6 +25,7 @@ import {
   TIMING_MODE_OPTIONS,
   generateTimingFromPreset,
   getTimingEditorState,
+  isTimingFieldEditable,
   modeToBlankingMode,
   type TimingEditorMode,
 } from '@/composables/useTimingEditorState'
@@ -48,10 +49,11 @@ import {
  *
  * Timing mode: an authoring-mode selector (Custom / CVT / CVT-RB / CVT-RBv2 /
  * Target Refresh Rate / CTA-861) drives field locking and CVT regeneration. In
- * a CVT mode the derived geometry is recomputed via
- * {@link generateCVTDetailedTiming} from the free parameters (H/V active, H/V
- * image size, interlaced, plus editor-only refresh rate and margins) and
- * written back onto the existing reactive DTD in place. The mode
+ * a CVT mode only Refresh Rate and H/V Active are editable (see
+ * {@link isTimingFieldEditable}); the derived geometry is recomputed via
+ * {@link generateCVTDetailedTiming} and written back onto the existing
+ * reactive DTD in place. Non-free DTD fields (image size, interlaced) are
+ * preserved passthrough inputs to the generator. The mode
  * and the CVT-only params (refresh rate, margins) are editor state held in
  * {@link useTimingEditorState} — never serialized into the EDID bytes.
  *
@@ -133,15 +135,6 @@ const selectedPreset = ref('')
  * transparent border, hover wash, non-uppercase muted label. */
 const switchRowClass =
   'flex items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2 hover:bg-muted/50 transition-colors'
-
-/** DTD fields the CVT generator derives from the free parameters. */
-const FREE_PARAM_FIELDS = new Set([
-  'horizontalActive',
-  'verticalActive',
-  'horizontalImageSize',
-  'verticalImageSize',
-  'flags.interlaced',
-])
 
 function toggle() {
   expanded.value = !expanded.value
@@ -419,16 +412,18 @@ function onMarginsChange(v: boolean): void {
 
 /**
  * Forward field edits from DetailedTimingFields. In Custom mode the edit goes
- * straight through to the owning mutator as before. In a CVT mode only the free
- * parameters are editable (the rest are disabled); applying a free param then
- * regenerating the derived geometry keeps the DTD consistent with the mode.
+ * straight through to the owning mutator as before. In the generative modes
+ * only the free parameters (H/V active — see
+ * {@link isTimingFieldEditable}) are editable and every other input is
+ * disabled; applying a free param then regenerating the derived geometry
+ * keeps the DTD consistent with the mode.
  */
 function onFieldUpdate(field: string, value: unknown): void {
   if (!isCVTMode.value) {
     emit('update', field, value)
     return
   }
-  if (!FREE_PARAM_FIELDS.has(field)) return // locked/derived field — ignore
+  if (!isTimingFieldEditable(state.mode, field)) return // locked/derived field — ignore
   applyFreeParam(field, value)
   regenerate()
 }
