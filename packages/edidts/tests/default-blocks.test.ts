@@ -5,9 +5,17 @@
  */
 import { describe, it, expect } from 'vitest';
 import { createDefaultCEADataBlock } from '../src/cta/default-blocks';
-import { ExtensionBlockParser, type CEAExtensionBlock, type VendorSpecificDataBlock } from '../src/cta';
+import {
+  ExtensionBlockParser,
+  type CEAExtensionBlock,
+  type VendorSpecificDataBlock,
+  type VendorSpecificVideoDataBlock,
+  type VendorSpecificAudioDataBlock,
+} from '../src/cta';
 import { OUI, type VendorSpecificDecoded } from '../src/cta/vsdb/types';
 import { HDMI14_DEFAULT } from '../src/cta/vsdb/hdmi14';
+import { DOLBY_VSDB_DEFAULT } from '../src/cta/vcdb/vsvdb/dolby';
+import { DOLBY_VSADB_DEFAULT } from '../src/cta/vcdb/vsadb/dolby';
 import { buildCeaExtension, videoBlock, makeDtd } from './cea-utils';
 
 type VsdbType = 'vsdb-hdmi14' | 'vsdb-hdmi-forum' | 'vsdb-microsoft-hmd' | 'vsdb-amd' | 'vsdb-mhl';
@@ -111,6 +119,100 @@ describe('createDefaultCEADataBlock VSDB factories', () => {
 
   it('returns undefined for an unknown discriminator', () => {
     expect(createDefaultCEADataBlock('nonsense' as never)).toBeUndefined();
+  });
+});
+
+describe('createDefaultCEADataBlock VSVDB/VSADB defaults', () => {
+  it('vsvdb-dolby produces a Dolby Vision carrier (ext 0x01, OUI 00-D0-46)', () => {
+    const block = createDefaultCEADataBlock('vsvdb-dolby') as
+      VendorSpecificVideoDataBlock | undefined;
+    expect(block).toBeDefined();
+    expect(block!.tag).toBe(0x07);
+    expect(block!.extendedTag).toBe(0x01);
+    expect(block!.ieeeOui).toBe(OUI.DOLBY);
+    expect(block!.vendor?.kind).toBe('dolbyVsdb');
+    // Wire payload: extended-tag byte + LE OUI 46 d0 00 + the 1-byte v0 body
+    // (version 0, all capability bits clear).
+    expect(Array.from(block!.payload)).toEqual([0x01, 0x46, 0xd0, 0x00, 0x00]);
+    expect(block!.vendorPayload.length).toBe(1);
+  });
+
+  it('vendor-audio produces a Dolby Atmos VSADB (ext 0x11, OUI 00-D0-46)', () => {
+    const block = createDefaultCEADataBlock('vendor-audio') as
+      VendorSpecificAudioDataBlock | undefined;
+    expect(block).toBeDefined();
+    expect(block!.tag).toBe(0x07);
+    expect(block!.extendedTag).toBe(0x11);
+    expect(block!.ieeeOui).toBe(OUI.DOLBY);
+    expect(block!.vendor?.kind).toBe('dolbyVsadb');
+    if (block!.vendor?.kind !== 'dolbyVsadb') throw new Error('expected dolbyVsadb kind');
+    // Defaults: version 1 (encoded as version − 1 = 0), every speaker zone
+    // off, full MAT/TrueHD — a 2-byte body.
+    expect(block!.vendor.fields.version).toBe(1);
+    expect(block!.vendor.fields.heightZone).toBe(false);
+    expect(Array.from(block!.payload)).toEqual([0x11, 0x46, 0xd0, 0x00, 0x00, 0x00]);
+  });
+
+  it('round-trips both carriers through encode → decode', () => {
+    const vsvdb = createDefaultCEADataBlock('vsvdb-dolby') as VendorSpecificVideoDataBlock;
+    const vsadb = createDefaultCEADataBlock('vendor-audio') as VendorSpecificAudioDataBlock;
+    const cea = buildCeaExtension({ dataBlocks: [vsvdb, vsadb] });
+    const decoded = ExtensionBlockParser.decode(
+      ExtensionBlockParser.encode(cea),
+    ) as CEAExtensionBlock;
+    expect(decoded.dataBlocks.length).toBe(2);
+
+    const outVsvdb = decoded.dataBlocks[0] as VendorSpecificVideoDataBlock;
+    expect(outVsvdb.tag).toBe(0x07);
+    expect(outVsvdb.extendedTag).toBe(0x01);
+    expect(outVsvdb.ieeeOui).toBe(OUI.DOLBY);
+    expect(outVsvdb.vendor?.kind).toBe('dolbyVsdb');
+    if (outVsvdb.vendor?.kind !== 'dolbyVsdb') throw new Error('expected dolbyVsdb kind');
+    expect(outVsvdb.vendor.fields.version).toBe(0);
+
+    const outVsadb = decoded.dataBlocks[1] as VendorSpecificAudioDataBlock;
+    expect(outVsadb.tag).toBe(0x07);
+    expect(outVsadb.extendedTag).toBe(0x11);
+    expect(outVsadb.ieeeOui).toBe(OUI.DOLBY);
+    expect(outVsadb.vendor?.kind).toBe('dolbyVsadb');
+    if (outVsadb.vendor?.kind !== 'dolbyVsadb') throw new Error('expected dolbyVsadb kind');
+    expect(outVsadb.vendor.fields.version).toBe(1);
+  });
+
+  it('charges the new defaults their encoded size', () => {
+    // VSVDB: 1 header + 1 ext tag + 3 OUI + 1 body = 6.
+    const vsvdb = createDefaultCEADataBlock('vsvdb-dolby')!;
+    expect(ExtensionBlockParser.getCeaEncodedBlockBytes(vsvdb)).toBe(6);
+    // VSADB: 1 header + 1 ext tag + 3 OUI + 2 body = 7.
+    const vsadb = createDefaultCEADataBlock('vendor-audio')!;
+    expect(ExtensionBlockParser.getCeaEncodedBlockBytes(vsadb)).toBe(7);
+  });
+
+  it('hands out fresh field objects, never the shared DOLBY_*_DEFAULT literals', () => {
+    const vsvdb = createDefaultCEADataBlock('vsvdb-dolby') as VendorSpecificVideoDataBlock;
+    if (vsvdb.vendor?.kind !== 'dolbyVsdb') throw new Error('expected dolbyVsdb kind');
+    expect(vsvdb.vendor.fields).not.toBe(DOLBY_VSDB_DEFAULT);
+
+    const vsadb = createDefaultCEADataBlock('vendor-audio') as VendorSpecificAudioDataBlock;
+    if (vsadb.vendor?.kind !== 'dolbyVsadb') throw new Error('expected dolbyVsadb kind');
+    expect(vsadb.vendor.fields).not.toBe(DOLBY_VSADB_DEFAULT);
+
+    // Mutating one instance's fields (or its trailing bytes) must not leak
+    // into future defaults or the shared literals.
+    vsvdb.vendor.fields.version = 7;
+    vsadb.vendor.fields.version = 8;
+    vsadb.vendor.fields.trailing = new Uint8Array([0xde, 0xad]);
+
+    const nextVsvdb = createDefaultCEADataBlock('vsvdb-dolby') as VendorSpecificVideoDataBlock;
+    const nextVsadb = createDefaultCEADataBlock('vendor-audio') as VendorSpecificAudioDataBlock;
+    if (nextVsvdb.vendor?.kind !== 'dolbyVsdb') throw new Error('expected dolbyVsdb kind');
+    if (nextVsadb.vendor?.kind !== 'dolbyVsadb') throw new Error('expected dolbyVsadb kind');
+    expect(nextVsvdb.vendor.fields.version).toBe(0);
+    expect(nextVsadb.vendor.fields.version).toBe(1);
+    expect(Array.from(nextVsadb.vendor.fields.trailing)).toEqual([]);
+    expect(DOLBY_VSDB_DEFAULT.version).toBe(0);
+    expect(DOLBY_VSADB_DEFAULT.version).toBe(1);
+    expect(Array.from(DOLBY_VSADB_DEFAULT.trailing)).toEqual([]);
   });
 });
 

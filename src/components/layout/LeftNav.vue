@@ -335,9 +335,9 @@ const addBlockMenu = computed<CeaAddBlockMenuNode[]>(() => {
   }
   // Canonical add order: Video, Audio, Speaker Allocation, the vendor
   // cascade (five tag-0x03 VSDBs, always offered, plus the single-instance
-  // Vendor-Specific Audio), Colorimetry, Video Capability, InfoFrame, Video
-  // Format Preference, HDR Static, Room Configuration, Speaker Location,
-  // then unlisted types (VESA Display Device).
+  // Dolby Vision VSVDB and Dolby Atmos VSADB carriers), Colorimetry, Video
+  // Capability, InfoFrame, Video Format Preference, HDR Static, Room
+  // Configuration, Speaker Location, then unlisted types (VESA Display Device).
   add('video', 'Video Data Block', hasBlock(b => b.tag === 0x02))
   add('audio', 'Audio Data Block', hasBlock(b => b.tag === 0x01))
   add('speakers', 'Speaker Allocation', hasBlock(b => b.tag === 0x04))
@@ -346,12 +346,14 @@ const addBlockMenu = computed<CeaAddBlockMenuNode[]>(() => {
     key: 'sub-vendor',
     family: 'vendor',
     label: CTA_FAMILY_LABELS.vendor,
-    // VSDBs are always offered — multiple may legally coexist. The
-    // Vendor-Specific Audio carrier (ext 0x11) is single-instance, so it is
-    // deduped like the flat items while staying inside the vendor cascade.
+    // VSDBs are always offered — multiple may legally coexist. The VSVDB
+    // (ext 0x01) and Vendor-Specific Audio (ext 0x11) carriers are
+    // single-instance, so they are deduped like the flat items while staying
+    // inside the vendor cascade.
     options: [
       ...VSDB_ADD_OPTIONS.map((opt) => addOption(opt.type, opt.label)),
-      ...(hasExtBlock(0x11) ? [] : [addOption('vendor-audio', 'Vendor-Specific Audio')]),
+      ...(hasExtBlock(0x01) ? [] : [addOption('vsvdb-dolby', 'Vendor-Specific Video (Dolby Vision)')]),
+      ...(hasExtBlock(0x11) ? [] : [addOption('vendor-audio', 'Vendor-Specific Audio (Dolby Atmos)')]),
     ],
   })
   add('colorimetry', 'Colorimetry', hasExtBlock(0x05))

@@ -19,6 +19,14 @@ import { HDMI14_DEFAULT } from './vsdb/hdmi14';
 import { HDMI_FORUM_DEFAULT } from './vsdb/hdmi-forum';
 import { MICROSOFT_HMD_DEFAULT } from './vsdb/microsoft-hmd';
 import { AMD_FREESYNC_DEFAULT } from './vsdb/amd';
+import type { VendorSpecificVideoDataBlock } from './vcdb/vendor-specific-video';
+import { VENDOR_VSVDB_ENCODERS, reassembleVsvdbBlock } from './vcdb/vsvdb/registry';
+import type { VSVDBVendorDecoded } from './vcdb/vsvdb/types';
+import { DOLBY_VSDB_DEFAULT } from './vcdb/vsvdb/dolby';
+import type { VendorSpecificAudioDataBlock } from './vcdb/vsadb/registry';
+import { VENDOR_VSADB_ENCODERS, reassembleVsadbBlock } from './vcdb/vsadb/registry';
+import type { VSADBVendorDecoded } from './vcdb/vsadb/types';
+import { DOLBY_VSADB_DEFAULT } from './vcdb/vsadb/dolby';
 
 /** Discriminator identifying which CEA data block to construct. */
 export type CEADefaultBlockType =
@@ -30,6 +38,7 @@ export type CEADefaultBlockType =
   | 'hdr-static'
   | 'video-format-preference'
   | 'vendor-audio'
+  | 'vsvdb-dolby'
   | 'room-config'
   | 'speaker-location'
   | 'infoframe'
@@ -92,6 +101,59 @@ function createDefaultVsdb<K extends Exclude<VendorSpecificDecoded['kind'], 'unk
 }
 
 /**
+ * Assemble a default Vendor-Specific Video Data Block (tag 0x07, ext 0x01)
+ * from a vendor kind, its OUI, and default `fields` — the extended-tag
+ * counterpart of `createDefaultVsdb`. The fields are encoded through the
+ * kind's registered `VENDOR_VSVDB_ENCODERS` codec, and the carrier `payload`
+ * is built as extended-tag byte + OUI (3 bytes, LE wire order) + encoded
+ * vendor body via `reassembleVsvdbBlock` — the same shape `decodeVSVDB`
+ * produces, so the block round-trips immediately. As with `createDefaultVsdb`,
+ * `fields` must be a fresh object per call, never the shared `*_DEFAULT`
+ * literal: the block becomes the live edit target in the Vue editor.
+ */
+function createDefaultVsvdb<K extends Exclude<VSVDBVendorDecoded['kind'], 'unknown'>>(
+  kind: K,
+  oui: number,
+  fields: Extract<VSVDBVendorDecoded, { kind: K }>['fields'],
+): VendorSpecificVideoDataBlock {
+  const encoder = VENDOR_VSVDB_ENCODERS[kind];
+  if (!encoder) throw new Error(`no registered VSVDB encoder for kind '${kind}'`);
+  const body = encoder.encode(fields);
+  return {
+    tag: 0x07,
+    extendedTag: 0x01,
+    payload: reassembleVsvdbBlock(oui, body),
+    ieeeOui: oui,
+    vendorPayload: body,
+    vendor: { kind, fields } as VSVDBVendorDecoded,
+  };
+}
+
+/**
+ * Assemble a default Vendor-Specific Audio Data Block (tag 0x07, ext 0x11):
+ * the VSADB counterpart of `createDefaultVsvdb`, encoding `fields` through the
+ * kind's registered `VENDOR_VSADB_ENCODERS` codec and building the carrier
+ * `payload` via `reassembleVsadbBlock` so the block round-trips immediately.
+ */
+function createDefaultVsadb<K extends Exclude<VSADBVendorDecoded['kind'], 'unknown'>>(
+  kind: K,
+  oui: number,
+  fields: Extract<VSADBVendorDecoded, { kind: K }>['fields'],
+): VendorSpecificAudioDataBlock {
+  const encoder = VENDOR_VSADB_ENCODERS[kind];
+  if (!encoder) throw new Error(`no registered VSADB encoder for kind '${kind}'`);
+  const body = encoder.encode(fields);
+  return {
+    tag: 0x07,
+    extendedTag: 0x11,
+    payload: reassembleVsadbBlock(oui, body),
+    ieeeOui: oui,
+    vendorPayload: body,
+    vendor: { kind, fields } as VSADBVendorDecoded,
+  };
+}
+
+/**
  * Build a default CEA data block for the given type, ready to push onto
  * `CEAExtensionBlock.dataBlocks`. Returns `undefined` for an unknown type so
  * callers can no-op on unrecognised discriminator values.
@@ -144,13 +206,23 @@ export function createDefaultCEADataBlock(type: CEADefaultBlockType): CEADataBlo
         svrs: [],
       } as unknown as CEADataBlock;
     case 'vendor-audio':
-      return {
-        tag: 0x07,
-        extendedTag: 0x11,
-        payload: empty,
-        ieeeOui: 0,
-        vendorPayload: new Uint8Array(),
-      } as unknown as CEADataBlock;
+      // The only registered VSADB codec is Dolby Atmos, and the editor's OUI
+      // field is read-only (fixed at decode time), so the addable default is
+      // a Dolby VSADB — OUI 00-D0-46, version 1, every speaker zone off, full
+      // MAT/TrueHD — rather than an unusable zero-OUI raw carrier. Fresh
+      // `fields` copy: the block becomes the editor's live mutation target.
+      return createDefaultVsadb('dolbyVsadb', OUI.DOLBY, {
+        ...DOLBY_VSADB_DEFAULT,
+        trailing: new Uint8Array(DOLBY_VSADB_DEFAULT.trailing),
+      });
+    case 'vsvdb-dolby':
+      // Dolby Vision VSVDB (CTA-861-G ext tag 0x01). Default is the codec's
+      // own v0 literal — version 0, all capability bits clear — with a fresh
+      // `trailing` copy per the live-mutation rule above.
+      return createDefaultVsvdb('dolbyVsdb', OUI.DOLBY, {
+        ...DOLBY_VSDB_DEFAULT,
+        trailing: new Uint8Array(DOLBY_VSDB_DEFAULT.trailing),
+      });
     case 'room-config':
       return {
         tag: 0x07,
