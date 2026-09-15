@@ -127,6 +127,14 @@ export interface HDMIForumVSDB {
   cnmVrr: boolean;
   dsc: boolean;
   maxFrlRate: number;
+  /**
+   * Whether the source block carried the optional byte 5 (DSC_1p2 / CinemaVRR
+   * flags). The common v1 short form omits it; encode writes byte 5 only when
+   * it was present or one of its feature bits is set, so short-form blocks
+   * round-trip without growing a trailing zero byte. Optional so programmatic
+   * literals type-check without supplying it.
+   */
+  flags4Present?: boolean;
 }
 
 /**

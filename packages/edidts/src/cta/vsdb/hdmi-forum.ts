@@ -86,6 +86,9 @@ export class HDMIForumDecoder implements VendorDecoder<'hdmiForum'> {
       allm: (flags3 & 0x02) !== 0,
       fva: (flags3 & 0x01) !== 0,
       dsc: (flags4 & 0x80) !== 0,
+      // Byte 5 presence is tracked so a short-form source round-trips at its
+      // original length; left undefined when absent.
+      ...(payload.length >= 6 ? { flags4Present: true } : {}),
     };
   }
 }
@@ -119,14 +122,21 @@ export class HDMIForumEncoder implements VendorEncoder<'hdmiForum'> {
       (fields.dsc ? 0x80 : 0) |
       (fields.cnmVrr ? 0x08 : 0);
 
-    return new Uint8Array([
+    const head = [
       fields.version & 0xFF,
       Math.round(fields.maxTmdsCharacterRate / 5) & 0xFF,
       flags1,
       flags2,
       flags3,
-      flags4,
-    ]);
+    ];
+    // Byte 5 (DSC / CinemaVRR) is optional: write it only when the source
+    // block carried it or one of its feature bits is set, so a five-byte v1
+    // short form never grows a trailing 0x00 on re-encode.
+    return new Uint8Array(
+      fields.flags4Present || fields.dsc || fields.cnmVrr
+        ? [...head, flags4]
+        : head,
+    );
   }
 }
 
