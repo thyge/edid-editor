@@ -39,8 +39,8 @@ import {
  *
  * Refresh is derived from the single lib source {@link computeRefreshRate} —
  * never recomputed locally. Consumer-specific chrome is supplied via slots:
- *   - #details: the expanded body after the field editor (H/V summary grid,
- *     CTA-861 reference, CVT calculator — these differ per consumer)
+ *   - #details: the expanded body after the field editor (the H/V summary
+ *     grid — differs per consumer)
  *
  * Emits `update` with a dotted field path and new value, forwarded from
  * DetailedTimingFields; the owning component mutates the matching timing
