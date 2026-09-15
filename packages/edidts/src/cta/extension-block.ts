@@ -138,6 +138,12 @@ export interface AudioDataBlock extends CEADataBlock {
       bd24: boolean;
     };
     maxBitrate?: number; // For compressed formats, in kHz
+    /**
+     * For format codes 9-13 (CTA-861-G Table 62): raw SAD byte 3. The byte is
+     * a Profile field whose interpretation is format-dependent and defined in
+     * external format documents, so it is modeled opaquely.
+     */
+    profile?: number;
     extendedFormat?: number; // For format code 15, byte 3 bits 7:3
   }>;
 }
@@ -483,9 +489,12 @@ export class ExtensionBlockParser {
         };
       } else if (format >= 2 && format <= 8) {
         // CTA-861-G Table 61 (codes 2-8): byte 3 = max bit rate ÷ 8 kHz.
-        // (Codes 9-13 Table 62 use a format-dependent value; code 14 Table 63
-        // uses a profile field — neither is a max bit rate, so not mapped here.)
         descriptor.maxBitrate = data[i + 2] * 8;
+      } else if (format >= 9 && format <= 13) {
+        // CTA-861-G Table 62 (codes 9-13): byte 3 is a Profile field whose
+        // meaning is format-dependent (One Bit Audio, DD+, DTS-HD,
+        // MAT/TrueHD, DST) — kept opaque so it round-trips verbatim.
+        descriptor.profile = data[i + 2];
       } else if (format === 15) { // Audio Format Extension — byte 3 bits 7:3
         descriptor.extendedFormat = (data[i + 2] >> 3) & 0x1F;
       }
@@ -781,6 +790,9 @@ export class ExtensionBlockParser {
         if (desc.bitDepths.bd16) byte3 |= 0x01;
         if (desc.bitDepths.bd20) byte3 |= 0x02;
         if (desc.bitDepths.bd24) byte3 |= 0x04;
+      } else if (desc.format >= 9 && desc.format <= 13 && desc.profile !== undefined) {
+        // CTA-861-G Table 62 (codes 9-13): byte 3 Profile field, opaque.
+        byte3 = desc.profile & 0xFF;
       } else if (desc.maxBitrate !== undefined) {
         byte3 = Math.round(desc.maxBitrate / 8) & 0xFF;
       } else if (desc.format === 15 && desc.extendedFormat !== undefined) {

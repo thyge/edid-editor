@@ -187,4 +187,44 @@ describe('HDMI 1.4 VSDB optional sections', () => {
     const reencoded = new HDMI14Encoder().encode(decoded);
     expect(Array.from(reencoded)).toEqual(payload);
   });
+
+  it('does not pad phantom VICs when the length byte overruns the payload', () => {
+    // From the Philips "FTV" fixture: b4 = 0xa0 (latency + extended), latency
+    // 0x29/0x29, eb = 0x00 (no 3D), length byte 0x96 declares 4 VICs + 22
+    // 3D bytes but only 3 VIC bytes follow.
+    const payload = [0x30, 0x00, 0x38, 0x3c, 0xa0, 0x29, 0x29, 0x00, 0x96, 0x01, 0x02, 0x03];
+    const decoded = new HDMI14Decoder().decode(new Uint8Array(payload));
+    expect(decoded.latency?.progressive).toEqual({ video: 0x29, audio: 0x29 });
+    expect(decoded.extended?.hdmiVics).toEqual([1, 2, 3]); // no phantom 0
+    expect(decoded.extended?.structures).toEqual([]);
+    expect(decoded.extended?.declaredLengths).toEqual({ vics: 4, threeD: 22 });
+    expect(Array.from(decoded.trailing)).toEqual([]);
+
+    // Byte-exact round-trip: the raw 0x96 length byte survives and the
+    // block does not grow a fourth VIC byte.
+    const reencoded = new HDMI14Encoder().encode(decoded);
+    expect(Array.from(reencoded)).toEqual(payload);
+
+    // Reassembled VSDB stays 16 bytes, header 0x6f, matching the fixture.
+    const block = reassembleVsdbBlock(OUI.HDMI_1_4, reencoded);
+    expect(Array.from(block)).toEqual([
+      0x6f, 0x03, 0x0c, 0x00, 0x30, 0x00, 0x38, 0x3c,
+      0xa0, 0x29, 0x29, 0x00, 0x96, 0x01, 0x02, 0x03,
+    ]);
+  });
+
+  it('keeps present 3D structures when the declared 3D length overruns the payload', () => {
+    // eb = 0x80 (3D present, mode none), lb = 0x45 declares 2 VICs + 5 3D
+    // bytes. Both VIC bytes are present (opaque values 0x30, 0x18), but only
+    // one 3D structure byte (0x40) follows: declaredLengths preserves the raw
+    // counts while structures decode from the bytes that are actually there.
+    const payload = [0x10, 0x00, 0x80, 0x21, 0x20, 0x80, 0x45, 0x30, 0x18, 0x40];
+    const decoded = new HDMI14Decoder().decode(new Uint8Array(payload));
+    expect(decoded.extended?.hdmiVics).toEqual([0x30, 0x18]);
+    expect(decoded.extended?.structures).toEqual([{ vicIndex: 4, structure: 0 }]);
+    expect(decoded.extended?.declaredLengths).toEqual({ vics: 2, threeD: 5 });
+    expect(Array.from(decoded.trailing)).toEqual([]);
+    const reencoded = new HDMI14Encoder().encode(decoded);
+    expect(Array.from(reencoded)).toEqual(payload);
+  });
 });

@@ -109,10 +109,13 @@ export class HDMI14Decoder implements VendorDecoder<'hdmi14'> {
     const lenVic = (lb & 0xe0) >>> 5;
     const len3d = lb & 0x1f;
 
-    // HDMI VIC list (4K × 2K VICs).
-    for (let k = 0; k < lenVic; k++) {
-      extended.hdmiVics.push(i + k < payload.length ? payload[i + k] : 0);
+    // HDMI VIC list (4K × 2K VICs). Only bytes actually present are modeled:
+    // a length byte declaring more VICs than the block contains (a common TV
+    // nonconformance) must not pad phantom zero VICs into hdmiVics.
+    for (let k = 0; k < lenVic && i + k < payload.length; k++) {
+      extended.hdmiVics.push(payload[i + k]);
     }
+    const vicStart = i;
     i += lenVic;
 
     if (len3d > 0) {
@@ -136,6 +139,14 @@ export class HDMI14Decoder implements VendorDecoder<'hdmi14'> {
       // Per-VIC 3D_Structure_X list (stride 2 when structure >= 8, else 1).
       extended.structures = read3DStructures(payload, i, end3d);
       i = Math.min(end3d, payload.length);
+    }
+
+    // Nonconformance diagnostic + round-trip preservation: the length byte
+    // declared more VIC/3D data than the payload provides. Keep the declared
+    // counts so encode re-writes the raw length byte instead of normalizing
+    // it down to the modeled content.
+    if (vicStart + lenVic + len3d > payload.length) {
+      extended.declaredLengths = { vics: lenVic, threeD: len3d };
     }
 
     out.extended = extended;
@@ -205,13 +216,18 @@ export class HDMI14Encoder implements VendorEncoder<'hdmi14'> {
       const eb = (e.threeDPresent ? 0x80 : 0) | modeBits | imgBits;
       bytes.push(eb);
 
-      const lenVic = e.hdmiVics.length & 0x07;
+      // Length byte bits 7:5: the declared VIC count. Prefer the source's raw
+      // declared count when it overran the payload (nonconformant source) so
+      // the length byte and block size round-trip verbatim; hdmiVics carries
+      // only the bytes actually present.
+      const lenVic = (e.declaredLengths?.vics ?? e.hdmiVics.length) & 0x07;
       const formats = e.threeDMode !== 'none';
       let len3d = 0;
       if (formats) len3d += 2; // 3D_Structure_ALL
       if (e.threeDMode === 'vic-mask') len3d += 2; // VIC mask
       for (const s of e.structures) len3d += s.structure >= 8 ? 2 : 1;
-      bytes.push((lenVic << 5) | (len3d & 0x1f));
+      const declared3d = e.declaredLengths?.threeD;
+      bytes.push((lenVic << 5) | ((declared3d ?? len3d) & 0x1f));
 
       for (const v of e.hdmiVics) bytes.push(v & 0xff);
 

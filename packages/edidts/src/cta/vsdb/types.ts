@@ -47,6 +47,20 @@ export interface HDMI14VSDB {
     imageSize: HdmiImageSize;
     /** HDMI VIC list (HDMI VIC codes 1–4; maps to 4K formats). */
     hdmiVics: number[];
+    /**
+     * Present iff the length byte declares more VIC / 3D bytes than the block
+     * actually contains — a common TV nonconformance (the declared overhang
+     * would otherwise pad phantom zero VICs). Doubles as the diagnostic and
+     * the round-trip preservation: encode re-writes the raw declared counts so
+     * the source length byte and block size survive verbatim, while
+     * hdmiVics/structures only contain bytes actually present.
+     */
+    declaredLengths?: {
+      /** Length byte bits 7:5 — declared HDMI VIC count. */
+      vics: number;
+      /** Length byte bits 4:0 — declared 3D byte count. */
+      threeD: number;
+    };
     /** 3D_Structure_ALL 16-bit mask, present iff threeDMode !== 'none'. */
     structureAll?: number;
     /** 3D-capable-VIC 16-bit mask, present iff threeDMode === 'vic-mask'. */

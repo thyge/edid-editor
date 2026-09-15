@@ -530,6 +530,102 @@ describe('Audio SAD maxBitrate and format-extension round-trip', () => {
   );
 });
 
+describe('Audio SAD profile round-trip (Table 62: codes 9-13)', () => {
+  /** All 7 sampling-rate bits set, for a stable byte 2 across cases. */
+  const allRates = {
+    sr32kHz: true, sr44_1kHz: true, sr48kHz: true, sr88_2kHz: true,
+    sr96kHz: true, sr176_4kHz: true, sr192kHz: true,
+  };
+
+  /**
+   * Build a raw 128-byte CEA extension containing a single Audio Data Block
+   * with the given payload bytes, so the full decode→encode byte path
+   * (walker + SAD codec) is exercised.
+   */
+  function ceaBytesWithAudioBlock(payload: number[]): Uint8Array {
+    const bytes = new Uint8Array(128);
+    bytes[0] = 0x02;
+    bytes[1] = 3;
+    bytes[2] = 4 + 1 + payload.length; // dtdOffset: header + payload, no DTDs
+    bytes[3] = 0x40; // basic audio flag, 0 native DTDs
+    bytes[4] = (0x01 << 5) | payload.length;
+    bytes.set(payload, 5);
+    bytes[127] = checksum8(bytes, 127);
+    return bytes;
+  }
+
+  it.each([9, 10, 11, 12, 13])(
+    'format code %i round-trips byte-3 profile verbatim (Table 62: Profile field)',
+    (format) => {
+      const profile = 0x05; // arbitrary nonzero profile byte
+      const audio: AudioDataBlock = {
+        tag: 0x01,
+        payload: new Uint8Array(0),
+        descriptors: [{ format, channels: 8, samplingRates: allRates, profile }],
+      };
+      const bytes = ExtensionBlockParser.encode(buildCeaExtension({ dataBlocks: [audio] }));
+      expect(bytes[7]).toBe(profile);
+
+      const decoded = ExtensionBlockParser.decode(bytes) as CEAExtensionBlock;
+      const out = decoded.dataBlocks[0] as AudioDataBlock;
+      expect(out.descriptors[0].profile).toBe(profile);
+
+      const reencoded = ExtensionBlockParser.encode(decoded);
+      expect(reencoded[7]).toBe(profile);
+    },
+  );
+
+  it('decode→encode is byte-exact for a SAD list containing formats 10, 11, and 12', () => {
+    // DD+ (57 07 01), DTS-HD (5f 7e 01), MAT/TrueHD (67 04 03): byte 3 is a
+    // profile field per Table 62 and must survive the round-trip verbatim.
+    const payload = [0x57, 0x07, 0x01, 0x5f, 0x7e, 0x01, 0x67, 0x04, 0x03];
+    const original = ceaBytesWithAudioBlock(payload);
+
+    const decoded = ExtensionBlockParser.decode(original) as CEAExtensionBlock;
+    const out = decoded.dataBlocks[0] as AudioDataBlock;
+    expect(out.descriptors.map((d) => d.format)).toEqual([10, 11, 12]);
+    expect(out.descriptors.map((d) => d.profile)).toEqual([0x01, 0x01, 0x03]);
+
+    const reencoded = ExtensionBlockParser.encode(decoded);
+    expect(Array.from(reencoded.slice(4, 4 + 1 + payload.length)))
+      .toEqual([(0x01 << 5) | payload.length, ...payload]);
+  });
+
+  it('the Philips 4K TV fixture audio block round-trips byte-exactly', () => {
+    // Seven SADs from the Philips "FTV" CTA block: LPCM, AC-3, DTS use
+    // bit-depth/bit-rate bytes; DD+ / ext-AC-4 / DTS-HD / TrueHD carry
+    // profile bytes 01, (ext code in bits 7:3), 01, 03.
+    const payload = [
+      0x09, 0x07, 0x07, // LPCM 2ch, 16/20/24-bit
+      0x15, 0x07, 0x50, // AC-3 6ch, 640 kHz max
+      0x3d, 0x07, 0xc0, // DTS 8ch, 1536 kHz max
+      0x57, 0x07, 0x01, // DD+ 8ch, profile 01
+      0x78, 0x06, 0x60, // format ext 12 (AC-4)
+      0x5f, 0x7e, 0x01, // DTS-HD 8ch, profile 01
+      0x67, 0x04, 0x03, // MAT/TrueHD 8ch, profile 03
+    ];
+    const original = ceaBytesWithAudioBlock(payload);
+
+    const decoded = ExtensionBlockParser.decode(original) as CEAExtensionBlock;
+    const reencoded = ExtensionBlockParser.encode(decoded);
+    expect(Array.from(reencoded.slice(4, 4 + 1 + payload.length)))
+      .toEqual([(0x01 << 5) | payload.length, ...payload]);
+  });
+
+  it('ignores a truncated 2-byte trailing SAD for a 9-13 code without throwing', () => {
+    // A malformed block whose payload is one full DTS-HD SAD plus two stray
+    // bytes of a second (format 12) SAD: the partial SAD is dropped by the
+    // 3-byte stride loop rather than decoding a phantom descriptor.
+    const payload = [0x5f, 0x7e, 0x01, 0x67, 0x04];
+    const original = ceaBytesWithAudioBlock(payload);
+
+    const decoded = ExtensionBlockParser.decode(original) as CEAExtensionBlock;
+    const out = decoded.dataBlocks[0] as AudioDataBlock;
+    expect(out.descriptors.length).toBe(1);
+    expect(out.descriptors[0].profile).toBe(0x01);
+  });
+});
+
 describe('CEA tag-0x02 validation', () => {
   /** Minimal valid 128-byte CEA block: tag 0x02, rev 3, dtdOffset 4, no blocks. */
   function validCeaBytes(): Uint8Array {
