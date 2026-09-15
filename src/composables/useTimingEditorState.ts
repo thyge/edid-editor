@@ -1,7 +1,7 @@
 import { reactive } from 'vue'
 import {
   analyzeDetailedTimingAgainstCTA,
-  analyzeDetailedTimingWithCVT,
+  classifyDetailedTiming,
   computeRefreshRate,
   CVT_PRESETS,
   generateCVTDetailedTiming,
@@ -142,7 +142,8 @@ export const CVT_BLANKING_LABELS: Record<CVTBlankingMode, string> = {
  * Infer the editor authoring mode for a DTD from the lib classifiers, so the
  * selector and reality agree on load. CEA-861 first — a DTD
  * matching a CTA-861 VIC snaps to `cea-861` with that VIC selected — then the
- * CVT family, else `custom`.
+ * exact CVT classifier ({@link classifyDetailedTiming}, the same engine the
+ * card's timing-type badge shows), else `custom`.
  *
  * Note: {@link analyzeDetailedTimingAgainstCTA} compares the DTD's full-frame
  * verticalTotal against the VIC table's per-field vTotal for interlaced VICs,
@@ -159,10 +160,9 @@ function inferEditorMode(timing: DetailedTiming): {
   if (cea.matchVic) {
     return { mode: 'cea-861', selectedVic: cea.matchVic.vic }
   }
-  const cvt = analyzeDetailedTimingWithCVT(dtd)
-  const cvtMatch = cvt.comparisons.find((comparison) => comparison.withinTolerance)
-  if (cvtMatch) {
-    return { mode: blankingModeToMode(cvtMatch.mode), selectedVic: null }
+  const timingType = classifyDetailedTiming(dtd)
+  if (timingType !== 'custom') {
+    return { mode: timingType, selectedVic: null }
   }
   return { mode: 'custom', selectedVic: null }
 }

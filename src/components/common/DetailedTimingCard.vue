@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import {
   analyzeDetailedTimingAgainstCTA,
+  classifyDetailedTiming,
   computePixelClockForTargetRate,
   computeRefreshRate,
   generateCVTDetailedTiming,
@@ -95,6 +96,22 @@ const customRateOverflow = ref(false)
 const customTargetApplied = ref(false)
 
 const refresh = computed(() => computeRefreshRate(props.timing))
+
+/** Classified timing type of the decoded DTD — state-free (edidts
+ *  {@link classifyDetailedTiming} reverse-matches the geometry against the
+ *  CVT generator), independent of the authoring mode: CVT / CVT-RB / CVT-RBv2
+ *  when the timing reproduces a generator variant, else Custom. */
+const timingType = computed(() => classifyDetailedTiming(props.timing))
+const timingTypeLabel = computed(() =>
+  timingType.value === 'custom' ? 'Custom' : CVT_BLANKING_LABELS[timingType.value],
+)
+/** Recognized CVT variants read as a match (emerald, like the Native badge);
+ *  Custom stays muted. */
+const timingTypeClass = computed(() =>
+  timingType.value === 'custom'
+    ? 'bg-muted text-muted-foreground'
+    : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+)
 
 /** Editor-only authoring state for this DTD (mode + CVT free params). */
 const state = getTimingEditorState(props.timing)
@@ -448,6 +465,10 @@ function applyFreeParam(field: string, value: unknown): void {
             v-if="native"
             class="ml-1.5 inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
           >Native</span>
+          <!-- Timing-type classification of the decoded DTD (state-free). -->
+          <span
+            :class="['ml-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', timingTypeClass]"
+          >{{ timingTypeLabel }}</span>
         </p>
         <p class="text-lg font-semibold text-foreground">
           {{ timing.horizontalActive }}×{{ timing.verticalActive }}{{ timing.flags.interlaced ? 'i' : 'p' }} ·
