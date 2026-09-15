@@ -4,7 +4,7 @@ import type { DetailedTiming } from 'edidts'
 import { STEREO_MODE_OPTIONS, SYNC_TYPE_OPTIONS } from 'edidts'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { isTimingFieldEditable, type TimingEditorMode } from '@/composables/useTimingEditorState'
+import { isTimingFieldEditable, TIMING_FIELD_MAX, clampTimingField, type TimingEditorMode, type TimingFieldMaxKey } from '@/composables/useTimingEditorState'
 
 /**
  * Shared field-level editor for the 18-byte Detailed Timing Descriptor geometry,
@@ -57,37 +57,16 @@ const isAnalog = computed(() =>
 )
 
 /**
- * Per-field encodable maximum for the 18-byte DTD (VESA E-EDID A2 Tables
- * 3.21/3.22): 12-bit fields cap at 4095, H sync offset/width at 1023 (8+2
- * bits), V sync offset/width at 63 (4+2 bits), and borders at 255 (8 bits).
- * The encoder masks every field into its fixed bit width, so anything above
- * these would silently truncate — clamp here instead.
+ * Per-field encodable maxima live in the shared {@link TIMING_FIELD_MAX}
+ * (useTimingEditorState.ts) so the raster diagram clamps identically —
+ * alias here only for the template's `:max` bindings.
  */
-const FIELD_MAX = {
-  horizontalActive: 4095,
-  horizontalBlanking: 4095,
-  verticalActive: 4095,
-  verticalBlanking: 4095,
-  horizontalSyncOffset: 1023,
-  horizontalSyncWidth: 1023,
-  verticalSyncOffset: 63,
-  verticalSyncWidth: 63,
-  horizontalImageSize: 4095,
-  verticalImageSize: 4095,
-  horizontalBorder: 255,
-  verticalBorder: 255,
-} as const
+const FIELD_MAX = TIMING_FIELD_MAX
 
-/**
- * Round + clamp the parsed value into the field's encodable range before
- * emitting. Clamping to 0 also prevents JS bitwise-mask wraparound in the
- * encoder (−1 & 0xfff = 4095), so the value the user sees is always the value
- * that reaches the encoded bytes.
- */
-function onNumber(field: keyof typeof FIELD_MAX, v: string | number) {
-  const parsed = typeof v === 'number' ? v : Number(v)
-  const rounded = Number.isFinite(parsed) ? Math.round(parsed) : 0
-  emit('update', field, Math.max(0, Math.min(FIELD_MAX[field], rounded)))
+/** Round + clamp via the shared {@link clampTimingField} before emitting, so
+ * the diagram and this grid commit the exact same value. */
+function onNumber(field: TimingFieldMaxKey, v: string | number) {
+  emit('update', field, clampTimingField(field, v))
 }
 
 function onFlag(flag: string, value: unknown) {
@@ -100,9 +79,10 @@ function onFlag(flag: string, value: unknown) {
     <!-- Geometry, sync, image size, and borders in paired-axes rows: each row
          pairs the Horizontal (left) and Vertical (right) variant of one
          parameter — H/V Active, then H/V Blanking, then sync offset/width,
-         image size, and borders. (Pixel clock lives on the card's top
-         controls row.) -->
-    <div class="grid gap-3 sm:grid-cols-2">
+         image size, and borders. Two pairs per row on wide screens so the
+         section uses the full card width. (Pixel clock lives on the card's
+         top controls row.) -->
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         H. Active (px)
         <Input

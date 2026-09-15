@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch, nextTick } from 'vue'
-import type { DetailedTimingDescriptor, DisplayDescriptor } from 'edidts'
+import type { DisplayDescriptor } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import EDIDDisplayDescriptors from './EDIDDisplayDescriptors.vue'
 import DetailedTimingCard from '../common/DetailedTimingCard.vue'
@@ -62,22 +62,6 @@ watch(() => props.focus, async (focus) => {
     if (!Number.isNaN(idx)) document.getElementById(`edid-card-desc-${idx}`)?.scrollIntoView({ block: 'nearest' })
   }
 }, { immediate: true })
-
-function horizontalFrontPorch(timing: DetailedTimingDescriptor): number {
-  return Math.max(0, timing.horizontalSyncOffset)
-}
-
-function horizontalBackPorch(timing: DetailedTimingDescriptor): number {
-  return Math.max(0, timing.horizontalBlanking - timing.horizontalSyncWidth - timing.horizontalSyncOffset)
-}
-
-function verticalFrontPorch(timing: DetailedTimingDescriptor): number {
-  return Math.max(0, timing.verticalSyncOffset)
-}
-
-function verticalBackPorch(timing: DetailedTimingDescriptor): number {
-  return Math.max(0, timing.verticalBlanking - timing.verticalSyncWidth - timing.verticalSyncOffset)
-}
 </script>
 
 <template>
@@ -95,34 +79,7 @@ function verticalBackPorch(timing: DetailedTimingDescriptor): number {
           :force-expand="forceExpandTiming"
           :show-toggle="isAllView"
           @update="(field: string, value: unknown) => emit('update', `detailedTimings.${entry.i}.${field}`, value)"
-        >
-          <template #details>
-            <div class="grid gap-3 md:grid-cols-2">
-              <div class="rounded-lg border border-border/40 p-3">
-                <p class="text-[11px] uppercase tracking-wide mb-2">Horizontal</p>
-                <div class="space-y-1">
-                  <div class="flex justify-between"><span>Total</span><span class="font-mono text-foreground">{{ entry.timing.horizontalTotal }} px</span></div>
-                  <div class="flex justify-between"><span>Active</span><span class="font-mono text-foreground">{{ entry.timing.horizontalActive }} px</span></div>
-                  <div class="flex justify-between"><span>Blanking</span><span class="font-mono text-foreground">{{ entry.timing.horizontalBlanking }} px</span></div>
-                  <div class="flex justify-between"><span>Front Porch</span><span class="font-mono text-foreground">{{ horizontalFrontPorch(entry.timing) }} px</span></div>
-                  <div class="flex justify-between"><span>Sync Width</span><span class="font-mono text-foreground">{{ entry.timing.horizontalSyncWidth }} px</span></div>
-                  <div class="flex justify-between"><span>Back Porch</span><span class="font-mono text-foreground">{{ horizontalBackPorch(entry.timing) }} px</span></div>
-                </div>
-              </div>
-              <div class="rounded-lg border border-border/40 p-3">
-                <p class="text-[11px] uppercase tracking-wide mb-2">Vertical</p>
-                <div class="space-y-1">
-                  <div class="flex justify-between"><span>Total</span><span class="font-mono text-foreground">{{ entry.timing.verticalTotal }} lines</span></div>
-                  <div class="flex justify-between"><span>Active</span><span class="font-mono text-foreground">{{ entry.timing.verticalActive }} lines</span></div>
-                  <div class="flex justify-between"><span>Blanking</span><span class="font-mono text-foreground">{{ entry.timing.verticalBlanking }} lines</span></div>
-                  <div class="flex justify-between"><span>Front Porch</span><span class="font-mono text-foreground">{{ verticalFrontPorch(entry.timing) }} lines</span></div>
-                  <div class="flex justify-between"><span>Sync Width</span><span class="font-mono text-foreground">{{ entry.timing.verticalSyncWidth }} lines</span></div>
-                  <div class="flex justify-between"><span>Back Porch</span><span class="font-mono text-foreground">{{ verticalBackPorch(entry.timing) }} lines</span></div>
-                </div>
-              </div>
-            </div>
-          </template>
-        </DetailedTimingCard>
+        />
       </div>
 
       <EDIDDisplayDescriptors

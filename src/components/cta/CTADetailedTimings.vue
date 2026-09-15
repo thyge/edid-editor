@@ -33,30 +33,7 @@ const nativeCount = computed(() => Math.min(props.cea.nativeFormats, timings.val
           :index="i"
           :native="i < nativeCount"
           @update="(field: string, value: unknown) => emit('update', `detailedTimings.${i}.${field}`, value)"
-        >
-          <template #details>
-            <div class="grid gap-3 md:grid-cols-2">
-              <div class="rounded-lg border border-border/40 p-3">
-                <p class="text-[11px] uppercase tracking-wide mb-2">Horizontal</p>
-                <div class="space-y-1">
-                  <div class="flex justify-between"><span>Active</span><span class="font-mono text-foreground">{{ timing.horizontalActive }} px</span></div>
-                  <div class="flex justify-between"><span>Blanking</span><span class="font-mono text-foreground">{{ timing.horizontalBlanking }} px</span></div>
-                  <div class="flex justify-between"><span>Sync Offset</span><span class="font-mono text-foreground">{{ timing.horizontalSyncOffset }} px</span></div>
-                  <div class="flex justify-between"><span>Sync Width</span><span class="font-mono text-foreground">{{ timing.horizontalSyncWidth }} px</span></div>
-                </div>
-              </div>
-              <div class="rounded-lg border border-border/40 p-3">
-                <p class="text-[11px] uppercase tracking-wide mb-2">Vertical</p>
-                <div class="space-y-1">
-                  <div class="flex justify-between"><span>Active</span><span class="font-mono text-foreground">{{ timing.verticalActive }} lines</span></div>
-                  <div class="flex justify-between"><span>Blanking</span><span class="font-mono text-foreground">{{ timing.verticalBlanking }} lines</span></div>
-                  <div class="flex justify-between"><span>Sync Offset</span><span class="font-mono text-foreground">{{ timing.verticalSyncOffset }} lines</span></div>
-                  <div class="flex justify-between"><span>Sync Width</span><span class="font-mono text-foreground">{{ timing.verticalSyncWidth }} lines</span></div>
-                </div>
-              </div>
-            </div>
-          </template>
-        </DetailedTimingCard>
+        />
       </div>
       <p v-else class="text-muted-foreground">No detailed timing descriptors in CTA-861 extension.</p>
     </CardContent>

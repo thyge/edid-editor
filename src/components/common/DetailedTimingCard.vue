@@ -16,7 +16,9 @@ import { roundedRefreshRate } from '@/components/common/timingLabels'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import DetailedTimingFields from './DetailedTimingFields.vue'
+import TimingRasterDiagram from './TimingRasterDiagram.vue'
 import VicPicker from './VicPicker.vue'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   CVT_BLANKING_LABELS,
   CVT_PRESET_ENTRIES,
@@ -40,9 +42,13 @@ import {
  * which share the same DetailedTiming field set via the common DTD codec.
  *
  * Refresh is derived from the single lib source {@link computeRefreshRate} —
- * never recomputed locally. Consumer-specific chrome is supplied via slots:
- *   - #details: the expanded body after the field editor (the H/V summary
- *     grid — differs per consumer)
+ * never recomputed locally. The expanded body carries a Raster Designer /
+ * Table Editor tab pair under the common Pixel Clock/Refresh/Margins controls
+ * row, defaulting to the shared {@link TimingRasterDiagram} (diagram-only:
+ * frame/blanking/sync visual with click-to-edit callout numbers), with the
+ * Edit Fields grid as the alternate "Table Editor" view; there are no consumer
+ * slots. The former flat H/V read-only panels were dropped (the field grid
+ * already shows every value), so no summary component remains.
  *
  * Emits `update` with a dotted field path and new value, forwarded from
  * DetailedTimingFields; the owning component mutates the matching timing
@@ -604,15 +610,32 @@ function applyFreeParam(field: string, value: unknown): void {
         </p>
       </div>
 
-      <div class="mb-4">
-        <p class="text-[11px] uppercase tracking-wide mb-2 text-foreground/80">Edit Fields</p>
-        <DetailedTimingFields
-          :timing="timing"
-          :mode="state.mode"
-          @update="(field: string, value: unknown) => onFieldUpdate(field, value)"
-        />
-      </div>
-      <slot name="details" />
+      <!-- Visual section: Raster Designer (default — the frame diagram at
+           total-raster aspect with click-to-edit callout numbers) or the
+           Table Editor grid (the flat field inputs). Both edit routes go
+           through the same onFieldUpdate, so CVT-mode free params
+           regenerate identically from either site. The controls row above
+           is common to both tabs. -->
+      <Tabs default-value="raster">
+        <TabsList class="h-7 rounded-md p-[2px]">
+          <TabsTrigger value="raster" class="gap-1.5 rounded-[5px] px-2.5 py-0 text-xs">Raster Designer</TabsTrigger>
+          <TabsTrigger value="summary" class="gap-1.5 rounded-[5px] px-2.5 py-0 text-xs">Table Editor</TabsTrigger>
+        </TabsList>
+        <TabsContent value="raster">
+          <TimingRasterDiagram
+            :timing="timing"
+            :mode="state.mode"
+            @update="(field: string, value: unknown) => onFieldUpdate(field, value)"
+          />
+        </TabsContent>
+        <TabsContent value="summary">
+          <DetailedTimingFields
+            :timing="timing"
+            :mode="state.mode"
+            @update="(field: string, value: unknown) => onFieldUpdate(field, value)"
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   </div>
 </template>

@@ -41,30 +41,7 @@ const nativeCount = computed(() =>
         :show-toggle="false"
         :native="index < nativeCount"
         @update="(field: string, value: unknown) => emit('update', `detailedTimings.${index}.${field}`, value)"
-      >
-        <template #details>
-          <div class="grid gap-3 md:grid-cols-2">
-            <div class="rounded-lg border border-border/40 p-3">
-              <p class="text-[11px] uppercase tracking-wide mb-2">Horizontal</p>
-              <div class="space-y-1">
-                <div class="flex justify-between"><span>Active</span><span class="font-mono text-foreground">{{ timing.horizontalActive }} px</span></div>
-                <div class="flex justify-between"><span>Blanking</span><span class="font-mono text-foreground">{{ timing.horizontalBlanking }} px</span></div>
-                <div class="flex justify-between"><span>Sync Offset</span><span class="font-mono text-foreground">{{ timing.horizontalSyncOffset }} px</span></div>
-                <div class="flex justify-between"><span>Sync Width</span><span class="font-mono text-foreground">{{ timing.horizontalSyncWidth }} px</span></div>
-              </div>
-            </div>
-            <div class="rounded-lg border border-border/40 p-3">
-              <p class="text-[11px] uppercase tracking-wide mb-2">Vertical</p>
-              <div class="space-y-1">
-                <div class="flex justify-between"><span>Active</span><span class="font-mono text-foreground">{{ timing.verticalActive }} lines</span></div>
-                <div class="flex justify-between"><span>Blanking</span><span class="font-mono text-foreground">{{ timing.verticalBlanking }} lines</span></div>
-                <div class="flex justify-between"><span>Sync Offset</span><span class="font-mono text-foreground">{{ timing.verticalSyncOffset }} lines</span></div>
-                <div class="flex justify-between"><span>Sync Width</span><span class="font-mono text-foreground">{{ timing.verticalSyncWidth }} lines</span></div>
-              </div>
-            </div>
-          </div>
-        </template>
-      </DetailedTimingCard>
+      />
     </CardContent>
   </Card>
   <Card v-else>

@@ -62,6 +62,42 @@ export const TIMING_FREE_PARAM_FIELDS: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * Per-field encodable maximum for the 18-byte DTD (VESA E-EDID A2 Tables
+ * 3.21/3.22): 12-bit fields cap at 4095, H sync offset/width at 1023 (8+2
+ * bits), V sync offset/width at 63 (4+2 bits), and borders at 255 (8 bits).
+ * The encoder masks every field into its fixed bit width, so anything above
+ * these would silently truncate — editors clamp to this table instead.
+ * Shared single source: the Edit Fields grid and the raster diagram both
+ * clamp committed values through it.
+ */
+export const TIMING_FIELD_MAX = {
+  horizontalActive: 4095,
+  horizontalBlanking: 4095,
+  verticalActive: 4095,
+  verticalBlanking: 4095,
+  horizontalSyncOffset: 1023,
+  horizontalSyncWidth: 1023,
+  verticalSyncOffset: 63,
+  verticalSyncWidth: 63,
+  horizontalImageSize: 4095,
+  verticalImageSize: 4095,
+  horizontalBorder: 255,
+  verticalBorder: 255,
+} as const
+
+export type TimingFieldMaxKey = keyof typeof TIMING_FIELD_MAX
+
+/** Clamp a parsed number into the field's encodable range (VESA E-EDID A2
+ * bit widths — see {@link TIMING_FIELD_MAX}). Clamping to 0 also prevents
+ * JS bitwise-mask wraparound in the encoder (−1 & 0xfff = 4095), so the
+ * value the user sees is always the value that reaches the encoded bytes. */
+export function clampTimingField(field: TimingFieldMaxKey, value: string | number): number {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  const rounded = Number.isFinite(parsed) ? Math.round(parsed) : 0
+  return Math.max(0, Math.min(TIMING_FIELD_MAX[field], rounded))
+}
+
+/**
  * Editable-field policy per authoring mode: `custom` owns every field;
  * `cea-861` owns none (the VIC's bytes are authoritative); the generative
  * CVT modes (incl. Target Refresh Rate) expose only
