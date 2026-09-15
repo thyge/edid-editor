@@ -94,8 +94,12 @@ function onFlag(flag: string, value: unknown) {
 
 <template>
   <div class="space-y-4">
-    <!-- Geometry (pixel clock lives on the card's top controls row) -->
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <!-- Geometry, sync, image size, and borders in paired-axes rows: each row
+         pairs the Horizontal (left) and Vertical (right) variant of one
+         parameter — H/V Active, then H/V Blanking, then sync offset/width,
+         image size, and borders. (Pixel clock lives on the card's top
+         controls row.) -->
+    <div class="grid gap-3 sm:grid-cols-2">
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         H. Active (px)
         <Input
@@ -105,17 +109,6 @@ function onFlag(flag: string, value: unknown) {
           :step="1"
           :model-value="timing.horizontalActive"
           @update:model-value="(v) => onNumber('horizontalActive', v)"
-        />
-      </label>
-      <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        H. Blanking (px)
-        <Input
-          type="number"
-          :min="0"
-          :max="FIELD_MAX.horizontalBlanking"
-          :step="1"
-          :model-value="timing.horizontalBlanking"
-          @update:model-value="(v) => onNumber('horizontalBlanking', v)"
         />
       </label>
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -130,6 +123,17 @@ function onFlag(flag: string, value: unknown) {
         />
       </label>
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        H. Blanking (px)
+        <Input
+          type="number"
+          :min="0"
+          :max="FIELD_MAX.horizontalBlanking"
+          :step="1"
+          :model-value="timing.horizontalBlanking"
+          @update:model-value="(v) => onNumber('horizontalBlanking', v)"
+        />
+      </label>
+      <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         V. Blanking (lines)
         <Input
           type="number"
@@ -140,10 +144,6 @@ function onFlag(flag: string, value: unknown) {
           @update:model-value="(v) => onNumber('verticalBlanking', v)"
         />
       </label>
-    </div>
-
-    <!-- Sync timing -->
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         H. Sync Offset (px)
         <Input
@@ -153,17 +153,6 @@ function onFlag(flag: string, value: unknown) {
           :step="1"
           :model-value="timing.horizontalSyncOffset"
           @update:model-value="(v) => onNumber('horizontalSyncOffset', v)"
-        />
-      </label>
-      <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        H. Sync Width (px)
-        <Input
-          type="number"
-          :min="0"
-          :max="FIELD_MAX.horizontalSyncWidth"
-          :step="1"
-          :model-value="timing.horizontalSyncWidth"
-          @update:model-value="(v) => onNumber('horizontalSyncWidth', v)"
         />
       </label>
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -178,6 +167,17 @@ function onFlag(flag: string, value: unknown) {
         />
       </label>
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        H. Sync Width (px)
+        <Input
+          type="number"
+          :min="0"
+          :max="FIELD_MAX.horizontalSyncWidth"
+          :step="1"
+          :model-value="timing.horizontalSyncWidth"
+          @update:model-value="(v) => onNumber('horizontalSyncWidth', v)"
+        />
+      </label>
+      <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         V. Sync Width (lines)
         <Input
           type="number"
@@ -188,10 +188,6 @@ function onFlag(flag: string, value: unknown) {
           @update:model-value="(v) => onNumber('verticalSyncWidth', v)"
         />
       </label>
-    </div>
-
-    <!-- Image size + borders -->
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         H. Image Size (mm)
         <Input
