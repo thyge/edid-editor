@@ -2,12 +2,14 @@ import { describe, it, expect } from 'vitest'
 import {
   calculateCVTTiming,
   calculateCVTTimingForTarget,
+  classifyDetailedTiming,
   generateCVTDetailedTiming,
   generateCVTDetailedTimingForTarget,
   CVT_PRESETS,
   type CVTTimingInput
 } from '../src/common/cvt-timing-generator'
 import { DetailedTimingDescriptor } from '../src/common/detailed-timing-descriptor'
+import { generateDetailedTimingFromVIC } from '../src/cta'
 import { EDID } from '../src/edid'
 
 describe('CVT Timing Calculator', () => {
@@ -361,6 +363,138 @@ describe('CVT Timing Calculator', () => {
       const dtd = generated!.timing
       expect(dtd.refreshRate).toBeCloseTo(generated!.actualRefreshRate, 4)
       expect(dtd.refreshRate).toBeGreaterThanOrEqual(144)
+    })
+  })
+
+  describe('classifyDetailedTiming', () => {
+    it('classifies a known standard-CVT timing as cvt', () => {
+      const dtd = generateCVTDetailedTiming({
+        horizontalActive: 1920,
+        verticalActive: 1080,
+        refreshRate: 60,
+        blankingMode: 'cvt',
+      })
+      expect(classifyDetailedTiming(dtd)).toBe('cvt')
+    })
+
+    it('classifies a known CVT-RB timing as cvt-rb', () => {
+      const dtd = generateCVTDetailedTiming({
+        horizontalActive: 2560,
+        verticalActive: 1440,
+        refreshRate: 60,
+        blankingMode: 'cvt-rb',
+      })
+      expect(classifyDetailedTiming(dtd)).toBe('cvt-rb')
+    })
+
+    it('classifies a known CVT-RBv2 timing as cvt-rb2', () => {
+      const dtd = generateCVTDetailedTiming({
+        horizontalActive: 3840,
+        verticalActive: 2160,
+        refreshRate: 120,
+        blankingMode: 'cvt-rb2',
+      })
+      expect(classifyDetailedTiming(dtd)).toBe('cvt-rb2')
+    })
+
+    it('classifies every generated preset as its own blanking variant', () => {
+      for (const [name, preset] of Object.entries(CVT_PRESETS)) {
+        const dtd = generateCVTDetailedTiming(preset as CVTTimingInput)
+        const expected = (preset as CVTTimingInput).blankingMode ?? 'cvt'
+        expect(classifyDetailedTiming(dtd)).toBe(expected)
+      }
+    })
+
+    it('classifies an interlaced CVT timing as its variant', () => {
+      const dtd = generateCVTDetailedTiming({
+        horizontalActive: 1920,
+        verticalActive: 1080,
+        refreshRate: 60,
+        blankingMode: 'cvt-rb',
+        interlaced: true,
+      })
+      expect(classifyDetailedTiming(dtd)).toBe('cvt-rb')
+    })
+
+    it('survives an encode/decode round-trip', () => {
+      const dtd = generateCVTDetailedTiming({
+        horizontalActive: 2560,
+        verticalActive: 1440,
+        refreshRate: 144,
+        blankingMode: 'cvt-rb2',
+        horizontalImageSize: 600,
+        verticalImageSize: 340,
+      })
+      const decoded = DetailedTimingDescriptor.decode(dtd.encode())
+      expect(decoded).not.toBeNull()
+      expect(classifyDetailedTiming(decoded!)).toBe('cvt-rb2')
+    })
+
+    it('classifies a custom-tolerance timing (VIC geometry) as custom', () => {
+      // VIC 16 (1080p60) uses CTA-861 fixed blanking (280 px), not any CVT
+      // variant — a clearly non-CVT timing.
+      const vic = generateDetailedTimingFromVIC(16)
+      expect(classifyDetailedTiming(vic)).toBe('custom')
+    })
+
+    it('classifies a perturbed CVT timing as custom', () => {
+      const dtd = generateCVTDetailedTiming({
+        horizontalActive: 1920,
+        verticalActive: 1080,
+        refreshRate: 60,
+        blankingMode: 'cvt-rb',
+      })
+      dtd.verticalBlanking += 1
+      expect(classifyDetailedTiming(dtd)).toBe('custom')
+
+      // A one-step (0.25 MHz) clock bump with unchanged geometry is still a
+      // CVT-conformant timing — just regenerated at a slightly higher
+      // nominal rate — so it keeps its classification.
+      dtd.verticalBlanking -= 1
+      dtd.pixelClock += 0.25
+      expect(classifyDetailedTiming(dtd)).toBe('cvt-rb')
+
+      // A clock off the 0.25 MHz quantization grid can never be a CVT
+      // generator product.
+      dtd.pixelClock += 0.13
+      expect(classifyDetailedTiming(dtd)).toBe('custom')
+    })
+
+    it('classifies an altered sync polarity as custom', () => {
+      const dtd = generateCVTDetailedTiming({
+        horizontalActive: 1920,
+        verticalActive: 1080,
+        refreshRate: 60,
+        blankingMode: 'cvt-rb',
+      })
+      dtd.flags.vSyncPolarity = 'positive' // RB mandates negative V sync
+      expect(classifyDetailedTiming(dtd)).toBe('custom')
+    })
+
+    it('classifies a margins (1.8%) CVT timing as custom', () => {
+      // CVT margins fold into the generator's totals while the DTD border
+      // fields stay 0 — the 18-byte representation cannot round-trip them,
+      // so the decoded geometry is custom by definition.
+      const dtd = generateCVTDetailedTiming({
+        horizontalActive: 1920,
+        verticalActive: 1080,
+        refreshRate: 60,
+        blankingMode: 'cvt',
+        margins: true,
+      })
+      expect(classifyDetailedTiming(dtd)).toBe('custom')
+    })
+
+    it('classifies a blank/invalid DTD as custom', () => {
+      expect(classifyDetailedTiming(new DetailedTimingDescriptor())).toBe('custom')
+      const zeroed = generateCVTDetailedTiming({
+        horizontalActive: 1920,
+        verticalActive: 1080,
+        refreshRate: 60,
+        blankingMode: 'cvt-rb',
+      })
+      zeroed.pixelClock = 0
+      expect(classifyDetailedTiming(zeroed)).toBe('custom')
     })
   })
 })

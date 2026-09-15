@@ -8,6 +8,7 @@
  */
 
 import { DetailedTimingDescriptor } from './detailed-timing-descriptor';
+import type { DetailedTiming } from './detailed-timing-descriptor';
 
 /**
  * Reduced Blanking mode
@@ -699,6 +700,128 @@ export function analyzeDetailedTimingWithCVT(
       matchLabel: 'Custom',
     };
   }
+}
+
+/**
+ * Timing type of a decoded detailed timing: the CVT blanking variant whose
+ * formulas reproduce the timing's geometry exactly, or `'custom'` when no
+ * variant does.
+ */
+export type DetailedTimingType = CVTBlankingMode | 'custom';
+
+/**
+ * Classification order for the CVT blanking variants. Structural ambiguity
+ * between variants is negligible (standard CVT derives its blanking, RB fixes
+ * 160 px, RBv2 fixes 80 px), so the first exact match wins.
+ */
+const CLASSIFY_BLANKING_MODES: CVTBlankingMode[] = ['cvt', 'cvt-rb', 'cvt-rb2'];
+
+/**
+ * Compare a DTD's geometry against one CVT calculation exactly. Every derived
+ * integer field, the quantized pixel clock, and the sync flags must match —
+ * a stricter contract than the tolerance-based {@link analyzeDetailedTimingWithCVT}
+ * (which reports near-matches); the classifier answers "is this timing CVT?".
+ *
+ * The image-size fields are not compared: they are display-specific
+ * pass-through inputs the CVT rules do not own.
+ */
+function matchesCVTResult(
+  timing: DetailedTiming,
+  result: CVTTimingResult
+): boolean {
+  return (
+    Math.abs(timing.pixelClock - result.pixelClock) < 0.005 &&
+    Math.round(timing.horizontalBlanking) === result.horizontalBlanking &&
+    Math.round(timing.verticalBlanking) === result.verticalBlanking &&
+    Math.max(0, Math.round(timing.horizontalSyncOffset)) === result.horizontalFrontPorch &&
+    Math.round(timing.horizontalSyncWidth) === result.horizontalSyncWidth &&
+    Math.max(0, Math.round(timing.verticalSyncOffset)) === result.verticalFrontPorch &&
+    Math.round(timing.verticalSyncWidth) === result.verticalSyncWidth &&
+    Math.round(timing.horizontalBorder) === 0 &&
+    Math.round(timing.verticalBorder) === 0 &&
+    timing.flags.syncType === 'digital-separate' &&
+    (timing.flags.stereoMode ?? 'none') === 'none' &&
+    (timing.flags.hSyncPolarity ?? 'positive') === result.hSyncPolarity &&
+    (timing.flags.vSyncPolarity ?? 'positive') === result.vSyncPolarity
+  );
+}
+
+/**
+ * Classify a detailed timing as CVT, CVT-RB, CVT-RBv2, or custom by
+ * reverse-matching its geometry against the CVT generator's own formulas —
+ * each variant is regenerated from the timing's active area and candidate
+ * target refresh rates and compared exactly (see {@link matchesCVTResult}).
+ * Framework-agnostic and independent of any editor authoring state: it
+ * classifies decoded bytes/geometry only.
+ *
+ * Candidate target rates: the generator quantizes the pixel clock UP to the
+ * next 0.25 MHz step, so a timing it produced satisfies
+ * `achieved = ceilStep(exact)` with the nominal target within one step-width
+ * Δ below the achieved rate, where
+ * `Δ = 0.25 MHz / (hTotal × vTotalField × interlaceFields)`. The achieved
+ * rate and points inside that interval are tried; the generator's geometry is
+ * stepwise in the target rate (floor/ceil rounding throughout), so any point
+ * on the same step reproduces the timing byte-for-byte.
+ *
+ * Timings the generator cannot have produced (non-0.25 MHz clocks, margins —
+ * which the 18-byte DTD cannot represent faithfully since the generator
+ * zeroes the border fields while folding margins into the totals — analog or
+ * stereo sync, altered blanking/sync values) classify as `'custom'`.
+ *
+ * @param timing Decoded DTD (EDID base block or CTA-861) or its geometry
+ * @returns The matching CVT blanking variant, or `'custom'`
+ */
+export function classifyDetailedTiming(timing: DetailedTiming): DetailedTimingType {
+  const horizontalActive = Math.round(timing.horizontalActive);
+  const horizontalBlanking = Math.round(timing.horizontalBlanking);
+  const verticalActive = Math.round(timing.verticalActive);
+  const interlaced = timing.flags.interlaced;
+  const clockMHz = timing.pixelClock;
+
+  const horizontalTotal = horizontalActive + horizontalBlanking;
+  // The generator computes interlaced timings on a per-field line count
+  // (half the active area) with a doubled field rate — the clock is derived
+  // from the UNDOUBLED field line count times the field rate, so the
+  // interlace factor enters the clock/rate relation once.
+  const verticalActiveField = interlaced ? Math.floor(verticalActive / 2) : verticalActive;
+  const verticalTotalField = verticalActiveField + Math.round(timing.verticalBlanking);
+  const interlaceFields = interlaced ? 2 : 1;
+  const rateDenominator = horizontalTotal * verticalTotalField * interlaceFields;
+
+  if (clockMHz <= 0 || horizontalTotal <= 0 || verticalTotalField <= 0) {
+    return 'custom';
+  }
+
+  // Candidate nominal rates: the achieved rate plus interior points of the
+  // one-step interval below it (the target's only possible range).
+  const nominalTopRate = (clockMHz * 1_000_000) / rateDenominator;
+  const stepWidthHz = (0.25 * 1_000_000) / rateDenominator;
+  const candidates = [
+    nominalTopRate,
+    nominalTopRate - stepWidthHz / 2,
+    nominalTopRate - stepWidthHz * 0.9,
+  ];
+
+  for (const blankingMode of CLASSIFY_BLANKING_MODES) {
+    for (const refreshRate of candidates) {
+      if (refreshRate <= 0) continue;
+      try {
+        const result = calculateCVTTiming({
+          horizontalActive,
+          verticalActive,
+          refreshRate,
+          blankingMode,
+          interlaced,
+        });
+        if (matchesCVTResult(timing, result)) {
+          return blankingMode;
+        }
+      } catch {
+        return 'custom'; // unencodable geometry (e.g. blank DTD) — skip the rest
+      }
+    }
+  }
+  return 'custom';
 }
 
 /**

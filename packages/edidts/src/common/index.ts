@@ -36,6 +36,7 @@ export {
   generateCVTDetailedTiming,
   generateCVTDetailedTimingForTarget,
   analyzeDetailedTimingWithCVT,
+  classifyDetailedTiming,
   CVT_PRESETS
 } from './cvt-timing-generator';
 export type {
@@ -51,6 +52,7 @@ export type {
   CVTComparisonDifferences,
   CVTComparisonResult,
   CVTModeLabel,
+  DetailedTimingType,
 } from './cvt-timing-generator';
 export {
   getManufacturerInfo,
