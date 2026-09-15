@@ -1,6 +1,4 @@
-// packages/edidts/src/cta/vcdb/vsadb/index.ts
-
-export type { VSADBVendorDecoded } from './types';
+export type { VSADBVendorDecoded, DolbyVSADB } from './types';
 
 export {
   VENDOR_VSADB_DECODERS,
@@ -11,3 +9,4 @@ export {
   findVSADBs,
 } from './registry';
 export type { VendorDecoder, VendorEncoder, VendorSpecificAudioDataBlock } from './registry';
+export { DolbyVSADBDecoder, DolbyVSADBEncoder, DOLBY_VSADB_DEFAULT } from './dolby';

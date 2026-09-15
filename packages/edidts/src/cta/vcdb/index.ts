@@ -56,10 +56,11 @@ export {
   encodeInfoFrameBlock,
 } from './infoframe';
 
-export type { VSADBVendorDecoded } from './vsadb';
+export type { VSADBVendorDecoded, DolbyVSADB } from './vsadb';
 export {
   decodeVSADB,
   encodeVSADB,
   reassembleVsadbBlock,
   findVSADBs,
 } from './vsadb';
+export { DolbyVSADBDecoder, DolbyVSADBEncoder, DOLBY_VSADB_DEFAULT } from './vsadb';

@@ -2,11 +2,11 @@
 
 // The VSADB (Vendor-Specific Audio Data Block) is the CTA-861-G extended tag
 // 0x11, the audio counterpart of the VSVDB (extended tag 0x01, handled in
-// `../vsvdb/`). No per-vendor audio codecs are registered today, but the
-// architecture is parallel to `../vsvdb/registry.ts` so a first vendor can be
-// added in the same way: a `VendorDecoder` keyed by the integer IEEE OUI, an
-// encoder keyed by the discriminator `kind` string, and the structured shape
-// attached to the carrier on decode.
+// `../vsvdb/`). The architecture is parallel to `../vsvdb/registry.ts`: a
+// `VendorDecoder` keyed by the integer IEEE OUI, an encoder keyed by the
+// discriminator `kind` string, and the structured shape attached to the carrier
+// on decode. The Dolby VSADB codec (OUI 00-D0-46) is registered in `./dolby.ts`
+// via a side-effect import in `../../extension-block.ts`.
 
 import type { ExtendedDataBlock } from '../../cta-extended-blocks';
 import type { CEAExtensionBlock, CEADataBlock } from '../../extension-block';
@@ -35,9 +35,7 @@ export const VENDOR_VSADB_ENCODERS: Record<string, VendorEncoder<string>> = {};
  * `ieeeOui` is the integer little-endian OUI read from the first 3 post-tag
  * bytes; `vendorPayload` retains the raw post-OUI bytes. `vendor` carries the
  * structured shape when a per-vendor decoder is registered for the OUI —
- * unlike the VSVDB path, an unregistered OUI leaves `vendor` unset (the
- * legacy carrier shape), preserving the historical decoded shape while no
- * codecs are registered.
+ * an unregistered OUI leaves `vendor` unset (the legacy carrier shape).
  */
 export interface VendorSpecificAudioDataBlock extends ExtendedDataBlock {
   tag: 0x07;
@@ -55,8 +53,9 @@ export interface VendorSpecificAudioDataBlock extends ExtendedDataBlock {
  * split into the integer OUI on the carrier; everything after is the raw
  * `vendorPayload`. A registered per-vendor decoder (keyed by OUI) is then
  * invoked and its structured shape attached as `vendor`, mirroring the VSVDB
- * carrier in `../vsvdb/registry.ts`. No codecs are registered today, so
- * decode always yields the raw carrier (byte-identical round-trip).
+ * carrier in `../vsvdb/registry.ts`. OUIs without a registered codec (or with
+ * a body shorter than the codec's `minLength`) keep the raw carrier, which
+ * round-trips byte-identically.
  */
 export function decodeVSADB(base: ExtendedDataBlock, payload: Uint8Array): VendorSpecificAudioDataBlock {
   if (payload.length < 3) {
@@ -81,8 +80,6 @@ export function decodeVSADB(base: ExtendedDataBlock, payload: Uint8Array): Vendo
   const decoder = VENDOR_VSADB_DECODERS[ieeeOui];
   // Only attach the structured vendor shape when a codec is registered and
   // the post-OUI body is long enough for the vendor's format (decoder.minLength).
-  // The union currently has no `fields` variant (no codecs registered), so the
-  // attach goes through `unknown` — mirroring the VSVDB shape for a future codec.
   if (decoder && data.length >= decoder.minLength) {
     block.vendor = { kind: decoder.kind, fields: decoder.decode(data) } as unknown as VSADBVendorDecoded;
   }
@@ -114,8 +111,6 @@ export function reassembleVsadbBlock(ieeeOui: number, payload: Uint8Array): Uint
  */
 export function encodeVSADB(block: VendorSpecificAudioDataBlock): Uint8Array {
   if (block.vendor && block.vendor.kind !== 'unknown') {
-    // The union has no `fields` variant until a codec registers; the cast
-    // mirrors the VSVDB encode path for a future codec.
     const vendor = block.vendor as unknown as { kind: string; fields: unknown };
     const encoder = VENDOR_VSADB_ENCODERS[vendor.kind];
     if (encoder) {

@@ -171,6 +171,18 @@ export {
 } from './vcdb/vsvdb/registry';
 export { DolbyVSDBDecoder, DolbyVSDBEncoder, DOLBY_VSDB_DEFAULT } from './vcdb/vsvdb/dolby';
 
+// Vendor-Specific Audio Data Blocks (tag 0x07 ext 0x11, e.g., Dolby Atmos) —
+// part of the VCDB family (vcdb/)
+export type { DolbyVSADB } from './vcdb/vsadb/types';
+export {
+  decodeVSADB,
+  reassembleVsadbBlock,
+  findVSADBs,
+  VENDOR_VSADB_DECODERS,
+  VENDOR_VSADB_ENCODERS,
+} from './vcdb/vsadb/registry';
+export { DolbyVSADBDecoder, DolbyVSADBEncoder, DOLBY_VSADB_DEFAULT } from './vcdb/vsadb/dolby';
+
 // CEA data-block default-value factory
 export { createDefaultCEADataBlock } from './default-blocks';
 export type { CEADefaultBlockType } from './default-blocks';
