@@ -13,24 +13,22 @@
 import type { CEADataBlock } from 'edidts'
 import { isVendorBlock, vendorBlockLabel } from '@/components/cta/vendorLabels'
 
-/** Block families rendered as collapsible sub-group callouts in the nav. */
-export type CtaBlockFamily = 'vsdb' | 'vcdb'
+/**
+ * The single vendor-specific block family: blocks whose payload content is
+ * defined by an IEEE OUI owner outside CTA-861 itself — exactly the three
+ * OUI carriers (tag 0x03 VSDB, tag 0x07 ext 0x01 VSVDB, tag 0x07 ext 0x11
+ * VSADB), i.e. the `isVendorBlock()` guard. Ext 0x04 (HDMI Video) and
+ * ext 0x12 (HDMI Audio) have vendor-defined content but no OUI carrier, so
+ * they stay flat — the family is "OUI-keyed", not "vendor-influenced".
+ * CTA-861-G itself defines no families (§7.4: block order unconstrained);
+ * this grouping is an editor convention.
+ */
+export type CtaBlockFamily = 'vendor'
 
-/** Extended tags of the Video Capability Data Block family (user-defined
- *  grouping): VCDB itself, Vendor-Specific Video/Audio carriers,
- *  InfoFrame, the YCbCr 4:2:0 pair, Video Format Preference, and HDR Static
- *  Metadata. */
-const VCDB_FAMILY_EXT_TAGS: ReadonlySet<number> = new Set([0x00, 0x01, 0x11, 0x20, 0x0e, 0x0f, 0x0d, 0x06])
-
-/** Sub-group membership of a decoded block: tag 0x03 VSDBs form the vendor
- *  group; the VCDB-family extended blocks form the video-capability group;
- *  everything else renders flat. */
+/** Family membership of a decoded block: the three vendor carriers form the
+ *  vendor group; everything else renders flat. */
 export function ctaBlockFamily(block: CEADataBlock): CtaBlockFamily | null {
-  if (block.tag === 0x03) return 'vsdb'
-  if (block.tag === 0x07 && VCDB_FAMILY_EXT_TAGS.has((block as { extendedTag?: number }).extendedTag ?? -1)) {
-    return 'vcdb'
-  }
-  return null
+  return isVendorBlock(block) ? 'vendor' : null
 }
 
 /**

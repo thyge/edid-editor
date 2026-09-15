@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ChevronRight, X } from '@lucide/vue'
 import type { EDIDViewModel } from '@/types/edid'
 import {
@@ -187,12 +187,13 @@ interface CeaBlockChild {
 
 /** Render model for the CTA nav: the extension is a collection of
  *  blocks, so entries mirror the encoded (dataBlocks) order verbatim —
- *  Header & Flags first, every data block in its decoded position, Detailed
+ *  Header & Flags first, every data block at its decoded position, Detailed
  *  Timings last (per Table 53 the DTDs follow the entire Data Block
- *  Collection). VSDB and VCDB-family blocks render as children of collapsible
- *  sub-group callouts, placed at the family's first occurrence; a family
- *  whose members interleave with other blocks is still collected under the
- *  one header (nav presentation only — the data order is untouched). */
+ *  Collection). Vendor blocks (VSDB, VSVDB, VSADB — the OUI-keyed carriers)
+ *  render as children of a single collapsible callout, placed at the first
+ *  vendor block's position; vendor blocks interleaved with other blocks are
+ *  still collected under the one header (nav presentation only — the data
+ *  order is untouched). */
 type CeaNavNode =
   | { kind: 'header'; key: 'header' }
   | { kind: 'block'; key: string; child: CeaBlockChild }
@@ -200,8 +201,7 @@ type CeaNavNode =
   | { kind: 'timings'; key: 'timings' }
 
 const CTA_FAMILY_LABELS: Readonly<Record<CtaBlockFamily, string>> = {
-  vsdb: 'Vendor-Specific Data Blocks',
-  vcdb: 'Video Capability Data Blocks',
+  vendor: 'Vendor-Specific Blocks',
 }
 
 const ceaNavItems = computed<CeaNavNode[]>(() => {
@@ -333,37 +333,32 @@ const addBlockMenu = computed<CeaAddBlockMenuNode[]>(() => {
   const add = (type: CEADefaultBlockType, label: string, present: boolean) => {
     if (!present) nodes.push({ kind: 'item', key: type, option: addOption(type, label) })
   }
-  // Canonical add order: Video, Audio, Speaker Allocation, VSDBs
-  // (cascade), Colorimetry, the VCDB family (cascade:
-  // Video Capability, Vendor-Specific Audio, InfoFrame, Video Format
-  // Preference, HDR Static), Room Configuration, Speaker Location, then
-  // unlisted types (VESA Display Device).
+  // Canonical add order: Video, Audio, Speaker Allocation, the vendor
+  // cascade (five tag-0x03 VSDBs, always offered, plus the single-instance
+  // Vendor-Specific Audio), Colorimetry, Video Capability, InfoFrame, Video
+  // Format Preference, HDR Static, Room Configuration, Speaker Location,
+  // then unlisted types (VESA Display Device).
   add('video', 'Video Data Block', hasBlock(b => b.tag === 0x02))
   add('audio', 'Audio Data Block', hasBlock(b => b.tag === 0x01))
   add('speakers', 'Speaker Allocation', hasBlock(b => b.tag === 0x04))
   nodes.push({
     kind: 'sub',
-    key: 'sub-vsdb',
-    family: 'vsdb',
-    label: CTA_FAMILY_LABELS.vsdb,
-    // VSDBs are always offered — multiple may legally coexist.
-    options: VSDB_ADD_OPTIONS.map((opt) => addOption(opt.type, opt.label)),
+    key: 'sub-vendor',
+    family: 'vendor',
+    label: CTA_FAMILY_LABELS.vendor,
+    // VSDBs are always offered — multiple may legally coexist. The
+    // Vendor-Specific Audio carrier (ext 0x11) is single-instance, so it is
+    // deduped like the flat items while staying inside the vendor cascade.
+    options: [
+      ...VSDB_ADD_OPTIONS.map((opt) => addOption(opt.type, opt.label)),
+      ...(hasExtBlock(0x11) ? [] : [addOption('vendor-audio', 'Vendor-Specific Audio')]),
+    ],
   })
   add('colorimetry', 'Colorimetry', hasExtBlock(0x05))
-  // Single-instance family members are deduped like the flat items; the
-  // cascade itself is dropped when every member is already present.
-  const vcdbOptions = ([
-    ['video-capability', 'Video Capability', 0x00],
-    ['vendor-audio', 'Vendor-Specific Audio', 0x11],
-    ['infoframe', 'InfoFrame', 0x20],
-    ['video-format-preference', 'Video Format Preference', 0x0d],
-    ['hdr-static', 'HDR Static Metadata', 0x06],
-  ] as const)
-    .filter(([, , ext]) => !hasExtBlock(ext))
-    .map(([type, label]) => addOption(type, label))
-  if (vcdbOptions.length > 0) {
-    nodes.push({ kind: 'sub', key: 'sub-vcdb', family: 'vcdb', label: CTA_FAMILY_LABELS.vcdb, options: vcdbOptions })
-  }
+  add('video-capability', 'Video Capability', hasExtBlock(0x00))
+  add('infoframe', 'InfoFrame', hasExtBlock(0x20))
+  add('video-format-preference', 'Video Format Preference', hasExtBlock(0x0d))
+  add('hdr-static', 'HDR Static Metadata', hasExtBlock(0x06))
   add('room-config', 'Room Configuration', hasExtBlock(0x13))
   add('speaker-location', 'Speaker Location', hasExtBlock(0x14))
   add('vesa-transfer', 'VESA Transfer Characteristic', hasBlock(b => b.tag === 0x05))
@@ -488,16 +483,9 @@ function selectSection(id: string) {
 const edidOpen = ref(true)
 const edidDescriptorsOpen = ref(true)
 const ceaOpen = ref(true)
-const ceaVsdbOpen = ref(true)
-const ceaVcdbOpen = ref(true)
+const ceaVendorOpen = ref(true)
 const ceaTimingsOpen = ref(true)
 const displayIdOpen = ref(true)
-
-/** Collapsible open-state per CTA block family callout. */
-const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
-  vsdb: ceaVsdbOpen,
-  vcdb: ceaVcdbOpen,
-}
 </script>
 
 <template>
@@ -675,8 +663,8 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
               <SidebarMenuSub>
                 <!-- One nav entry per encoded block in dataBlocks order:
                     Header & Flags, each data block at its
-                     decoded position (VSDB / VCDB-family blocks collected
-                     under collapsible callouts), Detailed Timings last. -->
+                     decoded position (vendor blocks collected under one
+                     collapsible callout), Detailed Timings last. -->
                 <template v-for="node in ceaNavItems" :key="node.key">
                   <!-- Header & Flags: fixed, not removable -->
                   <SidebarMenuSubItem v-if="node.kind === 'header'">
@@ -716,15 +704,13 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                     </div>
                   </SidebarMenuSubItem>
 
-                  <!-- Family sub-group callout (VSDBs / VCDB family): the
-                       header is a pure callout (collapse toggle, no section);
-                       each child is one block with by-index remove. -->
-                  <!-- Family sub-group callout (VSDBs / VCDB family): styled
-                       like the top-level rows — a pure callout, the
-                       header only toggles; each child is one block with
-                       by-index remove. -->
+                  <!-- Vendor-Specific Blocks sub-group callout: the three
+                       OUI carriers (VSDB, VSVDB, VSADB) collected at the
+                       first vendor block's position. The header is a pure
+                       callout (collapse toggle, no section); each child is
+                       one block with by-index remove. -->
                   <SidebarMenuSubItem v-else-if="node.kind === 'family'">
-                    <Collapsible v-model:open="ceaFamilyOpen[node.family].value">
+                    <Collapsible v-model:open="ceaVendorOpen">
                       <CollapsibleTrigger as-child>
                         <SidebarMenuButton
                           class="font-semibold"
@@ -732,7 +718,7 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                           :title="node.label"
                         >
                           <span class="truncate">{{ node.label }}</span>
-                          <ChevronRight class="ml-auto transition-transform" :class="{ 'rotate-90': ceaFamilyOpen[node.family].value }" />
+                          <ChevronRight class="ml-auto transition-transform" :class="{ 'rotate-90': ceaVendorOpen }" />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
@@ -835,8 +821,8 @@ const ceaFamilyOpen: Record<CtaBlockFamily, Ref<boolean>> = {
                 </template>
 
                 <!-- Add data block: options in the canonical order
-                     with the VSDB and VCDB families as cascading sub-menus at
-                     their canonical positions. Short blocks are
+                     with the vendor cascade (VSDBs + Vendor-Specific
+                     Audio) at its canonical position. Short blocks are
                      deduped (single-instance) and VSDBs are always offered
                      (multiple legal). Options whose default block
                      would not fit the remaining payload area render disabled
