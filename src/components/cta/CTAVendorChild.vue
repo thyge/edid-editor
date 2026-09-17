@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type {
   CEAExtensionBlock,
   DolbyVSDB,
+  HDR10PlusVSDB,
   VendorSpecificAudioDataBlock,
   VendorSpecificDataBlock,
   VendorSpecificVideoDataBlock,
@@ -13,14 +14,15 @@ import CTAVendorMicrosoftHMD from './vsdb/CTAVendorMicrosoftHMD.vue'
 import CTAVendorAMD from './vsdb/CTAVendorAMD.vue'
 import CTAVendorUnknown from './vsdb/CTAVendorUnknown.vue'
 import CTAVendorDolby from './vsvdb/CTAVendorDolby.vue'
+import CTAVendorHDR10Plus from './vsvdb/CTAVendorHDR10Plus.vue'
 import CTAVendorAudioBlock from './CTAVendorAudioBlock.vue'
 
 /**
  * Single-block vendor editor: the view behind one "Vendor" nav child row.
  * Renders exactly one vendor-specific block from the CEA
  * dataBlocks array — a tag-0x03 VSDB (structured card or raw fallback), a
- * tag-0x07 ext 0x01 VSVDB (Dolby card or raw fallback for HDR10+/unknown),
- * or a tag-0x07 ext 0x11 Vendor-Specific Audio block — keyed by its
+ * tag-0x07 ext 0x01 VSVDB (Dolby Vision / HDR10+ cards, or raw fallback for
+ * unknown OUIs and payloads too short for the vendor format), or a tag-0x07 ext 0x11 Vendor-Specific Audio block — keyed by its
  * dataBlocks index so multiple blocks of the same carrier are independently
  * editable.
  */
@@ -104,11 +106,18 @@ function emitBlock(field: string, value: unknown) {
       <CTAVendorUnknown v-else :block="vsdb" />
     </template>
 
-    <!-- Tag 0x07 ext 0x01 VSVDB (Dolby Vision card; HDR10+/unknown → raw) -->
+    <!-- Tag 0x07 ext 0x01 VSVDB (Dolby Vision / HDR10+ cards; unknown OUIs and
+         payloads too short for the vendor format decode as kind 'unknown' and
+         keep the raw fallback card) -->
     <template v-else-if="vsvdb">
       <CTAVendorDolby
         v-if="vsvdb.vendor?.kind === 'dolbyVsdb'"
         :fields="(vsvdb.vendor as { fields: DolbyVSDB }).fields"
+        @update="(f: string, v: unknown) => emitBlock(f, v)"
+      />
+      <CTAVendorHDR10Plus
+        v-else-if="vsvdb.vendor?.kind === 'hdr10PlusVsvdb'"
+        :fields="(vsvdb.vendor as { fields: HDR10PlusVSDB }).fields"
         @update="(f: string, v: unknown) => emitBlock(f, v)"
       />
       <CTAVendorUnknown v-else :block="vsvdb" />
