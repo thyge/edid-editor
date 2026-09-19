@@ -27,12 +27,16 @@ import {
  * derived (blanking − sync offset − sync width); HBLANK = HFP+HSYNC+HBP and
  * HTOTAL = HACTIVE+HBLANK (same vertically).
  *
- * Annotations are drawn CAD-callout style: the numbers sit in evenly spaced,
- * aligned stacks (V group flush-right on the left of the frame, H group
- * below), each joined to the exact region it measures by a leader: a short
- * axis-aligned arm out of a dot on the frame edge, then a straight run to
- * the label (V leaders land on the frame's left edge at each band's center;
- * H leaders on the bottom edge at each column's center). Each segment
+ * Annotations are drawn CAD-callout style: the numbers sit in aligned
+ * stacks that track their bands (V blanking at the top-left with the
+ * V fp · sync pair pushed down to the bottom-left — those bands follow
+ * the active lines; H blanking at the left below the frame with the
+ * H fp · sync pair pushed right — same split, each axis along its own
+ * direction), each joined to the exact region it measures by a leader:
+ * a short axis-aligned arm out of a dot on the frame edge, then a
+ * straight run to the label (V leaders land on the frame's left edge at
+ * each band's center; H leaders on the bottom edge at each column's
+ * center). Each segment
  * carries one color through label, leader, dot, and frame band — front
  * porch, sync, and back porch in strong categorical hues (blue, orange,
  * aqua), one per segment class and shared by both axes —
@@ -449,10 +453,19 @@ const leaders = computed<Leader[]>(() => {
         >↕ {{ geom.vTotal }} lines total</span>
       </div>
 
-      <!-- V label stack: flush-right, evenly spaced callouts in frame order
-           (blanking · fp · sync); leaders connect each to its band. -->
+      <!-- V label stack: flush-right, tracking the bands — blanking at the
+           top (its band opens the frame), fp · sync pushed to the bottom
+           (their bands follow the active lines); the vertical mirror of
+           the H rail's blanking-left / fp+sync-right split. Leaders
+           connect each to its band. -->
       <div style="grid-area: vrail" class="flex flex-col items-end gap-2.5">
-        <span v-for="c in vCallouts" :key="c.id" :ref="labelRefs[c.id]" class="flex">
+        <span
+          v-for="c in vCallouts"
+          :key="c.id"
+          :ref="labelRefs[c.id]"
+          class="flex"
+          :class="{ 'mt-auto': c.id === 'vfp' }"
+        >
           <TimingRasterNumber
             :value="calloutValue(c)"
             :editable="calloutEditable(c)"
