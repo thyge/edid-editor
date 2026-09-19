@@ -27,22 +27,24 @@ import {
  * HTOTAL = HACTIVE+HBLANK (same vertically).
  *
  * Annotations are drawn CAD-callout style: the numbers sit in evenly spaced,
- * aligned stacks (V blanking group flush-right on the left of the frame, H
- * group below), and each is joined to the exact region it measures by a
- * leader: a short axis-aligned arm out of a dot on the frame edge, then a
- * straight run to the label (V leaders land on the frame's left edge at
- * each band's center; H leaders on the bottom edge at each column's
- * center; the blanking totals anchor at the start of their
- * interval). Each segment class carries one color through label, leader,
- * dot, and frame band — front porch, sync, and back porch in muted blends
- * of the chart hues (desaturated toward muted-foreground so the trio reads
- * as one family); the blanking totals stay neutral since they span the
- * three — so the label-to-region relationship reads at a glance regardless
- * of how thin the segments are drawn. Active H×V sit in the center of the
- * active area; totals on the outer axes. Editable numbers follow the shared
- * mode policy ({@link isTimingFieldEditable}); commits clamp through
- * {@link clampTimingField} and emit the same dotted-path contract as
- * DetailedTimingFields so the card's existing update path re-encodes.
+ * aligned stacks (V group flush-right on the left of the frame, H group
+ * below), each joined to the exact region it measures by a leader: a short
+ * axis-aligned arm out of a dot on the frame edge, then a straight run to
+ * the label (V leaders land on the frame's left edge at each band's center;
+ * H leaders on the bottom edge at each column's center). Each segment
+ * carries one color through label, leader, dot, and frame band — front
+ * porch, sync, and back porch in muted blends of the chart hues
+ * (desaturated toward muted-foreground so the trio reads as one family) —
+ * so the label-to-region relationship reads at a glance regardless of how
+ * thin the segments are drawn. The rails carry exactly the three blanking
+ * segments (fp, sync, bp) — no blanking-total callout: the back porch is
+ * the remainder of the encodable blanking field, so its number is derived
+ * (blanking − fp − sync) while its commit writes through by rebuilding the
+ * interval (blanking = fp + sync + bp). Active H×V sit in the center of
+ * the active area; H/V totals on the outer axes. Editable numbers follow
+ * the shared mode policy ({@link isTimingFieldEditable}); commits clamp
+ * through {@link clampTimingField} and emit the same dotted-path contract
+ * as DetailedTimingFields so the card's existing update path re-encodes.
  * Locked callouts are dimmed (digits, leader, and dot alike).
  *
  * Scale honesty: blanking bands narrower than MIN_GUTTER of the frame are
@@ -192,6 +194,29 @@ function commit(field: TimingFieldMaxKey, value: number): void {
   emit('update', field, clampTimingField(field, value))
 }
 
+/**
+ * Back porches have no DTD field. A typed porch commits through the
+ * encodable blanking interval instead: blanking = fp + sync + bp, clamped
+ * to the field's encodable maximum — the porch the next render shows is
+ * whatever remainder that clamped blanking leaves.
+ */
+function commitBackPorch(vertical: boolean, value: number): void {
+  const g = geom.value
+  if (!g) return
+  const blanking: TimingFieldMaxKey = vertical ? 'verticalBlanking' : 'horizontalBlanking'
+  const fp = vertical ? g.vfp : g.hfp
+  const sync = vertical ? g.vsync : g.hsync
+  emit('update', blanking, clampTimingField(blanking, fp + sync + Math.max(0, Math.round(value))))
+}
+
+/** Route a callout commit: fp/sync write their own DTD fields; the back
+ *  porches write through to the blanking field (see commitBackPorch). */
+function commitCallout(c: Callout, value: number): void {
+  if (c.id === 'vbp') return commitBackPorch(true, value)
+  if (c.id === 'hbp') return commitBackPorch(false, value)
+  commit(c.field, value)
+}
+
 const refresh = computed(() => {
   if (!geom.value) return 0
   const rate = computeRefreshRate(props.timing)
@@ -209,16 +234,14 @@ function borderHFrac(g: RasterGeometry): number {
 /*
  * CAD-style callouts. Each segment class (front porch / sync / back porch)
  * carries one color shared by its label digits, leader line, anchor
- * dot, and frame band; the blanking totals stay neutral — they span the
- * three. The hues come from the cool blue palette declared as
+ * dot, and frame band. The hues come from the cool blue palette declared as
  * component-local `--raster-*` variables with light and dark values,
  * so they no longer ride the chart tokens. Dusty periwinkle carries
  * the sync pulse (the star of the frame), glacier teal the front
- * porch, steel blue the back porch. Locked (generator/VIC-owned) and
- * derived callouts are dimmed.
+ * porch, steel blue the back porch. Locked (generator/VIC-owned)
+ * callouts are dimmed.
  */
 const SEGMENT_TONE = {
-  blank: 'var(--muted-foreground)',
   fp: 'var(--raster-fp)',
   sync: 'var(--raster-sync)',
   bp: 'var(--raster-bp)',
@@ -229,57 +252,56 @@ function tint(tone: string, pct: number): string {
   return `color-mix(in srgb, ${tone} ${pct}%, transparent)`
 }
 
-/** Callout descriptor: label id, its DTD field (null = derived), tone. */
+/** Callout descriptor: label id, the DTD field backing its edit, tone. The
+ *  back porches have no field of their own — the blanking field backs them:
+ *  the displayed value is the derived remainder (blanking − fp − sync) and
+ *  commits rebuild the blanking interval around the typed porch (see
+ *  {@link commitBackPorch}). */
 interface Callout {
-  id: 'vblank' | 'vfp' | 'vsync' | 'vbp' | 'hblank' | 'hfp' | 'hsync' | 'hbp'
-  field: TimingFieldMaxKey | null
+  id: 'vfp' | 'vsync' | 'vbp' | 'hfp' | 'hsync' | 'hbp'
+  field: TimingFieldMaxKey
   tone: string
 }
 const V_CALLOUTS: Callout[] = [
-  { id: 'vblank', field: 'verticalBlanking', tone: SEGMENT_TONE.blank },
-  { id: 'vbp', field: null, tone: SEGMENT_TONE.bp },
+  { id: 'vbp', field: 'verticalBlanking', tone: SEGMENT_TONE.bp },
   { id: 'vfp', field: 'verticalSyncOffset', tone: SEGMENT_TONE.fp },
   { id: 'vsync', field: 'verticalSyncWidth', tone: SEGMENT_TONE.sync },
 ]
 const H_CALLOUTS: Callout[] = [
-  { id: 'hblank', field: 'horizontalBlanking', tone: SEGMENT_TONE.blank },
   { id: 'hfp', field: 'horizontalSyncOffset', tone: SEGMENT_TONE.fp },
   { id: 'hsync', field: 'horizontalSyncWidth', tone: SEGMENT_TONE.sync },
-  { id: 'hbp', field: null, tone: SEGMENT_TONE.bp },
+  { id: 'hbp', field: 'horizontalBlanking', tone: SEGMENT_TONE.bp },
 ]
 const CALLOUTS_BY_ID = new Map([...V_CALLOUTS, ...H_CALLOUTS].map((c) => [c.id, c]))
 
-/** When blanking is 0 only the total callout shows. */
+/** No blanking interval → no segment callouts (nothing to annotate). */
 const vCallouts = computed<Callout[]>(() =>
-  geom.value && geom.value.vBlank > 0 ? V_CALLOUTS : V_CALLOUTS.slice(0, 1))
+  geom.value && geom.value.vBlank > 0 ? V_CALLOUTS : [])
 const hCallouts = computed<Callout[]>(() =>
-  geom.value && geom.value.hBlank > 0 ? H_CALLOUTS : H_CALLOUTS.slice(0, 1))
+  geom.value && geom.value.hBlank > 0 ? H_CALLOUTS : [])
 
 const CALLOUT_CAPTION: Record<Callout['id'], string> = {
-  vblank: 'blanking', vfp: 'fp', vsync: 'sync', vbp: 'bp',
-  hblank: 'blanking', hfp: 'fp', hsync: 'sync', hbp: 'bp',
+  vfp: 'fp', vsync: 'sync', vbp: 'bp',
+  hfp: 'fp', hsync: 'sync', hbp: 'bp',
 }
 const CALLOUT_HINT: Record<Callout['id'], string> = {
-  vblank: 'V blanking, lines',
   vfp: 'V sync offset (front porch), lines',
   vsync: 'V sync width, lines',
-  vbp: 'V back porch (derived), lines',
-  hblank: 'H blanking, px',
+  vbp: 'V back porch, lines — commits V blanking (blanking = fp + sync + bp)',
   hfp: 'H sync offset (front porch), px',
   hsync: 'H sync width, px',
-  hbp: 'H back porch (derived), px',
+  hbp: 'H back porch, px — commits H blanking (blanking = fp + sync + bp)',
 }
 
-/** Geometry value a callout displays (derived values come from geom). */
+/** Geometry value a callout displays (back porches come from geom — the
+ *  derived remainder of the blanking interval). */
 function calloutValue(c: Callout): number {
   const g = geom.value
   if (!g) return 0
   switch (c.id) {
-    case 'vblank': return g.vBlank
     case 'vfp': return g.vfp
     case 'vsync': return g.vsync
     case 'vbp': return g.vbp
-    case 'hblank': return g.hBlank
     case 'hfp': return g.hfp
     case 'hsync': return g.hsync
     case 'hbp': return g.hbp
@@ -287,10 +309,10 @@ function calloutValue(c: Callout): number {
 }
 
 function calloutEditable(c: Callout): boolean {
-  return c.field !== null && editable(c.field)
+  return editable(c.field)
 }
 
-/** Digit color: full segment tone when editable, dimmed when locked/derived
+/** Digit color: full segment tone when editable, dimmed when locked
  *  (underlined by TimingRasterNumber only when editable, so the two read
  *  apart at a glance). */
 function calloutTone(c: Callout): string {
@@ -301,8 +323,9 @@ function calloutTone(c: Callout): string {
  *  spelled out even before the underline is noticed. */
 function calloutHint(c: Callout): string {
   const base = CALLOUT_HINT[c.id]
-  if (calloutEditable(c)) return `${base} — click to edit`
-  return c.field === null ? base : `${base} — locked by the current mode`
+  return calloutEditable(c)
+    ? `${base} — click to edit`
+    : `${base} — locked by the current mode`
 }
 
 /** Same status suffix for the frame-center numbers (real fields only). */
@@ -332,7 +355,7 @@ const labelEls = new Map<string, HTMLElement>()
  *  VNodeRef also allows component instances; these sit on plain spans. */
 type LabelRefFn = (el: Element | ComponentPublicInstance | null) => void
 const labelRefs = Object.fromEntries(
-  ['vblank', 'vfp', 'vsync', 'vbp', 'hblank', 'hfp', 'hsync', 'hbp'].map((id) => [
+  ['vfp', 'vsync', 'vbp', 'hfp', 'hsync', 'hbp'].map((id) => [
     id,
     (el: Element | ComponentPublicInstance | null) => {
       if (el instanceof HTMLElement) labelEls.set(id, el)
@@ -391,18 +414,14 @@ const leaders = computed<Leader[]>(() => {
   }
 
   // V anchors — dots on the frame's left edge at each band's center, in
-  // frame order VBP → active → VFP → VSYNC; the blanking total anchors at
-  // the top-left origin, the leading edge of the wrapped blanking (the
-  // blanking straddles the frame: VBP at the top, VFP+VSYNC at the bottom).
-  push('vblank', fr.left, fr.top, true)
+  // frame order VBP → active → VFP → VSYNC (the blanking straddles the
+  // frame: VBP at the top, VFP+VSYNC at the bottom).
   if (g.vBlank > 0) {
     push('vbp', fr.left, fr.top + (g.vbpF / 2) * fr.height, true)
     push('vfp', fr.left, fr.top + (g.vbpF + g.activeH + g.vfpF / 2) * fr.height, true)
     push('vsync', fr.left, fr.top + (g.vbpF + g.activeH + g.vfpF + g.vsyncF / 2) * fr.height, true)
   }
-  // H anchors — dots on the frame's bottom edge at each column's center; the
-  // blanking total anchors at the left corner (the start of line blanking).
-  push('hblank', fr.left, frameBottom, false)
+  // H anchors — dots on the frame's bottom edge at each column's center.
   if (g.hBlank > 0) {
     push('hfp', fr.left + (g.hfpF / 2) * fr.width, frameBottom, false)
     push('hsync', fr.left + (g.hfpF + g.hsyncF / 2) * fr.width, frameBottom, false)
@@ -452,8 +471,7 @@ const leaders = computed<Leader[]>(() => {
       </div>
 
       <!-- V label stack: flush-right, evenly spaced callouts in frame order
-           (VBP → VFP → VSYNC below the blanking total); leaders connect
-           each to its band. -->
+           (VBP → VFP → VSYNC); leaders connect each to its band. -->
       <div style="grid-area: vrail" class="flex flex-col items-end gap-2.5">
         <span v-for="c in vCallouts" :key="c.id" :ref="labelRefs[c.id]" class="flex">
           <TimingRasterNumber
@@ -463,7 +481,7 @@ const leaders = computed<Leader[]>(() => {
             :hint="calloutHint(c)"
             :tone="calloutTone(c)"
             align="end"
-            @commit="(v: number) => c.field && commit(c.field, v)"
+            @commit="(v: number) => commitCallout(c, v)"
           />
         </span>
       </div>
@@ -562,8 +580,8 @@ const leaders = computed<Leader[]>(() => {
       </div>
 
       <!-- H label row: evenly spaced callouts clustered left, reading in
-           column order (blanking → fp → sync → bp). Leaders connect each
-           to its column. -->
+           column order (fp → sync → bp). Leaders connect each to its
+           column. -->
       <div style="grid-area: hrail" class="flex items-start gap-6 pt-6">
         <span
           v-for="c in hCallouts"
@@ -577,7 +595,7 @@ const leaders = computed<Leader[]>(() => {
             :caption="CALLOUT_CAPTION[c.id]"
             :hint="calloutHint(c)"
             :tone="calloutTone(c)"
-            @commit="(v: number) => c.field && commit(c.field, v)"
+            @commit="(v: number) => commitCallout(c, v)"
           />
         </span>
       </div>
