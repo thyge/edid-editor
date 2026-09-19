@@ -36,11 +36,12 @@ import {
  * porch, sync, and back porch in muted blends of the chart hues
  * (desaturated toward muted-foreground so the trio reads as one family) —
  * so the label-to-region relationship reads at a glance regardless of how
- * thin the segments are drawn. The rails carry exactly the three blanking
- * segments (fp, sync, bp) — no blanking-total callout: the back porch is
- * the remainder of the encodable blanking field, so its number is derived
- * (blanking − fp − sync) while its commit writes through by rebuilding the
- * interval (blanking = fp + sync + bp). Active H×V sit in the center of
+ * thin the segments are drawn. The rails carry one callout per blanking
+ * element — fp, sync, and the encodable blanking field itself: the
+ * blanking number is anchored on the back-porch band (the interval's
+ * visible remainder, bp = blanking − fp − sync), so every number shown is
+ * a DTD field and no total sits beside its parts. Active H×V sit in the
+ * center of
  * the active area; H/V totals on the outer axes. Editable numbers follow
  * the shared mode policy ({@link isTimingFieldEditable}); commits clamp
  * through {@link clampTimingField} and emit the same dotted-path contract
@@ -194,29 +195,6 @@ function commit(field: TimingFieldMaxKey, value: number): void {
   emit('update', field, clampTimingField(field, value))
 }
 
-/**
- * Back porches have no DTD field. A typed porch commits through the
- * encodable blanking interval instead: blanking = fp + sync + bp, clamped
- * to the field's encodable maximum — the porch the next render shows is
- * whatever remainder that clamped blanking leaves.
- */
-function commitBackPorch(vertical: boolean, value: number): void {
-  const g = geom.value
-  if (!g) return
-  const blanking: TimingFieldMaxKey = vertical ? 'verticalBlanking' : 'horizontalBlanking'
-  const fp = vertical ? g.vfp : g.hfp
-  const sync = vertical ? g.vsync : g.hsync
-  emit('update', blanking, clampTimingField(blanking, fp + sync + Math.max(0, Math.round(value))))
-}
-
-/** Route a callout commit: fp/sync write their own DTD fields; the back
- *  porches write through to the blanking field (see commitBackPorch). */
-function commitCallout(c: Callout, value: number): void {
-  if (c.id === 'vbp') return commitBackPorch(true, value)
-  if (c.id === 'hbp') return commitBackPorch(false, value)
-  commit(c.field, value)
-}
-
 const refresh = computed(() => {
   if (!geom.value) return 0
   const rate = computeRefreshRate(props.timing)
@@ -252,11 +230,10 @@ function tint(tone: string, pct: number): string {
   return `color-mix(in srgb, ${tone} ${pct}%, transparent)`
 }
 
-/** Callout descriptor: label id, the DTD field backing its edit, tone. The
- *  back porches have no field of their own — the blanking field backs them:
- *  the displayed value is the derived remainder (blanking − fp − sync) and
- *  commits rebuild the blanking interval around the typed porch (see
- *  {@link commitBackPorch}). */
+/** Callout descriptor: label id, its DTD field, tone. The blanking callouts
+ *  ('vbp'/'hbp' — ids named for their back-porch anchor band) display the
+ *  encodable blanking field directly; bp itself has no DTD bytes and stays
+ *  a visible remainder (blanking − fp − sync), never a shown number. */
 interface Callout {
   id: 'vfp' | 'vsync' | 'vbp' | 'hfp' | 'hsync' | 'hbp'
   field: TimingFieldMaxKey
@@ -281,30 +258,30 @@ const hCallouts = computed<Callout[]>(() =>
   geom.value && geom.value.hBlank > 0 ? H_CALLOUTS : [])
 
 const CALLOUT_CAPTION: Record<Callout['id'], string> = {
-  vfp: 'fp', vsync: 'sync', vbp: 'bp',
-  hfp: 'fp', hsync: 'sync', hbp: 'bp',
+  vfp: 'fp', vsync: 'sync', vbp: 'blanking',
+  hfp: 'fp', hsync: 'sync', hbp: 'blanking',
 }
 const CALLOUT_HINT: Record<Callout['id'], string> = {
   vfp: 'V sync offset (front porch), lines',
   vsync: 'V sync width, lines',
-  vbp: 'V back porch, lines — commits V blanking (blanking = fp + sync + bp)',
+  vbp: 'V blanking, lines — the bp band is its remainder (blanking − fp − sync)',
   hfp: 'H sync offset (front porch), px',
   hsync: 'H sync width, px',
-  hbp: 'H back porch, px — commits H blanking (blanking = fp + sync + bp)',
+  hbp: 'H blanking, px — the bp band is its remainder (blanking − fp − sync)',
 }
 
-/** Geometry value a callout displays (back porches come from geom — the
- *  derived remainder of the blanking interval). */
+/** Geometry value a callout displays (the blanking callouts read the
+ *  encodable field; everything else is a raw DTD value from geom). */
 function calloutValue(c: Callout): number {
   const g = geom.value
   if (!g) return 0
   switch (c.id) {
     case 'vfp': return g.vfp
     case 'vsync': return g.vsync
-    case 'vbp': return g.vbp
+    case 'vbp': return g.vBlank
     case 'hfp': return g.hfp
     case 'hsync': return g.hsync
-    case 'hbp': return g.hbp
+    case 'hbp': return g.hBlank
   }
 }
 
@@ -471,7 +448,7 @@ const leaders = computed<Leader[]>(() => {
       </div>
 
       <!-- V label stack: flush-right, evenly spaced callouts in frame order
-           (VBP → VFP → VSYNC); leaders connect each to its band. -->
+           (blanking · fp · sync); leaders connect each to its band. -->
       <div style="grid-area: vrail" class="flex flex-col items-end gap-2.5">
         <span v-for="c in vCallouts" :key="c.id" :ref="labelRefs[c.id]" class="flex">
           <TimingRasterNumber
@@ -481,7 +458,7 @@ const leaders = computed<Leader[]>(() => {
             :hint="calloutHint(c)"
             :tone="calloutTone(c)"
             align="end"
-            @commit="(v: number) => commitCallout(c, v)"
+            @commit="(v: number) => commit(c.field, v)"
           />
         </span>
       </div>
@@ -580,7 +557,7 @@ const leaders = computed<Leader[]>(() => {
       </div>
 
       <!-- H label row: evenly spaced callouts clustered left, reading in
-           column order (fp → sync → bp). Leaders connect each to its
+           column order (fp → sync → blanking). Leaders connect each to its
            column. -->
       <div style="grid-area: hrail" class="flex items-start gap-6 pt-6">
         <span
@@ -595,7 +572,7 @@ const leaders = computed<Leader[]>(() => {
             :caption="CALLOUT_CAPTION[c.id]"
             :hint="calloutHint(c)"
             :tone="calloutTone(c)"
-            @commit="(v: number) => commitCallout(c, v)"
+            @commit="(v: number) => commit(c.field, v)"
           />
         </span>
       </div>
