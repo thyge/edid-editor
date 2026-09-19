@@ -34,8 +34,8 @@ import {
  * the label (V leaders land on the frame's left edge at each band's center;
  * H leaders on the bottom edge at each column's center). Each segment
  * carries one color through label, leader, dot, and frame band — front
- * porch, sync, and back porch in muted blends of the chart hues
- * (desaturated toward muted-foreground so the trio reads as one family) —
+ * porch, sync, and back porch in strong categorical hues (blue, orange,
+ * aqua), one per segment class and shared by both axes —
  * so the label-to-region relationship reads at a glance regardless of how
  * thin the segments are drawn. The rails carry one callout per blanking
  * element — fp, sync, and the encodable blanking field itself: the
@@ -213,11 +213,11 @@ function borderHFrac(g: RasterGeometry): number {
 /*
  * CAD-style callouts. Each segment class (front porch / sync / back porch)
  * carries one color shared by its label digits, leader line, anchor
- * dot, and frame band. The hues come from the cool blue palette declared as
- * component-local `--raster-*` variables with light and dark values,
- * so they no longer ride the chart tokens. Dusty periwinkle carries
- * the sync pulse (the star of the frame), glacier teal the front
- * porch, steel blue the back porch. Locked (generator/VIC-owned)
+ * dot, and frame band. The hues come from the validated strong categorical
+ * palette declared as component-local `--raster-*` variables with light and
+ * dark values, so they no longer ride the chart tokens. Blue carries
+ * the front porch, orange the sync pulse (the star of the frame),
+ * aqua the back porch. Locked (generator/VIC-owned)
  * callouts are dimmed.
  */
 const SEGMENT_TONE = {
@@ -491,16 +491,16 @@ const leaders = computed<Leader[]>(() => {
         <!-- V blanking: full-width rows (vertical blanking is whole
              horizontal lines), each segment in its callout tone — VBP
              opens the frame, VFP+VSYNC close it. -->
-        <div :style="{ gridArea: 'vfp', background: tint(SEGMENT_TONE.fp, 18) }" />
-        <div :style="{ gridArea: 'vsync', background: tint(SEGMENT_TONE.sync, 55) }" />
-        <div :style="{ gridArea: 'vbp', background: tint(SEGMENT_TONE.bp, 18) }" />
+        <div :style="{ gridArea: 'vfp', background: tint(SEGMENT_TONE.fp, 25) }" />
+        <div :style="{ gridArea: 'vsync', background: tint(SEGMENT_TONE.sync, 60) }" />
+        <div :style="{ gridArea: 'vbp', background: tint(SEGMENT_TONE.bp, 25) }" />
 
         <!-- H line structure within the active band: back porch on the
              left edge, front porch + sync on the right — the blanking
              interval straddles the line origin, mirroring the frame. -->
-        <div :style="{ gridArea: 'hfp', background: tint(SEGMENT_TONE.fp, 18) }" />
-        <div :style="{ gridArea: 'hsync', background: tint(SEGMENT_TONE.sync, 55) }" />
-        <div :style="{ gridArea: 'hbp', background: tint(SEGMENT_TONE.bp, 18) }" />
+        <div :style="{ gridArea: 'hfp', background: tint(SEGMENT_TONE.fp, 25) }" />
+        <div :style="{ gridArea: 'hsync', background: tint(SEGMENT_TONE.sync, 60) }" />
+        <div :style="{ gridArea: 'hbp', background: tint(SEGMENT_TONE.bp, 25) }" />
 
         <!-- Active area (brighter border so the picture region reads at a
              glance against the blanking gutters). -->
@@ -609,21 +609,26 @@ const leaders = computed<Leader[]>(() => {
 </template>
 
 <style scoped>
-/* Segment palette — cool blue family (user preference over the earth
-   tones): dusty periwinkle carries the sync pulse, glacier teal the
-   front porch, steel blue the back porch — three cold hues that stay
-   distinguishable on the neutral theme background. Declared locally so
-   the diagram owns its hues instead of riding the chart tokens; the
-   dark values are lifted and softened a touch so they don't glow on
-   OLED backgrounds. */
+/* Segment palette — strong categorical hues (user preference over the
+   earlier muted cool blues): blue carries the front porch, orange the
+   sync pulse, aqua the back porch / blanking callout — one hue per
+   segment class, shared by the H and V axes so the same segment reads
+   the same color everywhere. The three slots are the first three of the
+   dataviz reference categorical palette, validated all-pairs against
+   this app's surfaces (#ffffff light, ~#0a0a0a dark) in both modes
+   (worst CVD pair ΔE 9.2 light / 9.4 dark); the light aqua sits just
+   under 3:1 contrast, covered by the direct callout labels + Table view
+   (relief rule). Declared locally so the diagram owns its hues instead
+   of riding the chart tokens; the dark values are the same hues stepped
+   for the dark surface. */
 .timing-raster {
-  --raster-fp: #6f9ba3; /* glacier teal — front porch */
-  --raster-sync: #6d7fc4; /* dusty periwinkle — the sync pulse */
-  --raster-bp: #5e7ca6; /* steel blue — back porch */
+  --raster-fp: #2a78d6; /* blue — front porch */
+  --raster-sync: #eb6834; /* orange — the sync pulse */
+  --raster-bp: #1baf7a; /* aqua — back porch (blanking callout) */
 }
 :global(.dark) .timing-raster {
-  --raster-fp: #8fb7bd;
-  --raster-sync: #98a7e3;
-  --raster-bp: #8aabcd;
+  --raster-fp: #3987e5;
+  --raster-sync: #d95926;
+  --raster-bp: #199e70;
 }
 </style>
