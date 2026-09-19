@@ -11,15 +11,16 @@ import {
 
 /**
  * Time-domain raster map for a DetailedTiming (VESA timing-generator
- * orientation): the frame rectangle starts at its top-left origin — the start
- * of the total timing — with the VERTICAL BLANKING band (V front porch →
- * V sync → V back porch) opening the frame across the full width and the
- * active lines below; each line runs H front porch → H sync → H active →
- * H back porch, so the H blanking splits into an HFP+HSYNC column pair on
- * the left edge and an HBP column on the right edge. A "frame start" marker
- * annotates the origin corner. (Vertical blanking is whole horizontal
- * lines — the full-width band reflects that; the H structure repeats on
- * every line and is drawn within the active band.)
+ * orientation): the frame rectangle starts at its top-left origin — the
+ * first line after the previous frame's V sync — and runs V back porch →
+ * active lines → V front porch → V sync down the frame, so the sync pulse
+ * closes the frame (vertical blanking is whole horizontal lines, so the
+ * VBP band spans the full width at the top and the VFP+VSYNC bands at the
+ * bottom); each line runs H front porch → H sync → H back porch →
+ * H active, keeping the H blanking interval contiguous on the left edge
+ * with the active pixels ending the line. A "frame start" marker
+ * annotates the origin corner. (The H structure repeats on every line and
+ * is drawn within the active band.)
  *
  * EDID DTD naming: front porches are the sync offsets; back porches are
  * derived (blanking − sync offset − sync width); HBLANK = HFP+HSYNC+HBP and
@@ -91,12 +92,12 @@ interface RasterGeometry {
   activeW: number
   activeH: number
   /** H line segments as frame-width fractions (bump-scaled):
-   *  HFP → HSync → [active] → HBP. */
+   *  HFP → HSync → HBP → [active]. */
   hfpF: number
   hsyncF: number
   hbpF: number
   /** V blanking segments as frame-height fractions (bump-scaled):
-   *  VFP → VSync → VBP → [active]. */
+   *  VBP → [active] → VFP → VSync. */
   vfpF: number
   vsyncF: number
   vbpF: number
@@ -236,9 +237,9 @@ interface Callout {
 }
 const V_CALLOUTS: Callout[] = [
   { id: 'vblank', field: 'verticalBlanking', tone: SEGMENT_TONE.blank },
+  { id: 'vbp', field: null, tone: SEGMENT_TONE.bp },
   { id: 'vfp', field: 'verticalSyncOffset', tone: SEGMENT_TONE.fp },
   { id: 'vsync', field: 'verticalSyncWidth', tone: SEGMENT_TONE.sync },
-  { id: 'vbp', field: null, tone: SEGMENT_TONE.bp },
 ]
 const H_CALLOUTS: Callout[] = [
   { id: 'hblank', field: 'horizontalBlanking', tone: SEGMENT_TONE.blank },
@@ -389,13 +390,15 @@ const leaders = computed<Leader[]>(() => {
     out.push({ id, x1, y1, d, tone: c.tone, dim: !calloutEditable(c) })
   }
 
-  // V anchors — dots on the frame's left edge at each band's center; the
-  // blanking total anchors at the top edge (the start of the interval).
+  // V anchors — dots on the frame's left edge at each band's center, in
+  // frame order VBP → active → VFP → VSYNC; the blanking total anchors at
+  // the top-left origin, the leading edge of the wrapped blanking (the
+  // blanking straddles the frame: VBP at the top, VFP+VSYNC at the bottom).
   push('vblank', fr.left, fr.top, true)
   if (g.vBlank > 0) {
-    push('vfp', fr.left, fr.top + (g.vfpF / 2) * fr.height, true)
-    push('vsync', fr.left, fr.top + (g.vfpF + g.vsyncF / 2) * fr.height, true)
-    push('vbp', fr.left, fr.top + (g.vfpF + g.vsyncF + g.vbpF / 2) * fr.height, true)
+    push('vbp', fr.left, fr.top + (g.vbpF / 2) * fr.height, true)
+    push('vfp', fr.left, fr.top + (g.vbpF + g.activeH + g.vfpF / 2) * fr.height, true)
+    push('vsync', fr.left, fr.top + (g.vbpF + g.activeH + g.vfpF + g.vsyncF / 2) * fr.height, true)
   }
   // H anchors — dots on the frame's bottom edge at each column's center; the
   // blanking total anchors at the left corner (the start of line blanking).
@@ -403,7 +406,7 @@ const leaders = computed<Leader[]>(() => {
   if (g.hBlank > 0) {
     push('hfp', fr.left + (g.hfpF / 2) * fr.width, frameBottom, false)
     push('hsync', fr.left + (g.hfpF + g.hsyncF / 2) * fr.width, frameBottom, false)
-    push('hbp', fr.left + (g.hfpF + g.hsyncF + g.activeW + g.hbpF / 2) * fr.width, frameBottom, false)
+    push('hbp', fr.left + (g.hfpF + g.hsyncF + g.hbpF / 2) * fr.width, frameBottom, false)
   }
   return out
 })
@@ -448,8 +451,9 @@ const leaders = computed<Leader[]>(() => {
         >↕ {{ geom.vTotal }} lines total</span>
       </div>
 
-      <!-- V label stack: flush-right, evenly spaced callouts for the
-           vertical-blanking band; leaders connect each to its band. -->
+      <!-- V label stack: flush-right, evenly spaced callouts in frame order
+           (VBP → VFP → VSYNC below the blanking total); leaders connect
+           each to its band. -->
       <div style="grid-area: vrail" class="flex flex-col items-end gap-2.5">
         <span v-for="c in vCallouts" :key="c.id" :ref="labelRefs[c.id]" class="flex">
           <TimingRasterNumber
@@ -464,19 +468,21 @@ const leaders = computed<Leader[]>(() => {
         </span>
       </div>
 
-      <!-- The frame: time-domain layout. Rows: V blanking band (VFP → VSYNC
-           → VBP) opening the frame, active lines below. Columns (within the
-           active band): HFP → HSYNC → active → HBP — the line order. Sync
-           strips carry the true positions. Square corners — pixel raster. -->
+      <!-- The frame: time-domain layout. Rows: V back porch (VBP) opening
+           the frame, active lines, then V front porch + V sync closing it —
+           VBP → active → VFP → VSYNC. Columns (within the active band):
+           HFP → HSYNC → HBP → active — the blanking interval contiguous,
+           active pixels ending the line. Sync strips carry the true
+           positions. Square corners — pixel raster. -->
       <div
         ref="frameEl"
         class="relative grid overflow-hidden border border-border"
         :style="{
           gridArea: 'frame',
           aspectRatio: String(geom.aspect),
-          gridTemplateColumns: `${pct(geom.hfpF)} ${pct(geom.hsyncF)} ${pct(geom.activeW)} ${pct(geom.hbpF)}`,
-          gridTemplateRows: `${pct(geom.vfpF)} ${pct(geom.vsyncF)} ${pct(geom.vbpF)} ${pct(geom.activeH)}`,
-          gridTemplateAreas: `'vfp vfp vfp vfp' 'vsync vsync vsync vsync' 'vbp vbp vbp vbp' 'hfp hsync hactive hbp'`,
+          gridTemplateColumns: `${pct(geom.hfpF)} ${pct(geom.hsyncF)} ${pct(geom.hbpF)} ${pct(geom.activeW)}`,
+          gridTemplateRows: `${pct(geom.vbpF)} ${pct(geom.activeH)} ${pct(geom.vfpF)} ${pct(geom.vsyncF)}`,
+          gridTemplateAreas: `'vbp vbp vbp vbp' 'hfp hsync hbp hactive' 'vfp vfp vfp vfp' 'vsync vsync vsync vsync'`,
         }"
       >
         <span
@@ -484,14 +490,16 @@ const leaders = computed<Leader[]>(() => {
           class="absolute right-1 top-1 z-20 text-[9px] italic text-muted-foreground/70"
         >not to scale</span>
 
-        <!-- V blanking band: full-width rows (vertical blanking is whole
-             horizontal lines), each segment in its callout tone. -->
+        <!-- V blanking: full-width rows (vertical blanking is whole
+             horizontal lines), each segment in its callout tone — VBP
+             opens the frame, VFP+VSYNC close it. -->
         <div :style="{ gridArea: 'vfp', background: tint(SEGMENT_TONE.fp, 18) }" />
         <div :style="{ gridArea: 'vsync', background: tint(SEGMENT_TONE.sync, 55) }" />
         <div :style="{ gridArea: 'vbp', background: tint(SEGMENT_TONE.bp, 18) }" />
 
-        <!-- H line structure within the active band: front porch + sync on
-             the left edge (line order), back porch on the right. -->
+        <!-- H line structure within the active band: front porch → sync →
+             back porch contiguous on the left (the blanking interval),
+             active pixels to the right. -->
         <div :style="{ gridArea: 'hfp', background: tint(SEGMENT_TONE.fp, 18) }" />
         <div :style="{ gridArea: 'hsync', background: tint(SEGMENT_TONE.sync, 55) }" />
         <div :style="{ gridArea: 'hbp', background: tint(SEGMENT_TONE.bp, 18) }" />
@@ -553,16 +561,15 @@ const leaders = computed<Leader[]>(() => {
         </div>
       </div>
 
-      <!-- H label row: evenly spaced callouts — blanking/fp/sync clustered
-           left near their columns, bp pushed right to its column on the far
-           side of the active area. Leaders connect each to its column. -->
+      <!-- H label row: evenly spaced callouts clustered left, reading in
+           column order (blanking → fp → sync → bp). Leaders connect each
+           to its column. -->
       <div style="grid-area: hrail" class="flex items-start gap-6 pt-6">
         <span
           v-for="c in hCallouts"
           :key="c.id"
           :ref="labelRefs[c.id]"
           class="flex"
-          :class="{ 'ml-auto': c.id === 'hbp' }"
         >
           <TimingRasterNumber
             :value="calloutValue(c)"
