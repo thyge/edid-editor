@@ -336,7 +336,7 @@ const addBlockMenu = computed<CeaAddBlockMenuNode[]>(() => {
   // cascade (five tag-0x03 VSDBs, always offered, plus the single-instance
   // Dolby Vision VSVDB and Dolby Atmos VSADB carriers), Colorimetry, Video
   // Capability, InfoFrame, Video Format Preference, HDR Static, Room
-  // Configuration, Speaker Location, then unlisted types (VESA Display Device).
+  // Configuration, Speaker Location, then unlisted types (VESA Transfer Characteristic).
   add('video', 'Video Data Block', hasBlock(b => b.tag === 0x02))
   add('audio', 'Audio Data Block', hasBlock(b => b.tag === 0x01))
   add('speakers', 'Speaker Allocation', hasBlock(b => b.tag === 0x04))

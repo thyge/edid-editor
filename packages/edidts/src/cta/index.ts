@@ -103,6 +103,8 @@ export {
   CEA_DATA_BLOCK_LABELS,
   getCEADataBlockLabel,
   VESA_TRANSFER_TYPE_OPTIONS,
+  VESA_TRANSFER_POINT_COUNTS,
+  makeVesaTransferCurve,
 } from './extension-block';
 export type {
   ExtensionBlock,

@@ -270,11 +270,49 @@ export interface SpeakerAllocationBlock extends CEADataBlock {
  * VESA Display Transfer Characteristic Data Block (Tag 5)
  * Contains gamma curve data for the display
  */
+/**
+ * VESA Display Transfer Characteristic Data Block (CTA tag 5), laid out as
+ * edid-decode's `cta_vesa_dtcdb` reads it: byte 0 bits 7:6 name the channel
+ * and bits 5:0 hold the first point of the curve; every later byte is the
+ * step up to the next point. The curve runs on a 0–1023 scale and ends at an
+ * implied 1023. Valid bodies are 7, 15 or 31 bytes (8, 16 or 32 points
+ * counting the implied end).
+ */
 export interface VESADisplayTransferCharacteristicBlock extends CEADataBlock {
   tag: 0x05;
   transferType: 'white' | 'red' | 'green' | 'blue';
-  numEntries: number; // 8, 16, 32, or 48
-  gammaValues: number[]; // Normalized gamma values (0-1)
+  /**
+   * The stored curve points (0–1023), excluding the implied final 1023: one
+   * per body byte. points[0] is at most 63 and each step is at most 255.
+   */
+  points: number[];
+}
+
+/** Valid VESA transfer-characteristic body lengths (points stored). */
+export const VESA_TRANSFER_POINT_COUNTS = [7, 15, 31] as const;
+
+/** Byte 0 bits 7:6 channel codes, in code order. */
+const VESA_TRANSFER_TYPES: ReadonlyArray<VESADisplayTransferCharacteristicBlock['transferType']> = [
+  'white', 'red', 'green', 'blue',
+];
+
+/**
+ * A gamma-style VESA transfer curve with `count` stored points (the implied
+ * final point is 1023), rounded and clamped so it is exactly representable.
+ * Used for new blocks and when the user changes the point count.
+ */
+export function makeVesaTransferCurve(count: number, gamma = 2.2): number[] {
+  const points: number[] = [];
+  let previous = 0;
+  for (let i = 0; i < count; i++) {
+    const ideal = Math.round(1023 * Math.pow(i / count, gamma));
+    const value = i === 0
+      ? Math.min(0x3F, ideal)
+      : previous + Math.max(0, Math.min(0xFF, ideal - previous));
+    points.push(value);
+    previous = value;
+  }
+  return points;
 }
 
 /**
@@ -604,42 +642,19 @@ export class ExtensionBlockParser {
   }
 
   private static decodeVESADisplayTransferBlock(data: Uint8Array): VESADisplayTransferCharacteristicBlock {
-    if (data.length < 1) {
-      return { tag: 0x05, payload: data, transferType: 'white', numEntries: 0, gammaValues: [] };
+    // edid-decode cta_vesa_dtcdb: channel in bits 7:6, first point in bits
+    // 5:0, then each byte adds to the running value.
+    const points: number[] = [];
+    let value = 0;
+    for (let i = 0; i < data.length; i++) {
+      value = i === 0 ? data[0] & 0x3F : value + data[i];
+      points.push(value);
     }
-
-    const header = data[0];
-    const typeCode = (header >> 5) & 0x03;
-    const numEntriesCode = (header >> 3) & 0x03;
-    
-    const typeMap: Record<number, 'white' | 'red' | 'green' | 'blue'> = {
-      0: 'white',
-      1: 'red',
-      2: 'green',
-      3: 'blue',
-    };
-    
-    const numEntriesMap: Record<number, number> = {
-      0: 8,
-      1: 16,
-      2: 32,
-      3: 48,
-    };
-    
-    const transferType = typeMap[typeCode] ?? 'white';
-    const numEntries = numEntriesMap[numEntriesCode] ?? 8;
-    
-    const gammaValues: number[] = [];
-    for (let i = 1; i < data.length && gammaValues.length < numEntries; i++) {
-      gammaValues.push(data[i] / 255);
-    }
-    
     return {
       tag: 0x05,
       payload: data,
-      transferType,
-      numEntries,
-      gammaValues,
+      transferType: VESA_TRANSFER_TYPES[data.length > 0 ? data[0] >> 6 : 0],
+      points,
     };
   }
 
@@ -914,24 +929,23 @@ export class ExtensionBlockParser {
    * bits 4:3, so the encoder writes back to those same bit positions.
    */
   private static encodeVESADisplayTransferBlock(block: VESADisplayTransferCharacteristicBlock): Uint8Array {
-    const out = block.payload.slice();
-    if (out.length < 1) return out;
-
-    // Same maps as the decoder (see decodeVESADisplayTransferBlock).
-    const typeCode: Record<typeof block.transferType, number> = { white: 0, red: 1, green: 2, blue: 3 };
-    const numCode: Record<number, number> = { 8: 0, 16: 1, 32: 2, 48: 3 };
-
-    // Preserve bit 7 and bits 2:0 (reserved); overwrite bits 6:5 (type) and
-    // bits 4:3 (entry-count code). Unknown values fall back to 0 like the
-    // decoder's `?? 'white'` / `?? 8` defaults.
-    out[0] =
-      (out[0] & 0x87) |
-      ((typeCode[block.transferType] ?? 0) << 5) |
-      ((numCode[block.numEntries] ?? 0) << 3);
-
-    for (let i = 0; i < block.gammaValues.length && 1 + i < out.length; i++) {
-      out[1 + i] = Math.round(block.gammaValues[i] * 255) & 0xFF;
-    }
+    // Inverse of decodeVESADisplayTransferBlock. A point that can't be reached
+    // (first point above 63, a step above 255, or a step down) is clamped to
+    // the nearest representable value rather than wrapped.
+    const out = new Uint8Array(block.points.length);
+    let previous = 0;
+    block.points.forEach((point, i) => {
+      const target = Number.isFinite(point) ? Math.round(point) : previous;
+      if (i === 0) {
+        const first = Math.max(0, Math.min(0x3F, target));
+        out[0] = (Math.max(0, VESA_TRANSFER_TYPES.indexOf(block.transferType)) << 6) | first;
+        previous = first;
+      } else {
+        const step = Math.max(0, Math.min(0xFF, target - previous));
+        out[i] = step;
+        previous += step;
+      }
+    });
     return out;
   }
 

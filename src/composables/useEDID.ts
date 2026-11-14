@@ -1,5 +1,6 @@
 import { ref, shallowRef, computed, reactive } from 'vue'
 import { EEDID } from 'edidts'
+import { looksLikeText, parseEdidHex } from '@/lib/parseEdidHex'
 
 // shallowRef: only `.value` reassignment is tracked. The EEDID instance itself
 // is wrapped in reactive() on load so Vue can see deep field edits; a plain
@@ -53,13 +54,19 @@ const previewData = computed<Uint8Array | null>(() => {
   return bytes ?? lastEncoded
 })
 
-function parseHexString(hex: string): Uint8Array {
-  const cleaned = hex.replace(/[^0-9A-Fa-f]/g, '')
-  const bytes: number[] = []
-  for (let i = 0; i < cleaned.length; i += 2) {
-    bytes.push(parseInt(cleaned.slice(i, i + 2), 16))
+const EDID_SIGNATURE = [0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00]
+
+/**
+ * Bytes of an imported file. A binary EDID starts with the 8-byte header;
+ * anything else that reads as text (a `.txt`/`.hex`/`.reg` dump, whatever its
+ * extension or letter case) is parsed as hex.
+ */
+function fileBytes(raw: Uint8Array): Uint8Array {
+  const isBinaryEdid = EDID_SIGNATURE.every((b, i) => raw[i] === b)
+  if (!isBinaryEdid && looksLikeText(raw)) {
+    return parseEdidHex(new TextDecoder().decode(raw))
   }
-  return new Uint8Array(bytes)
+  return raw
 }
 
 // Load bytes into the reactive tree. The computed re-encodes from the tree on
@@ -74,7 +81,7 @@ export function useEDID() {
   const loadFromHex = (hex: string) => {
     try {
       error.value = null
-      setEdid(parseHexString(hex))
+      setEdid(parseEdidHex(hex))
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to parse EDID'
       edid.value = null
@@ -85,14 +92,7 @@ export function useEDID() {
     try {
       error.value = null
       const buffer = await file.arrayBuffer()
-
-      if (file.name.endsWith('.txt')) {
-        const text = new TextDecoder().decode(new Uint8Array(buffer))
-        setEdid(parseHexString(text), file.name)
-        return
-      }
-
-      setEdid(new Uint8Array(buffer), file.name)
+      setEdid(fileBytes(new Uint8Array(buffer)), file.name)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to parse EDID'
       edid.value = null

@@ -10,6 +10,7 @@
  */
 
 import type { CEADataBlock, SpeakerAllocationBlock } from './extension-block';
+import { makeVesaTransferCurve } from './extension-block';
 import { SPEAKER_ALLOCATION_BITS, COLORIMETRY_FLAGS } from './cta-extended-blocks';
 import { EOTF_FLAGS } from './vcdb/hdr-static';
 import { writeIeeeOuiLE } from '../common/bintools';
@@ -257,12 +258,13 @@ export function createDefaultCEADataBlock(type: CEADefaultBlockType): CEADataBlo
         trailing: new Uint8Array(),
       } as unknown as CEADataBlock;
     case 'vesa-transfer':
+      // A valid 7-byte body (8 points with the implied 1023): a gamma 2.2
+      // curve on the white channel.
       return {
         tag: 0x05,
-        payload: new Uint8Array(1),
+        payload: new Uint8Array(),
         transferType: 'white',
-        numEntries: 8,
-        gammaValues: new Array(8).fill(0),
+        points: makeVesaTransferCurve(7),
       } as unknown as CEADataBlock;
     // Vendor-specific data blocks (tag 0x03): unlike the short
     // blocks above, multiple VSDBs may legally coexist, and each needs its

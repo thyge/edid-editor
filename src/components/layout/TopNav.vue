@@ -54,7 +54,7 @@ const handleLoadHex = () => {
   if (typeof window === 'undefined') {
     return
   }
-  const hex = window.prompt('Paste EDID hexadecimal data (spaces allowed)')
+  const hex = window.prompt('Paste EDID hex (plain, 0x array, xxd/hexdump, xrandr or .reg output)')
   if (!hex) {
     return
   }
@@ -118,7 +118,7 @@ const scrollToOverview = () => {
       ref="fileInputRef"
       type="file"
       class="hidden"
-      accept=".edid,.bin,.raw,.dat,.txt"
+      accept=".edid,.bin,.raw,.dat,.txt,.hex,.reg"
       @change="handleFileChange"
     />
   </header>
