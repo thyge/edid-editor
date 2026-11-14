@@ -4,6 +4,8 @@ import {
   type DisplayIdTypeVIIDetailedTiming,
   type DisplayIdTypeVIIDetailedTimingBlock,
 } from './types';
+import { clampBits, clampMinusOne } from './clamp';
+import { decodeOptionsBit7, encodeOptionsBit7 } from './timing-options';
 
 /**
  * DisplayID 2.0 §4.3.1 Type VII Detailed Timing descriptor length (Table 4-18).
@@ -28,7 +30,8 @@ export function decodeTypeVIITimingBlock(block: DisplayIdDataBlock): DisplayIdTy
       aspectRatio: options & 0x0f,
       interlaced: (options & 0x10) !== 0,
       stereo: (options >> 5) & 0x03,
-      preferred: (options & 0x80) !== 0,
+      // Bit 7: "preferred" before block revision 2, "YCbCr 4:2:0" from it on.
+      ...decodeOptionsBit7(options, block.revision),
       horizontalActive: 1 + readUint16LE(block.payload, offset + 4),
       horizontalBlanking: 1 + readUint16LE(block.payload, offset + 6),
       horizontalSyncOffset: 1 + readFrontPorch(block.payload, offset + 8),
@@ -55,28 +58,28 @@ export function encodeTypeVIITimingBlock(block: DisplayIdTypeVIIDetailedTimingBl
   block.timings.forEach((timing, index) => {
     const offset = index * TYPE_VII_TIMING_ENTRY_LENGTH;
 
-    writeUint24LE(payload, offset, clampNonNeg(timing.pixelClockKHz - 1));
+    writeUint24LE(payload, offset, clampMinusOne(timing.pixelClockKHz, 24));
 
     payload[offset + 3] =
-      (timing.aspectRatio & 0x0f) |
+      clampBits(timing.aspectRatio, 4) |
       (timing.interlaced ? 0x10 : 0) |
-      ((timing.stereo & 0x03) << 5) |
-      (timing.preferred ? 0x80 : 0);
+      (clampBits(timing.stereo, 2) << 5) |
+      encodeOptionsBit7(timing, block.revision);
 
-    writeUint16LE(payload, offset + 4, clampNonNeg(timing.horizontalActive - 1));
-    writeUint16LE(payload, offset + 6, clampNonNeg(timing.horizontalBlanking - 1));
-    writeFrontPorch(payload, offset + 8, clampNonNeg(timing.horizontalSyncOffset - 1), timing.horizontalSyncPolarity);
-    writeUint16LE(payload, offset + 10, clampNonNeg(timing.horizontalSyncWidth - 1));
-    writeUint16LE(payload, offset + 12, clampNonNeg(timing.verticalActive - 1));
-    writeUint16LE(payload, offset + 14, clampNonNeg(timing.verticalBlanking - 1));
-    writeFrontPorch(payload, offset + 16, clampNonNeg(timing.verticalSyncOffset - 1), timing.verticalSyncPolarity);
-    writeUint16LE(payload, offset + 18, clampNonNeg(timing.verticalSyncWidth - 1));
+    writeUint16LE(payload, offset + 4, clampMinusOne(timing.horizontalActive, 16));
+    writeUint16LE(payload, offset + 6, clampMinusOne(timing.horizontalBlanking, 16));
+    writeFrontPorch(payload, offset + 8, clampMinusOne(timing.horizontalSyncOffset, 15), timing.horizontalSyncPolarity);
+    writeUint16LE(payload, offset + 10, clampMinusOne(timing.horizontalSyncWidth, 16));
+    writeUint16LE(payload, offset + 12, clampMinusOne(timing.verticalActive, 16));
+    writeUint16LE(payload, offset + 14, clampMinusOne(timing.verticalBlanking, 16));
+    writeFrontPorch(payload, offset + 16, clampMinusOne(timing.verticalSyncOffset, 15), timing.verticalSyncPolarity);
+    writeUint16LE(payload, offset + 18, clampMinusOne(timing.verticalSyncWidth, 16));
   });
 
   return payload;
 }
 
-/** Front porch is a 14-bit value (low 8 bits in byte n, high 6 bits in byte n+1 bits 6:0); byte n+1 bit 7 is the sync polarity. */
+/** Front porch is a 15-bit value (low 8 bits in byte n, high 7 bits in byte n+1 bits 6:0); byte n+1 bit 7 is the sync polarity. */
 function readFrontPorch(data: Uint8Array, offset: number): number {
   const low = data[offset] ?? 0;
   const high = data[offset + 1] ?? 0;
@@ -105,8 +108,4 @@ function writeUint24LE(data: Uint8Array, offset: number, value: number): void {
   data[offset] = value & 0xff;
   data[offset + 1] = (value >> 8) & 0xff;
   data[offset + 2] = (value >> 16) & 0xff;
-}
-
-function clampNonNeg(value: number): number {
-  return value < 0 ? 0 : Math.floor(value);
 }

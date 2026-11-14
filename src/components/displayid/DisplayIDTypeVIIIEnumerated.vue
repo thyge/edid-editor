@@ -10,9 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
+import { useDisplayIdRoom } from './displayIdRoom'
 
 const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
+
+/** Growth must fit the section's 0x70 block: one more code, or one more
+ *  byte per code when switching to 2-byte codes. */
+const room = useDisplayIdRoom()
 
 // Timing-code-type labels are the shared DISPLAY_ID_TIMING_CODE_TYPE_LABELS
 // (types.ts) — the same 2-bit code is used by the Stereo Display Interface
@@ -82,7 +87,13 @@ function updateCodeSize(index: number, block: DisplayIdTypeVIIIEnumeratedTimingC
               @change="updateCodeSize(index, block, numberFromEvent($event))"
             >
               <option :value="1">1</option>
-              <option :value="2">2</option>
+              <option
+                :value="2"
+                :disabled="block.codeSize !== 2 && !room.fits(block.timingCodes.length)"
+                :title="block.codeSize !== 2 && !room.fits(block.timingCodes.length) ? room.noRoomTitle(block.timingCodes.length) : undefined"
+              >
+                2
+              </option>
             </select>
           </div>
         </div>
@@ -90,7 +101,15 @@ function updateCodeSize(index: number, block: DisplayIdTypeVIIIEnumeratedTimingC
           <Input type="number" min="0" :max="block.codeSize === 2 ? 65535 : 255" :model-value="code" @input="updateBlock(index, block, updateArrayItem(block.timingCodes, codeIndex, numberFromEvent($event)))" />
           <Button variant="ghost" size="sm" class="text-destructive" @click="updateBlock(index, block, removeArrayItem(block.timingCodes, codeIndex))">Remove</Button>
         </div>
-        <Button variant="outline" size="sm" @click="updateBlock(index, block, [...block.timingCodes, 0])">Add Code</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="!room.fits(block.codeSize)"
+          :title="room.fits(block.codeSize) ? undefined : room.noRoomTitle(block.codeSize)"
+          @click="updateBlock(index, block, [...block.timingCodes, 0])"
+        >
+          Add Code
+        </Button>
       </section>
     </CardContent>
   </Card>

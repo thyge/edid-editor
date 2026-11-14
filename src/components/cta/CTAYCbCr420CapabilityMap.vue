@@ -4,6 +4,7 @@ import type { CEAExtensionBlock, VideoDataBlock, YCbCr420CapabilityMapDataBlock 
 import { getVICDefinition } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { ctaAddBlockedReason } from './blockCapacity'
 
 /**
  * YCbCr 4:2:0 Capability Map Data Block editor (tag 0x07 ext 0x0F) — the
@@ -53,7 +54,12 @@ interface BitRow {
   capable: boolean
   editable: boolean
   label: string | null // null → unlabelled/reserved
+  /** Why setting this bit is not possible (it would grow a full block/extension). */
+  blockedReason?: string | null
 }
+
+/** Setting a bit past the current bytes grows the map by one byte. */
+const growBlockedReason = computed(() => ctaAddBlockedReason(props.cea, capabilityMap.value, 1))
 
 const bitRows = computed<BitRow[]>(() => {
   const bitmap = capabilityMap.value?.capabilityBitmap
@@ -65,11 +71,14 @@ const bitRows = computed<BitRow[]>(() => {
     const svd = svdList?.[i]
     if (svdList && svd) {
       const def = getVICDefinition(svd.vic)
+      const needsGrowth = (i >> 3) >= bitmap.length
+      const blockedReason = needsGrowth ? growBlockedReason.value : null
       rows.push({
         index: i,
         capable,
-        editable: true,
+        editable: blockedReason === null,
         label: `VIC ${svd.vic}${def ? `: ${def.width}×${def.height}${def.interlaced ? 'i' : 'p'} @ ${def.refreshRate}Hz` : ''}`,
+        blockedReason,
       })
     } else {
       // Beyond the SVD count (or no Video Data Block at all): spec requires
@@ -92,6 +101,7 @@ function toggleBit(index: number, value: boolean) {
   const bitmap = capabilityMap.value?.capabilityBitmap
   if (!bitmap || index >= (svds.value?.length ?? 0)) return
   const byteIndex = index >> 3
+  if (value && byteIndex >= bitmap.length && growBlockedReason.value) return
   // Grow the map (adding a trailing byte) when a bit beyond the current
   // byte range is set; never touch neighboring CTA block framing — the
   // encoder rebuilds block length from the payload it is handed.
@@ -130,6 +140,7 @@ function toggleBit(index: number, value: boolean) {
             :key="row.index"
             class="flex items-center justify-between gap-3 rounded-md border border-border/40 px-3 py-2"
             :class="{ 'opacity-60': !row.editable }"
+            :title="row.blockedReason ?? undefined"
           >
             <div class="flex items-center gap-3 min-w-0">
               <span class="font-mono text-xs text-muted-foreground w-14 shrink-0">bit {{ row.index }}</span>

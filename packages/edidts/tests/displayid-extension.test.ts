@@ -77,11 +77,17 @@ describe('DisplayID EDID extension integration', () => {
   it('throws when a DisplayID section is too large for one EDID extension block', () => {
     const extension = createDisplayIdExtension();
     // section = header(4) + block-header(3) + payload(29) + fillBytes + checksum(1) = 37 + fillBytes.
-    // fillBytes = 89 lands the section at 126 bytes, exceeding the 125-byte limit.
+    // The section occupies block bytes 1..126, so 126 bytes fit (fillBytes = 89)
+    // and fillBytes = 90 (127 bytes) is one too many.
     extension.section.fillBytes = 89;
+    const full = ExtensionBlockParser.encode(extension);
+    expect(full[1]).toBe(0x20);
+    expect(full[2]).toBe(121);
+    expect(isChecksum8Valid(full)).toBe(true);
 
+    extension.section.fillBytes = 90;
     expect(() => ExtensionBlockParser.encode(extension)).toThrow(
-      'DisplayID EDID extension payload length 126 exceeds 125 bytes',
+      'DisplayID EDID extension payload length 127 exceeds 126 bytes',
     );
   });
 });

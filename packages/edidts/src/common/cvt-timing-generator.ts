@@ -7,7 +7,7 @@
  * Reference: VESA Coordinated Video Timings (CVT) Standard Version 1.2
  */
 
-import { DetailedTimingDescriptor } from './detailed-timing-descriptor';
+import { DetailedTimingDescriptor, frameVerticalActive } from './detailed-timing-descriptor';
 import type { DetailedTiming } from './detailed-timing-descriptor';
 
 /**
@@ -21,9 +21,9 @@ export type CVTBlankingMode = 'cvt' | 'cvt-rb' | 'cvt-rb2';
 export interface CVTTimingInput {
   /** Horizontal active pixels */
   horizontalActive: number;
-  /** Vertical active lines */
+  /** Vertical active lines of the whole frame (1080 for 1080i). */
   verticalActive: number;
-  /** Target refresh rate in Hz */
+  /** Target refresh rate in Hz — the field rate for interlaced (60 for 1080i60). */
   refreshRate: number;
   /** Blanking mode: 'cvt', 'cvt-rb' (RB), or 'cvt-rb2' (RBv2) */
   blankingMode?: CVTBlankingMode;
@@ -55,7 +55,10 @@ export interface CVTTimingResult {
   horizontalBackPorch: number;
   /** Horizontal total pixels */
   horizontalTotal: number;
-  /** Vertical active lines */
+  /**
+   * Vertical active lines as a DTD stores them: per field for interlaced
+   * timings (540 for a 1080-line interlaced input), the frame otherwise.
+   */
   verticalActive: number;
   /** Vertical blanking lines */
   verticalBlanking: number;
@@ -65,9 +68,9 @@ export interface CVTTimingResult {
   verticalSyncWidth: number;
   /** Vertical back porch lines */
   verticalBackPorch: number;
-  /** Vertical total lines */
+  /** Vertical total lines (active + blanking) — per field for interlaced timings */
   verticalTotal: number;
-  /** Actual refresh rate in Hz */
+  /** Actual refresh rate in Hz — the field rate for interlaced timings */
   actualRefreshRate: number;
   /** Horizontal frequency in kHz */
   horizontalFrequency: number;
@@ -156,7 +159,8 @@ function calculateStandardBlanking(
   margins: boolean
 ): CVTTimingResult {
   // Step 1: Calculate field rate
-  const vFieldRate = interlaced ? refreshRate * 2 : refreshRate;
+  const vFieldRate = refreshRate; // interlaced: refreshRate is the field rate (1080i60 = 60)
+  const interlaceLines = interlaced ? 0.5 : 0; // CVT adds half a line per field
   
   // Step 2: Calculate margins if needed
   const hMargin = margins ? Math.floor(hActive * 0.018 / 8) * 8 : 0;
@@ -196,10 +200,10 @@ function calculateStandardBlanking(
   const hTotal = hActiveMargin + hBlanking;
   
   // Step 10: Calculate pixel clock
-  const pixelClock = roundToClockStep(hTotal * vTotal * vFieldRate / 1000000);
+  const pixelClock = roundToClockStep(hTotal * (vTotal + interlaceLines) * vFieldRate / 1000000);
   
   // Step 11: Calculate actual refresh rate
-  const actualRefreshRate = (pixelClock * 1000000) / (hTotal * vTotal) / (interlaced ? 2 : 1);
+  const actualRefreshRate = (pixelClock * 1000000) / (hTotal * (vTotal + interlaceLines));
   
   // Step 12: Calculate horizontal timing
   const hSyncWidth = Math.floor(hTotal * CVT.STD.H_SYNC_PERCENT / 8) * 8;
@@ -218,12 +222,12 @@ function calculateStandardBlanking(
     horizontalSyncWidth: hSyncWidth,
     horizontalBackPorch: Math.max(0, hBackPorch),
     horizontalTotal: hTotal,
-    verticalActive: vActive,
+    verticalActive: interlaced ? Math.floor(vActive / 2) : vActive,
     verticalBlanking: vBlanking,
     verticalFrontPorch: vFrontPorch,
     verticalSyncWidth: vSyncWidth,
     verticalBackPorch: vBackPorch,
-    verticalTotal: vTotal * (interlaced ? 2 : 1),
+    verticalTotal: vTotal,
     actualRefreshRate,
     horizontalFrequency: pixelClock * 1000 / hTotal,
     hSyncPolarity: 'negative',
@@ -242,7 +246,8 @@ function calculateReducedBlankingV1(
   refreshRate: number,
   interlaced: boolean
 ): CVTTimingResult {
-  const vFieldRate = interlaced ? refreshRate * 2 : refreshRate;
+  const vFieldRate = refreshRate; // interlaced: refreshRate is the field rate (1080i60 = 60)
+  const interlaceLines = interlaced ? 0.5 : 0; // CVT adds half a line per field
   const vActiveLines = interlaced ? Math.floor(vActive / 2) : vActive;
   
   // Fixed horizontal blanking for RB
@@ -264,10 +269,10 @@ function calculateReducedBlankingV1(
   const vTotal = vActiveLines + vBlanking;
   
   // Calculate pixel clock
-  const pixelClock = roundToClockStep(hTotal * vTotal * vFieldRate / 1000000);
+  const pixelClock = roundToClockStep(hTotal * (vTotal + interlaceLines) * vFieldRate / 1000000);
   
   // Calculate actual refresh rate
-  const actualRefreshRate = (pixelClock * 1000000) / (hTotal * vTotal) / (interlaced ? 2 : 1);
+  const actualRefreshRate = (pixelClock * 1000000) / (hTotal * (vTotal + interlaceLines));
   
   return {
     pixelClock,
@@ -277,12 +282,12 @@ function calculateReducedBlankingV1(
     horizontalSyncWidth: CVT.RB_V1.H_SYNC_WIDTH,
     horizontalBackPorch: hBlanking - CVT.RB_V1.H_FRONT_PORCH - CVT.RB_V1.H_SYNC_WIDTH,
     horizontalTotal: hTotal,
-    verticalActive: vActive,
+    verticalActive: interlaced ? Math.floor(vActive / 2) : vActive,
     verticalBlanking: vBlanking,
     verticalFrontPorch: vFrontPorch,
     verticalSyncWidth: vSyncWidth,
     verticalBackPorch: vBackPorch,
-    verticalTotal: vTotal * (interlaced ? 2 : 1),
+    verticalTotal: vTotal,
     actualRefreshRate,
     horizontalFrequency: pixelClock * 1000 / hTotal,
     hSyncPolarity: 'positive',
@@ -301,7 +306,8 @@ function calculateReducedBlankingV2(
   refreshRate: number,
   interlaced: boolean
 ): CVTTimingResult {
-  const vFieldRate = interlaced ? refreshRate * 2 : refreshRate;
+  const vFieldRate = refreshRate; // interlaced: refreshRate is the field rate (1080i60 = 60)
+  const interlaceLines = interlaced ? 0.5 : 0; // CVT adds half a line per field
   const vActiveLines = interlaced ? Math.floor(vActive / 2) : vActive;
   
   // Even smaller horizontal blanking for RBv2
@@ -323,10 +329,10 @@ function calculateReducedBlankingV2(
   const vTotal = vActiveLines + vBlanking;
   
   // Calculate pixel clock
-  const pixelClock = roundToClockStep(hTotal * vTotal * vFieldRate / 1000000);
+  const pixelClock = roundToClockStep(hTotal * (vTotal + interlaceLines) * vFieldRate / 1000000);
   
   // Calculate actual refresh rate
-  const actualRefreshRate = (pixelClock * 1000000) / (hTotal * vTotal) / (interlaced ? 2 : 1);
+  const actualRefreshRate = (pixelClock * 1000000) / (hTotal * (vTotal + interlaceLines));
   
   return {
     pixelClock,
@@ -336,12 +342,12 @@ function calculateReducedBlankingV2(
     horizontalSyncWidth: CVT.RB_V2.H_SYNC_WIDTH,
     horizontalBackPorch: hBlanking - CVT.RB_V2.H_FRONT_PORCH - CVT.RB_V2.H_SYNC_WIDTH,
     horizontalTotal: hTotal,
-    verticalActive: vActive,
+    verticalActive: interlaced ? Math.floor(vActive / 2) : vActive,
     verticalBlanking: vBlanking,
     verticalFrontPorch: vFrontPorch,
     verticalSyncWidth: vSyncWidth,
     verticalBackPorch: vBackPorch,
-    verticalTotal: vTotal * (interlaced ? 2 : 1),
+    verticalTotal: vTotal,
     actualRefreshRate,
     horizontalFrequency: pixelClock * 1000 / hTotal,
     hSyncPolarity: 'positive',
@@ -650,7 +656,8 @@ export function analyzeDetailedTimingWithCVT(
     const comparisons = modes.map(({ mode, label }) => {
       const expected = calculateCVTTiming({
         horizontalActive: timing.horizontalActive,
-        verticalActive: timing.verticalActive,
+        // The generator takes the frame height; a DTD stores fields.
+        verticalActive: frameVerticalActive(timing),
         refreshRate: targetRefresh,
         blankingMode: mode,
         interlaced: timing.flags.interlaced,
@@ -758,7 +765,7 @@ function matchesCVTResult(
  * next 0.25 MHz step, so a timing it produced satisfies
  * `achieved = ceilStep(exact)` with the nominal target within one step-width
  * Δ below the achieved rate, where
- * `Δ = 0.25 MHz / (hTotal × vTotalField × interlaceFields)`. The achieved
+ * `Δ = 0.25 MHz / (hTotal × (vTotalField + ½ when interlaced))`. The achieved
  * rate and points inside that interval are tried; the generator's geometry is
  * stepwise in the target rate (floor/ceil rounding throughout), so any point
  * on the same step reproduces the timing byte-for-byte.
@@ -779,14 +786,11 @@ export function classifyDetailedTiming(timing: DetailedTiming): DetailedTimingTy
   const clockMHz = timing.pixelClock;
 
   const horizontalTotal = horizontalActive + horizontalBlanking;
-  // The generator computes interlaced timings on a per-field line count
-  // (half the active area) with a doubled field rate — the clock is derived
-  // from the UNDOUBLED field line count times the field rate, so the
-  // interlace factor enters the clock/rate relation once.
-  const verticalActiveField = interlaced ? Math.floor(verticalActive / 2) : verticalActive;
-  const verticalTotalField = verticalActiveField + Math.round(timing.verticalBlanking);
-  const interlaceFields = interlaced ? 2 : 1;
-  const rateDenominator = horizontalTotal * verticalTotalField * interlaceFields;
+  // A DTD stores interlaced timings per field; the generator takes the frame
+  // height and the field rate, and derives the clock from the per-field line
+  // count plus CVT's half line.
+  const verticalTotalField = verticalActive + Math.round(timing.verticalBlanking);
+  const rateDenominator = horizontalTotal * (verticalTotalField + (interlaced ? 0.5 : 0));
 
   if (clockMHz <= 0 || horizontalTotal <= 0 || verticalTotalField <= 0) {
     return 'custom';
@@ -808,7 +812,7 @@ export function classifyDetailedTiming(timing: DetailedTiming): DetailedTimingTy
       try {
         const result = calculateCVTTiming({
           horizontalActive,
-          verticalActive,
+          verticalActive: interlaced ? verticalActive * 2 : verticalActive,
           refreshRate,
           blankingMode,
           interlaced,

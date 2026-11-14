@@ -45,7 +45,9 @@ import {
 import { checksum8, isChecksum8Valid } from '../common/checksum';
 import { encodePreservingSource, rememberSource } from '../common/source-bytes';
 import { decodeDisplayIdSection, encodeDisplayIdSection, type DisplayIdSection } from '../displayid';
-import { isKnownVIC } from './vic-table';
+import { isKnownVIC, decodeSvd, encodeSvd } from './vic-table';
+import { decodeShortAudioDescriptor, encodeShortAudioDescriptor } from './audio-format-codes';
+import { clampInt, keepShortLength } from './byte-utils';
 
 export type { VTBExtensionBlock, VTBDetailedTiming };
 
@@ -122,10 +124,28 @@ export interface CEADataBlock {
   payload: Uint8Array;
 }
 
+/**
+ * Short Audio Descriptor (CTA-861-G §7.5.2, Tables 49-52; layout checked
+ * against edid-decode `cta_audio_block`). Every bit of the 3 bytes lives in
+ * exactly one field below, so decode → encode is byte-exact for every format
+ * code, and editing one field rewrites only its own bits:
+ *
+ *   byte 1  bit 7 F17 (reserved; L-PCM 3D Audio: max-channels bit 3),
+ *           bits 6:3 format, bits 2:0 max channels − 1
+ *   byte 2  bit 7 F27 (reserved; L-PCM 3D Audio: max-channels bit 4),
+ *           bits 6:0 sample rates
+ *   byte 3  format-dependent (see the fields)
+ */
 export interface AudioDataBlock extends CEADataBlock {
   tag: 0x01;
   descriptors: Array<{
     format: number;
+    /**
+     * Max channels: byte 1 bits 2:0 + 1 (1–8). For L-PCM 3D Audio (format 15,
+     * extended code 13) the count also takes F17/F27 as bits 3/4 (1–32), as
+     * edid-decode prints it. For MPEG-H 3D Audio (extended code 11) the same
+     * 3 bits are the MPEG-H level, carried here as level + 1.
+     */
     channels: number;
     samplingRates: {
       sr32kHz: boolean;
@@ -136,26 +156,53 @@ export interface AudioDataBlock extends CEADataBlock {
       sr176_4kHz: boolean;
       sr192kHz: boolean;
     };
-    bitDepths?: { // For LPCM
+    /** Byte 3 bits 2:0 — sample sizes, for LPCM (1) and L-PCM 3D Audio (15/13). */
+    bitDepths?: {
       bd16: boolean;
       bd20: boolean;
       bd24: boolean;
     };
-    maxBitrate?: number; // For compressed formats, in kHz
+    /** Formats 2-8: maximum bit rate in kb/s (byte 3 × 8). */
+    maxBitrate?: number;
     /**
-     * For format codes 9-13 (CTA-861-G Table 62): raw SAD byte 3. The byte is
-     * a Profile field whose interpretation is format-dependent and defined in
-     * external format documents, so it is modeled opaquely.
+     * Formats 9-14 (CTA-861-G Table 62): raw SAD byte 3, a format-dependent
+     * value defined in external format documents (WMA Pro: profile in bits
+     * 2:0), so it is modeled opaquely.
      */
     profile?: number;
-    extendedFormat?: number; // For format code 15, byte 3 bits 7:3
+    /** Format 15: Audio Format Code Extension, byte 3 bits 7:3. */
+    extendedFormat?: number;
+    /**
+     * Format 15 (other than L-PCM 3D Audio): byte 3 bits 2:0, the
+     * extension-dependent value (AAC frame lengths / MPEG Surround, MPEG-H Low
+     * Complexity profile, AC-4 value, ...). Kept raw.
+     */
+    extendedFormatValue?: number;
+    /**
+     * Byte 3 bits no other field covers, kept so they survive a re-encode:
+     * LPCM bits 7:3 (F33-F37, reserved) or, for the reserved format code 0,
+     * the whole byte. Set only when non-zero.
+     */
+    byte3Reserved?: number;
+    /** Byte 1 bit 7 (F17), reserved outside L-PCM 3D Audio. Set only when on. */
+    f17?: boolean;
+    /** Byte 2 bit 7 (F27), reserved outside L-PCM 3D Audio. Set only when on. */
+    f27?: boolean;
   }>;
+  /**
+   * Bytes after the last whole 3-byte descriptor (a malformed length), kept
+   * verbatim so they are not lost on re-encode. Set only when present.
+   */
+  trailing?: Uint8Array;
 }
 
 export interface VideoDataBlock extends CEADataBlock {
   tag: 0x02;
+  /** One entry per SVD byte, in order (see `decodeSvd` / `encodeSvd`). */
   vics: Array<{
+    /** VIC 1–127 or 193–255; the reserved bytes 0 and 128 come back as VIC 0 / 128. */
     vic: number;
+    /** Native flag; only VICs 1–64 can carry it (CTA-861-F SVD encoding). */
     native: boolean;
     /**
      * True iff `vic` has a definition in the CTA-861 VIC table. Populated on
@@ -210,6 +257,13 @@ export interface SpeakerAllocationBlock extends CEADataBlock {
   };
   /** Payload bytes beyond the 3-byte SADB mask (preserved for byte-exact round-trip). */
   trailing: Uint8Array;
+  /** Byte 3 bits 7:4 (reserved), kept so they survive a re-encode. Set only when non-zero. */
+  reserved?: number;
+  /**
+   * Body length when the block was shorter than the 3-byte mask (malformed);
+   * encode keeps that length while the missing bytes stay zero.
+   */
+  shortLength?: number;
 }
 
 /**
@@ -469,64 +523,26 @@ export class ExtensionBlockParser {
   }
 
   private static decodeAudioDataBlock(data: Uint8Array): AudioDataBlock {
+    // Each 3-byte SAD goes through the lossless per-descriptor codec
+    // (audio-format-codes.ts), which covers every format code.
     const descriptors: AudioDataBlock['descriptors'] = [];
-    
-    for (let i = 0; i + 3 <= data.length; i += 3) {
-      const format = (data[i] >> 3) & 0x0F;
-      const channels = (data[i] & 0x07) + 1;
-      const rates = data[i + 1];
-      
-      const descriptor: AudioDataBlock['descriptors'][0] = {
-        format,
-        channels,
-        samplingRates: {
-          sr32kHz: (rates & 0x01) !== 0,
-          sr44_1kHz: (rates & 0x02) !== 0,
-          sr48kHz: (rates & 0x04) !== 0,
-          sr88_2kHz: (rates & 0x08) !== 0,
-          sr96kHz: (rates & 0x10) !== 0,
-          sr176_4kHz: (rates & 0x20) !== 0,
-          sr192kHz: (rates & 0x40) !== 0,
-        },
-      };
-
-      if (format === 1) { // LPCM
-        descriptor.bitDepths = {
-          bd16: (data[i + 2] & 0x01) !== 0,
-          bd20: (data[i + 2] & 0x02) !== 0,
-          bd24: (data[i + 2] & 0x04) !== 0,
-        };
-      } else if (format >= 2 && format <= 8) {
-        // CTA-861-G Table 61 (codes 2-8): byte 3 = max bit rate ÷ 8 kHz.
-        descriptor.maxBitrate = data[i + 2] * 8;
-      } else if (format >= 9 && format <= 13) {
-        // CTA-861-G Table 62 (codes 9-13): byte 3 is a Profile field whose
-        // meaning is format-dependent (One Bit Audio, DD+, DTS-HD,
-        // MAT/TrueHD, DST) — kept opaque so it round-trips verbatim.
-        descriptor.profile = data[i + 2];
-      } else if (format === 15) { // Audio Format Extension — byte 3 bits 7:3
-        descriptor.extendedFormat = (data[i + 2] >> 3) & 0x1F;
-      }
-
-      descriptors.push(descriptor);
+    let i = 0;
+    for (; i + 3 <= data.length; i += 3) {
+      descriptors.push(decodeShortAudioDescriptor(data[i], data[i + 1], data[i + 2]));
     }
-
-    return { tag: 0x01, payload: data, descriptors };
+    const block: AudioDataBlock = { tag: 0x01, payload: data, descriptors };
+    if (i < data.length) block.trailing = data.slice(i);
+    return block;
   }
 
   private static decodeVideoDataBlock(data: Uint8Array): VideoDataBlock {
+    // SVD bytes ≥ 129 are not "native + 7-bit VIC" across the board: 193–255
+    // are VICs in their own right (8K/10K formats), see decodeSvd.
     const vics: VideoDataBlock['vics'] = [];
-
     for (let i = 0; i < data.length; i++) {
-      const byte = data[i];
-      const vic = byte & 0x7F;
-      vics.push({
-        vic,
-        native: (byte & 0x80) !== 0,
-        known: isKnownVIC(vic),
-      });
+      const { vic, native } = decodeSvd(data[i]);
+      vics.push({ vic, native, known: isKnownVIC(vic) });
     }
-
     return { tag: 0x02, payload: data, vics };
   }
 
@@ -582,6 +598,8 @@ export class ExtensionBlockParser {
         topLeftRightSurround: (byte3 & 0x08) !== 0,
       },
       trailing: data.length > 3 ? data.slice(3) : new Uint8Array(),
+      ...(byte3 & 0xf0 ? { reserved: byte3 >> 4 } : {}),
+      ...(data.length < 3 ? { shortLength: data.length } : {}),
     };
   }
 
@@ -630,10 +648,14 @@ export class ExtensionBlockParser {
   }
 
   private static decodeDisplayId(data: Uint8Array, base: BaseExtensionBlock): DisplayIdExtensionBlock {
+    // The DisplayID section starts at byte 1 (its version byte doubles as the
+    // block's "revision") and may use payload bytes 1..126; byte 127 is the
+    // EDID block checksum. Same framing as eedid/extension.ts decodeDisplayId
+    // and edid-decode parse_displayid_block (x + 1).
     return {
       ...base,
       tag: 0x70,
-      section: decodeDisplayIdSection(data.slice(2, 127)),
+      section: decodeDisplayIdSection(data.slice(1, 127)),
     };
   }
 
@@ -655,17 +677,16 @@ export class ExtensionBlockParser {
     let offset = 4;
     for (const block of cea.dataBlocks) {
       const encoded = this.encodeCEADataBlock(block);
-      // Data blocks occupy bytes 4..126; byte 127 is the checksum. A single
-      // data block payload is at most 31 bytes (5-bit length), so a long
-      // block list can run past the end of the 128-byte block. Guard with a
-      // descriptive error instead of letting bytes.set() throw a cryptic
-      // RangeError (or silently truncating).
+      assertDataBlockLength(block, encoded);
+      // Data blocks occupy bytes 4..126; byte 127 is the checksum. Refuse to
+      // write past it rather than truncate — the editor shows this message
+      // and blocks the download until the user makes room.
       if (offset + 1 + encoded.length > 127) {
         throw new Error(
-          `CEA data blocks overflow the 127-byte payload area at offset ${offset} (block tag 0x${block.tag.toString(16).padStart(2, '0')}, ${encoded.length} bytes)`,
+          `The CTA-861 extension is full: the ${describeDataBlock(block)} needs ${1 + encoded.length} bytes but only ${127 - offset} are left. Remove a data block or detailed timing to make room.`,
         );
       }
-      const header = ((block.tag & 0x07) << 5) | (encoded.length & 0x1F);
+      const header = ((block.tag & 0x07) << 5) | encoded.length;
       bytes[offset] = header;
       bytes.set(encoded, offset + 1);
       offset += 1 + encoded.length;
@@ -675,7 +696,12 @@ export class ExtensionBlockParser {
     bytes[2] = dtdOffset;
 
     for (const timing of cea.detailedTimings) {
-      if (offset + 18 > 127) break;
+      if (offset + 18 > 127) {
+        // Previously the timing was silently dropped from the saved file.
+        throw new Error(
+          `The CTA-861 extension is full: detailed timing ${cea.detailedTimings.indexOf(timing) + 1} needs 18 bytes but only ${127 - offset} are left. Remove a data block or detailed timing to make room.`,
+        );
+      }
       bytes.set(
         encodePreservingSource(
           timing,
@@ -744,7 +770,8 @@ export class ExtensionBlockParser {
     let total = 0;
     for (const block of blocks) {
       const encoded = this.encodeCEADataBlock(block as CEADataBlock);
-      const header = ((block.tag & 0x07) << 5) | (encoded.length & 0x1f);
+      assertDataBlockLength(block as CEADataBlock, encoded);
+      const header = ((block.tag & 0x07) << 5) | encoded.length;
       parts.push(new Uint8Array([header]), encoded);
       total += 1 + encoded.length;
     }
@@ -796,47 +823,28 @@ export class ExtensionBlockParser {
   private static encodeDisplayId(bytes: Uint8Array, block: DisplayIdExtensionBlock): void {
     const sectionBytes = encodeDisplayIdSection(block.section);
 
-    if (sectionBytes.length > 125) {
-      throw new Error(`DisplayID EDID extension payload length ${sectionBytes.length} exceeds 125 bytes`);
+    // Section bytes occupy payload bytes 1..126 (byte 127 is the checksum).
+    if (sectionBytes.length > 126) {
+      throw new Error(`DisplayID EDID extension payload length ${sectionBytes.length} exceeds 126 bytes`);
     }
 
-    bytes.set(sectionBytes, 2);
+    // Byte 1 is the section's version byte, overwriting the generic revision.
+    bytes.set(sectionBytes, 1);
   }
 
   private static encodeAudioDataBlock(block: AudioDataBlock): Uint8Array {
     const bytes: number[] = [];
     for (const desc of block.descriptors) {
-      let byte1 = ((desc.format & 0x0F) << 3) | ((desc.channels - 1) & 0x07);
-      let byte2 = 0;
-      if (desc.samplingRates.sr32kHz) byte2 |= 0x01;
-      if (desc.samplingRates.sr44_1kHz) byte2 |= 0x02;
-      if (desc.samplingRates.sr48kHz) byte2 |= 0x04;
-      if (desc.samplingRates.sr88_2kHz) byte2 |= 0x08;
-      if (desc.samplingRates.sr96kHz) byte2 |= 0x10;
-      if (desc.samplingRates.sr176_4kHz) byte2 |= 0x20;
-      if (desc.samplingRates.sr192kHz) byte2 |= 0x40;
-      let byte3 = 0;
-      if (desc.format === 1 && desc.bitDepths) {
-        if (desc.bitDepths.bd16) byte3 |= 0x01;
-        if (desc.bitDepths.bd20) byte3 |= 0x02;
-        if (desc.bitDepths.bd24) byte3 |= 0x04;
-      } else if (desc.format >= 9 && desc.format <= 13 && desc.profile !== undefined) {
-        // CTA-861-G Table 62 (codes 9-13): byte 3 Profile field, opaque.
-        byte3 = desc.profile & 0xFF;
-      } else if (desc.maxBitrate !== undefined) {
-        byte3 = Math.round(desc.maxBitrate / 8) & 0xFF;
-      } else if (desc.format === 15 && desc.extendedFormat !== undefined) {
-        byte3 = (desc.extendedFormat & 0x1F) << 3;
-      }
-      bytes.push(byte1, byte2, byte3);
+      bytes.push(...encodeShortAudioDescriptor(desc));
     }
+    for (const b of block.trailing ?? []) bytes.push(b);
     return new Uint8Array(bytes);
   }
 
   private static encodeVideoDataBlock(block: VideoDataBlock): Uint8Array {
     const bytes = new Uint8Array(block.vics.length);
     for (let i = 0; i < block.vics.length; i++) {
-      bytes[i] = (block.vics[i].native ? 0x80 : 0) | (block.vics[i].vic & 0x7F);
+      bytes[i] = encodeSvd(block.vics[i].vic, block.vics[i].native);
     }
     return bytes;
   }
@@ -880,8 +888,9 @@ export class ExtensionBlockParser {
     if (s.bottomFrontCenter) byte3 |= 0x02;
     if (s.bottomFrontLeftRight) byte3 |= 0x04;
     if (s.topLeftRightSurround) byte3 |= 0x08;
-    // byte3 bits 7:4 are reserved (always 0)
-    const head = new Uint8Array([byte1, byte2, byte3]);
+    // byte3 bits 7:4 are reserved; write back whatever the source carried.
+    byte3 |= clampInt(block.reserved ?? 0, 0, 0x0f) << 4;
+    const head = keepShortLength(new Uint8Array([byte1, byte2, byte3]), block.shortLength);
     const trailing = block.trailing ?? new Uint8Array();
     if (trailing.length === 0) return head;
     const out = new Uint8Array(head.length + trailing.length);
@@ -941,6 +950,25 @@ export class ExtensionBlockParser {
     timing: DetailedTimingDescriptor | CEADetailedTiming,
   ): DetailedTimingInput {
     return timing;
+  }
+}
+
+/** Human-readable name of a data block, for encode error messages. */
+function describeDataBlock(block: CEADataBlock): string {
+  return getCEADataBlockLabel(block.tag);
+}
+
+/**
+ * A data block's header holds its length in 5 bits, so its body can be at
+ * most 31 bytes. Writing a longer body would wrap the length and scramble
+ * every block after it, so refuse with a message the editor can show.
+ */
+function assertDataBlockLength(block: CEADataBlock, encoded: Uint8Array): void {
+  if (encoded.length > 31) {
+    const extra = encoded.length - 31;
+    throw new Error(
+      `The ${describeDataBlock(block)} is ${encoded.length} bytes long, but a CTA-861 data block holds at most 31. Remove ${extra} byte${extra === 1 ? '' : 's'} of content (e.g. ${block.tag === 0x02 ? `${extra} VIC${extra === 1 ? '' : 's'}` : 'an entry'}) to save.`,
+    );
   }
 }
 

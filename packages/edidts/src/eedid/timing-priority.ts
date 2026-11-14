@@ -36,6 +36,7 @@ import type { EEDID } from './eedid';
 import { getCEAExtension } from './extension';
 import type { CEAExtensionBlock, VideoDataBlock } from '../cta/extension-block';
 import type { DetailedTiming } from '../common/detailed-timing-descriptor';
+import { computeRefreshRate, frameVerticalActive } from '../common/detailed-timing-descriptor';
 import { getVICDefinition } from '../cta/vic-table';
 import type {
   CVTTimingDescriptor,
@@ -114,18 +115,12 @@ function round8(n: number): number {
 }
 
 /**
- * Compute the vertical refresh rate (Hz) from a raw `DetailedTiming` interface.
- * The `DetailedTimingDescriptor` class exposes this as a getter, but CTA DTDs
- * are decoded as the plain interface (no class), so the rate is derived here:
- * pixelClock (MHz) × 1e6 ÷ (hTotal × vTotal), doubled for interlaced fields.
+ * Refresh rate (Hz) of a raw `DetailedTiming`. CTA DTDs are decoded as the
+ * plain interface (no class getter), so this delegates to the shared
+ * computeRefreshRate (the field rate for interlaced timings).
  */
 function detailedRefreshRate(t: DetailedTiming): number {
-  const hTotal = t.horizontalActive + t.horizontalBlanking;
-  const vTotal = t.verticalActive + t.verticalBlanking;
-  if (hTotal === 0 || vTotal === 0 || t.pixelClock === 0) return 0;
-  let rate = (t.pixelClock * 1_000_000) / (hTotal * vTotal);
-  if (t.flags.interlaced) rate *= 2;
-  return rate;
+  return computeRefreshRate(t);
 }
 
 function isCVTDescriptor(d: { tag: number }): d is CVTTimingDescriptor {
@@ -169,10 +164,10 @@ export function collectTimingsByPriority(eedid: EEDID): TimingEntry[] {
       rank: isFirst ? TIMING_PRIORITY_RANK.preferred : TIMING_PRIORITY_RANK.detailedBase,
       source: isFirst ? 'preferred' : 'detailedBase',
       width: t.horizontalActive,
-      height: t.verticalActive,
+      height: frameVerticalActive(t),
       refreshRate: t.refreshRate,
       preferred: isFirst || undefined,
-      label: labelOf(t.horizontalActive, t.verticalActive, t.refreshRate),
+      label: labelOf(t.horizontalActive, frameVerticalActive(t), t.refreshRate),
     });
   }
 
@@ -185,10 +180,10 @@ export function collectTimingsByPriority(eedid: EEDID): TimingEntry[] {
         rank: TIMING_PRIORITY_RANK.detailedExtension,
         source: 'detailedExtension',
         width: t.horizontalActive,
-        height: t.verticalActive,
+        height: frameVerticalActive(t),
         refreshRate,
         native: t.isNative || undefined,
-        label: labelOf(t.horizontalActive, t.verticalActive, refreshRate),
+        label: labelOf(t.horizontalActive, frameVerticalActive(t), refreshRate),
       });
     }
   }

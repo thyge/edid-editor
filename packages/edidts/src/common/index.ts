@@ -20,6 +20,7 @@ export {
   normalizeTimingFlags,
   computeRefreshRate,
   computePixelClockForTargetRate,
+  frameVerticalActive,
   DTD_FIELD_MAX,
   isDetailedTimingEncodable,
 } from './detailed-timing-descriptor';

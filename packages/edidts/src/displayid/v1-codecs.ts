@@ -21,6 +21,8 @@ import {
   type DisplayIdV1VendorSpecificBlock,
 } from './types';
 import { readIeeeOui, writeIeeeOui } from '../common/bintools';
+import { clampBits, clampInt, clampMinusOne } from './clamp';
+import { decodeOptionsBit7, encodeOptionsBit7 } from './timing-options';
 
 export const TYPE_I_TIMING_ENTRY_LENGTH = 20;
 export const TILED_TOPOLOGY_PAYLOAD_LENGTH = 22;
@@ -85,28 +87,41 @@ export function decodeV1ProductIdentificationBlock(
 export function encodeV1ProductIdentificationBlock(
   block: DisplayIdV1ProductIdentificationBlock,
 ): Uint8Array {
-  const productNameBytes = block.productNameBytes.length > 0
-    ? block.productNameBytes
-    : encodeAscii(block.productName);
-  const minimumLength = PRODUCT_ID_FIXED_LENGTH + productNameBytes.length;
-  // Start from the existing payload so any trailing bytes (after the name) are
-  // preserved verbatim — mirrors the v2.0 product-identification encoder.
-  const payload = block.payload.length >= minimumLength
-    ? block.payload.slice()
-    : new Uint8Array(minimumLength);
+  // The name is written at its own length and any bytes the original payload
+  // carried after the old name follow it verbatim — so renaming "Panel" to
+  // "AB" leaves no "nel" behind. Mirrors the v2.0 encoder.
+  const productNameBytes = asciiFieldBytes(block.productName, block.productNameBytes);
+  const trailing = bytesAfterProductName(block.payload);
+  const payload = new Uint8Array(PRODUCT_ID_FIXED_LENGTH + productNameBytes.length + trailing.length);
 
-  const vendorBytes = encodeAscii(block.vendorId);
-  payload[0] = vendorBytes[0] ?? 0;
-  payload[1] = vendorBytes[1] ?? 0;
-  payload[2] = vendorBytes[2] ?? 0;
+  payload.set(vendorIdBytes(block.vendorId, block.payload.subarray(0, 3)), 0);
   writeU16le(payload, 3, block.productCode);
   writeU32le(payload, 5, block.serialNumber);
-  payload[9] = block.isModelYear ? 0xff : (block.manufactureWeek ?? 0);
-  payload[10] = block.year === undefined ? 0 : Math.max(0, block.year - 2000) & 0xff;
-  payload[11] = productNameBytes.length & 0xff;
+  payload[9] = block.isModelYear ? 0xff : clampInt(block.manufactureWeek ?? 0, 0, 0xfe);
+  payload[10] = block.year === undefined ? 0 : clampInt(block.year - 2000, 0, 0xff);
+  payload[11] = productNameBytes.length;
   payload.set(productNameBytes, PRODUCT_ID_FIXED_LENGTH);
+  payload.set(trailing, PRODUCT_ID_FIXED_LENGTH + productNameBytes.length);
 
   return payload;
+}
+
+/** Bytes after the product name in the original payload (outside the layout). */
+function bytesAfterProductName(payload: Uint8Array): Uint8Array {
+  if (payload.length < PRODUCT_ID_FIXED_LENGTH) return new Uint8Array(0);
+  const nameEnd = PRODUCT_ID_FIXED_LENGTH + payload[11];
+  return nameEnd < payload.length ? payload.slice(nameEnd) : new Uint8Array(0);
+}
+
+/**
+ * Structured decode gate for tag 0x00: the declared name must fit the payload
+ * (edid-decode parse_displayid_product_id rejects a longer one).
+ */
+export function isV1ProductIdentificationPayloadValid(payload: Uint8Array): boolean {
+  return (
+    isV1ProductIdentificationPayloadLengthValid(payload.length) &&
+    payload[11] <= payload.length - PRODUCT_ID_FIXED_LENGTH
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -139,10 +154,10 @@ export function encodeV1DisplayParametersBlock(block: DisplayIdV1DisplayParamete
   writeU16le(payload, 2, block.verticalImageSizeTenthsMm);
   writeU16le(payload, 4, block.horizontalPixelCount);
   writeU16le(payload, 6, block.verticalPixelCount);
-  payload[8] = block.featureSupportFlags & 0xff;
-  payload[9] = block.gamma & 0xff;
-  payload[10] = block.aspectRatio & 0xff;
-  payload[11] = ((block.overallColorDepthCode & 0x0f) << 4) | (block.nativeColorDepthCode & 0x0f);
+  payload[8] = clampBits(block.featureSupportFlags, 8);
+  payload[9] = clampBits(block.gamma, 8);
+  payload[10] = clampBits(block.aspectRatio, 8);
+  payload[11] = (clampBits(block.overallColorDepthCode, 4) << 4) | clampBits(block.nativeColorDepthCode, 4);
 
   return payload;
 }
@@ -167,7 +182,7 @@ export function decodeV1TypeITimingBlock(block: DisplayIdDataBlock): DisplayIdV1
       aspectRatio: options & 0x0f,
       interlaced: (options & 0x10) !== 0,
       stereo: (options >> 5) & 0x03,
-      preferred: (options & 0x80) !== 0,
+      ...decodeOptionsBit7(options, block.revision),
       horizontalActive: 1 + readU16le(block.payload, offset + 4),
       horizontalBlanking: 1 + readU16le(block.payload, offset + 6),
       horizontalSyncOffset: 1 + readFrontPorch(block.payload, offset + 8),
@@ -194,22 +209,22 @@ export function encodeV1TypeITimingBlock(block: DisplayIdV1TypeIDetailedTimingBl
   block.timings.forEach((timing, index) => {
     const offset = index * TYPE_I_TIMING_ENTRY_LENGTH;
     // Reverse the 10 kHz scaling: raw24 = pixclk_khz / 10 - 1.
-    writeU24le(payload, offset, clampNonNeg(Math.floor(timing.pixelClockKHz / 10) - 1));
+    writeU24le(payload, offset, clampMinusOne(Math.floor(timing.pixelClockKHz / 10), 24));
 
     payload[offset + 3] =
-      (timing.aspectRatio & 0x0f) |
+      clampBits(timing.aspectRatio, 4) |
       (timing.interlaced ? 0x10 : 0) |
-      ((timing.stereo & 0x03) << 5) |
-      (timing.preferred ? 0x80 : 0);
+      (clampBits(timing.stereo, 2) << 5) |
+      encodeOptionsBit7(timing, block.revision);
 
-    writeU16le(payload, offset + 4, clampNonNeg(timing.horizontalActive - 1));
-    writeU16le(payload, offset + 6, clampNonNeg(timing.horizontalBlanking - 1));
-    writeFrontPorch(payload, offset + 8, clampNonNeg(timing.horizontalSyncOffset - 1), timing.horizontalSyncPolarity);
-    writeU16le(payload, offset + 10, clampNonNeg(timing.horizontalSyncWidth - 1));
-    writeU16le(payload, offset + 12, clampNonNeg(timing.verticalActive - 1));
-    writeU16le(payload, offset + 14, clampNonNeg(timing.verticalBlanking - 1));
-    writeFrontPorch(payload, offset + 16, clampNonNeg(timing.verticalSyncOffset - 1), timing.verticalSyncPolarity);
-    writeU16le(payload, offset + 18, clampNonNeg(timing.verticalSyncWidth - 1));
+    writeU16le(payload, offset + 4, clampMinusOne(timing.horizontalActive, 16));
+    writeU16le(payload, offset + 6, clampMinusOne(timing.horizontalBlanking, 16));
+    writeFrontPorch(payload, offset + 8, clampMinusOne(timing.horizontalSyncOffset, 15), timing.horizontalSyncPolarity);
+    writeU16le(payload, offset + 10, clampMinusOne(timing.horizontalSyncWidth, 16));
+    writeU16le(payload, offset + 12, clampMinusOne(timing.verticalActive, 16));
+    writeU16le(payload, offset + 14, clampMinusOne(timing.verticalBlanking, 16));
+    writeFrontPorch(payload, offset + 16, clampMinusOne(timing.verticalSyncOffset, 15), timing.verticalSyncPolarity);
+    writeU16le(payload, offset + 18, clampMinusOne(timing.verticalSyncWidth, 16));
   });
 
   return payload;
@@ -228,11 +243,14 @@ export function decodeV1TiledDisplayTopologyBlock(
   const b2 = p[2] ?? 0;
   const b3 = p[3] ?? 0;
 
-  // 6-bit packed topology & location (payload[1..3]); human value = stored + 1.
+  // 6-bit packed topology & location (payload[1..3]). Tile counts are
+  // stored minus one (human = stored + 1); tile locations are 0-based
+  // indices kept as stored — edid-decode prints `num_h_tile + 1` but
+  // `tile_h_location` as-is.
   const tileCountVertical = ((b1 & 0x0f) | (b3 & 0x30)) + 1;
   const tileCountHorizontal = ((b1 >> 4) | ((b3 & 0xc0) >> 2)) + 1;
-  const tileLocationVertical = ((b2 & 0x0f) | ((b3 & 0x03) << 4)) + 1;
-  const tileLocationHorizontal = ((b2 >> 4) | ((b3 & 0x0c) << 2)) + 1;
+  const tileLocationVertical = (b2 & 0x0f) | ((b3 & 0x03) << 4);
+  const tileLocationHorizontal = (b2 >> 4) | ((b3 & 0x0c) << 2);
 
   return {
     ...block,
@@ -268,15 +286,15 @@ export function encodeV1TiledDisplayTopologyBlock(
 
   payload[0] =
     reservedBit5 |
-    (block.singleTileBehavior & 0x07) |
-    ((block.subsetTileBehavior & 0x03) << 3) |
+    clampBits(block.singleTileBehavior, 3) |
+    (clampBits(block.subsetTileBehavior, 2) << 3) |
     (block.bezelInfoPresent ? 0x40 : 0) |
     (block.singleEnclosure ? 0x80 : 0);
 
   const vCount = clamp6(block.tileCountVertical - 1);
   const hCount = clamp6(block.tileCountHorizontal - 1);
-  const vLoc = clamp6(block.tileLocationVertical - 1);
-  const hLoc = clamp6(block.tileLocationHorizontal - 1);
+  const vLoc = clamp6(block.tileLocationVertical);
+  const hLoc = clamp6(block.tileLocationHorizontal);
   payload[1] = ((hCount & 0x0f) << 4) | (vCount & 0x0f);
   payload[2] = ((hLoc & 0x0f) << 4) | (vLoc & 0x0f);
   payload[3] =
@@ -287,16 +305,13 @@ export function encodeV1TiledDisplayTopologyBlock(
 
   writeU16le(payload, 4, clamp16(block.tileWidthPixels - 1));
   writeU16le(payload, 6, clamp16(block.tileHeightPixels - 1));
-  payload[8] = block.pixelMultiplier & 0xff;
-  payload[9] = block.topBezelSize & 0xff;
-  payload[10] = block.bottomBezelSize & 0xff;
-  payload[11] = block.rightBezelSize & 0xff;
-  payload[12] = block.leftBezelSize & 0xff;
+  payload[8] = clampBits(block.pixelMultiplier, 8);
+  payload[9] = clampBits(block.topBezelSize, 8);
+  payload[10] = clampBits(block.bottomBezelSize, 8);
+  payload[11] = clampBits(block.rightBezelSize, 8);
+  payload[12] = clampBits(block.leftBezelSize, 8);
 
-  const vendorBytes = encodeAscii(block.vendorId);
-  payload[13] = vendorBytes[0] ?? 0;
-  payload[14] = vendorBytes[1] ?? 0;
-  payload[15] = vendorBytes[2] ?? 0;
+  payload.set(vendorIdBytes(block.vendorId, block.payload.subarray(13, 16)), 13);
   writeU16le(payload, 16, clamp16(block.productId));
   writeU32le(payload, 18, block.serialNumber);
 
@@ -325,7 +340,7 @@ export function decodeV1VendorSpecificBlock(block: DisplayIdDataBlock): DisplayI
 
 export function encodeV1VendorSpecificBlock(block: DisplayIdV1VendorSpecificBlock): Uint8Array {
   const payload = new Uint8Array(V1_VENDOR_SPECIFIC_MIN_PAYLOAD_LENGTH + block.vendorPayload.length);
-  writeIeeeOui(payload, 0, block.ieeeOui);
+  writeIeeeOui(payload, 0, clampBits(block.ieeeOui, 24));
   payload.set(block.vendorPayload, V1_VENDOR_SPECIFIC_MIN_PAYLOAD_LENGTH);
   return payload;
 }
@@ -404,8 +419,9 @@ function readU16le(data: Uint8Array, offset: number): number {
 }
 
 function writeU16le(data: Uint8Array, offset: number, value: number): void {
-  data[offset] = value & 0xff;
-  data[offset + 1] = (value >> 8) & 0xff;
+  const v = clampBits(value, 16);
+  data[offset] = v & 0xff;
+  data[offset + 1] = (v >> 8) & 0xff;
 }
 
 function readU24le(data: Uint8Array, offset: number): number {
@@ -425,10 +441,11 @@ function readU32le(data: Uint8Array, offset: number): number {
 }
 
 function writeU32le(data: Uint8Array, offset: number, value: number): void {
-  data[offset] = value & 0xff;
-  data[offset + 1] = (value >> 8) & 0xff;
-  data[offset + 2] = (value >> 16) & 0xff;
-  data[offset + 3] = (value >> 24) & 0xff;
+  const v = clampBits(value, 32);
+  data[offset] = v & 0xff;
+  data[offset + 1] = (v >>> 8) & 0xff;
+  data[offset + 2] = (v >>> 16) & 0xff;
+  data[offset + 3] = (v >>> 24) & 0xff;
 }
 
 /** Front porch: 14-bit value (low 8 in byte n, high 6 in byte n+1 bits 6:0); byte n+1 bit 7 is sync polarity. */
@@ -451,14 +468,26 @@ function clamp16(value: number): number {
   return Math.max(0, Math.min(0xffff, value | 0));
 }
 
-function clampNonNeg(value: number): number {
-  return value < 0 ? 0 : Math.floor(value);
-}
-
 function decodeAscii(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => String.fromCharCode(byte & 0x7f)).join('');
 }
 
+/**
+ * Bytes for an ASCII string field. The decoded string drops bit 7 of each
+ * byte, so while the string still reads the same as `original` the original
+ * bytes are kept (byte-exact); otherwise the string is encoded.
+ */
+function asciiFieldBytes(value: string, original: Uint8Array): Uint8Array {
+  return decodeAscii(original) === value ? original.slice() : encodeAscii(value);
+}
+
+/** The 3-byte vendor ID, padded with 0x00 / cut to 3 bytes. */
+function vendorIdBytes(vendorId: string, original: Uint8Array): Uint8Array {
+  const out = new Uint8Array(3);
+  out.set(asciiFieldBytes(vendorId, original).subarray(0, 3));
+  return out;
+}
+
 function encodeAscii(value: string): Uint8Array {
-  return new Uint8Array(Array.from(value, (ch) => ch.charCodeAt(0) & 0xff));
+  return new Uint8Array(Array.from(value, (ch) => clampBits(ch.charCodeAt(0), 8)));
 }

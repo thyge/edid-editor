@@ -73,12 +73,13 @@ function clamp(value: number, max: number): number {
             <Input type="number" min="1" max="64" :model-value="block.tileCountVertical" @input="update(index, block, { tileCountVertical: clamp(numberFromEvent($event), 64) || 1 })" />
           </div>
           <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">Horizontal tile location (1-64)</label>
-            <Input type="number" min="1" max="64" :model-value="block.tileLocationHorizontal" @input="update(index, block, { tileLocationHorizontal: clamp(numberFromEvent($event), 64) || 1 })" />
+            <!-- Tile locations are 0-based, as edid-decode prints them. -->
+            <label class="text-xs text-muted-foreground">Horizontal tile location (0-63)</label>
+            <Input type="number" min="0" max="63" :model-value="block.tileLocationHorizontal" @input="update(index, block, { tileLocationHorizontal: clamp(numberFromEvent($event), 63) })" />
           </div>
           <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">Vertical tile location (1-64)</label>
-            <Input type="number" min="1" max="64" :model-value="block.tileLocationVertical" @input="update(index, block, { tileLocationVertical: clamp(numberFromEvent($event), 64) || 1 })" />
+            <label class="text-xs text-muted-foreground">Vertical tile location (0-63)</label>
+            <Input type="number" min="0" max="63" :model-value="block.tileLocationVertical" @input="update(index, block, { tileLocationVertical: clamp(numberFromEvent($event), 63) })" />
           </div>
           <div class="space-y-1">
             <label class="text-xs text-muted-foreground">Tile width (pixels, 1-65536)</label>

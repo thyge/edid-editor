@@ -179,13 +179,8 @@ export const CVT_BLANKING_LABELS: Record<CVTBlankingMode, string> = {
  * selector and reality agree on load. CEA-861 first — a DTD
  * matching a CTA-861 VIC snaps to `cea-861` with that VIC selected — then the
  * exact CVT classifier ({@link classifyDetailedTiming}, the same engine the
- * card's timing-type badge shows), else `custom`.
- *
- * Note: {@link analyzeDetailedTimingAgainstCTA} compares the DTD's full-frame
- * verticalTotal against the VIC table's per-field vTotal for interlaced VICs,
- * a pre-existing ~2× mismatch, so interlaced CEA DTDs fall
- * through to CVT/custom here. The user can still pick `cea-861` + the VIC by
- * hand.
+ * card's timing-type badge shows), else `custom`. Interlaced DTDs are stored
+ * per field, which both classifiers account for, so a 1080i DTD snaps to VIC 5.
  */
 function inferEditorMode(timing: DetailedTiming): {
   mode: TimingEditorMode

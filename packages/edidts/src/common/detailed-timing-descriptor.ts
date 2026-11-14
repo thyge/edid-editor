@@ -184,12 +184,31 @@ export function normalizeDetailedTiming(data?: DetailedTimingInput): DetailedTim
 }
 
 /**
+ * Lines per vertical period used for the refresh rate. A DTD stores an
+ * interlaced timing per field (EDID 1.4 §3.10.3: "vertical active lines per
+ * field"), and each field also carries half a line — edid-decode's calc_fps
+ * divides by `vact_field + vblank + 0.5` for interlaced timings.
+ */
+function verticalPeriodLines(timing: DetailedTiming): number {
+  const lines = timing.verticalActive + timing.verticalBlanking;
+  return timing.flags.interlaced ? lines + 0.5 : lines;
+}
+
+/**
+ * The frame height of a timing: a DTD stores interlaced timings per field,
+ * so a 1080i timing has `verticalActive` 540 and a 1080-line frame.
+ */
+export function frameVerticalActive(timing: Pick<DetailedTiming, 'verticalActive' | 'flags'>): number {
+  return timing.flags.interlaced ? timing.verticalActive * 2 : timing.verticalActive;
+}
+
+/**
  * Derive the refresh rate (Hz) for any {@link DetailedTiming}-shaped object
  * (base-block DTD or CTA-861 DTD). Single source of truth for the UI card and
  * the {@link DetailedTimingDescriptor.refreshRate} getter.
  *
- * For interlaced timings the result is the field rate (pixel clock / total
- * pixels per frame, doubled) — the user-facing "60 Hz" convention for 1080i.
+ * For interlaced timings the result is the field rate — the user-facing
+ * "60 Hz" of 1080i60, matching edid-decode (74.25 MHz / (2200 × 562.5) = 60).
  */
 export function computeRefreshRate(timing: DetailedTiming): number {
   const horizontalTotal = timing.horizontalActive + timing.horizontalBlanking;
@@ -199,15 +218,7 @@ export function computeRefreshRate(timing: DetailedTiming): number {
     return 0;
   }
 
-  // Refresh rate = pixel clock (MHz) * 1,000,000 / (horizontal total * vertical total)
-  let rate = (timing.pixelClock * 1_000_000) / (horizontalTotal * verticalTotal);
-
-  // For interlaced, the field rate is doubled
-  if (timing.flags.interlaced) {
-    rate *= 2;
-  }
-
-  return rate;
+  return (timing.pixelClock * 1_000_000) / (horizontalTotal * verticalPeriodLines(timing));
 }
 
 /**
@@ -218,7 +229,7 @@ export function computeRefreshRate(timing: DetailedTiming): number {
  * derived, unlike the CVT generator which owns the blanking too.
  *
  * For interlaced timings `refreshRate` is the field rate (the user-facing
- * convention, same as computeRefreshRate), so the required clock is halved.
+ * convention, same as computeRefreshRate) over the per-field line count.
  *
  * Returns null when the timing has no usable geometry, the rate is not
  * positive, or the quantized clock would fall outside (0, `maxClockMhz`] —
@@ -236,10 +247,8 @@ export function computePixelClockForTargetRate(
     return null;
   }
 
-  // computeRefreshRate: rate = clock * 1e6 / (hTotal * vTotal), doubled when
-  // interlaced — solve for the clock with the matching field factor.
-  const interlaceFields = timing.flags.interlaced ? 2 : 1;
-  const clockMhz = (refreshRate * horizontalTotal * verticalTotal) / (interlaceFields * 1_000_000);
+  // Inverse of computeRefreshRate: rate = clock * 1e6 / (hTotal * period lines).
+  const clockMhz = (refreshRate * horizontalTotal * verticalPeriodLines(timing)) / 1_000_000;
 
   // Quantize to the DTD's 10 kHz field resolution (0.01 MHz).
   const quantized = Math.round(clockMhz * 100) / 100;
@@ -609,8 +618,10 @@ export class DetailedTimingDescriptor {
    * Get display resolution as a string (e.g., "1920×1080")
    */
   get resolution(): string {
+    // Interlaced timings are named by their frame height (1920×1080i), as
+    // edid-decode does, although the DTD stores 540 lines per field.
     const suffix = this.flags.interlaced ? 'i' : 'p';
-    return `${this.horizontalActive}×${this.verticalActive}${suffix}`;
+    return `${this.horizontalActive}×${frameVerticalActive(this)}${suffix}`;
   }
 
   /**

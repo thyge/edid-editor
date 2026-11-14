@@ -29,6 +29,7 @@ import { decodeYCbCr420CapabilityMapBlock, encodeYCbCr420CapabilityMapBlock } fr
 import type { YCbCr420CapabilityMapDataBlock } from './vcdb/ycbcr420-capability-map';
 import { decodeYCbCr420VideoBlock, encodeYCbCr420VideoBlock } from './vcdb/ycbcr420-video';
 import type { YCbCr420VideoDataBlock } from './vcdb/ycbcr420-video';
+import { clampByte, clampInt, keepShortLength } from './byte-utils';
 
 export type ExtendedTagCode =
   | 0x00  // Video Capability Data Block
@@ -55,7 +56,13 @@ export interface ExtendedDataBlock extends CEADataBlock {
 
 /**
  * Colorimetry Data Block (Extended Tag 5)
- * Defines supported colorimetry standards
+ * Defines supported colorimetry standards.
+ *
+ * Layout per CTA-861-G §7.5.5 / CTA-861.6 and edid-decode
+ * `cta_colorimetry_block` (parse-cta-block.cpp): byte 1 bits 7:0 are
+ * BT2020RGB … xvYCC601; byte 2 bit 7 ST 2113 RGB (DCI-P3), bit 6 ICtCp,
+ * bit 5 sRGB, bit 4 Default, bits 3:1 reserved (F41-F43), bit 0 MD0 (Gamut
+ * Boundary Description Metadata Profile P0).
  */
 export interface ColorimetryDataBlock extends ExtendedDataBlock {
   extendedTag: 0x05;
@@ -67,15 +74,42 @@ export interface ColorimetryDataBlock extends ExtendedDataBlock {
   bt2020cYCC: boolean;
   bt2020YCC: boolean;
   bt2020RGB: boolean;
+  /** Byte 2 bit 7: DCI-P3 (CTA-861-G), named ST 2113 RGB since CTA-861-H. */
   dciP3: boolean;
+  /** Byte 2 bit 6: ICtCp. */
+  ictcp: boolean;
+  /** Byte 2 bit 5: sRGB (CTA-861.6). */
+  sRGB: boolean;
+  /** Byte 2 bit 4: Default RGB colorimetry (CTA-861.6). */
+  defaultRGB: boolean;
+  /** Byte 2 bit 0: MD0, Gamut Boundary Description Metadata Profile P0. */
+  gamutMetadataP0: boolean;
+  /**
+   * Byte 2 bits 3:1 (MD1-MD3 in CTA-861-G, reserved F41-F43 since), shifted
+   * down (0–7). Kept so they survive a re-encode. Optional; absent means 0.
+   */
+  metadataReserved?: number;
+  /** Bytes after byte 2, kept verbatim. Set only when present. */
+  trailing?: Uint8Array;
+  /**
+   * Body length when the block was shorter than its 2 bytes (real EDIDs ship
+   * 1-byte Colorimetry blocks); encode keeps it until a byte-2 flag is set.
+   */
+  shortLength?: number;
 }
+
+/** Boolean flag fields of `ColorimetryDataBlock` (one per wire bit). */
+export type ColorimetryFlagKey =
+  | 'xvYCC601' | 'xvYCC709' | 'sYCC601' | 'opYCC601' | 'opRGB'
+  | 'bt2020cYCC' | 'bt2020YCC' | 'bt2020RGB'
+  | 'dciP3' | 'ictcp' | 'sRGB' | 'defaultRGB' | 'gamutMetadataP0';
 
 /**
  * Colorimetry Data Block flag options (CTA-861-G §7.5.5). `key` matches the
  * boolean-field name on `ColorimetryDataBlock`; `label` is the display string.
  */
 export const COLORIMETRY_FLAGS: ReadonlyArray<{
-  key: keyof Omit<ColorimetryDataBlock, 'tag' | 'extendedTag' | 'payload'>;
+  key: ColorimetryFlagKey;
   label: string;
 }> = [
   { key: 'xvYCC601', label: 'xvYCC601' },
@@ -86,7 +120,11 @@ export const COLORIMETRY_FLAGS: ReadonlyArray<{
   { key: 'bt2020cYCC', label: 'BT.2020 cYCC' },
   { key: 'bt2020YCC', label: 'BT.2020 YCC' },
   { key: 'bt2020RGB', label: 'BT.2020 RGB' },
-  { key: 'dciP3', label: 'DCI-P3' },
+  { key: 'dciP3', label: 'DCI-P3 (ST 2113 RGB)' },
+  { key: 'ictcp', label: 'ICtCp' },
+  { key: 'sRGB', label: 'sRGB' },
+  { key: 'defaultRGB', label: 'Default RGB' },
+  { key: 'gamutMetadataP0', label: 'Gamut Metadata P0 (MD0)' },
 ];
 
 /**
@@ -112,11 +150,35 @@ export interface HDRDynamicMetadataDataBlock extends ExtendedDataBlock {
 
 /**
  * Room Configuration Data Block (Extended Tag 19)
+ *
+ * CTA-861-G §7.5.15; layout per edid-decode `cta_rcdb` (parse-cta-block.cpp):
+ *   byte 0     bit 7 Display, bit 6 Speaker, bit 5 SLD,
+ *              bits 4:0 speaker count − 1 (meaningful when Speaker is set)
+ *   bytes 1-3  Speaker Presence Mask, 24-bit little-endian (same bit order
+ *              as the Speaker Allocation Data Block)
+ *   bytes 4-6  Xmax, Ymax, Zmax in decimeters (optional)
+ *   bytes 7-9  Display X/Y/Z, signed 1.6 fractions of the max (optional)
  */
 export interface RoomConfigurationDataBlock extends ExtendedDataBlock {
   extendedTag: 0x13;
+  /** Byte 0 bit 7: the Display coordinates (bytes 7-9) are valid. */
+  display: boolean;
+  /** Byte 0 bit 6: the speaker count is valid. */
+  speaker: boolean;
+  /** Byte 0 bit 5: a Speaker Location Data Block is present. */
+  sld: boolean;
+  /** Byte 0 bits 4:0 + 1 (1–32). */
   speakerCount: number;
-  speakerPresenceDescriptor: number;
+  /** Bytes 1-3: 24-bit Speaker Presence Mask. */
+  speakerPresenceMask: number;
+  /** Bytes 4-6: Xmax/Ymax/Zmax in dm (0–255), present iff the block carries them. */
+  max?: { x: number; y: number; z: number };
+  /** Bytes 7-9: display position as fractions of the max (signed 1.6, −2..+1.984). */
+  displayPosition?: { x: number; y: number; z: number };
+  /** Bytes after the last complete group (malformed lengths), kept verbatim. */
+  trailing: Uint8Array;
+  /** Body length when the block was shorter than its 4 mandatory bytes. */
+  shortLength?: number;
 }
 
 /**
@@ -135,6 +197,10 @@ export interface SpeakerLocationDataBlock extends ExtendedDataBlock {
     active: boolean;        // bit 5 of byte 0
     /** Present iff the COORD flag (bit 6 of byte 0) is set. */
     coordinates?: { x: number; y: number; z: number };
+    /** Byte 0 bit 7 (reserved), kept so it survives a re-encode. Set only when on. */
+    channelReserved?: boolean;
+    /** Byte 1 bits 7:5 (reserved), shifted down (0–7). Set only when non-zero. */
+    speakerIdReserved?: number;
   }>;
   /** Bytes after the last complete descriptor (preserved for byte-exact round-trip). */
   trailing: Uint8Array;
@@ -431,6 +497,12 @@ export interface VESAVideoDisplayDeviceDataBlock extends ExtendedDataBlock {
   overscanHorizontal: number;
   /** x[0x1d] bits 3:0 — overscan vertical, %. */
   overscanVertical: number;
+  /** x[0x0e] bits 2:0 (reserved), kept so they survive a re-encode. Optional; absent means 0. */
+  reserved0e?: number;
+  /** x[0x0f] bits 4:0 (reserved). Optional; absent means 0. */
+  reserved0f?: number;
+  /** x[0x15] bits 3:2 (reserved), shifted down (0–3). Optional; absent means 0. */
+  reserved15?: number;
   /** Bytes after the 30-byte model (present only for over-length payloads). */
   trailing: Uint8Array;
 }
@@ -622,10 +694,10 @@ export function decodeExtendedDataBlock(blockData: Uint8Array): CTAExtendedDataB
 }
 
 function decodeColorimetryBlock(base: ExtendedDataBlock, payload: Uint8Array): ColorimetryDataBlock {
-  const byte1 = payload[0] || 0;
-  const byte2 = payload[1] || 0;
+  const byte1 = payload[0] ?? 0;
+  const byte2 = payload[1] ?? 0;
 
-  return {
+  const block: ColorimetryDataBlock = {
     ...base,
     extendedTag: 0x05,
     xvYCC601: (byte1 & 0x01) !== 0,
@@ -637,7 +709,15 @@ function decodeColorimetryBlock(base: ExtendedDataBlock, payload: Uint8Array): C
     bt2020YCC: (byte1 & 0x40) !== 0,
     bt2020RGB: (byte1 & 0x80) !== 0,
     dciP3: (byte2 & 0x80) !== 0,
+    ictcp: (byte2 & 0x40) !== 0,
+    sRGB: (byte2 & 0x20) !== 0,
+    defaultRGB: (byte2 & 0x10) !== 0,
+    gamutMetadataP0: (byte2 & 0x01) !== 0,
   };
+  if (byte2 & 0x0e) block.metadataReserved = (byte2 >> 1) & 0x07;
+  if (payload.length < 2) block.shortLength = payload.length;
+  if (payload.length > 2) block.trailing = payload.slice(2);
+  return block;
 }
 
 function decodeHDRDynamicMetadataBlock(base: ExtendedDataBlock, payload: Uint8Array): HDRDynamicMetadataDataBlock {
@@ -730,6 +810,9 @@ function decodeVESAVideoDisplayDeviceBlock(base: ExtendedDataBlock, payload: Uin
     responseTimeMs: b(0x1c) & 0x7f,
     overscanHorizontal: b(0x1d) >> 4,
     overscanVertical: b(0x1d) & 0x0f,
+    ...(b(0x0e) & 0x07 ? { reserved0e: b(0x0e) & 0x07 } : {}),
+    ...(b(0x0f) & 0x1f ? { reserved0f: b(0x0f) & 0x1f } : {}),
+    ...(b(0x15) & 0x0c ? { reserved15: (b(0x15) >> 2) & 0x03 } : {}),
     trailing: new Uint8Array(),
   };
 }
@@ -744,12 +827,38 @@ function decodeVESAVideoTimingBlockExtension(base: ExtendedDataBlock, payload: U
 }
 
 function decodeRoomConfigurationBlock(base: ExtendedDataBlock, payload: Uint8Array): RoomConfigurationDataBlock {
-  return {
+  // Layout per edid-decode `cta_rcdb`: flags/count byte, 24-bit LE speaker
+  // mask, then the optional Xmax/Ymax/Zmax and Display X/Y/Z triples.
+  const flags = payload[0] ?? 0;
+  const block: RoomConfigurationDataBlock = {
     ...base,
     extendedTag: 0x13,
-    speakerCount: payload[0] || 0,
-    speakerPresenceDescriptor: payload[1] || 0,
+    display: (flags & 0x80) !== 0,
+    speaker: (flags & 0x40) !== 0,
+    sld: (flags & 0x20) !== 0,
+    speakerCount: (flags & 0x1f) + 1,
+    speakerPresenceMask: (payload[1] ?? 0) | ((payload[2] ?? 0) << 8) | ((payload[3] ?? 0) << 16),
+    trailing: new Uint8Array(),
   };
+  if (payload.length < 4) {
+    block.shortLength = payload.length;
+    return block;
+  }
+  let i = 4;
+  if (payload.length >= 7) {
+    block.max = { x: payload[4], y: payload[5], z: payload[6] };
+    i = 7;
+  }
+  if (payload.length >= 10) {
+    block.displayPosition = {
+      x: decodeCoordinate(payload[7]),
+      y: decodeCoordinate(payload[8]),
+      z: decodeCoordinate(payload[9]),
+    };
+    i = 10;
+  }
+  block.trailing = payload.slice(i);
+  return block;
 }
 
 /** Decode a signed 1.6 two's-complement coordinate byte (Table 94): value = signedByte / 64. */
@@ -782,6 +891,9 @@ function decodeSpeakerLocationBlock(base: ExtendedDataBlock, payload: Uint8Array
       speakerId: byte1 & 0x1f,
       active: (byte0 & 0x20) !== 0,
     };
+    // Reserved bits: byte 0 bit 7 and byte 1 bits 7:5 (Table 93).
+    if (byte0 & 0x80) descriptor.channelReserved = true;
+    if (byte1 & 0xe0) descriptor.speakerIdReserved = byte1 >> 5;
     if (coord) {
       descriptor.coordinates = {
         x: decodeCoordinate(payload[i + 2]),
@@ -829,10 +941,13 @@ function encodeSpeakerLocationBlock(block: SpeakerLocationDataBlock): Uint8Array
   const bytes = [0x14];
   for (const d of block.descriptors) {
     let byte0 = 0;
+    if (d.channelReserved) byte0 |= 0x80;      // reserved, kept as decoded
     if (d.coordinates) byte0 |= 0x40;          // COORD
     if (d.active) byte0 |= 0x20;                // Active
-    byte0 |= d.channelIndex & 0x1f;            // Channel Index
-    const byte1 = d.speakerId & 0x1f;           // Speaker ID
+    byte0 |= clampInt(d.channelIndex, 0, 31);  // Channel Index
+    const byte1 =
+      (clampInt(d.speakerIdReserved ?? 0, 0, 7) << 5) | // reserved, kept as decoded
+      clampInt(d.speakerId, 0, 31);             // Speaker ID
     bytes.push(byte0, byte1);
     if (d.coordinates) {
       bytes.push(
@@ -849,9 +964,10 @@ function encodeSpeakerLocationBlock(block: SpeakerLocationDataBlock): Uint8Array
 function encodeHDRDynamicMetadataBlock(block: HDRDynamicMetadataDataBlock): Uint8Array {
   const bytes = [0x07];
   for (const e of block.entries) {
-    const len = (3 + (e.optionalFields?.length ?? 0)) & 0xff;
+    const len = clampByte(3 + (e.optionalFields?.length ?? 0));
+    const type = clampInt(e.type, 0, 0xffff);
     bytes.push(len);
-    bytes.push(e.type & 0xff, (e.type >> 8) & 0xff, e.supportFlags & 0xff);
+    bytes.push(type & 0xff, type >> 8, clampByte(e.supportFlags));
     for (const b of e.optionalFields ?? []) bytes.push(b);
   }
   for (const b of block.trailing ?? []) bytes.push(b);
@@ -867,65 +983,77 @@ function encodeHDRDynamicMetadataBlock(block: HDRDynamicMetadataDataBlock): Uint
  */
 function encodeVESAVideoDisplayDeviceBlock(block: VESAVideoDisplayDeviceDataBlock): Uint8Array {
   const p = block;
+  // Every field is clamped to its bit width: a plain mask would wrap an
+  // out-of-range value into an unrelated one (min clock 64 MHz → 0 MHz).
+  const u2 = (v: number) => clampInt(v, 0, 0x03);
+  const u4 = (v: number) => clampInt(v, 0, 0x0f);
+  const u10 = (v: number) => clampInt(v, 0, 0x3ff);
+  const u16 = (v: number) => clampInt(v, 0, 0xffff);
+  const p4x = u10(p.primary4.x), p4y = u10(p.primary4.y);
+  const p5x = u10(p.primary5.x), p5y = u10(p.primary5.y);
+  const p6x = u10(p.primary6.x), p6y = u10(p.primary6.y);
+  const maxClock = u10(p.maxClockMHz);
+  const width = u16(p.nativePixelWidth);
+  const height = u16(p.nativePixelHeight);
+
   // Re-pack the additional-primary 10-bit values: high 8 bits into their own
   // bytes, low 2 bits collected into x[0x14] (P4/P5) and x[0x15] (P6 + count).
-  const byte14 =
-    ((p.primary4.x & 0x03) << 6) |
-    ((p.primary4.y & 0x03) << 4) |
-    ((p.primary5.x & 0x03) << 2) |
-    (p.primary5.y & 0x03);
+  const byte14 = ((p4x & 0x03) << 6) | ((p4y & 0x03) << 4) | ((p5x & 0x03) << 2) | (p5y & 0x03);
   const byte15 =
-    ((p.primary6.x & 0x03) << 6) |
-    ((p.primary6.y & 0x03) << 4) |
-    (p.additionalPrimaryCount & 0x03);
+    ((p6x & 0x03) << 6) |
+    ((p6y & 0x03) << 4) |
+    (u2(p.reserved15 ?? 0) << 2) |
+    u2(p.additionalPrimaryCount);
 
   // Audio delay: sign in bit 7 (set = positive), magnitude/2 in bits 6:0.
-  const adMag = Math.round(p.audioDelayMs / 2) & 0x7f;
+  const adMag = clampInt(p.audioDelayMs / 2, 0, 0x7f);
   const audioDelayByte = (p.audioDelayPositive ? 0x80 : 0) | adMag;
 
   const bytes = new Uint8Array(31 + p.trailing.length);
   bytes[0] = 0x02;
-  bytes[1] = ((p.interfaceCategory & 0x0f) << 4) | (p.interfaceDetail & 0x0f);
-  bytes[2] = ((p.interfaceStandardMajor & 0x0f) << 4) | (p.interfaceStandardMinor & 0x0f);
-  bytes[3] = p.contentProtection & 0xff;
-  bytes[4] = (p.minClockMHz << 2) | ((p.maxClockMHz >> 8) & 0x03);
-  bytes[5] = p.maxClockMHz & 0xff;
-  bytes[6] = p.nativePixelWidth & 0xff;
-  bytes[7] = (p.nativePixelWidth >> 8) & 0xff;
-  bytes[8] = p.nativePixelHeight & 0xff;
-  bytes[9] = (p.nativePixelHeight >> 8) & 0xff;
-  bytes[10] = p.aspectRatio & 0xff;
+  bytes[1] = (u4(p.interfaceCategory) << 4) | u4(p.interfaceDetail);
+  bytes[2] = (u4(p.interfaceStandardMajor) << 4) | u4(p.interfaceStandardMinor);
+  bytes[3] = clampByte(p.contentProtection);
+  bytes[4] = (clampInt(p.minClockMHz, 0, 0x3f) << 2) | (maxClock >> 8);
+  bytes[5] = maxClock & 0xff;
+  bytes[6] = width & 0xff;
+  bytes[7] = width >> 8;
+  bytes[8] = height & 0xff;
+  bytes[9] = height >> 8;
+  bytes[10] = clampByte(p.aspectRatio);
   bytes[11] =
-    ((p.orientation & 0x03) << 6) |
-    ((p.rotationCapability & 0x03) << 4) |
-    ((p.zeroPixelLocation & 0x03) << 2) |
-    (p.scanDirection & 0x03);
-  bytes[12] = p.subpixelInformation & 0xff;
-  bytes[13] = Math.round(p.horizontalPitchMm * 100) & 0xff;
-  bytes[14] = Math.round(p.verticalPitchMm * 100) & 0xff;
+    (u2(p.orientation) << 6) |
+    (u2(p.rotationCapability) << 4) |
+    (u2(p.zeroPixelLocation) << 2) |
+    u2(p.scanDirection);
+  bytes[12] = clampByte(p.subpixelInformation);
+  bytes[13] = clampByte(p.horizontalPitchMm * 100);
+  bytes[14] = clampByte(p.verticalPitchMm * 100);
   bytes[15] =
-    ((p.dithering & 0x03) << 6) |
+    (u2(p.dithering) << 6) |
     (p.directDrive ? 0x20 : 0) |
     (p.overdriveRecommended ? 0 : 0x10) |
-    (p.deinterlacing ? 0x08 : 0);
+    (p.deinterlacing ? 0x08 : 0) |
+    clampInt(p.reserved0e ?? 0, 0, 0x07);
   bytes[16] =
     (p.audioSupport ? 0x80 : 0) |
     (p.separateAudioInputs ? 0x40 : 0) |
-    (p.audioInputOverride ? 0x20 : 0);
+    (p.audioInputOverride ? 0x20 : 0) |
+    clampInt(p.reserved0f ?? 0, 0, 0x1f);
   bytes[17] = audioDelayByte;
-  bytes[18] = ((p.frameRateConversion & 0x03) << 6) | (p.frameRateRange & 0x3f);
-  bytes[19] = p.nominalFrameRate & 0xff;
-  bytes[20] = (((p.colorBitDepthInterface - 1) & 0x0f) << 4) | ((p.colorBitDepthDisplay - 1) & 0x0f);
+  bytes[18] = (u2(p.frameRateConversion) << 6) | clampInt(p.frameRateRange, 0, 0x3f);
+  bytes[19] = clampByte(p.nominalFrameRate);
+  bytes[20] = (clampInt(p.colorBitDepthInterface - 1, 0, 0x0f) << 4) | clampInt(p.colorBitDepthDisplay - 1, 0, 0x0f);
   bytes[21] = byte14;
   bytes[22] = byte15;
-  bytes[23] = (p.primary4.x >> 2) & 0xff;
-  bytes[24] = (p.primary4.y >> 2) & 0xff;
-  bytes[25] = (p.primary5.x >> 2) & 0xff;
-  bytes[26] = (p.primary5.y >> 2) & 0xff;
-  bytes[27] = (p.primary6.x >> 2) & 0xff;
-  bytes[28] = (p.primary6.y >> 2) & 0xff;
-  bytes[29] = ((p.responseTimeDirection & 0x01) << 7) | (p.responseTimeMs & 0x7f);
-  bytes[30] = ((p.overscanHorizontal & 0x0f) << 4) | (p.overscanVertical & 0x0f);
+  bytes[23] = p4x >> 2;
+  bytes[24] = p4y >> 2;
+  bytes[25] = p5x >> 2;
+  bytes[26] = p5y >> 2;
+  bytes[27] = p6x >> 2;
+  bytes[28] = p6y >> 2;
+  bytes[29] = (clampInt(p.responseTimeDirection, 0, 1) << 7) | clampInt(p.responseTimeMs, 0, 0x7f);
+  bytes[30] = (u4(p.overscanHorizontal) << 4) | u4(p.overscanVertical);
   bytes.set(p.trailing, 31);
   return bytes;
 }
@@ -939,7 +1067,33 @@ function encodeVESAVideoTimingBlockExtension(block: VESAVideoTimingBlockExtensio
 }
 
 function encodeRoomConfigurationBlock(block: RoomConfigurationDataBlock): Uint8Array {
-  return new Uint8Array([0x13, block.speakerCount & 0xff, block.speakerPresenceDescriptor & 0xff]);
+  const mask = clampInt(block.speakerPresenceMask, 0, 0xffffff);
+  const bytes = [
+    0x13,
+    (block.display ? 0x80 : 0) |
+      (block.speaker ? 0x40 : 0) |
+      (block.sld ? 0x20 : 0) |
+      (clampInt(block.speakerCount, 1, 32) - 1),
+    mask & 0xff,
+    (mask >> 8) & 0xff,
+    mask >> 16,
+  ];
+  // The optional triples are positional: Display X/Y/Z needs Xmax/Ymax/Zmax
+  // in front of it (written as 0 when unset).
+  if (block.max || block.displayPosition) {
+    const max = block.max ?? { x: 0, y: 0, z: 0 };
+    bytes.push(clampByte(max.x), clampByte(max.y), clampByte(max.z));
+  }
+  if (block.displayPosition) {
+    const d = block.displayPosition;
+    bytes.push(encodeCoordinate(d.x), encodeCoordinate(d.y), encodeCoordinate(d.z));
+  }
+  for (const b of block.trailing ?? []) bytes.push(b);
+  // shortLength counts body bytes; the output also carries the ext-tag byte.
+  return keepShortLength(
+    new Uint8Array(bytes),
+    block.shortLength === undefined ? undefined : block.shortLength + 1,
+  );
 }
 
 function encodeRoomEnvironmentBlock(block: RoomEnvironmentDataBlock): Uint8Array {
@@ -980,7 +1134,19 @@ function encodeColorimetryBlock(block: ColorimetryDataBlock): Uint8Array {
   if (block.bt2020YCC) byte1 |= 0x40;
   if (block.bt2020RGB) byte1 |= 0x80;
   if (block.dciP3) byte2 |= 0x80;
+  if (block.ictcp) byte2 |= 0x40;
+  if (block.sRGB) byte2 |= 0x20;
+  if (block.defaultRGB) byte2 |= 0x10;
+  byte2 |= clampInt(block.metadataReserved ?? 0, 0, 0x07) << 1;
+  if (block.gamutMetadataP0) byte2 |= 0x01;
 
-  return new Uint8Array([0x05, byte1, byte2]);
+  const trailing = block.trailing ?? new Uint8Array();
+  const out = new Uint8Array(3 + trailing.length);
+  out[0] = 0x05;
+  out[1] = byte1;
+  out[2] = byte2;
+  out.set(trailing, 3);
+  // shortLength counts body bytes; the output also carries the ext-tag byte.
+  return keepShortLength(out, block.shortLength === undefined ? undefined : block.shortLength + 1);
 }
 

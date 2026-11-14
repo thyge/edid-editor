@@ -219,35 +219,60 @@ export function getHdmiFrlRateLabel(rate: number): string {
   return HDMI_FRL_RATE_OPTIONS[rate]?.label ?? `Rate ${rate}`;
 }
 
+/**
+ * Microsoft HMD / Specialized Monitor VSDB (OUI CA-12-5C), per Microsoft's
+ * "EDID extension for head-mounted and specialized monitors" and edid-decode
+ * `cta_microsoft`: byte 0 version; byte 1 bit 6 Desktop Usage, bit 5
+ * Third-Party Usage, bits 4:0 Display Product Primary Use Case; bytes 2-17
+ * Container ID.
+ */
 export interface MicrosoftHMDVSDB {
+  /** Byte 0 (0–255). */
   version: number;
+  /** Byte 1 bit 6 (defined from version 3; 0 in versions 1-2). */
   desktopUsage: boolean;
+  /** Byte 1 bit 5, "Third-Party Usage" (defined from version 3). */
   nonMicrosoftUsage: boolean;
+  /** Byte 1 bits 4:0 (0–31), see MICROSOFT_HMD_USE_CASES. */
   primaryUseCase: number;
-  containerId: Uint8Array;  // 16-byte UUID
+  /** Bytes 2-17: 16-byte Container ID (UUID). Zero-padded when the block is shorter. */
+  containerId: Uint8Array;
+  /** Byte 1 bit 7 (reserved), kept so it survives a re-encode. Set only when on. */
+  flagsReserved?: boolean;
+  /** Bytes after the Container ID, kept verbatim. Set only when present. */
+  trailing?: Uint8Array;
+  /**
+   * Body length when the block was shorter than 18 bytes (malformed); encode
+   * keeps that length while the missing bytes stay zero.
+   */
+  payloadLength?: number;
 }
 
 /**
  * AMD FreeSync VSDB (OUI 0x00001A). Layout per edid-decode `cta_amd`
  * (parse-cta-block.cpp), reverse-engineered from real EDIDs:
- *   byte 0  versionMajor      — FreeSync version major
- *   byte 1  versionMinor      — FreeSync version minor
+ *   byte 0  version           — FreeSync VSDB version
+ *   byte 1  flags1            — Flags 1 (bit 0 FreeSync, bit 1 FreeSync 2
+ *                               HDR, bit 3 local dimming, …; raw)
  *   byte 2  minRefreshHz      — minimum refresh rate (Hz)
- *   byte 3  maxRefreshHz      — maximum refresh rate (Hz)
- *   byte 4  flags1            — FreeSync 1.x flags (raw); bits in 0xE6 ⇒ MCCS
- *   bytes 5.. trailing        — FreeSync 2.x extension, preserved verbatim.
- *                  edid-decode parses byte 5 as flags 2.x and bytes 6-9 as
- *                  max/min luminance (with and without local dimming) when
- *                  length >= 10, but marks those semantics as speculative, so
- *                  they are kept opaque here for round-trip safety.
+ *   byte 3  maxRefreshHz      — maximum refresh rate (Hz; version 3 moves it
+ *                               to bytes 10-11, kept in `trailing`)
+ *   byte 4  mccsVcpCode       — MCCS VCP code
+ *   bytes 5.. trailing        — version 2/3 fields (flags 5, luminance, …),
+ *                               preserved verbatim.
  */
 export interface AMDFreeSyncVSDB {
-  versionMajor: number;
-  versionMinor: number;
+  version: number;
+  flags1: number;
   minRefreshHz: number;
   maxRefreshHz: number;
-  flags1: number;
-  trailing: Uint8Array;     // bytes 5.. — FreeSync 2.x extension, preserved verbatim
+  mccsVcpCode: number;
+  trailing: Uint8Array;     // bytes 5.. — version 2/3 extension, preserved verbatim
+  /**
+   * Body length when the block was shorter than the 5-byte head (malformed);
+   * encode keeps that length while the missing bytes stay zero.
+   */
+  payloadLength?: number;
 }
 
 export interface MHLVSDB {
@@ -255,6 +280,11 @@ export interface MHLVSDB {
   revision: number;         // byte 0 bits 3:0 — MHL minor revision
   deviceCapability: number; // byte 1 — capability flags (raw byte; per-bit semantics unverified)
   trailing: Uint8Array;     // bytes 2.. — reserved/vendor-specific, preserved verbatim
+  /**
+   * Body length when the block was shorter than 2 bytes; encode keeps that
+   * length while the missing byte stays zero.
+   */
+  payloadLength?: number;
 }
 
 export type VendorSpecificDecoded =

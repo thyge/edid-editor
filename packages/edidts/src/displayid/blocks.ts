@@ -26,6 +26,7 @@ import {
   decodeProductIdentificationBlock,
   encodeProductIdentificationBlock,
   isProductIdentificationPayloadLengthValid,
+  isProductIdentificationPayloadValid,
 } from './product-identification';
 import {
   decodeTypeVIITimingBlock,
@@ -119,7 +120,7 @@ import {
   isTypedV1TypeITimingBlock,
   isTypedV1TiledDisplayTopologyBlock,
   isTypedV1VendorSpecificBlock,
-  isV1ProductIdentificationPayloadLengthValid,
+  isV1ProductIdentificationPayloadValid,
   isV1DisplayParametersPayloadLengthValid,
   isV1TypeITimingPayloadLengthValid,
   isV1TiledDisplayTopologyPayloadLengthValid,
@@ -202,10 +203,10 @@ export function decodeDisplayIdBlocks(
   return { blocks, fillBytes };
 }
 
-export function encodeDisplayIdBlock(block: DisplayIdDataBlock): Uint8Array {
-  // An unedited block keeps its exact payload; an edited one is re-encoded
-  // from its structured fields.
-  const payload = encodePreservingSource(
+/** The payload bytes a block encodes to. An unedited block keeps its exact
+ *  payload; an edited one is re-encoded from its structured fields. */
+function encodeBlockPayload(block: DisplayIdDataBlock): Uint8Array {
+  return encodePreservingSource(
     block,
     (src) =>
       decodeKnownBlock({
@@ -217,6 +218,19 @@ export function encodeDisplayIdBlock(block: DisplayIdDataBlock): Uint8Array {
       }),
     encodeKnownPayload,
   );
+}
+
+/**
+ * Wire length of a block (3-byte header + payload). Unlike
+ * {@link encodeDisplayIdBlock} it does not throw for a payload over 255
+ * bytes, so size checks can report how far over the limit an edit went.
+ */
+export function getDisplayIdBlockWireLength(block: DisplayIdDataBlock): number {
+  return 3 + encodeBlockPayload(block).length;
+}
+
+export function encodeDisplayIdBlock(block: DisplayIdDataBlock): Uint8Array {
+  const payload = encodeBlockPayload(block);
 
   if (payload.length > 0xff) {
     throw new Error(
@@ -262,7 +276,7 @@ const DISPLAYID_BLOCK_CODECS: Partial<Record<number, DisplayIdBlockCodec>> = {
   // DisplayID 2.0 blocks (tags 0x20–0x2e, 0x7e, 0x81)
   [DisplayIdDataBlockTag.ProductIdentification]: {
     decode: (b) =>
-      isProductIdentificationPayloadLengthValid(b.payloadLength)
+      isProductIdentificationPayloadValid(b.payload)
         ? decodeProductIdentificationBlock(b)
         : OPAQUE_DISPLAYID_BLOCK.decode(b),
     encode: (b) =>
@@ -433,7 +447,7 @@ const DISPLAYID_BLOCK_CODECS: Partial<Record<number, DisplayIdBlockCodec>> = {
   // DisplayID 1.x blocks (tags 0x00, 0x01, 0x03, 0x12) — no tag overlap with v2.0.
   [DISPLAY_ID_V1_BLOCK_TAGS.ProductIdentification]: {
     decode: (b) =>
-      isV1ProductIdentificationPayloadLengthValid(b.payloadLength)
+      isV1ProductIdentificationPayloadValid(b.payload)
         ? decodeV1ProductIdentificationBlock(b)
         : OPAQUE_DISPLAYID_BLOCK.decode(b),
     encode: (b) =>
@@ -500,6 +514,19 @@ export function encodeKnownPayload(block: DisplayIdDataBlock): Uint8Array {
  */
 export function hasDisplayIdBlockCodec(tag: number): boolean {
   return Object.prototype.hasOwnProperty.call(DISPLAYID_BLOCK_CODECS, tag);
+}
+
+const RAW_BLOCK_KEYS: ReadonlySet<string> = new Set(['tag', 'revision', 'flags', 'payloadLength', 'payload']);
+
+/**
+ * True when `block` is a raw carrier with no decoded fields: an unknown tag,
+ * or a known tag whose payload did not fit its layout (wrong length, name
+ * longer than the payload, ...). Such a block encodes its `payload` verbatim,
+ * so a hex edit of the payload takes effect — while a structured editor
+ * would edit fields the block does not have and be silently ignored.
+ */
+export function isRawDisplayIdBlock(block: DisplayIdDataBlock): boolean {
+  return Object.keys(block).every((key) => RAW_BLOCK_KEYS.has(key));
 }
 
 function isTypedProductIdentificationBlock(block: DisplayIdDataBlock): block is DisplayIdProductIdentificationBlock {
@@ -590,8 +617,6 @@ function isTypedDynamicVideoTimingRangeLimitsBlock(
     isDynamicVideoTimingRangeLimitsPayloadLengthValid(block.payloadLength) &&
     typeof maybeBlock.minimumPixelClockKHz === 'number' &&
     typeof maybeBlock.maximumPixelClockKHz === 'number' &&
-    typeof maybeBlock.minimumHorizontalFrequencyHz === 'number' &&
-    typeof maybeBlock.maximumHorizontalFrequencyHz === 'number' &&
     typeof maybeBlock.minimumVerticalFrequencyHz === 'number' &&
     typeof maybeBlock.maximumVerticalFrequencyHz === 'number' &&
     typeof maybeBlock.seamlessDynamicVideoTiming === 'boolean'

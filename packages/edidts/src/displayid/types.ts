@@ -102,7 +102,7 @@ export interface DisplayIdDisplayParametersBlock extends DisplayIdDataBlock {
   minLuminance: number;
   /** Payload[27] bits 2:0 — native color depth (0 = not defined; else bpc444 code). */
   nativeColorDepth: number;
-  /** Payload[27] bits 6:3 — display device technology (0..7). */
+  /** Payload[27] bits 6:4 — display device technology (0 = not specified, 1 = AM-LCD, 2 = OLED; bit 3 is reserved). */
   displayDeviceTechnology: number;
   /** Payload[27] bit 7 — display device theme preference (meaningful when revision >= 1). */
   displayDeviceThemePreference: boolean;
@@ -127,8 +127,17 @@ export interface DisplayIdTypeVIIDetailedTiming extends DetailedTimingBase {
   interlaced: boolean;
   /** Byte 3 bits 6:5 — 3D stereo support (0=mono, 1=stereo, 2=user action, 3=reserved). */
   stereo: number;
-  /** Byte 3 bit 7 — preferred detailed timing. */
+  /**
+   * Byte 3 bit 7 when the data block revision is < 2 — preferred detailed
+   * timing. Always false from block revision 2 on, where bit 7 is `ycbcr420`
+   * (edid-decode parse_displayid_type_1_7_timing).
+   */
   preferred: boolean;
+  /**
+   * Byte 3 bit 7 when the data block revision is >= 2 — YCbCr 4:2:0 is
+   * supported for this timing. Always false (or absent) below revision 2.
+   */
+  ycbcr420?: boolean;
   /** Bytes 4-5 — horizontal active pixels (1 + raw16). */
   horizontalActive: number;
   /** Bytes 6-7 — horizontal blank pixels (1 + raw16). */
@@ -203,14 +212,30 @@ export interface DisplayIdTypeIXFormulaBasedTimingBlock extends DisplayIdDataBlo
   timings: DisplayIdTypeIXFormulaBasedTiming[];
 }
 
+/**
+ * DisplayID 2.0 §4.4 Dynamic Video Timing Range Limits Data Block (tag 0x25).
+ *
+ * Fixed 9-byte payload, laid out as edid-decode
+ * parse_displayid_dynamic_video_timings_range_limits reads it:
+ *   payload[0..2]  minimum pixel clock, kHz (1 + raw 24-bit LE)
+ *   payload[3..5]  maximum pixel clock, kHz (1 + raw 24-bit LE)
+ *   payload[6]     minimum vertical refresh rate, Hz
+ *   payload[7]     maximum vertical refresh rate, Hz (bits 7:0)
+ *   payload[8]     bits 1:0 = maximum refresh bits 9:8 (block revision 1 only),
+ *                  bit 7 = seamless dynamic video timing support;
+ *                  every other bit is reserved and kept as-is.
+ */
 export interface DisplayIdDynamicVideoTimingRangeLimitsBlock extends DisplayIdDataBlock {
   tag: DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits;
+  /** Minimum pixel clock in kHz (1 .. 16 777 216). */
   minimumPixelClockKHz: number;
+  /** Maximum pixel clock in kHz (1 .. 16 777 216). */
   maximumPixelClockKHz: number;
-  minimumHorizontalFrequencyHz: number;
-  maximumHorizontalFrequencyHz: number;
+  /** Minimum vertical refresh rate in Hz (0 .. 255). */
   minimumVerticalFrequencyHz: number;
+  /** Maximum vertical refresh rate in Hz (0 .. 255; 0 .. 1023 with block revision 1). */
   maximumVerticalFrequencyHz: number;
+  /** payload[8] bit 7 — seamless dynamic video timing change supported. */
   seamlessDynamicVideoTiming: boolean;
 }
 
@@ -327,8 +352,9 @@ export interface DisplayIdStereoDisplayInterfaceBlock extends DisplayIdDataBlock
  * DisplayID 2.0 §4.7 Tiled Display Topology Data Block (tag 0x28).
  *
  * Fixed 22-byte payload (Table 4-37). The four topology/location fields are
- * 6-bit values (0-63) packed across payload[1..3]; the model exposes them as
- * human 1-based values (1-64), storing value-1 on encode. Tile sizes are
+ * 6-bit values (0-63) packed across payload[1..3]. Tile counts are exposed as
+ * human 1-based values (1-64, stored value-1); tile locations are 0-based
+ * indices (0-63, stored as-is), as edid-decode prints them. Tile sizes are
  * 16-bit values exposed as human pixel counts (1-65536), storing value-1.
  */
 export interface DisplayIdTiledDisplayTopologyBlock extends DisplayIdDataBlock {
@@ -342,14 +368,14 @@ export interface DisplayIdTiledDisplayTopologyBlock extends DisplayIdDataBlock {
   bezelInfoPresent: boolean;
   /** bit 7 — single physical display enclosure (else multiple). */
   singleEnclosure: boolean;
-  // payload[1..3] — Tiled Display Topology & Tile Location (Table 4-39), human 1-64
+  // payload[1..3] — Tiled Display Topology & Tile Location (Table 4-39)
   /** 1-64 (stored as 6-bit value-1). */
   tileCountHorizontal: number;
   /** 1-64 (stored as 6-bit value-1). */
   tileCountVertical: number;
-  /** 1-64 (stored as 6-bit value-1). */
+  /** 0-63 — 0-based column of this tile (stored as-is). */
   tileLocationHorizontal: number;
-  /** 1-64 (stored as 6-bit value-1). */
+  /** 0-63 — 0-based row of this tile (stored as-is). */
   tileLocationVertical: number;
   // payload[4..7] — Tile Size (Table 4-40), human 1-65536
   /** 1-65536 pixels (stored as 16-bit value-1). */
@@ -576,9 +602,9 @@ export interface DisplayIdV1TiledDisplayTopologyBlock extends DisplayIdDataBlock
   tileCountHorizontal: number;
   /** 1-64 (stored as 6-bit value-1). */
   tileCountVertical: number;
-  /** 1-64 (stored as 6-bit value-1). */
+  /** 0-63 — 0-based column of this tile (stored as-is). */
   tileLocationHorizontal: number;
-  /** 1-64 (stored as 6-bit value-1). */
+  /** 0-63 — 0-based row of this tile (stored as-is). */
   tileLocationVertical: number;
   /** 1-65536 pixels (stored as 16-bit value-1). */
   tileWidthPixels: number;
@@ -723,8 +749,8 @@ export function createDefaultDisplayIdBlock(
         timings: [],
       };
     case DISPLAY_ID_V1_BLOCK_TAGS.TiledDisplayTopology:
-      // Human 1-based values (1 tile, 1×1, location 1/1, 1-pixel tile size)
-      // encode to all-zero bytes — the codec stores value-1.
+      // 1×1 tiles at location 0/0 with a 1-pixel tile size encode to
+      // all-zero bytes (counts and sizes are stored value-1, locations as-is).
       return {
         // Fixed 22-byte payload (v1-codecs TILED_TOPOLOGY_PAYLOAD_LENGTH).
         ...createDefaultBlock(tag, 22),
@@ -735,8 +761,8 @@ export function createDefaultDisplayIdBlock(
         singleEnclosure: false,
         tileCountHorizontal: 1,
         tileCountVertical: 1,
-        tileLocationHorizontal: 1,
-        tileLocationVertical: 1,
+        tileLocationHorizontal: 0,
+        tileLocationVertical: 0,
         tileWidthPixels: 1,
         tileHeightPixels: 1,
         pixelMultiplier: 0,
@@ -825,15 +851,16 @@ function createDefaultDisplayIdV2Block(tag: DisplayIdDataBlockTag): KnownDisplay
         timings: [],
       };
     case DisplayIdDataBlockTag.DynamicVideoTimingRangeLimits:
+      // 9-byte payload (edid-decode requires exactly 9). Defaults describe a
+      // 25 MHz – 600 MHz, 48–144 Hz variable-refresh range.
       return {
-        ...createDefaultBlock(tag, 13),
+        ...createDefaultBlock(tag, 9),
         tag,
-        minimumPixelClockKHz: 0,
-        maximumPixelClockKHz: 0,
-        minimumHorizontalFrequencyHz: 0,
-        maximumHorizontalFrequencyHz: 0,
-        minimumVerticalFrequencyHz: 0,
-        maximumVerticalFrequencyHz: 0,
+        payload: new Uint8Array([0xa7, 0x61, 0x00, 0xbf, 0x27, 0x09, 0x30, 0x90, 0x00]),
+        minimumPixelClockKHz: 25_000,
+        maximumPixelClockKHz: 600_000,
+        minimumVerticalFrequencyHz: 48,
+        maximumVerticalFrequencyHz: 144,
         seamlessDynamicVideoTiming: false,
       };
     case DisplayIdDataBlockTag.DisplayInterfaceFeatures:
@@ -883,8 +910,8 @@ function createDefaultDisplayIdV2Block(tag: DisplayIdDataBlockTag): KnownDisplay
         singleEnclosure: true,
         tileCountHorizontal: 1,
         tileCountVertical: 1,
-        tileLocationHorizontal: 1,
-        tileLocationVertical: 1,
+        tileLocationHorizontal: 0,
+        tileLocationVertical: 0,
         tileWidthPixels: 1920,
         tileHeightPixels: 1080,
         pixelMultiplier: 0,

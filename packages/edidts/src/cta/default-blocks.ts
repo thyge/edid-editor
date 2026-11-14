@@ -224,12 +224,19 @@ export function createDefaultCEADataBlock(type: CEADefaultBlockType): CEADataBlo
         trailing: new Uint8Array(DOLBY_VSDB_DEFAULT.trailing),
       });
     case 'room-config':
+      // Minimal 4-byte RCDB (edid-decode `cta_rcdb`): Speaker flag set with a
+      // count of 2 and FL/FR in the presence mask; no Speaker Location block
+      // (SLD off) and no optional coordinate bytes.
       return {
         tag: 0x07,
         extendedTag: 0x13,
         payload: empty,
-        speakerCount: 0,
-        speakerPresenceDescriptor: 0,
+        display: false,
+        speaker: true,
+        sld: false,
+        speakerCount: 2,
+        speakerPresenceMask: 0x000001,
+        trailing: new Uint8Array(),
       } as unknown as CEADataBlock;
     case 'speaker-location':
       return {
@@ -272,9 +279,9 @@ export function createDefaultCEADataBlock(type: CEADefaultBlockType): CEADataBlo
     case 'vsdb-microsoft-hmd':
       return createDefaultVsdb('microsoftHmd', OUI.MICROSOFT_HMD, {
         ...MICROSOFT_HMD_DEFAULT,
-        // The shared literal's use case 0 is NOT a valid code — the encoder
-        // rejects it (isValidMicrosoftHMDUseCase). Default to 'Generic
-        // Display' (0x02) so a freshly added block encodes immediately.
+        // The shared literal's use case 0 is not a defined code
+        // (isValidMicrosoftHMDUseCase). Default to 'Generic Display' (0x02)
+        // so a freshly added block is meaningful.
         primaryUseCase: 0x02,
         containerId: new Uint8Array(MICROSOFT_HMD_DEFAULT.containerId),
       });

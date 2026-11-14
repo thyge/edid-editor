@@ -3,11 +3,12 @@
 import type { VendorDecoder, VendorEncoder } from './registry';
 import { VENDOR_DECODERS, VENDOR_ENCODERS } from './registry';
 import { OUI, type MicrosoftHMDVSDB } from './types';
+import { clampByte, clampInt, keepShortLength } from '../byte-utils';
 
 /**
  * Use-case labels for the Microsoft HMD VSDB primary-use-case field,
  * per Microsoft Learn "EDID Extension for Head-Mounted and Specialized
- * Monitors" (2025-04-24 revision).
+ * Monitors" (2025-04-24 revision) and edid-decode `display_use_case`.
  */
 export const MICROSOFT_HMD_USE_CASES: Record<number, string> = {
   0x01: 'Test Equipment',
@@ -33,42 +34,43 @@ export const MICROSOFT_HMD_DEFAULT: MicrosoftHMDVSDB = {
   containerId: new Uint8Array(16),
 };
 
+/** Post-OUI body length of a well-formed block: version, flags, 16-byte Container ID. */
+const BODY_LENGTH = 18;
+
 /**
  * Microsoft HMD / Specialized Monitor VSDB (OUI 0xCA125C).
  *
- * The use-case field is treated as a single 5-bit value at `payload[1] & 0x1F`,
- * matching the existing project doc and what real Windows HMDs emit on the
- * wire. Microsoft's own spec describes the field as spanning two bytes
- * (byte 4 low nibble + byte 5 high nibble), but the values `0x01`–`0x14` all
- * fit in 5 bits, so the simpler interpretation round-trips with real captures.
- * If a real capture proves otherwise, the decoder can be updated without
- * changing the public type.
+ * Layout (post-OUI payload bytes), per the Microsoft spec and edid-decode
+ * `cta_microsoft` (parse-cta-block.cpp):
+ *   byte 0:     Version (0x01–0x03)
+ *   byte 1:     bit 7 reserved, bit 6 Desktop Usage, bit 5 Third-Party
+ *               Usage (both defined from version 3), bits 4:0 Display
+ *               Product Primary Use Case (5 bits — 0x10–0x14 need bit 4)
+ *   bytes 2-17: 16-byte Container ID (UUID)
  *
- * Layout (post-OUI, payload bytes):
- *   byte 0:   Version (0x01–0x03)
- *   byte 1:   bits 7-6 reserved, bit 5 desktopUsage, bit 4 nonMicrosoftUsage,
- *             bits 3-0 primaryUseCase (5 bits; we use 4 here to fit the table)
- *   byte 2+:  16-byte Container ID (UUID)
+ * edid-decode only parses the block when the body is exactly 18 bytes; other
+ * lengths still round-trip here (short bodies keep their length, extra bytes
+ * live in `trailing`).
  */
 export class MicrosoftHMDDecoder implements VendorDecoder<'microsoftHmd'> {
   readonly kind = 'microsoftHmd' as const;
   readonly minLength = 2;
 
   decode(payload: Uint8Array): MicrosoftHMDVSDB {
-    if (payload.length < 1) {
-      return { ...MICROSOFT_HMD_DEFAULT, containerId: new Uint8Array(16) };
-    }
-    const version = payload[0];
-    const flagsAndUseCase = payload.length >= 2 ? payload[1] : 0;
-    return {
-      version,
-      desktopUsage: (flagsAndUseCase & 0x20) !== 0,
-      nonMicrosoftUsage: (flagsAndUseCase & 0x10) !== 0,
-      primaryUseCase: flagsAndUseCase & 0x0F,
-      containerId: payload.length >= 18
-        ? payload.slice(2, 18)
-        : new Uint8Array(16),
+    const flags = payload[1] ?? 0;
+    const containerId = new Uint8Array(16);
+    containerId.set(payload.slice(2, BODY_LENGTH));
+    const fields: MicrosoftHMDVSDB = {
+      version: payload[0] ?? 0,
+      desktopUsage: (flags & 0x40) !== 0,
+      nonMicrosoftUsage: (flags & 0x20) !== 0,
+      primaryUseCase: flags & 0x1f,
+      containerId,
     };
+    if (flags & 0x80) fields.flagsReserved = true;
+    if (payload.length > BODY_LENGTH) fields.trailing = payload.slice(BODY_LENGTH);
+    if (payload.length < BODY_LENGTH) fields.payloadLength = payload.length;
+    return fields;
   }
 }
 
@@ -76,20 +78,19 @@ export class MicrosoftHMDEncoder implements VendorEncoder<'microsoftHmd'> {
   readonly kind = 'microsoftHmd' as const;
 
   encode(fields: MicrosoftHMDVSDB): Uint8Array {
-    if (!isValidMicrosoftHMDUseCase(fields.primaryUseCase)) {
-      throw new RangeError(`Invalid primaryUseCase: 0x${fields.primaryUseCase.toString(16)}`);
-    }
-    if (fields.containerId.length !== 16) {
-      throw new RangeError(`containerId must be exactly 16 bytes, got ${fields.containerId.length}`);
-    }
-    const out = new Uint8Array(2 + 16);
-    out[0] = fields.version & 0xFF;
+    // Never throws: an unknown use case is still a valid 5-bit value, and the
+    // Container ID is cut / zero-padded to 16 bytes, so the EDID stays savable.
+    const trailing = fields.trailing ?? new Uint8Array();
+    const out = new Uint8Array(BODY_LENGTH + trailing.length);
+    out[0] = clampByte(fields.version);
     out[1] =
-      (fields.desktopUsage ? 0x20 : 0) |
-      (fields.nonMicrosoftUsage ? 0x10 : 0) |
-      (fields.primaryUseCase & 0x0F);
-    out.set(fields.containerId, 2);
-    return out;
+      (fields.flagsReserved ? 0x80 : 0) |
+      (fields.desktopUsage ? 0x40 : 0) |
+      (fields.nonMicrosoftUsage ? 0x20 : 0) |
+      clampInt(fields.primaryUseCase, 0, 0x1f);
+    out.set((fields.containerId ?? new Uint8Array()).slice(0, 16), 2);
+    out.set(trailing, BODY_LENGTH);
+    return keepShortLength(out, fields.payloadLength);
   }
 }
 

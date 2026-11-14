@@ -106,16 +106,20 @@ export class StandardTiming {
 
       if (i < timings.length && timings[i].isValid) {
         const timing = timings[i];
-        const timing1 = Math.round(timing.width / 8) - 31;
+        // The 2-byte code holds widths 256-2288 (in steps of 8) and refresh
+        // rates 60-123 Hz. Clamp out-of-range values instead of letting them
+        // wrap (144 Hz used to come out as 80 Hz, 50 Hz as 114 Hz).
+        const timing1 = Math.max(1, Math.min(255, Math.round(timing.width / 8) - 31));
         const aspectCode = standardTimingAspectCodeFor(
           timing.width,
           timing.height,
           edidVersion,
           edidRevision,
         );
-        const timing2 = (aspectCode << 6) | ((timing.refreshRate - 60) & 0x3f);
+        const refresh = Math.max(60, Math.min(123, Math.round(timing.refreshRate)));
+        const timing2 = (aspectCode << 6) | (refresh - 60);
 
-        bytes[offset] = Math.max(1, Math.min(255, timing1));
+        bytes[offset] = timing1;
         bytes[offset + 1] = timing2;
       } else {
         // Unused timing slot

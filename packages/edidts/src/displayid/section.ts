@@ -1,21 +1,28 @@
-import { decodeDisplayIdBlocks, encodeDisplayIdBlock } from './blocks';
+import { decodeDisplayIdBlocks, encodeDisplayIdBlock, getDisplayIdBlockWireLength } from './blocks';
 import { decodeDisplayIdBlocksV1 } from './v1-blocks';
 import { checksum8, isChecksum8Valid } from '../common/checksum';
 import { DisplayIdDecodeError, type DisplayIdSection } from './types';
+import { clampBits } from './clamp';
 
 const HEADER_LENGTH = 4;
 const CHECKSUM_LENGTH = 1;
 const MIN_SECTION_LENGTH = HEADER_LENGTH + CHECKSUM_LENGTH;
 const DISPLAY_ID_2_0_VERSION_BYTE = 0x20;
+const DISPLAY_ID_2_1_VERSION_BYTE = 0x21;
 
 /**
- * A valid DisplayID section version byte: v1.x (0x10–0x1F) or v2.0 (0x20).
- * v2.1+ (0x21+) is not handled by the v2.0 codec, so it is not recognized here
- * and a section starting with such a byte falls through to opaque at the EEDID
- * dispatcher (preserving current behavior).
+ * DisplayID 2.0 (0x20) and 2.1 (0x21) share one data block layout: edid-decode
+ * parses every section with version >= 0x20 through the same block walker
+ * (parse_displayid_block / displayid_block), only checking that v1.x tags are
+ * not used.
  */
+function isDisplayId2xVersionByte(byte: number): boolean {
+  return byte === DISPLAY_ID_2_0_VERSION_BYTE || byte === DISPLAY_ID_2_1_VERSION_BYTE;
+}
+
+/** A recognized DisplayID section version byte: v1.x (0x10–0x1F), v2.0 or v2.1. */
 function isDisplayIdVersionByte(byte: number): boolean {
-  return byte === DISPLAY_ID_2_0_VERSION_BYTE || (byte >= 0x10 && byte < 0x20);
+  return isDisplayId2xVersionByte(byte) || (byte >= 0x10 && byte < 0x20);
 }
 
 /**
@@ -70,7 +77,7 @@ export function decodeDisplayIdSection(data: Uint8Array): DisplayIdSection {
   let fillBytes: number;
   let fillBytesRaw: Uint8Array | undefined;
 
-  if (versionByte === DISPLAY_ID_2_0_VERSION_BYTE) {
+  if (isDisplayId2xVersionByte(versionByte)) {
     const decoded = decodeDisplayIdBlocks(sectionBytes, HEADER_LENGTH, totalLength - CHECKSUM_LENGTH);
     blocks = decoded.blocks;
     fillBytes = decoded.fillBytes; // v2.0: count of 0x00 fill bytes.
@@ -107,7 +114,7 @@ export function decodeDisplayIdSection(data: Uint8Array): DisplayIdSection {
  * Walk a byte buffer containing one or more concatenated DisplayID sections
  * and decode every section whose version byte appears at a section boundary.
  *
- * Both v1.x (0x10–0x1F) and v2.0 (0x20) sections are recognized. Each section's
+ * v1.x (0x10–0x1F), v2.0 (0x20) and v2.1 (0x21) sections are recognized. Each section's
  * total length is `bytesInSection + 5` (4-byte header + 1-byte trailing
  * checksum); after decoding one section we advance by `section.totalLength`
  * and look for the next version byte.
@@ -142,15 +149,47 @@ export function decodeDisplayIdSections(data: Uint8Array): DisplayIdSection[] {
   return sections;
 }
 
-export function encodeDisplayIdSection(section: DisplayIdSection): Uint8Array {
+/** Number of fill bytes the section carries after its last data block. */
+export function getDisplayIdSectionFillLength(section: DisplayIdSection): number {
+  return section.fillBytesRaw ? section.fillBytesRaw.length : section.fillBytes;
+}
+
+/**
+ * True when the section's fill is plain 0x00 padding. Such fill is free space:
+ * the extension encoder may shrink it to make room when the section's blocks
+ * grow. Fill holding non-zero bytes (out of spec, seen in the wild) is kept
+ * verbatim and never shrunk.
+ */
+export function isDisplayIdSectionFillElastic(section: DisplayIdSection): boolean {
+  return !section.fillBytesRaw || section.fillBytesRaw.every((byte) => byte === 0);
+}
+
+/**
+ * Bytes the section needs no matter how much zero fill it gets: the 4-byte
+ * header, every encoded data block, any non-zero fill and the checksum. Does
+ * not throw for an oversized block (that only makes the result larger).
+ */
+export function getDisplayIdSectionFixedLength(section: DisplayIdSection): number {
+  const blockLength = section.blocks.reduce((length, block) => length + getDisplayIdBlockWireLength(block), 0);
+  const fixedFill = isDisplayIdSectionFillElastic(section) ? 0 : getDisplayIdSectionFillLength(section);
+  return HEADER_LENGTH + blockLength + fixedFill + CHECKSUM_LENGTH;
+}
+
+/**
+ * Encode a section. `fillLength`, when given, replaces the model's zero-fill
+ * count (the 0x70 extension encoder uses it to shrink zero fill when blocks
+ * grow); it is ignored for non-zero fill, which is always written verbatim.
+ */
+export function encodeDisplayIdSection(section: DisplayIdSection, fillLength?: number): Uint8Array {
   const encodedBlocks = section.blocks.map(encodeDisplayIdBlock);
   const blockLength = encodedBlocks.reduce((length, block) => length + block.length, 0);
 
   // v1.x carries verbatim trailing bytes (incl. the end-marker and any
   // non-zero leftover); v2.0 carries a count of 0x00 fill.
-  const fillRaw = section.fillBytesRaw;
-  const fillCount = fillRaw ? fillRaw.length : section.fillBytes;
-  const bytesInSection = blockLength + fillCount;
+  const fill = isDisplayIdSectionFillElastic(section)
+    ? new Uint8Array(Math.max(0, fillLength ?? getDisplayIdSectionFillLength(section)))
+    : section.fillBytesRaw!;
+  const bytesInSection = blockLength + fill.length;
 
   if (bytesInSection > 0xff) {
     throw new Error(`DisplayID section payload length ${bytesInSection} exceeds 255 bytes`);
@@ -159,19 +198,17 @@ export function encodeDisplayIdSection(section: DisplayIdSection): Uint8Array {
   const totalLength = bytesInSection + HEADER_LENGTH + CHECKSUM_LENGTH;
   const encoded = new Uint8Array(totalLength);
 
-  encoded[0] = section.versionByte;
-  encoded[1] = bytesInSection & 0xff;
-  encoded[2] = section.primaryUseCase & 0xff;
-  encoded[3] = section.extensionCount & 0xff;
+  encoded[0] = clampBits(section.versionByte, 8);
+  encoded[1] = bytesInSection;
+  encoded[2] = clampBits(section.primaryUseCase, 8);
+  encoded[3] = clampBits(section.extensionCount, 8);
 
   let offset = HEADER_LENGTH;
   for (const block of encodedBlocks) {
     encoded.set(block, offset);
     offset += block.length;
   }
-  if (fillRaw && fillRaw.length > 0) {
-    encoded.set(fillRaw, offset);
-  }
+  encoded.set(fill, offset);
 
   encoded[totalLength - 1] = checksum8(encoded);
   return encoded;

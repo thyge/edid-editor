@@ -139,13 +139,15 @@ describe('HDR10+ VSVDB carrier (CTA extended tag 0x01)', () => {
   });
 
   it('re-encodes from edited vendor.fields and preserves the opaque payload', () => {
-    const wire = hdr10Wire([0x02, 0xaa, 0xbb]);
+    // Application Version is byte 0 bits 1:0 (edid-decode `cta_hdr10plus`);
+    // bits 3:2 / 7:4 are luminance indexes and must not change.
+    const wire = hdr10Wire([0x46, 0xaa, 0xbb]);
     const block = decodeExtendedDataBlock(wire) as VendorSpecificVideoDataBlock;
-    block.vendor!.fields.applicationVersion = 0x05;
+    block.vendor!.fields.applicationVersion = 0x01;
     const encoded = encodeExtendedDataBlock(block);
-    expect(encoded).toEqual(hdr10Wire([0x05, 0xaa, 0xbb]));
+    expect(encoded).toEqual(hdr10Wire([0x45, 0xaa, 0xbb]));
     const redecoded = decodeExtendedDataBlock(encoded) as VendorSpecificVideoDataBlock;
-    expect(redecoded.vendor!.fields.applicationVersion).toBe(0x05);
+    expect(redecoded.vendor!.fields.applicationVersion).toBe(0x01);
     expect(Array.from(redecoded.vendor!.fields.trailing)).toEqual([0xaa, 0xbb]);
   });
 });

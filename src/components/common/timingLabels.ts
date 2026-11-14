@@ -5,7 +5,7 @@
  * card's achieved-vs-target quantization Δ — keep their 2-decimal precision
  * and do not use these helpers.
  */
-import { computeRefreshRate, type DetailedTiming } from 'edidts'
+import { computeRefreshRate, frameVerticalActive, type DetailedTiming } from 'edidts'
 
 /**
  * Refresh rate rounded to the whole Hz a timing is commonly known by.
@@ -25,5 +25,6 @@ export function roundedRefreshRate(timing: DetailedTiming): number {
 export function timingNameLabel(timing: DetailedTiming, fallback: string): string {
   if (timing.horizontalActive <= 0 || timing.verticalActive <= 0) return fallback
   const scan = timing.flags.interlaced ? 'i' : 'p'
-  return `${timing.horizontalActive}×${timing.verticalActive}${scan}${roundedRefreshRate(timing)}`
+  // Interlaced timings are named by frame height (the DTD stores per field).
+  return `${timing.horizontalActive}×${frameVerticalActive(timing)}${scan}${roundedRefreshRate(timing)}`
 }

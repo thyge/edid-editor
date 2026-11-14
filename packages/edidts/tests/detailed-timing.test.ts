@@ -441,12 +441,18 @@ describe('computePixelClockForTargetRate', () => {
     expect(Math.abs(achieved - 59.94)).toBeLessThan(0.01);
   });
 
-  it('halves the clock for interlaced field rates, mirroring computeRefreshRate', () => {
-    const interlaced = { ...progressive, flags: { interlaced: true } } as unknown as DetailedTiming;
-    // 1080i60: field rate 60 with the same totals needs half the clock.
+  it('solves interlaced timings per field (with the half line), mirroring computeRefreshRate', () => {
+    // A real 1080i60 DTD stores 540 active + 22 blanking lines per field;
+    // edid-decode's field rate is clock / (2200 × 562.5) = 60 Hz.
+    const interlaced = {
+      ...progressive,
+      verticalActive: 540,
+      verticalBlanking: 22,
+      flags: { interlaced: true },
+    } as unknown as DetailedTiming;
     const clock = computePixelClockForTargetRate(interlaced, 60, 655.35)!;
     expect(clock).toBe(74.25);
-    expect(computeRefreshRate({ ...interlaced, pixelClock: clock })).toBeCloseTo(60, 5);
+    expect(computeRefreshRate({ ...interlaced, pixelClock: 74.25 })).toBeCloseTo(60, 5);
   });
 
   it('returns null for unusable geometry, non-positive rates, and overflow', () => {

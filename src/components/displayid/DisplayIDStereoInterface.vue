@@ -14,9 +14,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { blocksByTag, bytesToHex, hexToBytes, numberFromEvent, stringFromEvent } from '../common/editorUtils'
+import { useDisplayIdRoom } from './displayIdRoom'
 
 const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
+
+/** A new (empty) 3D timing descriptor is its 1-byte header, which must fit
+ *  the section's 0x70 block. */
+const room = useDisplayIdRoom()
 
 // Stereo interface method codes, parameter counts, 3D timing support, and the
 // timing-code-type labels are sourced from the edidts lib (stereo-interface.ts
@@ -113,7 +118,15 @@ function removeDescriptor(block: DisplayIdStereoDisplayInterfaceBlock, index: nu
         <section v-if="hasTimingCodes(block)" class="space-y-3">
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-medium text-muted-foreground">3D Timing Code Descriptors</h4>
-            <Button variant="outline" size="sm" @click="update(index, block, { stereoTimingCodeDescriptors: [...block.stereoTimingCodeDescriptors, defaultDescriptor()] })">Add</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="!room.fits(1)"
+              :title="room.fits(1) ? undefined : room.noRoomTitle(1)"
+              @click="update(index, block, { stereoTimingCodeDescriptors: [...block.stereoTimingCodeDescriptors, defaultDescriptor()] })"
+            >
+              Add
+            </Button>
           </div>
           <div v-for="(descriptor, descriptorIndex) in block.stereoTimingCodeDescriptors" :key="descriptorIndex" class="flex items-end gap-2 rounded-md border border-border p-3">
             <div class="space-y-1">

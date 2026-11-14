@@ -17,7 +17,7 @@ type RangeNumberField =
   | 'maxHorizontalRate'
   | 'maxPixelClock'
 type CVTBooleanField =
-  | 'reducedBlankingPreferred'
+  | 'reducedBlankingSupported'
   | 'standardBlankingSupported'
   | 'horizontalShrinkSupported'
   | 'horizontalStretchSupported'
@@ -108,7 +108,7 @@ function ensureCVT() {
         ar15_9: false,
       },
       preferredAspectRatio: '16:9',
-      reducedBlankingPreferred: false,
+      reducedBlankingSupported: false,
       standardBlankingSupported: true,
       horizontalShrinkSupported: false,
       horizontalStretchSupported: false,
@@ -349,16 +349,16 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.reducedBlankingPreferred ?? false"
-            @change="(e) => updateCVTBoolean('reducedBlankingPreferred', (e.target as HTMLInputElement).checked)"
+            :checked="local.cvt?.reducedBlankingSupported ?? false"
+            @change="(e) => updateCVTBoolean('reducedBlankingSupported', (e.target as HTMLInputElement).checked)"
           />
-          Reduced Blanking Preferred
+          Reduced Blanking Supported
         </label>
         <label class="flex items-center gap-2">
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.standardBlankingSupported ?? false"
+            :checked="local.cvt?.standardBlankingSupported ?? false"
             @change="(e) => updateCVTBoolean('standardBlankingSupported', (e.target as HTMLInputElement).checked)"
           />
           Standard Blanking Supported
@@ -367,7 +367,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.horizontalShrinkSupported ?? false"
+            :checked="local.cvt?.horizontalShrinkSupported ?? false"
             @change="(e) => updateCVTBoolean('horizontalShrinkSupported', (e.target as HTMLInputElement).checked)"
           />
           Horizontal Shrink
@@ -376,7 +376,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.horizontalStretchSupported ?? false"
+            :checked="local.cvt?.horizontalStretchSupported ?? false"
             @change="(e) => updateCVTBoolean('horizontalStretchSupported', (e.target as HTMLInputElement).checked)"
           />
           Horizontal Stretch
@@ -385,7 +385,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.verticalShrinkSupported ?? false"
+            :checked="local.cvt?.verticalShrinkSupported ?? false"
             @change="(e) => updateCVTBoolean('verticalShrinkSupported', (e.target as HTMLInputElement).checked)"
           />
           Vertical Shrink
@@ -394,7 +394,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.verticalStretchSupported ?? false"
+            :checked="local.cvt?.verticalStretchSupported ?? false"
             @change="(e) => updateCVTBoolean('verticalStretchSupported', (e.target as HTMLInputElement).checked)"
           />
           Vertical Stretch
@@ -412,7 +412,7 @@ function onPreferredAspectChange(event: Event) {
             <input
               type="checkbox"
               class="size-4 rounded border border-input accent-primary"
-              :model-value="local.cvt?.aspectRatios[ratio.key] ?? false"
+              :checked="local.cvt?.aspectRatios[ratio.key] ?? false"
               @change="(e) => updateCVTAspectRatio(ratio.key, (e.target as HTMLInputElement).checked)"
             />
             {{ ratio.label }}

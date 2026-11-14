@@ -80,7 +80,9 @@ export interface DisplayRangeLimitsDescriptor extends BaseDisplayDescriptor {
       ar15_9: boolean;
     };
     preferredAspectRatio: '4:3' | '16:9' | '16:10' | '5:4' | '15:9';
-    reducedBlankingPreferred: boolean;
+    /** Byte 15 bit 4: CVT reduced blanking supported. */
+    reducedBlankingSupported: boolean;
+    /** Byte 15 bit 3: CVT standard blanking supported. */
     standardBlankingSupported: boolean;
     horizontalShrinkSupported: boolean;
     horizontalStretchSupported: boolean;
@@ -129,11 +131,11 @@ export interface CVTTimingDescriptor extends BaseDisplayDescriptor {
   tag: 0xF8;
   timings: Array<{
     addressableLines: number;
-    // CVT 3-byte code aspect ratio is a 2-bit field with only four values
-    // (VESA E-EDID A2 §3.10.3.6 / Table 3.35): 4:3, 16:9, 16:10, 5:4.
-    // 15:9 is NOT a CVT 3-byte value (it appears only in the separate Display
-    // Range Limits CVT support bitmap), so it is not part of this union.
-    aspectRatio: '4:3' | '16:9' | '16:10' | '5:4';
+    // CVT 3-byte code aspect ratio is a 2-bit field with four values: 4:3,
+    // 16:9, 16:10, 15:9 (code 3). That's how edid-decode
+    // (detailed_cvt_descriptor) and the Linux kernel (drm_cvt_modes) read
+    // it; 5:4 only exists in the Range Limits CVT support bitmap.
+    aspectRatio: '4:3' | '16:9' | '16:10' | '15:9';
     preferredRefreshRate: number;
     refreshRates: {
       r50Hz: boolean;
@@ -411,8 +413,10 @@ export class DisplayDescriptorParser {
           ar15_9: (arByte & 0x08) !== 0,
         },
         preferredAspectRatio: this.rangeCvtAspectRatioFromCode(prefAR),
-        reducedBlankingPreferred: (data[15] & 0x08) !== 0,
-        standardBlankingSupported: (data[15] & 0x10) !== 0,
+        // edid-decode: 0x10 = "Supports CVT reduced blanking",
+        // 0x08 = "Supports CVT standard blanking".
+        reducedBlankingSupported: (data[15] & 0x10) !== 0,
+        standardBlankingSupported: (data[15] & 0x08) !== 0,
         horizontalShrinkSupported: (data[16] & 0x80) !== 0,
         horizontalStretchSupported: (data[16] & 0x40) !== 0,
         verticalShrinkSupported: (data[16] & 0x20) !== 0,
@@ -498,8 +502,8 @@ export class DisplayDescriptorParser {
       bytes[13] = maxActivePixels & 0xFF;
       bytes[14] = this.encodeRangeCvtAspectRatios(cvt.aspectRatios);
       bytes[15] = (this.rangeCvtAspectRatioCode(cvt.preferredAspectRatio) << 5)
-        | (cvt.standardBlankingSupported ? 0x10 : 0)
-        | (cvt.reducedBlankingPreferred ? 0x08 : 0);
+        | (cvt.reducedBlankingSupported ? 0x10 : 0)
+        | (cvt.standardBlankingSupported ? 0x08 : 0);
       bytes[16] = (cvt.horizontalShrinkSupported ? 0x80 : 0)
         | (cvt.horizontalStretchSupported ? 0x40 : 0)
         | (cvt.verticalShrinkSupported ? 0x20 : 0)
@@ -661,10 +665,10 @@ export class DisplayDescriptorParser {
       if (lines === 0) continue;
 
       const arCode = (data[offset + 1] >> 2) & 0x03;
-      // CVT 3-byte aspect ratio codes (VESA E-EDID A2 §3.10.3.6): 0=4:3,
-      // 1=16:9, 2=16:10, 3=5:4. Code 3 is 5:4 (not 15:9 — that was the bug).
-      const arMap: Record<number, '4:3' | '16:9' | '16:10' | '5:4'> = {
-        0: '4:3', 1: '16:9', 2: '16:10', 3: '5:4',
+      // CVT 3-byte aspect ratio codes: 0=4:3, 1=16:9, 2=16:10, 3=15:9
+      // (edid-decode detailed_cvt_descriptor, Linux drm_cvt_modes).
+      const arMap: Record<number, '4:3' | '16:9' | '16:10' | '15:9'> = {
+        0: '4:3', 1: '16:9', 2: '16:10', 3: '15:9',
       };
 
       const prefRR = (data[offset + 2] >> 5) & 0x03;
@@ -773,7 +777,8 @@ export class DisplayDescriptorParser {
       case '4:3': return 0;
       case '16:9': return 1;
       case '16:10': return 2;
-      case '5:4': return 3;
+      case '15:9': return 3;
+      default: return 0;
     }
   }
 
@@ -955,9 +960,8 @@ export const RANGE_CVT_PREFERRED_ASPECT_OPTIONS: ReadonlyArray<{
 ];
 
 /**
- * CVT 3-Byte Timing Code aspect-ratio options (VESA E-EDID A2 §3.10.3.6 /
- * Table 3.35). Only four values are defined for the 2-bit field; 15:9 is not
- * a CVT 3-byte value (it appears only in the Range Limits CVT bitmap).
+ * CVT 3-Byte Timing Code aspect-ratio options: the four values of the 2-bit
+ * field (code 3 is 15:9, per edid-decode and the Linux kernel).
  */
 export const CVT_TIMING_ASPECT_RATIO_OPTIONS: ReadonlyArray<{
   value: CVTTimingDescriptor['timings'][number]['aspectRatio'];
@@ -966,7 +970,7 @@ export const CVT_TIMING_ASPECT_RATIO_OPTIONS: ReadonlyArray<{
   { value: '4:3', label: '4:3' },
   { value: '16:9', label: '16:9' },
   { value: '16:10', label: '16:10' },
-  { value: '5:4', label: '5:4' },
+  { value: '15:9', label: '15:9' },
 ];
 
 /** CVT 3-Byte preferred refresh-rate options (byte 3 bits 7-6). */

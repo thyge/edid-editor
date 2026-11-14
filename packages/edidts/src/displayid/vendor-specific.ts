@@ -7,6 +7,7 @@ import {
   type DisplayIdVesaDisplayPortData,
 } from './types';
 import { readIeeeOui, writeIeeeOui } from '../common/bintools';
+import { clampBits, clampInt } from './clamp';
 
 /**
  * DisplayID 2.0 §4.9 Vendor-specific Data Block (tag 0x7e).
@@ -52,7 +53,13 @@ export interface DisplayIdVendorDecoder<K extends string> {
 
 export interface DisplayIdVendorEncoder<K extends string> {
   readonly kind: K;
-  encode(fields: unknown): Uint8Array;
+  /**
+   * Build the post-OUI body from the typed fields. `previousBody` is the body
+   * the block was decoded from (empty for a new block); encoders take the
+   * bits their model does not hold (reserved bits) from it, so a re-encode
+   * changes only what was edited.
+   */
+  encode(fields: unknown, previousBody: Uint8Array): Uint8Array;
 }
 
 export const DISPLAY_ID_VENDOR_DECODERS: Record<number, DisplayIdVendorDecoder<string>> = {};
@@ -82,25 +89,26 @@ export function decodeVendorSpecificBlock(block: DisplayIdDataBlock): DisplayIdV
 }
 
 export function encodeVendorSpecificBlock(block: DisplayIdVendorSpecificBlock): Uint8Array {
-  // Registered vendor subtype: rebuild the post-OUI body from the typed fields,
-  // then prepend the 3-byte big-endian OUI (DisplayID §4.9).
+  // The payload is always the 3-byte big-endian OUI (DisplayID §4.9) taken
+  // from `ieeeOui`, followed by the vendor body. Even a new block whose
+  // payload is still empty gets its OUI written.
+  const previousBody = block.payload.length > 3 ? block.payload.slice(3) : new Uint8Array(0);
+  let body: Uint8Array = previousBody;
+
+  // Registered vendor subtype: rebuild the body from the typed fields.
   if (block.vesaDisplayPort) {
     const encoder = DISPLAY_ID_VENDOR_ENCODERS['vesaDisplayPort'];
     if (encoder) {
-      const body = encoder.encode(block.vesaDisplayPort);
-      const payload = new Uint8Array(3 + body.length);
-      writeIeeeOui(payload, 0, block.ieeeOui);
-      payload.set(body, 3);
-      return payload;
+      body = encoder.encode(block.vesaDisplayPort, previousBody);
     }
   }
 
-  // Unknown OUI / raw fallback: preserve the existing payload bytes and
-  // overwrite the 3-byte OUI (big-endian) when there is room for it.
-  const payload = block.payload.slice();
-  if (payload.length >= 3) {
-    writeIeeeOui(payload, 0, block.ieeeOui);
-  }
+  // Unknown OUI / raw fallback: the body is payload[3..] as-is. The editor's
+  // hex field edits the whole payload and sets `ieeeOui` from its first three
+  // bytes, so both stay in step; `ieeeOui` is the source of truth here.
+  const payload = new Uint8Array(3 + body.length);
+  writeIeeeOui(payload, 0, clampBits(block.ieeeOui, 24));
+  payload.set(body, 3);
   return payload;
 }
 
@@ -114,6 +122,9 @@ export function encodeVendorSpecificBlock(block: DisplayIdVendorSpecificBlock): 
 //   vendor[1]: horizontalOverlapPixels (bits 3:0) | multiSstOperation (bits 6:5)
 //   vendor[2]: DSC bpp integer (bits 5:0)
 //   vendor[3]: DSC bpp fraction (bits 3:0), value/16
+// Every other bit is reserved (edid-decode parse_displayid_vesa warns about
+// vendor[0] bits 6:3 and vendor[1] bits 4 and 7); the encoder keeps them.
+const VESA_RESERVED_MASKS = [0x78, 0x90, 0xc0, 0xf0] as const;
 
 class VesaDisplayPortDecoder implements DisplayIdVendorDecoder<'vesaDisplayPort'> {
   readonly kind = 'vesaDisplayPort' as const;
@@ -151,24 +162,24 @@ class VesaDisplayPortDecoder implements DisplayIdVendorDecoder<'vesaDisplayPort'
 class VesaDisplayPortEncoder implements DisplayIdVendorEncoder<'vesaDisplayPort'> {
   readonly kind = 'vesaDisplayPort' as const;
 
-  encode(fields: unknown): Uint8Array {
+  encode(fields: unknown, previousBody: Uint8Array): Uint8Array {
     const v = fields as DisplayIdVesaDisplayPortData;
     const hasDsc = typeof v.dscBitsPerPixel === 'number';
     const trailing = v.trailing ?? new Uint8Array(0);
     const body = new Uint8Array(2 + (hasDsc ? 2 : 0) + trailing.length);
+    const reserved = (index: number) => (previousBody[index] ?? 0) & VESA_RESERVED_MASKS[index];
     // vendor[0]: structureType (bits 2:0) | nativeColorspaceEotf (bit 7).
-    body[0] = (v.structureType & 0x07) | (v.nativeColorspaceEotf ? 0x80 : 0);
+    body[0] = reserved(0) | clampBits(v.structureType, 3) | (v.nativeColorspaceEotf ? 0x80 : 0);
     // vendor[1]: horizontalOverlapPixels (bits 3:0) | multiSstOperation (bits 6:5).
-    body[1] = (v.horizontalOverlapPixels & 0x0f) | ((v.multiSstOperation & 0x03) << 5);
+    body[1] = reserved(1) | clampBits(v.horizontalOverlapPixels, 4) | (clampBits(v.multiSstOperation, 2) << 5);
     let offset = 2;
     if (hasDsc) {
       // bpp = integer + fraction/16. Integer in bits 5:0 of vendor[2],
       // fraction (0..15) in bits 3:0 of vendor[3].
-      const bpp = v.dscBitsPerPixel as number;
-      const integer = Math.max(0, Math.min(0x3f, Math.floor(bpp)));
-      const fraction = Math.max(0, Math.min(0x0f, Math.round((bpp - integer) * 16)));
-      body[2] = integer & 0x3f;
-      body[3] = fraction & 0x0f;
+      const bpp = Number.isFinite(v.dscBitsPerPixel) ? (v.dscBitsPerPixel as number) : 0;
+      const sixteenths = clampInt(bpp * 16, 0, 0x3f * 16 + 0x0f);
+      body[2] = reserved(2) | (sixteenths >> 4);
+      body[3] = reserved(3) | (sixteenths & 0x0f);
       offset = 4;
     }
     body.set(trailing, offset);
