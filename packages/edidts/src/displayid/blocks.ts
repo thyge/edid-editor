@@ -16,6 +16,7 @@ import {
   DisplayIdDecodeError,
   DISPLAY_ID_V1_BLOCK_TAGS,
 } from './types';
+import { encodePreservingSource, rememberSource } from '../common/source-bytes';
 import {
   decodeDisplayParametersBlock,
   encodeDisplayParametersBlock,
@@ -128,6 +129,20 @@ import {
 export interface DecodeBlocksResult {
   blocks: DisplayIdDataBlock[];
   fillBytes: number;
+  /**
+   * The fill area verbatim, set only when it holds non-zero bytes (out-of-spec
+   * but seen in the wild) so they survive a re-save instead of being zeroed.
+   */
+  fillBytesRaw?: Uint8Array;
+}
+
+/**
+ * Remember a decoded block's payload so an unedited block re-encodes
+ * byte-for-byte (see common/source-bytes.ts). Shared by the v1.x and v2.0
+ * walkers.
+ */
+export function rememberBlockSource(block: DisplayIdDataBlock, payload: Uint8Array): DisplayIdDataBlock {
+  return rememberSource(block, payload);
 }
 
 export function decodeDisplayIdBlocks(
@@ -144,6 +159,10 @@ export function decodeDisplayIdBlocks(
 
     if (tag === 0x00) {
       fillBytes = endOffset - offset;
+      const fill = data.subarray(offset, endOffset);
+      if (fill.some((byte) => byte !== 0)) {
+        return { blocks, fillBytes, fillBytesRaw: fill.slice() };
+      }
       break;
     }
 
@@ -175,7 +194,7 @@ export function decodeDisplayIdBlocks(
       payload: data.slice(offset + 3, blockEnd),
     };
 
-    blocks.push(decodeKnownBlock(genericBlock));
+    blocks.push(rememberBlockSource(decodeKnownBlock(genericBlock), genericBlock.payload));
 
     offset = blockEnd;
   }
@@ -184,7 +203,20 @@ export function decodeDisplayIdBlocks(
 }
 
 export function encodeDisplayIdBlock(block: DisplayIdDataBlock): Uint8Array {
-  const payload = encodeKnownPayload(block);
+  // An unedited block keeps its exact payload; an edited one is re-encoded
+  // from its structured fields.
+  const payload = encodePreservingSource(
+    block,
+    (src) =>
+      decodeKnownBlock({
+        tag: block.tag,
+        revision: block.revision,
+        flags: block.flags,
+        payloadLength: src.length,
+        payload: src.slice(),
+      }),
+    encodeKnownPayload,
+  );
 
   if (payload.length > 0xff) {
     throw new Error(

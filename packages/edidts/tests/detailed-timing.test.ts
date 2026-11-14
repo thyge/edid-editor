@@ -5,6 +5,7 @@ import {
   computeRefreshRate,
   isDetailedTimingEncodable,
   decodeEdidCtaDetailedTiming,
+  decodeEdidCtaDetailedTimingFlags,
   encodeEdidCtaDetailedTiming,
   type DetailedTiming,
   type DetailedTimingBase,
@@ -115,14 +116,36 @@ describe('common detailed timing model and EDID/CTA codec', () => {
         verticalBorder: 0,
         flags: { ...baseFlags, stereoMode },
       });
-      // byte 17 carries the flags
-      const flagByte = encoded[17];
-      // reserved stereo code 111 == 0x61 must never be produced
-      const stereoBits = ((flagByte >> 4) & 0x06) | (flagByte & 0x01);
-      expect(stereoBits, `reserved 111 for ${stereoMode}`).not.toBe(0x07);
+      // byte 17 carries the flags; bits 6, 5 and 0 hold the stereo mode
+      const expectedBits = {
+        'none': 0x00,
+        'field-sequential-right': 0x20,
+        'field-sequential-left': 0x40,
+        '2-way-interleaved-right': 0x21,
+        '2-way-interleaved-left': 0x41,
+        '4-way-interleaved': 0x60,
+        'side-by-side-interleaved': 0x61,
+      }[stereoMode];
+      expect(encoded[17] & 0x61, `stereo bits for ${stereoMode}`).toBe(expectedBits);
 
       const decoded = decodeEdidCtaDetailedTiming(encoded);
       expect(decoded?.flags.stereoMode, `round-trip ${stereoMode}`).toBe(stereoMode);
+    }
+  });
+
+  it('decodes stereo bits per EDID 1.4 Table 3.22 (bit 0 alone means no stereo)', () => {
+    const cases: Array<[number, string]> = [
+      [0x18, 'none'],
+      [0x19, 'none'], // bits 6:5 = 00 → bit 0 is "don't care"
+      [0x38, 'field-sequential-right'],
+      [0x58, 'field-sequential-left'],
+      [0x39, '2-way-interleaved-right'],
+      [0x59, '2-way-interleaved-left'],
+      [0x78, '4-way-interleaved'],
+      [0x79, 'side-by-side-interleaved'],
+    ];
+    for (const [byte, mode] of cases) {
+      expect(decodeEdidCtaDetailedTimingFlags(byte).stereoMode, `0x${byte.toString(16)}`).toBe(mode);
     }
   });
 
@@ -269,14 +292,10 @@ describe('common detailed timing model and EDID/CTA codec', () => {
     }
   });
 
-  it('collapses the reserved stereo code 111 (0x07) to none on decode and re-encodes without the reserved bits', () => {
-    // stereoBits = (bit6<<2)|(bit5<<1)|bit0 = 7 is reserved per EDID 1.4
-    // §3.10.3.6. Build a byte with stereoBits=7 plus a digital-separate sync
-    // (bits 4:1 = 0x1A: 0x10 | 0x08 | 0x02 -> vSync negative, hSync positive).
-    // 0x60 (stereo 110) would be side-by-side; to get 111 we need bit0 set too:
-    // 0x61 = 0b0110_0001. But 0x61 has bit4=0 -> analog-composite. To keep sync
-    // bits intact while forcing stereo 111, set bits 6,5,0 and leave sync as-is.
-    // Use 0x7B = 0b0111_1011: bit6,5=1,1, bit0=1 -> stereo 7; bit4=1,bit3=1 ->
+  it('decodes stereo bits 6,5,0 = 111 as side-by-side and re-encodes them unchanged', () => {
+    // Bits 6, 5 and 0 all set is side-by-side interleaved stereo per EDID 1.4
+    // Table 3.22 (edid-decode: flags & 0x61 == 0x61), not a reserved code.
+    // 0x7B = 0b0111_1011: stereo bits 6,5,0 set; bit4=1,bit3=1 ->
     // digital-separate; bit2=0 -> vSync negative; bit1=1 -> hSync positive.
     const flagByte = 0x7b;
     const encoded = encodeEdidCtaDetailedTiming(buildTiming({
@@ -286,18 +305,14 @@ describe('common detailed timing model and EDID/CTA codec', () => {
       vSyncPolarity: 'negative',
       hSyncPolarity: 'positive',
     }));
-    encoded[17] = flagByte; // inject the reserved stereo code
+    encoded[17] = flagByte;
     const decoded = decodeEdidCtaDetailedTiming(encoded)!;
-    expect(decoded.flags.stereoMode).toBe('none'); // reserved -> none
+    expect(decoded.flags.stereoMode).toBe('side-by-side-interleaved');
     expect(decoded.flags.syncType).toBe('digital-separate');
     expect(decoded.flags.vSyncPolarity).toBe('negative');
     expect(decoded.flags.hSyncPolarity).toBe('positive');
-    // Re-encoding 'none' drops the reserved stereo bits; the byte must not keep
-    // bit0 set (the lossy collapse).
     const reencoded = encodeEdidCtaDetailedTiming(buildTiming(decoded.flags));
-    const reStereoBits = ((reencoded[17] >> 4) & 0x06) | (reencoded[17] & 0x01);
-    expect(reStereoBits).not.toBe(0x07);
-    expect(reencoded[17] & 0x01).toBe(0);
+    expect(reencoded[17]).toBe(flagByte);
   });
 });
 

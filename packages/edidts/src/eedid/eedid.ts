@@ -36,6 +36,21 @@ export class EEDID {
    * can render them next to `checksumDiagnostics`. Defaults to `[]`.
    */
   public baseDiagnostics: string[];
+  /**
+   * Bytes that followed the extension blocks the base block declares (byte
+   * 126), kept verbatim so they are written back on encode. A typical case is
+   * a 256-byte EEPROM dump of a monitor with no extensions: the second half is
+   * 0xFF/0x00 padding, not an extension, and must neither be shown as one nor
+   * bump the extension count on save. Empty when the file holds exactly the
+   * declared blocks.
+   */
+  public trailingBytes: Uint8Array;
+  /**
+   * How many extensions the decoded file declared, so `encode` knows how much
+   * of `trailingBytes` new extensions have since taken over. Undefined for an
+   * EEDID built in code.
+   */
+  public declaredExtensionCount?: number;
 
   constructor(init?: Partial<Pick<EEDID, 'base' | 'extensions'>>) {
     this.base = init?.base ?? new EDID();
@@ -45,6 +60,7 @@ export class EEDID {
     this.extensionsValid = true;
     this.checksumDiagnostics = [];
     this.baseDiagnostics = [];
+    this.trailingBytes = new Uint8Array();
   }
 
   static decode(data: ArrayBuffer | Uint8Array): EEDID {
@@ -55,11 +71,15 @@ export class EEDID {
 
     const base = EDID.decode(bytes.subarray(0, BLOCK_SIZE));
 
-    const actualCount = Math.floor((bytes.length - BLOCK_SIZE) / BLOCK_SIZE);
+    const availableCount = Math.floor((bytes.length - BLOCK_SIZE) / BLOCK_SIZE);
     const declaredCount = bytes[BLOCK_SIZE - 2];
+    // Only the blocks the base block declares are extensions. Anything after
+    // them (EEPROM padding, a partial block) is kept verbatim as trailing
+    // bytes. A truncated file (fewer blocks than declared) decodes what's there.
+    const extensionCount = Math.min(availableCount, declaredCount);
 
     const extensions: Extension[] = [];
-    for (let i = 0; i < actualCount; i++) {
+    for (let i = 0; i < extensionCount; i++) {
       const start = (i + 1) * BLOCK_SIZE;
       const block = bytes.subarray(start, start + BLOCK_SIZE);
       extensions.push(decodeExtension(block));
@@ -90,21 +110,36 @@ export class EEDID {
     eedid.isValid = base.checksumValid;
     eedid.extensionsValid = extensions.every((ext) => ext.checksumValid === true);
     eedid.checksumDiagnostics = diagnostics;
-    eedid.baseDiagnostics = base.baseDiagnostics;
-    void declaredCount;
+    eedid.trailingBytes = bytes.slice((1 + extensionCount) * BLOCK_SIZE);
+    eedid.declaredExtensionCount = extensionCount;
+    eedid.baseDiagnostics = [...base.baseDiagnostics];
+    if (availableCount > declaredCount && looksLikeUndeclaredExtension(eedid.trailingBytes)) {
+      eedid.baseDiagnostics.push(
+        `Byte 126 declares ${declaredCount} extension block(s), but the file holds another block that looks like an extension; it is kept as raw bytes, not decoded`,
+      );
+    }
     return eedid;
   }
 
   static encode(eedid: EEDID): Uint8Array {
-    const total = (1 + eedid.extensions.length) * BLOCK_SIZE;
-    const out = new Uint8Array(total);
+    const blocksLength = (1 + eedid.extensions.length) * BLOCK_SIZE;
+    // Extensions added since decode occupy the space trailing padding held, so
+    // drop that much of it; removed extensions just let the padding move up.
+    const trailing = eedid.trailingBytes ?? new Uint8Array();
+    const added = Math.max(
+      0,
+      eedid.extensions.length - (eedid.declaredExtensionCount ?? eedid.extensions.length),
+    );
+    const keptTrailing = trailing.subarray(Math.min(trailing.length, added * BLOCK_SIZE));
+    const out = new Uint8Array(blocksLength + keptTrailing.length);
 
     out.set(EDID.encode(eedid.base, { extensionCount: eedid.extensions.length }), 0);
-    out[BLOCK_SIZE - 1] = checksum8(out, BLOCK_SIZE - 1);
+    out[BLOCK_SIZE - 1] = checksum8(out.subarray(0, BLOCK_SIZE), BLOCK_SIZE - 1);
 
     for (let i = 0; i < eedid.extensions.length; i++) {
       out.set(encodeExtension(eedid.extensions[i]), (i + 1) * BLOCK_SIZE);
     }
+    out.set(keptTrailing, blocksLength);
 
     return out;
   }
@@ -112,6 +147,17 @@ export class EEDID {
   static blank(): EEDID {
     return new EEDID({ base: EDID.blank(), extensions: [] });
   }
+}
+
+/**
+ * True when the first block after the declared extensions carries a known
+ * extension tag and a valid checksum — i.e. it is probably a real extension
+ * that byte 126 forgot to count, not EEPROM padding.
+ */
+function looksLikeUndeclaredExtension(trailing: Uint8Array): boolean {
+  if (trailing.length < BLOCK_SIZE) return false;
+  const block = trailing.subarray(0, BLOCK_SIZE);
+  return [0x02, 0x10, 0x40, 0x50, 0x60, 0x70, 0xf0].includes(block[0]) && checksum8(block) === block[127];
 }
 
 /**

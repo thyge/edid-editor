@@ -69,8 +69,15 @@ function parseNumber(value: string | number): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+// EDID 1.4 rates reach 510 via the descriptor's "+255" offset flags; the
+// clock byte holds up to 255 × 10 MHz. The encoder clamps too, but bounding
+// here keeps what the field shows equal to what gets written.
+const RATE_MAX = 510
+const PIXEL_CLOCK_MAX = 2550
+
 function updateNumberField(field: RangeNumberField, value: string | number) {
-  const next = parseNumber(value)
+  const max = field === 'maxPixelClock' ? PIXEL_CLOCK_MAX : RATE_MAX
+  const next = Math.min(max, Math.max(0, parseNumber(value)))
   if (local[field] === next) return
   local[field] = next
   emitUpdate()
@@ -190,6 +197,7 @@ function onPreferredAspectChange(event: Event) {
         <Input
           type="number"
           :min="0"
+          :max="RATE_MAX"
           :model-value="local.minVerticalRate"
           @update:model-value="(v) => updateNumberField('minVerticalRate', v)"
         />
@@ -199,6 +207,7 @@ function onPreferredAspectChange(event: Event) {
         <Input
           type="number"
           :min="0"
+          :max="RATE_MAX"
           :model-value="local.maxVerticalRate"
           @update:model-value="(v) => updateNumberField('maxVerticalRate', v)"
         />
@@ -208,6 +217,7 @@ function onPreferredAspectChange(event: Event) {
         <Input
           type="number"
           :min="0"
+          :max="RATE_MAX"
           :model-value="local.minHorizontalRate"
           @update:model-value="(v) => updateNumberField('minHorizontalRate', v)"
         />
@@ -217,6 +227,7 @@ function onPreferredAspectChange(event: Event) {
         <Input
           type="number"
           :min="0"
+          :max="RATE_MAX"
           :model-value="local.maxHorizontalRate"
           @update:model-value="(v) => updateNumberField('maxHorizontalRate', v)"
         />
@@ -226,7 +237,8 @@ function onPreferredAspectChange(event: Event) {
         <Input
           type="number"
           :min="0"
-          :step="10"
+          :max="PIXEL_CLOCK_MAX"
+          :step="local.timingSupport === 'cvt' ? 0.25 : 10"
           :model-value="local.maxPixelClock"
           @update:model-value="(v) => updateNumberField('maxPixelClock', v)"
         />

@@ -1,99 +1,104 @@
 // packages/edidts/tests/vsdb/hdmi-forum.test.ts
 
 import { describe, it, expect } from 'vitest';
-import { HDMIForumDecoder, HDMIForumEncoder } from '../../src/cta/vsdb/hdmi-forum';
+import { HDMIForumDecoder, HDMIForumEncoder, HDMI_FORUM_DEFAULT } from '../../src/cta/vsdb/hdmi-forum';
+
+const decode = (bytes: number[]) => new HDMIForumDecoder().decode(new Uint8Array(bytes));
+const encode = (fields: ReturnType<typeof decode>) => Array.from(new HDMIForumEncoder().encode(fields));
 
 describe('HDMIForumDecoder', () => {
-  it('decodes version 1, SCDC, FRL rate 6, DC_48bit_420, ALLM', () => {
-    // version=0x01, maxTMDS=300MHz (0x3C*5), flags1=0xC0 (SCDC|RR),
-    // FRL=0x64 (maxFRLRate=6 in upper nibble | DC_48bit_420 in bit 2),
-    // flags2=0x02 (ALLM in bit 1)
-    const payload = new Uint8Array([0x01, 0x3C, 0xC0, 0x64, 0x02]);
-    const result = new HDMIForumDecoder().decode(payload);
+  it('decodes the HDMI 2.0 four-byte form (VESA Appendix A example)', () => {
+    const result = decode([0x01, 0x78, 0x80, 0x03]);
     expect(result.version).toBe(1);
-    expect(result.maxTmdsCharacterRate).toBe(300);
+    expect(result.maxTmdsCharacterRate).toBe(600);
     expect(result.scdc).toBe(true);
-    expect(result.rr).toBe(true);
-    expect(result.maxFrlRate).toBe(6);
-    expect(result.dc48bit420).toBe(true);
-    expect(result.allm).toBe(true);
+    expect(result.rr).toBe(false);
+    expect(result.dc30bit420).toBe(true);
+    expect(result.dc36bit420).toBe(true);
+    expect(result.dc48bit420).toBe(false);
+    expect(result.vrrMin).toBe(0);
+    expect(result.dsc12).toBe(false);
   });
 
-  it('returns defaults for empty payload', () => {
-    const result = new HDMIForumDecoder().decode(new Uint8Array(0));
-    expect(result.version).toBe(0);
-    expect(result.maxTmdsCharacterRate).toBe(0);
+  it('decodes every HDMI 2.1 field of a full block (LG TV, HDMI 2.1)', () => {
+    // 01 78 80 6b 43 28 78 d3 33 05 — edid-decode reports: 600 MHz, SCDC,
+    // FRL up to 12 Gbps x4, UHD VIC, 4:2:0 10/12-bit, QMS, ALLM, FAPA start,
+    // VRR 40-120 Hz, DSC 1.2a, native 4:2:0, QMS TFRmin, 10/12 bpc,
+    // DSC max FRL 6 Gbps x4, 4 slices, 6 KB chunks.
+    const result = decode([0x01, 0x78, 0x80, 0x6b, 0x43, 0x28, 0x78, 0xd3, 0x33, 0x05]);
+    expect(result.maxFrlRate).toBe(6);
+    expect(result.uhd4k).toBe(true);
+    expect(result.qms).toBe(true);
+    expect(result.allm).toBe(true);
+    expect(result.fapaStartLocation).toBe(true);
+    expect(result.fapaEndExtended).toBe(false);
+    expect(result.fva).toBe(false);
+    expect(result.vrrMin).toBe(40);
+    expect(result.vrrMax).toBe(120);
+    expect(result.dsc12).toBe(true);
+    expect(result.dscNative420).toBe(true);
+    expect(result.qmsTfrMin).toBe(true);
+    expect(result.qmsTfrMax).toBe(false);
+    expect(result.dscAllBpp).toBe(false);
+    expect(result.dsc12bpc).toBe(true);
+    expect(result.dsc10bpc).toBe(true);
+    expect(result.dsc16bpc).toBe(false);
+    expect(result.dscMaxFrlRate).toBe(3);
+    expect(result.dscMaxSlices).toBe(3);
+    expect(result.dscTotalChunkKBytes).toBe(5);
+  });
+
+  it('decodes byte 2 cable status / CCBPCI and byte 4 flags per HDMI 2.1', () => {
+    const result = decode([0x01, 0x78, 0x30, 0x00, 0xbc]);
+    expect(result.cableStatus).toBe(true);
+    expect(result.ccbpci).toBe(true);
+    expect(result.fapaEndExtended).toBe(true); // bit 7
+    expect(result.mDelta).toBe(true); // bit 5
+    expect(result.cinemaVrr).toBe(true); // bit 4
+    expect(result.negativeMvrr).toBe(true); // bit 3
+    expect(result.fva).toBe(true); // bit 2
+    expect(result.allm).toBe(false);
+  });
+
+  it('reads VRRmax bits 9:8 from byte 5', () => {
+    const result = decode([0x01, 0x78, 0x80, 0x00, 0x00, 0x40 | 48, 0x2c]);
+    expect(result.vrrMin).toBe(48);
+    expect(result.vrrMax).toBe(0x12c); // 300 Hz
   });
 });
 
 describe('HDMIForumEncoder', () => {
-  it('round-trips a well-formed fields object', () => {
-    const fields = {
-      version: 1,
-      maxTmdsCharacterRate: 300,
-      scdc: true,
-      rr: true,
-      lte340McscScramble: false,
-      independentView: false,
-      dualView: false,
-      osd3d: false,
-      dc30bit420: false,
-      dc36bit420: false,
-      dc48bit420: true,
-      uhd4k: false,
-      vrr: false,
-      fapa: false,
-      allm: true,
-      fva: false,
-      cnmVrr: false,
-      dsc: false,
-      maxFrlRate: 6,
-    };
-    const encoded = new HDMIForumEncoder().encode(fields);
-    const decoded = new HDMIForumDecoder().decode(encoded);
-    expect(decoded).toEqual(fields);
+  it.each([
+    ['HDMI 2.0 four-byte form', [0x01, 0x78, 0x80, 0x03]],
+    ['five-byte form with ALLM', [0x01, 0x78, 0x80, 0x00, 0x02]],
+    ['LG TV HDMI 2.1 block', [0x01, 0x78, 0x80, 0x6b, 0x43, 0x28, 0x78, 0xd3, 0x33, 0x05]],
+    ['HDMI 2.1 block with a reserved trailing byte', [0x01, 0x78, 0xc8, 0x6b, 0x17, 0x28, 0x78, 0x8f, 0x03, 0x0f, 0x00]],
+    ['full-length block with zero DSC bytes', [0x01, 0x78, 0x80, 0x00, 0x02, 0x30, 0x90, 0x00, 0x00, 0x00]],
+  ])('round-trips the %s byte-exactly', (_label, payload) => {
+    expect(encode(decode(payload))).toEqual(payload);
   });
 
-  it('round-trips a five-byte v1 short form byte-exactly (no trailing zero byte)', () => {
-    // From the Philips "FTV" fixture: version 1, maxTMDS 600 MHz (0x78*5),
-    // SCDC, no FRL, ALLM — the common HDMI 2.0-full form with no byte 5.
-    const payload = [0x01, 0x78, 0x80, 0x00, 0x02];
-    const decoded = new HDMIForumDecoder().decode(new Uint8Array(payload));
-    expect(decoded.version).toBe(1);
-    expect(decoded.maxTmdsCharacterRate).toBe(600);
-    expect(decoded.scdc).toBe(true);
-    expect(decoded.allm).toBe(true);
-    expect(decoded.flags4Present).toBeUndefined();
-    expect(decoded.dsc).toBe(false);
+  it('grows a short block only as far as an edit needs', () => {
+    const fields = decode([0x01, 0x78, 0x80, 0x03]);
+    fields.vrrMin = 48;
+    fields.vrrMax = 144;
+    expect(encode(fields)).toEqual([0x01, 0x78, 0x80, 0x03, 0x00, 48, 144]);
 
-    const reencoded = new HDMIForumEncoder().encode(decoded);
-    expect(reencoded.length).toBe(5);
-    expect(Array.from(reencoded)).toEqual(payload);
+    fields.dsc12 = true;
+    expect(encode(fields)).toEqual([0x01, 0x78, 0x80, 0x03, 0x00, 48, 144, 0x80, 0x00, 0x00]);
   });
 
-  it('round-trips a six-byte full form with DSC / FRL fields byte-exactly', () => {
-    // version 1, maxTMDS 300 MHz, SCDC|RR, FRL rate 6 | DC_48bit_420, VRR,
-    // byte 5 = 0x88 (DSC_1p2 | CinemaVRR).
-    const payload = [0x01, 0x3c, 0xc0, 0x64, 0x80, 0x88];
-    const decoded = new HDMIForumDecoder().decode(new Uint8Array(payload));
-    expect(decoded.flags4Present).toBe(true);
-    expect(decoded.dsc).toBe(true);
-    expect(decoded.cnmVrr).toBe(true);
-    expect(decoded.maxFrlRate).toBe(6);
-    expect(decoded.dc48bit420).toBe(true);
-
-    const reencoded = new HDMIForumEncoder().encode(decoded);
-    expect(reencoded.length).toBe(6);
-    expect(Array.from(reencoded)).toEqual(payload);
+  it('encodes VRRmax above 255 Hz into byte 5 bits 7:6', () => {
+    const fields = decode([0x01, 0x78, 0x80, 0x00]);
+    fields.vrrMin = 40;
+    fields.vrrMax = 480;
+    const bytes = encode(fields);
+    expect(bytes[5]).toBe((1 << 6) | 40);
+    expect(bytes[6]).toBe(480 & 0xff);
+    expect(decode(bytes).vrrMax).toBe(480);
   });
 
-  it('writes byte 5 when a short-form-decoded block gains a byte-5 feature', () => {
-    // A UI edit that sets DSC on a five-byte source must grow the block to
-    // carry the feature bit, not silently drop it.
-    const decoded = new HDMIForumDecoder().decode(new Uint8Array([0x01, 0x78, 0x80, 0x00, 0x02]));
-    decoded.dsc = true;
-    const reencoded = new HDMIForumEncoder().encode(decoded);
-    expect(reencoded.length).toBe(6);
-    expect(reencoded[5]).toBe(0x80);
+  it('encodes a new default block as a valid four-byte version 1 block', () => {
+    expect(encode({ ...HDMI_FORUM_DEFAULT })).toEqual([0x01, 0x00, 0x00, 0x00]);
   });
 });

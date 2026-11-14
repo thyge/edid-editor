@@ -143,6 +143,7 @@ export {
   HDMI_3D_MODE_OPTIONS,
   HDMI_IMAGE_SIZE_OPTIONS,
   HDMI_FRL_RATE_OPTIONS,
+  HDMI_DSC_MAX_SLICES_OPTIONS,
   getHdmiFrlRateLabel,
 } from './vsdb/types';
 export { MICROSOFT_HMD_USE_CASES } from './vsdb/microsoft-hmd';

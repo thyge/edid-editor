@@ -74,7 +74,8 @@ export function decodeDisplayIdSection(data: Uint8Array): DisplayIdSection {
     const decoded = decodeDisplayIdBlocks(sectionBytes, HEADER_LENGTH, totalLength - CHECKSUM_LENGTH);
     blocks = decoded.blocks;
     fillBytes = decoded.fillBytes; // v2.0: count of 0x00 fill bytes.
-    fillBytesRaw = undefined;
+    // Normally all zero (a count is enough); kept verbatim when it isn't.
+    fillBytesRaw = decoded.fillBytesRaw;
   } else if (version === 1) {
     const decoded = decodeDisplayIdBlocksV1(sectionBytes, HEADER_LENGTH, totalLength - CHECKSUM_LENGTH);
     blocks = decoded.blocks;

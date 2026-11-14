@@ -43,6 +43,7 @@ import {
   type VideoTimingBlockDetailedTiming as VTBDetailedTiming,
 } from './video-timing-block';
 import { checksum8, isChecksum8Valid } from '../common/checksum';
+import { encodePreservingSource, rememberSource } from '../common/source-bytes';
 import { decodeDisplayIdSection, encodeDisplayIdSection, type DisplayIdSection } from '../displayid';
 import { isKnownVIC } from './vic-table';
 
@@ -374,10 +375,12 @@ export class ExtensionBlockParser {
         if (offset + 1 + blockLength > dtdOffset) break;
 
         const blockData = data.slice(offset + 1, offset + 1 + blockLength);
-        
+
         const block = this.decodeCEADataBlock(blockTag as CEADataBlockTag, blockData);
         if (block) {
-          cea.dataBlocks.push(block);
+          // Keep the exact body so an unedited block re-encodes byte-for-byte
+          // even when its codec doesn't model every bit (see source-bytes.ts).
+          cea.dataBlocks.push(rememberSource(block, blockData));
         }
 
         offset += 1 + blockLength;
@@ -395,9 +398,12 @@ export class ExtensionBlockParser {
         const pixelClock = (data[offset + 1] << 8) | data[offset];
         if (pixelClock === 0) break; // No more timings
 
-        const timing = decodeEdidCtaDetailedTiming(data.slice(offset, offset + 18));
+        const dtdBytes = data.slice(offset, offset + 18);
+        const timing = decodeEdidCtaDetailedTiming(dtdBytes);
         if (!timing) break;
-        cea.detailedTimings.push({ ...timing, isNative: dtdIndex < nativeCount });
+        cea.detailedTimings.push(
+          rememberSource({ ...timing, isNative: dtdIndex < nativeCount }, dtdBytes),
+        );
 
         offset += 18;
         dtdIndex++;
@@ -456,7 +462,7 @@ export class ExtensionBlockParser {
       }
       const blockData = buffer.slice(offset + 1, offset + 1 + blockLength);
       const block = this.decodeCEADataBlock(blockTag, blockData);
-      if (block) dataBlocks.push(block);
+      if (block) dataBlocks.push(rememberSource(block, blockData));
       offset += 1 + blockLength;
     }
     return { dataBlocks, trailing: new Uint8Array(0) };
@@ -670,7 +676,18 @@ export class ExtensionBlockParser {
 
     for (const timing of cea.detailedTimings) {
       if (offset + 18 > 127) break;
-      bytes.set(encodeEdidCtaDetailedTiming(this.toDetailedTimingInput(timing)), offset);
+      bytes.set(
+        encodePreservingSource(
+          timing,
+          // isNative comes from byte 3, not the 18 bytes, so carry it over.
+          (src) => {
+            const decoded = decodeEdidCtaDetailedTiming(src);
+            return decoded && { ...decoded, isNative: (timing as CEADetailedTiming).isNative };
+          },
+          (t) => encodeEdidCtaDetailedTiming(this.toDetailedTimingInput(t)),
+        ),
+        offset,
+      );
       offset += 18;
     }
 
@@ -684,6 +701,16 @@ export class ExtensionBlockParser {
   }
 
   private static encodeCEADataBlock(block: CEADataBlock): Uint8Array {
+    // An unedited block is written back exactly as it was read; only blocks
+    // whose model changed go through the per-block encoders below.
+    return encodePreservingSource(
+      block,
+      (src) => this.decodeCEADataBlock(block.tag as CEADataBlockTag, src),
+      (b) => this.encodeCEADataBlockFields(b),
+    );
+  }
+
+  private static encodeCEADataBlockFields(block: CEADataBlock): Uint8Array {
     switch (block.tag) {
       case 0x01:
         return this.encodeAudioDataBlock(block as AudioDataBlock);
@@ -955,10 +982,11 @@ export function getHDMI21Features(cea: CEAExtensionBlock): {
 
   const fields = forum.vendor.fields;
   return {
-    vrr: fields.vrr,
+    // HDMI 2.1 signals VRR support through a non-zero VRRmin (bytes 5-6).
+    vrr: fields.vrrMin > 0,
     allm: fields.allm,
-    qms: fields.fva,
-    dsc: fields.dsc,
+    qms: fields.qms,
+    dsc: fields.dsc12,
     maxFrlRate: fields.maxFrlRate,
   };
 }

@@ -47,6 +47,9 @@ export class HDMI14Decoder implements VendorDecoder<'hdmi14'> {
       maxTmdsClockMHz: payload.length >= 4 ? payload[3] * 5 : 0,
       trailing: new Uint8Array(),
     };
+    if (flags & 0x01) out.dviDual = true;
+    if (flags & 0x06) out.flagsReserved = flags & 0x06;
+    if (payload.length < 4) out.headLength = payload.length;
 
     // Bytes 4+ are optional (Video/Latency byte + extended details).
     if (payload.length < 5) {
@@ -168,22 +171,28 @@ export class HDMI14Encoder implements VendorEncoder<'hdmi14'> {
       (fields.dcY444 ? 0x08 : 0) |
       (fields.dc30bit ? 0x10 : 0) |
       (fields.dc36bit ? 0x20 : 0) |
-      (fields.dc48bit ? 0x40 : 0);
+      (fields.dc48bit ? 0x40 : 0) |
+      (fields.dviDual ? 0x01 : 0) |
+      ((fields.flagsReserved ?? 0) & 0x06);
 
     const head = [
       (physAddr >> 8) & 0xff,
       physAddr & 0xff,
       flags,
-      fields.maxTmdsClockMHz === 0 ? 0 : Math.round(fields.maxTmdsClockMHz / 5),
+      Math.max(0, Math.min(0xff, Math.round(fields.maxTmdsClockMHz / 5))),
     ];
 
-    // Minimal 4-byte block when no optional sections are present.
+    // No optional sections: write only as much of bytes 0-3 as is needed (the
+    // common "physical address only" block is 2 bytes), but never shorter
+    // than the decoded source block.
     if (
       fields.contentTypes === undefined &&
       !fields.latency &&
       !fields.extended
     ) {
-      return concat(head, fields.trailing);
+      const needed = head[3] !== 0 ? 4 : head[2] !== 0 ? 3 : 2;
+      const length = fields.trailing.length > 0 ? 4 : Math.max(needed, fields.headLength ?? 4);
+      return concat(head.slice(0, length), fields.trailing);
     }
 
     // Byte 4: Content Types + latency-present + interlaced-latency + extended-present.

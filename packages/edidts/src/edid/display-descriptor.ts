@@ -8,8 +8,14 @@
 import {
   decodeStandardTimingAspectCode,
   heightFromStandardTimingAspect,
+  isEdid14OrLater,
   standardTimingAspectCodeFor,
 } from '../common/aspect-ratios';
+
+/** The range-limits "+255" offset flags exist from EDID 1.4 on. */
+function rangeLimitOffsetsApply(edidVersion?: number, edidRevision?: number): boolean {
+  return isEdid14OrLater(edidVersion, edidRevision);
+}
 
 export type DisplayDescriptorTag =
   | 0xFF  // Display Product Serial Number
@@ -40,11 +46,19 @@ export interface AlphanumericDataDescriptor extends BaseDisplayDescriptor {
 
 export interface DisplayRangeLimitsDescriptor extends BaseDisplayDescriptor {
   tag: 0xFD;
-  minVerticalRate: number;      // Hz
-  maxVerticalRate: number;      // Hz
-  minHorizontalRate: number;    // kHz
-  maxHorizontalRate: number;    // kHz
-  maxPixelClock: number;        // MHz (in 10 MHz increments)
+  /** Hz. EDID 1.4 reaches 510 via the byte-4 "+255" offset flags. */
+  minVerticalRate: number;
+  /** Hz. EDID 1.4 reaches 510 via the byte-4 "+255" offset flags. */
+  maxVerticalRate: number;
+  /** kHz. EDID 1.4 reaches 510 via the byte-4 "+255" offset flags. */
+  minHorizontalRate: number;
+  /** kHz. EDID 1.4 reaches 510 via the byte-4 "+255" offset flags. */
+  maxHorizontalRate: number;
+  /**
+   * MHz. Stored in 10 MHz steps; a CVT-support descriptor refines it downward
+   * in 0.25 MHz steps (byte 12 bits 7:2), so it may be fractional there.
+   */
+  maxPixelClock: number;
   timingSupport: 'default-gtf' | 'range-limits-only' | 'secondary-gtf' | 'cvt';
   // Secondary GTF parameters (if timingSupport === 'secondary-gtf')
   secondaryGTF?: {
@@ -197,7 +211,7 @@ export class DisplayDescriptorParser {
       case 0xFE:
         return this.decodeAlphanumericData(data);
       case 0xFD:
-        return this.decodeRangeLimits(data);
+        return this.decodeRangeLimits(data, edidVersion, edidRevision);
       case 0xFC:
         return this.decodeProductName(data);
       case 0xFB:
@@ -254,7 +268,7 @@ export class DisplayDescriptorParser {
         this.encodeString(bytes, (descriptor as ProductNameDescriptor).productName);
         break;
       case 0xFD:
-        this.encodeRangeLimits(bytes, descriptor as DisplayRangeLimitsDescriptor);
+        this.encodeRangeLimits(bytes, descriptor as DisplayRangeLimitsDescriptor, edidVersion, edidRevision);
         break;
       case 0xFB:
         this.encodeColorPoint(bytes, descriptor as ColorPointDescriptor);
@@ -333,8 +347,21 @@ export class DisplayDescriptorParser {
     };
   }
 
-  private static decodeRangeLimits(data: Uint8Array): DisplayRangeLimitsDescriptor {
+  private static decodeRangeLimits(
+    data: Uint8Array,
+    edidVersion?: number,
+    edidRevision?: number,
+  ): DisplayRangeLimitsDescriptor {
     const timingSupportByte = data[10];
+    // EDID 1.4 Table 3.26 byte 4: bits 1:0 add 255 Hz to the vertical rates
+    // (10 = max only, 11 = min and max), bits 3:2 likewise add 255 kHz to the
+    // horizontal rates. edid-decode applies them for EDID >= 1.4 only; an
+    // unspecified version is treated as 1.4 (the bits are 0 in valid 1.3).
+    const offsets = rangeLimitOffsetsApply(edidVersion, edidRevision) ? data[4] : 0;
+    const vMaxOffset = offsets & 0x02 ? 255 : 0;
+    const vMinOffset = (offsets & 0x03) === 0x03 ? 255 : 0;
+    const hMaxOffset = offsets & 0x08 ? 255 : 0;
+    const hMinOffset = (offsets & 0x0c) === 0x0c ? 255 : 0;
     let timingSupport: DisplayRangeLimitsDescriptor['timingSupport'] = 'default-gtf';
     
     switch (timingSupportByte) {
@@ -346,10 +373,10 @@ export class DisplayDescriptorParser {
 
     const descriptor: DisplayRangeLimitsDescriptor = {
       tag: 0xFD,
-      minVerticalRate: data[5],
-      maxVerticalRate: data[6],
-      minHorizontalRate: data[7],
-      maxHorizontalRate: data[8],
+      minVerticalRate: data[5] + vMinOffset,
+      maxVerticalRate: data[6] + vMaxOffset,
+      minHorizontalRate: data[7] + hMinOffset,
+      maxHorizontalRate: data[8] + hMaxOffset,
       maxPixelClock: data[9] * 10,
       timingSupport,
     };
@@ -366,6 +393,9 @@ export class DisplayDescriptorParser {
 
     if (timingSupport === 'cvt') {
       const cvtVersion = ((data[11] >> 4) & 0x0F) * 10 + (data[11] & 0x0F);
+      // Byte 12 bits 7:2: extra pixel clock precision — subtract that many
+      // 0.25 MHz steps from the 10 MHz-granular byte-9 value.
+      descriptor.maxPixelClock = data[9] * 10 - ((data[12] >> 2) & 0x3F) * 0.25;
       const maxPixelsHigh = ((data[12] & 0x03) << 8) | data[13];
       const arByte = data[14];
       const prefAR = (data[15] >> 5) & 0x07;
@@ -394,12 +424,38 @@ export class DisplayDescriptorParser {
     return descriptor;
   }
 
-  private static encodeRangeLimits(bytes: Uint8Array, desc: DisplayRangeLimitsDescriptor): void {
-    bytes[5] = desc.minVerticalRate;
-    bytes[6] = desc.maxVerticalRate;
-    bytes[7] = desc.minHorizontalRate;
-    bytes[8] = desc.maxHorizontalRate;
-    bytes[9] = Math.round(desc.maxPixelClock / 10);
+  private static encodeRangeLimits(
+    bytes: Uint8Array,
+    desc: DisplayRangeLimitsDescriptor,
+    edidVersion?: number,
+    edidRevision?: number,
+  ): void {
+    // Rates above 255 need the EDID 1.4 byte-4 offset flags; older versions
+    // cap at 255. A min offset is only valid alongside the max offset.
+    const offsetsAllowed = rangeLimitOffsetsApply(edidVersion, edidRevision);
+    const limit = offsetsAllowed ? 510 : 255;
+    const clampRate = (value: number) => Math.max(0, Math.min(limit, Math.round(value)));
+    const minV = clampRate(desc.minVerticalRate);
+    const maxV = Math.max(clampRate(desc.maxVerticalRate), minV > 255 ? minV : 0);
+    const minH = clampRate(desc.minHorizontalRate);
+    const maxH = Math.max(clampRate(desc.maxHorizontalRate), minH > 255 ? minH : 0);
+    const vMaxOffset = maxV > 255;
+    const vMinOffset = minV > 255;
+    const hMaxOffset = maxH > 255;
+    const hMinOffset = minH > 255;
+    bytes[4] =
+      (vMaxOffset ? 0x02 : 0) | (vMinOffset ? 0x01 : 0) |
+      (hMaxOffset ? 0x08 : 0) | (hMinOffset ? 0x04 : 0);
+    bytes[5] = minV - (vMinOffset ? 255 : 0);
+    bytes[6] = maxV - (vMaxOffset ? 255 : 0);
+    bytes[7] = minH - (hMinOffset ? 255 : 0);
+    bytes[8] = maxH - (hMaxOffset ? 255 : 0);
+    // CVT descriptors refine the clock in 0.25 MHz steps below byte 9 (see
+    // the CVT branch); everything else stores whole 10 MHz units.
+    const clockMHz = Math.max(0, Math.min(2550, desc.maxPixelClock));
+    bytes[9] = desc.timingSupport === 'cvt'
+      ? Math.ceil(clockMHz / 10 - 1e-9)
+      : Math.round(clockMHz / 10);
 
     switch (desc.timingSupport) {
       case 'default-gtf': bytes[10] = 0x00; break;
@@ -434,7 +490,11 @@ export class DisplayDescriptorParser {
       const maxActivePixels = Math.max(0, Math.min(0x3FF, Math.round(cvt.maxActivePixelsPerLine / 8)));
 
       bytes[11] = ((Math.floor(version / 10) & 0x0F) << 4) | (version % 10);
-      bytes[12] = (maxActivePixels >> 8) & 0x03;
+      const clockPrecisionSteps = Math.max(
+        0,
+        Math.min(0x3F, Math.round((bytes[9] * 10 - clockMHz) / 0.25)),
+      );
+      bytes[12] = (clockPrecisionSteps << 2) | ((maxActivePixels >> 8) & 0x03);
       bytes[13] = maxActivePixels & 0xFF;
       bytes[14] = this.encodeRangeCvtAspectRatios(cvt.aspectRatios);
       bytes[15] = (this.rangeCvtAspectRatioCode(cvt.preferredAspectRatio) << 5)

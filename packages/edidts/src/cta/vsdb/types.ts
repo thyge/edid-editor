@@ -28,6 +28,16 @@ export interface HDMI14VSDB {
   dc36bit: boolean;
   dc48bit: boolean;
   maxTmdsClockMHz: number;
+  /** Byte 2 bit 0: DVI_Dual (dual-link DVI). Set only when the bit is on. */
+  dviDual?: boolean;
+  /** Byte 2 bits 2:1 (reserved), kept raw so they survive a re-encode. Set only when non-zero. */
+  flagsReserved?: number;
+  /**
+   * How many of bytes 0-3 the decoded block carried, when fewer than all four
+   * (the common "physical address only" form is 2). Encode keeps that short
+   * form unless a field that needs the later bytes is set.
+   */
+  headLength?: number;
 
   /** Byte 4 low nibble: Supported Content Types bitmap (Graphics=0x01, Photo=0x02, Cinema=0x04, Game=0x08). */
   contentTypes?: number;
@@ -107,35 +117,88 @@ export interface Hdmi3DStructure {
   detail?: number;
 }
 
+/**
+ * HDMI Forum VSDB (HF-VSDB, OUI C4-5D-D8), post-OUI payload per HDMI 2.1 and
+ * edid-decode `cta_hf_scdb`. Bytes 0-3 are always present (HDMI 2.0); bytes
+ * 4, 5-6 and 7-9 are optional HDMI 2.1 groups.
+ */
 export interface HDMIForumVSDB {
+  /** Byte 0. Always 1 in HDMI 2.x. */
   version: number;
+  /** Byte 1 × 5, in MHz (0 = not indicated). */
   maxTmdsCharacterRate: number;
+  // Byte 2
   scdc: boolean;
   rr: boolean;
+  cableStatus: boolean;
+  /** Color Content Bits Per Component Indication. */
+  ccbpci: boolean;
   lte340McscScramble: boolean;
   independentView: boolean;
   dualView: boolean;
   osd3d: boolean;
-  dc30bit420: boolean;
-  dc36bit420: boolean;
-  dc48bit420: boolean;
-  uhd4k: boolean;
-  vrr: boolean;
-  fapa: boolean;
-  allm: boolean;
-  fva: boolean;
-  cnmVrr: boolean;
-  dsc: boolean;
+  // Byte 3
+  /** Bits 7:4 — see HDMI_FRL_RATE_OPTIONS. */
   maxFrlRate: number;
+  /** Bit 3: UHD VIC (HDMI VIC ↔ CTA VIC equivalence). */
+  uhd4k: boolean;
+  dc48bit420: boolean;
+  dc36bit420: boolean;
+  dc30bit420: boolean;
+  // Byte 4 (HDMI 2.1)
+  fapaEndExtended: boolean;
+  qms: boolean;
+  mDelta: boolean;
+  /** CinemaVRR — deprecated by HDMI 2.1a, kept so existing blocks round-trip. */
+  cinemaVrr: boolean;
+  negativeMvrr: boolean;
+  fva: boolean;
+  allm: boolean;
+  /** FAPA in blanking after the first active video line. */
+  fapaStartLocation: boolean;
+  // Bytes 5-6 (HDMI 2.1)
+  /** Hz, 6 bits (0 = VRR not supported). */
+  vrrMin: number;
+  /** Hz, 10 bits. */
+  vrrMax: number;
+  // Byte 7 (HDMI 2.1 DSC)
+  dsc12: boolean;
+  dscNative420: boolean;
+  qmsTfrMax: boolean;
+  qmsTfrMin: boolean;
+  dscAllBpp: boolean;
+  dsc16bpc: boolean;
+  dsc12bpc: boolean;
+  dsc10bpc: boolean;
+  // Byte 8
+  /** Bits 7:4 — same code table as maxFrlRate. */
+  dscMaxFrlRate: number;
+  /** Bits 3:0 — see HDMI_DSC_MAX_SLICES_OPTIONS. */
+  dscMaxSlices: number;
+  // Byte 9
+  /** Bits 5:0; the line-of-chunks limit is 1024 × (1 + value) bytes. */
+  dscTotalChunkKBytes: number;
   /**
-   * Whether the source block carried the optional byte 5 (DSC_1p2 / CinemaVRR
-   * flags). The common v1 short form omits it; encode writes byte 5 only when
-   * it was present or one of its feature bits is set, so short-form blocks
-   * round-trip without growing a trailing zero byte. Optional so programmatic
-   * literals type-check without supplying it.
+   * Number of post-OUI bytes the decoded block carried. Encode never writes a
+   * shorter block than this (so an HDMI 2.0 4-byte block stays 4 bytes and a
+   * full HDMI 2.1 block keeps its zero-valued tail); optional for literals.
    */
-  flags4Present?: boolean;
+  payloadLength?: number;
+  /** Bytes after byte 9, preserved verbatim. */
+  trailing: Uint8Array;
 }
+
+/** HF-VSDB DSC_Max_Slices code options (byte 8 bits 3:0, per HDMI 2.1). */
+export const HDMI_DSC_MAX_SLICES_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 0, label: 'Not supported' },
+  { value: 1, label: '1 slice, 340 MHz/slice' },
+  { value: 2, label: '2 slices, 340 MHz/slice' },
+  { value: 3, label: '4 slices, 340 MHz/slice' },
+  { value: 4, label: '8 slices, 340 MHz/slice' },
+  { value: 5, label: '8 slices, 400 MHz/slice' },
+  { value: 6, label: '12 slices, 400 MHz/slice' },
+  { value: 7, label: '12 slices, 600 MHz/slice' },
+];
 
 /**
  * HDMI Forum VSDB Max FRL Rate code options (CTA-861-G HDMI 2.1, 3-bit code).
