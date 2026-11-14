@@ -6,6 +6,9 @@ import { EEDID } from 'edidts'
 // ref would double-wrap and fight the explicit reactive() proxy.
 const edid = shallowRef<EEDID | null>(null)
 const error = ref<string | null>(null)
+// Name of the file the current EDID was imported from (picked or dropped);
+// null for pasted hex and blank EDIDs. Used to name the edited download.
+const sourceFileName = ref<string | null>(null)
 
 // edidData is derived state: the reactive EEDID tree, re-encoded to bytes.
 // Because edid.value is a reactive() proxy, EEDID.encode's property reads
@@ -34,8 +37,9 @@ function parseHexString(hex: string): Uint8Array {
 
 // Load bytes into the reactive tree. The computed re-encodes from the tree on
 // demand; there is no separate raw-byte store to preserve.
-function setEdid(bytes: Uint8Array) {
+function setEdid(bytes: Uint8Array, fileName: string | null = null) {
   edid.value = reactive(EEDID.decode(bytes)) as EEDID
+  sourceFileName.value = fileName
 }
 
 export function useEDID() {
@@ -56,11 +60,11 @@ export function useEDID() {
 
       if (file.name.endsWith('.txt')) {
         const text = new TextDecoder().decode(new Uint8Array(buffer))
-        setEdid(parseHexString(text))
+        setEdid(parseHexString(text), file.name)
         return
       }
 
-      setEdid(new Uint8Array(buffer))
+      setEdid(new Uint8Array(buffer), file.name)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to parse EDID'
       edid.value = null
@@ -91,6 +95,7 @@ export function useEDID() {
   const clear = () => {
     edid.value = null
     error.value = null
+    sourceFileName.value = null
   }
 
   const isLoaded = computed(() => edid.value !== null)
@@ -99,6 +104,7 @@ export function useEDID() {
     edidData,
     edid,
     error,
+    sourceFileName,
     isLoaded,
     loadFromHex,
     loadFromFile,

@@ -61,6 +61,7 @@ import CTASpeakerLocation from '@/components/cta/CTASpeakerLocation.vue'
 import CTAInfoFrame from '@/components/cta/CTAInfoFrame.vue'
 import CTAVesaTransferCharacteristic from '@/components/cta/CTAVesaTransferCharacteristic.vue'
 import { useEDID } from '@/composables/useEDID'
+import { downloadFile, edidFileBaseName, formatEdidHex } from '@/lib/edidExport'
 import { computeHexBlockRegions, type HexRegion } from '@/composables/useHexBlockRegions'
 import { displayIdSectionIds, displayIdBlockSectionId, parseDisplayIdSectionId } from '@/components/displayid/displayIdLabels'
 import DisplayIDOverview from '@/components/displayid/DisplayIDOverview.vue'
@@ -90,7 +91,18 @@ import DisplayIDCTA from '@/components/displayid/DisplayIDCTA.vue'
 
 const edidStore = useEDID()
 const edidRef = edidStore.edid
-const { edidData, error, isLoaded, loadFromHex, loadFromFile, createBlankEdid } = edidStore
+const { edidData, error, isLoaded, sourceFileName, loadFromHex, loadFromFile, createBlankEdid } = edidStore
+
+/** Download the edited EDID (the re-encoded bytes, checksums included). */
+function downloadEdid(format: 'bin' | 'hex') {
+  if (!edidRef.value || !edidData.value) return
+  const baseName = edidFileBaseName(edidRef.value, sourceFileName.value)
+  if (format === 'bin') {
+    downloadFile(edidData.value, `${baseName}.bin`, 'application/octet-stream')
+  } else {
+    downloadFile(formatEdidHex(edidData.value), `${baseName}.txt`, 'text/plain')
+  }
+}
 
 onMounted(() => {
   loadFromHex(
@@ -611,9 +623,12 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
     </div>
     <TopNav
       v-model:hex-viewer="hexViewerEnabled"
+      :can-download="isLoaded"
       @import-file="loadFromFile"
       @load-hex="loadFromHex"
       @new-edid="createBlankEdid"
+      @download-bin="downloadEdid('bin')"
+      @download-hex="downloadEdid('hex')"
     />
     <SidebarProvider class="flex-1 min-h-0 overflow-hidden">
       <LeftNav
