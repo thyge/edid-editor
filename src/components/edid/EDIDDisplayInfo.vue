@@ -90,7 +90,8 @@ function updateProductCode(value: string | number) {
 
 function updateSerialNumber(value: string | number) {
   const num = parseInt(String(value), 10)
-  if (!isNaN(num) && num >= 0) emit('update', 'header.serialNumber', num)
+  // The ID serial number is 32 bits; larger values used to wrap on save.
+  if (!isNaN(num) && num >= 0 && num <= 0xFFFFFFFF) emit('update', 'header.serialNumber', num)
 }
 
 function updateWeek(value: string | number) {
@@ -194,6 +195,7 @@ function updateFeature(key: string, value: unknown) {
               type="number"
               class="h-8 font-mono"
               min="0"
+              max="4294967295"
               @update:model-value="updateSerialNumber"
             />
           </div>

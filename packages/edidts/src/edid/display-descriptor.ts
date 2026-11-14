@@ -60,6 +60,19 @@ export interface DisplayRangeLimitsDescriptor extends BaseDisplayDescriptor {
    */
   maxPixelClock: number;
   timingSupport: 'default-gtf' | 'range-limits-only' | 'secondary-gtf' | 'cvt';
+  /**
+   * Byte 10 when it isn't one of the four defined codes (shown as
+   * 'default-gtf'). Kept so an edit elsewhere doesn't rewrite it to 0x00;
+   * ignored once the user picks a different timing support.
+   */
+  timingSupportCode?: number;
+  /** Byte 4 bits the model doesn't use (bits 7:4; all of it before EDID 1.4), kept raw. */
+  offsetFlagsReserved?: number;
+  /**
+   * Bytes 11–17 of a GTF / range-limits-only / unknown-code descriptor when
+   * they aren't the standard `0A 20 20 20 20 20 20` padding, kept raw.
+   */
+  padding?: Uint8Array;
   // Secondary GTF parameters (if timingSupport === 'secondary-gtf')
   secondaryGTF?: {
     startFrequency: number;
@@ -315,8 +328,16 @@ export class DisplayDescriptorParser {
     return str.trim();
   }
 
-  private static encodeString(bytes: Uint8Array, str: string): void {
+  private static encodeString(bytes: Uint8Array, value: string): void {
     const maxLen = 13;
+    // Descriptor strings are single-byte text; anything outside printable
+    // ASCII used to be written as its UTF-16 code unit truncated to a byte
+    // (é → 0xE9, an emoji → two garbage bytes). Write '?' instead, and drop
+    // trailing spaces, which edid-decode flags before the 0x0A terminator.
+    const str = Array.from(value, (ch) => {
+      const code = ch.codePointAt(0) ?? 0x3F;
+      return code >= 0x20 && code <= 0x7E ? ch : '?';
+    }).join('').trimEnd();
     for (let i = 0; i < maxLen; i++) {
       if (i < str.length) {
         bytes[5 + i] = str.charCodeAt(i);
@@ -366,11 +387,13 @@ export class DisplayDescriptorParser {
     const hMinOffset = (offsets & 0x0c) === 0x0c ? 255 : 0;
     let timingSupport: DisplayRangeLimitsDescriptor['timingSupport'] = 'default-gtf';
     
+    let knownCode = true;
     switch (timingSupportByte) {
       case 0x00: timingSupport = 'default-gtf'; break;
       case 0x01: timingSupport = 'range-limits-only'; break;
       case 0x02: timingSupport = 'secondary-gtf'; break;
       case 0x04: timingSupport = 'cvt'; break;
+      default: knownCode = false;
     }
 
     const descriptor: DisplayRangeLimitsDescriptor = {
@@ -382,6 +405,17 @@ export class DisplayDescriptorParser {
       maxPixelClock: data[9] * 10,
       timingSupport,
     };
+
+    // Raw bits and bytes the model doesn't otherwise express, so editing a
+    // rate doesn't silently rewrite them. Each is set only when present.
+    if (!knownCode) descriptor.timingSupportCode = timingSupportByte;
+    const offsetsUsed = rangeLimitOffsetsApply(edidVersion, edidRevision) ? 0x0f : 0x00;
+    if (data[4] & ~offsetsUsed & 0xff) descriptor.offsetFlagsReserved = data[4] & ~offsetsUsed & 0xff;
+    const padded = timingSupport === 'default-gtf' || timingSupport === 'range-limits-only';
+    const STANDARD_PADDING = [0x0a, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20];
+    if (padded && STANDARD_PADDING.some((b, i) => data[11 + i] !== b)) {
+      descriptor.padding = data.slice(11, 18);
+    }
 
     if (timingSupport === 'secondary-gtf' && data[11] === 0x00) {
       descriptor.secondaryGTF = {
@@ -447,9 +481,13 @@ export class DisplayDescriptorParser {
     const vMinOffset = minV > 255;
     const hMaxOffset = maxH > 255;
     const hMinOffset = minH > 255;
+    // Reserved bits come back as decoded; offset bits are always recomputed
+    // (on EDID 1.4+ only bits 7:4 are reserved, before that all of byte 4).
+    const reservedFlags = (desc.offsetFlagsReserved ?? 0) & (offsetsAllowed ? 0xf0 : 0xff);
     bytes[4] =
       (vMaxOffset ? 0x02 : 0) | (vMinOffset ? 0x01 : 0) |
-      (hMaxOffset ? 0x08 : 0) | (hMinOffset ? 0x04 : 0);
+      (hMaxOffset ? 0x08 : 0) | (hMinOffset ? 0x04 : 0) |
+      reservedFlags;
     bytes[5] = minV - (vMinOffset ? 255 : 0);
     bytes[6] = maxV - (vMaxOffset ? 255 : 0);
     bytes[7] = minH - (hMinOffset ? 255 : 0);
@@ -462,16 +500,21 @@ export class DisplayDescriptorParser {
       : Math.round(clockMHz / 10);
 
     switch (desc.timingSupport) {
-      case 'default-gtf': bytes[10] = 0x00; break;
+      case 'default-gtf': bytes[10] = desc.timingSupportCode ?? 0x00; break;
       case 'range-limits-only': bytes[10] = 0x01; break;
       case 'secondary-gtf': bytes[10] = 0x02; break;
       case 'cvt': bytes[10] = 0x04; break;
     }
 
-    // Fill remaining with padding for default GTF
+    // Fill remaining with padding for default GTF (or the source's own
+    // padding when it wasn't the standard 0A 20 20 …).
     if (desc.timingSupport === 'default-gtf' || desc.timingSupport === 'range-limits-only') {
-      bytes[11] = 0x0A;
-      for (let i = 12; i < 18; i++) bytes[i] = 0x20;
+      if (desc.padding && desc.padding.length === 7) {
+        bytes.set(desc.padding, 11);
+      } else {
+        bytes[11] = 0x0A;
+        for (let i = 12; i < 18; i++) bytes[i] = 0x20;
+      }
     }
 
     if (desc.timingSupport === 'secondary-gtf') {

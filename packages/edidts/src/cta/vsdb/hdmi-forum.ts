@@ -121,6 +121,7 @@ export class HDMIForumDecoder implements VendorDecoder<'hdmiForum'> {
       dscMaxFrlRate: (b8 >> 4) & 0x0f,
       dscMaxSlices: b8 & 0x0f,
       dscTotalChunkKBytes: at(9) & 0x3f,
+      ...(at(9) & 0xc0 ? { byte9Reserved: at(9) & 0xc0 } : {}),
       payloadLength: payload.length,
       trailing: payload.slice(MODELLED_LENGTH),
     };
@@ -170,7 +171,7 @@ export class HDMIForumEncoder implements VendorEncoder<'hdmiForum'> {
         flag(fields.dsc12bpc, 0x02) |
         flag(fields.dsc10bpc, 0x01),
       ((fields.dscMaxFrlRate & 0x0f) << 4) | (fields.dscMaxSlices & 0x0f),
-      fields.dscTotalChunkKBytes & 0x3f,
+      (fields.dscTotalChunkKBytes & 0x3f) | ((fields.byte9Reserved ?? 0) & 0xc0),
     ];
 
     // Write the shortest block that carries every set field: bytes 0-3 always,

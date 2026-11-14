@@ -45,8 +45,10 @@ watch(
 const maxLength = computed(() => props.maxLength ?? DEFAULT_MAX_LENGTH)
 const remaining = computed(() => Math.max(0, maxLength.value - localValue.value.length))
 
+// EDID descriptor strings hold printable ASCII only; drop anything else as
+// it's typed so the field shows exactly what will be saved.
 function sanitize(value: string): string {
-  return value.slice(0, maxLength.value)
+  return value.replace(/[^\x20-\x7E]/g, '').slice(0, maxLength.value)
 }
 
 function updateValue(next: string | number) {

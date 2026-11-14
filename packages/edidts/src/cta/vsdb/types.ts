@@ -39,6 +39,12 @@ export interface HDMI14VSDB {
    */
   headLength?: number;
 
+  /**
+   * Byte 4 bits the model doesn't express, kept raw: reserved bit 4, an
+   * I_Latency flag without Latency, or a flag whose bytes are missing. Set
+   * only when non-zero.
+   */
+  videoFlagsReserved?: number;
   /** Byte 4 low nibble: Supported Content Types bitmap (Graphics=0x01, Photo=0x02, Cinema=0x04, Game=0x08). */
   contentTypes?: number;
   /** Video/audio latency, present iff byte 4 bit 7 set. */
@@ -55,6 +61,12 @@ export interface HDMI14VSDB {
     threeDMode: Hdmi3DMode;
     /** Byte bits 3:2 — Base EDID image size interpretation. */
     imageSize: HdmiImageSize;
+    /**
+     * Bits the model doesn't express, kept raw: the reserved 3D_Multi value
+     * 11 (bits 6:5, decoded as mode 'none') and reserved bits 2:0. Set only
+     * when non-zero.
+     */
+    flagsReserved?: number;
     /** HDMI VIC list (HDMI VIC codes 1–4; maps to 4K formats). */
     hdmiVics: number[];
     /**
@@ -178,6 +190,8 @@ export interface HDMIForumVSDB {
   // Byte 9
   /** Bits 5:0; the line-of-chunks limit is 1024 × (1 + value) bytes. */
   dscTotalChunkKBytes: number;
+  /** Byte 9 bits 7:6 (reserved), kept raw. Set only when non-zero. */
+  byte9Reserved?: number;
   /**
    * Number of post-OUI bytes the decoded block carried. Encode never writes a
    * shorter block than this (so an HDMI 2.0 4-byte block stays 4 bytes and a

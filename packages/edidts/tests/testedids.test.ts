@@ -69,6 +69,13 @@ describe('Test EDID compatibility', () => {
     expect(decoded.base.header.manufacturerId).toBe(original.base.header.manufacturerId)
     expect(decoded.base.header.productCode).toBe(original.base.header.productCode)
     expect(decoded.isValid).toBe(true)
+    // Opening and saving must not change the file. Encoding recomputes
+    // checksums, so a file with a bad checksum legitimately differs there.
+    if (original.checksumDiagnostics.length === 0) {
+      expect(Array.from(encoded)).toEqual(Array.from(data))
+    } else {
+      expect(encoded.length).toBe(data.length)
+    }
   })
 
   it.each(edidFixtures)('should encode modifications correctly for $source/$name', ({ data }) => {

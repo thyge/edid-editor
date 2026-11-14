@@ -905,7 +905,10 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
         </div>
       </SidebarInset>
       <section id="hex-viewer" v-show="hexViewerEnabled" class="h-full scroll-mt-24">
-        <HexViewer :data="previewData" :regions="hexRegions" />
+        <!-- While an edit can't be encoded the hex view shows the last valid
+             bytes, so the block dividers (computed from the edited model)
+             would be misplaced; hide them until the error clears. -->
+        <HexViewer :data="previewData" :regions="encodeError ? [] : hexRegions" />
       </section>
     </SidebarProvider>
   </div>

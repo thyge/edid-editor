@@ -121,6 +121,8 @@ function ensureCVT() {
 
 function updateTimingSupport(value: DisplayRangeLimitsDescriptor['timingSupport']) {
   local.timingSupport = value
+  // An explicit choice replaces an unrecognised byte-10 code kept from the file.
+  delete local.timingSupportCode
   if (value === 'secondary-gtf') {
     ensureSecondaryGTF()
     delete local.cvt

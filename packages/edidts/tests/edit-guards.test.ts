@@ -155,3 +155,67 @@ describe('range-limit edits above 255', () => {
     expect(bytes[6]).toBe(255)
   })
 })
+
+describe('low-risk leftovers: edits keep bits the model does not express', () => {
+  it('writes descriptor strings as printable ASCII without trailing spaces', () => {
+    const bytes = DisplayDescriptorParser.encode({ tag: 0xfc, productName: 'Café 😀  ' } as never)
+    // "Caf?" then the 😀 surrogate pair as one '?', trailing spaces dropped.
+    expect(Array.from(bytes.subarray(5, 11))).toEqual([0x43, 0x61, 0x66, 0x3f, 0x20, 0x3f])
+    expect(bytes[11]).toBe(0x0a)
+  })
+
+  it.each([
+    ['an I_Latency flag without Latency', [0x10, 0x00, 0xb8, 0x3c, 0x40]],
+    ['reserved byte-4 bit 4', [0x10, 0x00, 0xb8, 0x3c, 0x10]],
+    ['a latency field cut short', [0x10, 0x00, 0xb8, 0x3c, 0x80, 0x10]],
+    ['3D_Multi = 11 and reserved extended bits', [0x10, 0x00, 0xb8, 0x3c, 0x20, 0x67, 0x00]],
+  ])('keeps HDMI 1.4 %s when the block is edited', async (_label, payload) => {
+    const { HDMI14Decoder, HDMI14Encoder } = await import('../src/cta/vsdb/hdmi14')
+    const fields = { ...new HDMI14Decoder().decode(new Uint8Array(payload)) }
+    expect(Array.from(new HDMI14Encoder().encode(fields))).toEqual(payload)
+  })
+
+  it('drops a stray I_Latency flag once real latency is added', async () => {
+    const { HDMI14Decoder, HDMI14Encoder } = await import('../src/cta/vsdb/hdmi14')
+    const fields = { ...new HDMI14Decoder().decode(new Uint8Array([0x10, 0x00, 0xb8, 0x3c, 0x40])) }
+    fields.latency = { progressive: { video: 0x10, audio: 0x08 } }
+    const bytes = new HDMI14Encoder().encode(fields)
+    expect(bytes[4] & 0xc0).toBe(0x80) // progressive only: exactly 2 latency bytes follow
+    expect(bytes.length).toBe(7)
+  })
+
+  it('keeps the HDMI 2.1 block byte-9 reserved bits', async () => {
+    const { HDMIForumDecoder, HDMIForumEncoder } = await import('../src/cta/vsdb/hdmi-forum')
+    const payload = [0x01, 0x78, 0x80, 0x6b, 0x43, 0x28, 0x78, 0xd3, 0x33, 0xc5]
+    const fields = { ...new HDMIForumDecoder().decode(new Uint8Array(payload)) }
+    expect(Array.from(new HDMIForumEncoder().encode(fields))).toEqual(payload)
+  })
+
+  it('keeps an unknown range-limits code, reserved byte-4 bits and odd padding across a rate edit', () => {
+    // Code 0x03 (undefined), byte 4 bit 4 set, padding of zeros instead of 0A 20 20 …
+    const raw = fromHex('00 00 00 fd 10 30 4b 1e 53 18 03 00 00 00 00 00 00 00')
+    const decoded = DisplayDescriptorParser.decode(raw, 1, 4) as DisplayRangeLimitsDescriptor
+    const edited = { ...decoded, maxVerticalRate: 76 }
+    const bytes = DisplayDescriptorParser.encode(edited, 1, 4)
+    expect(bytes[4]).toBe(0x10)
+    expect(bytes[6]).toBe(76)
+    expect(bytes[10]).toBe(0x03)
+    expect(Array.from(bytes.subarray(11))).toEqual([0, 0, 0, 0, 0, 0, 0])
+  })
+
+  it('writes the chosen timing support once the user picks one', () => {
+    const raw = fromHex('00 00 00 fd 00 30 4b 1e 53 18 03 0a 20 20 20 20 20 20')
+    const decoded = DisplayDescriptorParser.decode(raw, 1, 4) as DisplayRangeLimitsDescriptor
+    const { timingSupportCode: _dropped, ...picked } = { ...decoded, timingSupport: 'range-limits-only' as const }
+    expect(DisplayDescriptorParser.encode(picked, 1, 4)[10]).toBe(0x01)
+  })
+
+  it('treats all of byte 4 as reserved before EDID 1.4', () => {
+    const raw = fromHex('00 00 00 fd 02 30 4b 1e 53 18 01 0a 20 20 20 20 20 20')
+    const decoded = DisplayDescriptorParser.decode(raw, 1, 3) as DisplayRangeLimitsDescriptor
+    expect(decoded.maxVerticalRate).toBe(0x4b) // no +255 offset in 1.3
+    const bytes = DisplayDescriptorParser.encode({ ...decoded, minVerticalRate: 50 }, 1, 3)
+    expect(bytes[4]).toBe(0x02)
+    expect(bytes[5]).toBe(50)
+  })
+})

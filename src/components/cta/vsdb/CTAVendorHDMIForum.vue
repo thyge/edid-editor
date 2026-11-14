@@ -31,9 +31,10 @@ const linkFlags: Array<{ field: BooleanField; label: string }> = [
 ]
 
 const colorFlags: Array<{ field: BooleanField; label: string }> = [
-  { field: 'dc30bit420', label: '4:2:0 10-bit' },
-  { field: 'dc36bit420', label: '4:2:0 12-bit' },
-  { field: 'dc48bit420', label: '4:2:0 16-bit' },
+  // Named like the HDMI 1.4 card (bits per pixel), with bits per component.
+  { field: 'dc30bit420', label: '4:2:0 30-bit (10 bpc)' },
+  { field: 'dc36bit420', label: '4:2:0 36-bit (12 bpc)' },
+  { field: 'dc48bit420', label: '4:2:0 48-bit (16 bpc)' },
   { field: 'uhd4k', label: 'UHD VIC' },
 ]
 

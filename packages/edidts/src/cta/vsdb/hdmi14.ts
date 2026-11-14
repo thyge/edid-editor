@@ -62,7 +62,15 @@ export class HDMI14Decoder implements VendorDecoder<'hdmi14'> {
     out.contentTypes = b4 & 0x0f;
     i++;
 
-    // Latency (byte 4 bit 7; interlaced latency bit 6).
+    // Latency (byte 4 bit 7; interlaced latency bit 6). A block that sets the
+    // flag but ends before its latency bytes keeps what's there as `trailing`
+    // (and the flag via videoFlagsReserved) rather than reading zeros that
+    // would then be written back as extra bytes.
+    const latencyLength = b4 & 0x80 ? (b4 & 0x40 ? 4 : 2) : 0;
+    if (latencyLength > 0 && i + latencyLength > payload.length) {
+      out.trailing = sliceFrom(payload, i);
+      return withVideoFlagsReserved(out, b4);
+    }
     if (b4 & 0x80) {
       const progressive = readLatency(payload, i);
       i += 2;
@@ -77,11 +85,11 @@ export class HDMI14Decoder implements VendorDecoder<'hdmi14'> {
     // Extended HDMI video details (byte 4 bit 5).
     if (!(b4 & 0x20)) {
       out.trailing = sliceFrom(payload, i);
-      return out;
+      return withVideoFlagsReserved(out, b4);
     }
     if (i >= payload.length) {
       out.trailing = sliceFrom(payload, i);
-      return out;
+      return withVideoFlagsReserved(out, b4);
     }
 
     const eb = payload[i];
@@ -93,18 +101,25 @@ export class HDMI14Decoder implements VendorDecoder<'hdmi14'> {
     const imageSize: HdmiImageSize =
       imgBits === 0x08 ? 'aspect-ratio' : imgBits === 0x10 ? 'cm' : imgBits === 0x18 ? '5cm' : 'none';
 
-    const extended: HDMI14VSDB['extended'] = {
+    const extended: NonNullable<HDMI14VSDB['extended']> = {
       threeDPresent,
       threeDMode,
       imageSize,
       hdmiVics: [],
       structures: [],
     };
+    // Keep what the model doesn't express: the reserved 3D_Multi value 11
+    // (decoded as 'none') and the reserved low 3 bits.
+    const modelledEb =
+      (threeDPresent ? 0x80 : 0) |
+      (threeDMode === 'all-vics-3d' ? 0x20 : threeDMode === 'vic-mask' ? 0x40 : 0) |
+      imgBits;
+    if (eb & ~modelledEb & 0xff) extended.flagsReserved = eb & ~modelledEb & 0xff;
 
     if (i >= payload.length) {
       out.extended = extended;
       out.trailing = sliceFrom(payload, i);
-      return out;
+      return withVideoFlagsReserved(out, b4);
     }
 
     const lb = payload[i];
@@ -154,7 +169,7 @@ export class HDMI14Decoder implements VendorDecoder<'hdmi14'> {
 
     out.extended = extended;
     out.trailing = sliceFrom(payload, i);
-    return out;
+    return withVideoFlagsReserved(out, b4);
   }
 }
 
@@ -196,11 +211,16 @@ export class HDMI14Encoder implements VendorEncoder<'hdmi14'> {
     }
 
     // Byte 4: Content Types + latency-present + interlaced-latency + extended-present.
+    // Unmodelled bits from the source come back too — except a stray
+    // latency/I_Latency flag once real latency is set, which would make the
+    // sink read the wrong number of latency bytes.
+    const b4Reserved = (fields.videoFlagsReserved ?? 0) & (fields.latency ? 0x3f : 0xff);
     const b4 =
       (fields.contentTypes ?? 0) & 0x0f |
       (fields.latency ? 0x80 : 0) |
       (fields.latency?.interlaced ? 0x40 : 0) |
-      (fields.extended ? 0x20 : 0);
+      (fields.extended ? 0x20 : 0) |
+      b4Reserved;
     const bytes: number[] = [...head, b4];
 
     if (fields.latency) {
@@ -222,7 +242,10 @@ export class HDMI14Encoder implements VendorEncoder<'hdmi14'> {
             : e.imageSize === '5cm'
               ? 0x18
               : 0x00;
-      const eb = (e.threeDPresent ? 0x80 : 0) | modeBits | imgBits;
+      // Reserved bits come back; the reserved 3D_Multi value only while the
+      // mode is still 'none' (a mode the user picks replaces it).
+      const ebReserved = (e.flagsReserved ?? 0) & (e.threeDMode === 'none' ? 0xff : 0x9f);
+      const eb = (e.threeDPresent ? 0x80 : 0) | modeBits | imgBits | ebReserved;
       bytes.push(eb);
 
       // Length byte bits 7:5: the declared VIC count. Prefer the source's raw
@@ -262,6 +285,22 @@ VENDOR_DECODERS[OUI.HDMI_1_4] = new HDMI14Decoder();
 VENDOR_ENCODERS['hdmi14'] = new HDMI14Encoder();
 
 // --- helpers ---------------------------------------------------------------
+
+/**
+ * Record the byte-4 bits the model doesn't express — reserved bit 4, an
+ * I_Latency flag without Latency, or a latency/extended flag whose bytes are
+ * missing — so an edit to another field writes them back unchanged.
+ */
+function withVideoFlagsReserved(out: HDMI14VSDB, b4: number): HDMI14VSDB {
+  const modelled =
+    (b4 & 0x0f) |
+    (out.latency ? 0x80 : 0) |
+    (out.latency?.interlaced ? 0x40 : 0) |
+    (out.extended ? 0x20 : 0);
+  const extra = b4 & ~modelled & 0xff;
+  if (extra) out.videoFlagsReserved = extra;
+  return out;
+}
 
 function readLatency(payload: Uint8Array, i: number): HdmiLatency {
   return { video: byteAt(payload, i), audio: byteAt(payload, i + 1) };
