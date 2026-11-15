@@ -193,7 +193,7 @@ describe('DisplayDescriptorParser encode symmetry', () => {
           ar15_9: false,
         },
         preferredAspectRatio: '16:9',
-        reducedBlankingPreferred: true,
+        reducedBlankingSupported: true,
         standardBlankingSupported: true,
         horizontalShrinkSupported: true,
         horizontalStretchSupported: false,
@@ -257,14 +257,14 @@ describe('DisplayDescriptorParser unknown-tag opaque preservation', () => {
   })
 })
 
-describe('CVT 3-byte aspect code 3 = 5:4 (not 15:9)', () => {
-  it('round-trips a CVT 3-byte timing with the 5:4 aspect', () => {
+describe('CVT 3-byte aspect code 3 = 15:9 (edid-decode, Linux drm_cvt_modes)', () => {
+  it('round-trips a CVT 3-byte timing with the 15:9 aspect', () => {
     const descriptor: CVTTimingDescriptor = {
       tag: 0xf8,
       timings: [
         {
           addressableLines: 1024,
-          aspectRatio: '5:4',
+          aspectRatio: '15:9',
           preferredRefreshRate: 60,
           refreshRates: { r50Hz: false, r60Hz: true, r75Hz: false, r85Hz: false, r60HzRB: false },
         },
@@ -274,12 +274,12 @@ describe('CVT 3-byte aspect code 3 = 5:4 (not 15:9)', () => {
     const decoded = DisplayDescriptorParser.decode(encoded)
     expect(decoded).toEqual(descriptor)
     // The aspect code field (bits 4:3 of the second byte of each 3-byte entry)
-    // must be 3 for 5:4, distinct from any 15:9 mapping.
+    // must be 3 for 15:9.
     const entryByte1 = encoded[7] // bytes[5]=0x01 header, entry0 = bytes[6..8]
     expect((entryByte1 >> 2) & 0x03).toBe(3)
   })
 
-  it('decodes raw aspect code 3 as 5:4 (regression: was 15:9)', () => {
+  it('decodes raw aspect code 3 as 15:9', () => {
     // Build raw bytes: header byte[5]=0x01, entry0 lines=1024 → lineCode=511=0x1FF,
     // byte[6]=0xFF, byte[7]=((0x1)<<4)|(3<<2)=0x1C, byte[8]=0 (refresh).
     const raw = new Uint8Array(18)
@@ -289,6 +289,6 @@ describe('CVT 3-byte aspect code 3 = 5:4 (not 15:9)', () => {
     raw[7] = (1 << 4) | (3 << 2)
     raw[8] = 0
     const decoded = DisplayDescriptorParser.decode(raw) as CVTTimingDescriptor
-    expect(decoded.timings[0].aspectRatio).toBe('5:4')
+    expect(decoded.timings[0].aspectRatio).toBe('15:9')
   })
 })

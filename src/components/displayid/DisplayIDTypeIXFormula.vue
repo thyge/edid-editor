@@ -11,9 +11,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
+import { useDisplayIdRoom } from './displayIdRoom'
 
 const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
+
+/** One more 6-byte descriptor must fit the section's 0x70 block. */
+const TIMING_BYTES = 6
+const room = useDisplayIdRoom()
 
 function defaultTiming(): DisplayIdTypeIXFormulaBasedTiming {
   return {
@@ -67,7 +72,15 @@ function updateBlock(index: number, block: DisplayIdTypeIXFormulaBasedTimingBloc
             </label>
           </div>
         </div>
-        <Button variant="outline" size="sm" @click="updateBlock(index, block, [...block.timings, defaultTiming()])">Add Timing</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="!room.fits(TIMING_BYTES)"
+          :title="room.fits(TIMING_BYTES) ? undefined : room.noRoomTitle(TIMING_BYTES)"
+          @click="updateBlock(index, block, [...block.timings, defaultTiming()])"
+        >
+          Add Timing
+        </Button>
       </section>
     </CardContent>
   </Card>

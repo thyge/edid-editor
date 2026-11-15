@@ -8,8 +8,14 @@
 import {
   decodeStandardTimingAspectCode,
   heightFromStandardTimingAspect,
+  isEdid14OrLater,
   standardTimingAspectCodeFor,
 } from '../common/aspect-ratios';
+
+/** The range-limits "+255" offset flags exist from EDID 1.4 on. */
+function rangeLimitOffsetsApply(edidVersion?: number, edidRevision?: number): boolean {
+  return isEdid14OrLater(edidVersion, edidRevision);
+}
 
 export type DisplayDescriptorTag =
   | 0xFF  // Display Product Serial Number
@@ -40,12 +46,33 @@ export interface AlphanumericDataDescriptor extends BaseDisplayDescriptor {
 
 export interface DisplayRangeLimitsDescriptor extends BaseDisplayDescriptor {
   tag: 0xFD;
-  minVerticalRate: number;      // Hz
-  maxVerticalRate: number;      // Hz
-  minHorizontalRate: number;    // kHz
-  maxHorizontalRate: number;    // kHz
-  maxPixelClock: number;        // MHz (in 10 MHz increments)
+  /** Hz. EDID 1.4 reaches 510 via the byte-4 "+255" offset flags. */
+  minVerticalRate: number;
+  /** Hz. EDID 1.4 reaches 510 via the byte-4 "+255" offset flags. */
+  maxVerticalRate: number;
+  /** kHz. EDID 1.4 reaches 510 via the byte-4 "+255" offset flags. */
+  minHorizontalRate: number;
+  /** kHz. EDID 1.4 reaches 510 via the byte-4 "+255" offset flags. */
+  maxHorizontalRate: number;
+  /**
+   * MHz. Stored in 10 MHz steps; a CVT-support descriptor refines it downward
+   * in 0.25 MHz steps (byte 12 bits 7:2), so it may be fractional there.
+   */
+  maxPixelClock: number;
   timingSupport: 'default-gtf' | 'range-limits-only' | 'secondary-gtf' | 'cvt';
+  /**
+   * Byte 10 when it isn't one of the four defined codes (shown as
+   * 'default-gtf'). Kept so an edit elsewhere doesn't rewrite it to 0x00;
+   * ignored once the user picks a different timing support.
+   */
+  timingSupportCode?: number;
+  /** Byte 4 bits the model doesn't use (bits 7:4; all of it before EDID 1.4), kept raw. */
+  offsetFlagsReserved?: number;
+  /**
+   * Bytes 11–17 of a GTF / range-limits-only / unknown-code descriptor when
+   * they aren't the standard `0A 20 20 20 20 20 20` padding, kept raw.
+   */
+  padding?: Uint8Array;
   // Secondary GTF parameters (if timingSupport === 'secondary-gtf')
   secondaryGTF?: {
     startFrequency: number;
@@ -66,7 +93,9 @@ export interface DisplayRangeLimitsDescriptor extends BaseDisplayDescriptor {
       ar15_9: boolean;
     };
     preferredAspectRatio: '4:3' | '16:9' | '16:10' | '5:4' | '15:9';
-    reducedBlankingPreferred: boolean;
+    /** Byte 15 bit 4: CVT reduced blanking supported. */
+    reducedBlankingSupported: boolean;
+    /** Byte 15 bit 3: CVT standard blanking supported. */
     standardBlankingSupported: boolean;
     horizontalShrinkSupported: boolean;
     horizontalStretchSupported: boolean;
@@ -115,11 +144,11 @@ export interface CVTTimingDescriptor extends BaseDisplayDescriptor {
   tag: 0xF8;
   timings: Array<{
     addressableLines: number;
-    // CVT 3-byte code aspect ratio is a 2-bit field with only four values
-    // (VESA E-EDID A2 §3.10.3.6 / Table 3.35): 4:3, 16:9, 16:10, 5:4.
-    // 15:9 is NOT a CVT 3-byte value (it appears only in the separate Display
-    // Range Limits CVT support bitmap), so it is not part of this union.
-    aspectRatio: '4:3' | '16:9' | '16:10' | '5:4';
+    // CVT 3-byte code aspect ratio is a 2-bit field with four values: 4:3,
+    // 16:9, 16:10, 15:9 (code 3). That's how edid-decode
+    // (detailed_cvt_descriptor) and the Linux kernel (drm_cvt_modes) read
+    // it; 5:4 only exists in the Range Limits CVT support bitmap.
+    aspectRatio: '4:3' | '16:9' | '16:10' | '15:9';
     preferredRefreshRate: number;
     refreshRates: {
       r50Hz: boolean;
@@ -197,7 +226,7 @@ export class DisplayDescriptorParser {
       case 0xFE:
         return this.decodeAlphanumericData(data);
       case 0xFD:
-        return this.decodeRangeLimits(data);
+        return this.decodeRangeLimits(data, edidVersion, edidRevision);
       case 0xFC:
         return this.decodeProductName(data);
       case 0xFB:
@@ -254,7 +283,7 @@ export class DisplayDescriptorParser {
         this.encodeString(bytes, (descriptor as ProductNameDescriptor).productName);
         break;
       case 0xFD:
-        this.encodeRangeLimits(bytes, descriptor as DisplayRangeLimitsDescriptor);
+        this.encodeRangeLimits(bytes, descriptor as DisplayRangeLimitsDescriptor, edidVersion, edidRevision);
         break;
       case 0xFB:
         this.encodeColorPoint(bytes, descriptor as ColorPointDescriptor);
@@ -299,8 +328,16 @@ export class DisplayDescriptorParser {
     return str.trim();
   }
 
-  private static encodeString(bytes: Uint8Array, str: string): void {
+  private static encodeString(bytes: Uint8Array, value: string): void {
     const maxLen = 13;
+    // Descriptor strings are single-byte text; anything outside printable
+    // ASCII used to be written as its UTF-16 code unit truncated to a byte
+    // (é → 0xE9, an emoji → two garbage bytes). Write '?' instead, and drop
+    // trailing spaces, which edid-decode flags before the 0x0A terminator.
+    const str = Array.from(value, (ch) => {
+      const code = ch.codePointAt(0) ?? 0x3F;
+      return code >= 0x20 && code <= 0x7E ? ch : '?';
+    }).join('').trimEnd();
     for (let i = 0; i < maxLen; i++) {
       if (i < str.length) {
         bytes[5 + i] = str.charCodeAt(i);
@@ -333,26 +370,52 @@ export class DisplayDescriptorParser {
     };
   }
 
-  private static decodeRangeLimits(data: Uint8Array): DisplayRangeLimitsDescriptor {
+  private static decodeRangeLimits(
+    data: Uint8Array,
+    edidVersion?: number,
+    edidRevision?: number,
+  ): DisplayRangeLimitsDescriptor {
     const timingSupportByte = data[10];
+    // EDID 1.4 Table 3.26 byte 4: bits 1:0 add 255 Hz to the vertical rates
+    // (10 = max only, 11 = min and max), bits 3:2 likewise add 255 kHz to the
+    // horizontal rates. edid-decode applies them for EDID >= 1.4 only; an
+    // unspecified version is treated as 1.4 (the bits are 0 in valid 1.3).
+    const offsets = rangeLimitOffsetsApply(edidVersion, edidRevision) ? data[4] : 0;
+    const vMaxOffset = offsets & 0x02 ? 255 : 0;
+    const vMinOffset = (offsets & 0x03) === 0x03 ? 255 : 0;
+    const hMaxOffset = offsets & 0x08 ? 255 : 0;
+    const hMinOffset = (offsets & 0x0c) === 0x0c ? 255 : 0;
     let timingSupport: DisplayRangeLimitsDescriptor['timingSupport'] = 'default-gtf';
     
+    let knownCode = true;
     switch (timingSupportByte) {
       case 0x00: timingSupport = 'default-gtf'; break;
       case 0x01: timingSupport = 'range-limits-only'; break;
       case 0x02: timingSupport = 'secondary-gtf'; break;
       case 0x04: timingSupport = 'cvt'; break;
+      default: knownCode = false;
     }
 
     const descriptor: DisplayRangeLimitsDescriptor = {
       tag: 0xFD,
-      minVerticalRate: data[5],
-      maxVerticalRate: data[6],
-      minHorizontalRate: data[7],
-      maxHorizontalRate: data[8],
+      minVerticalRate: data[5] + vMinOffset,
+      maxVerticalRate: data[6] + vMaxOffset,
+      minHorizontalRate: data[7] + hMinOffset,
+      maxHorizontalRate: data[8] + hMaxOffset,
       maxPixelClock: data[9] * 10,
       timingSupport,
     };
+
+    // Raw bits and bytes the model doesn't otherwise express, so editing a
+    // rate doesn't silently rewrite them. Each is set only when present.
+    if (!knownCode) descriptor.timingSupportCode = timingSupportByte;
+    const offsetsUsed = rangeLimitOffsetsApply(edidVersion, edidRevision) ? 0x0f : 0x00;
+    if (data[4] & ~offsetsUsed & 0xff) descriptor.offsetFlagsReserved = data[4] & ~offsetsUsed & 0xff;
+    const padded = timingSupport === 'default-gtf' || timingSupport === 'range-limits-only';
+    const STANDARD_PADDING = [0x0a, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20];
+    if (padded && STANDARD_PADDING.some((b, i) => data[11 + i] !== b)) {
+      descriptor.padding = data.slice(11, 18);
+    }
 
     if (timingSupport === 'secondary-gtf' && data[11] === 0x00) {
       descriptor.secondaryGTF = {
@@ -366,6 +429,9 @@ export class DisplayDescriptorParser {
 
     if (timingSupport === 'cvt') {
       const cvtVersion = ((data[11] >> 4) & 0x0F) * 10 + (data[11] & 0x0F);
+      // Byte 12 bits 7:2: extra pixel clock precision — subtract that many
+      // 0.25 MHz steps from the 10 MHz-granular byte-9 value.
+      descriptor.maxPixelClock = data[9] * 10 - ((data[12] >> 2) & 0x3F) * 0.25;
       const maxPixelsHigh = ((data[12] & 0x03) << 8) | data[13];
       const arByte = data[14];
       const prefAR = (data[15] >> 5) & 0x07;
@@ -381,8 +447,10 @@ export class DisplayDescriptorParser {
           ar15_9: (arByte & 0x08) !== 0,
         },
         preferredAspectRatio: this.rangeCvtAspectRatioFromCode(prefAR),
-        reducedBlankingPreferred: (data[15] & 0x08) !== 0,
-        standardBlankingSupported: (data[15] & 0x10) !== 0,
+        // edid-decode: 0x10 = "Supports CVT reduced blanking",
+        // 0x08 = "Supports CVT standard blanking".
+        reducedBlankingSupported: (data[15] & 0x10) !== 0,
+        standardBlankingSupported: (data[15] & 0x08) !== 0,
         horizontalShrinkSupported: (data[16] & 0x80) !== 0,
         horizontalStretchSupported: (data[16] & 0x40) !== 0,
         verticalShrinkSupported: (data[16] & 0x20) !== 0,
@@ -394,24 +462,59 @@ export class DisplayDescriptorParser {
     return descriptor;
   }
 
-  private static encodeRangeLimits(bytes: Uint8Array, desc: DisplayRangeLimitsDescriptor): void {
-    bytes[5] = desc.minVerticalRate;
-    bytes[6] = desc.maxVerticalRate;
-    bytes[7] = desc.minHorizontalRate;
-    bytes[8] = desc.maxHorizontalRate;
-    bytes[9] = Math.round(desc.maxPixelClock / 10);
+  private static encodeRangeLimits(
+    bytes: Uint8Array,
+    desc: DisplayRangeLimitsDescriptor,
+    edidVersion?: number,
+    edidRevision?: number,
+  ): void {
+    // Rates above 255 need the EDID 1.4 byte-4 offset flags; older versions
+    // cap at 255. A min offset is only valid alongside the max offset.
+    const offsetsAllowed = rangeLimitOffsetsApply(edidVersion, edidRevision);
+    const limit = offsetsAllowed ? 510 : 255;
+    const clampRate = (value: number) => Math.max(0, Math.min(limit, Math.round(value)));
+    const minV = clampRate(desc.minVerticalRate);
+    const maxV = Math.max(clampRate(desc.maxVerticalRate), minV > 255 ? minV : 0);
+    const minH = clampRate(desc.minHorizontalRate);
+    const maxH = Math.max(clampRate(desc.maxHorizontalRate), minH > 255 ? minH : 0);
+    const vMaxOffset = maxV > 255;
+    const vMinOffset = minV > 255;
+    const hMaxOffset = maxH > 255;
+    const hMinOffset = minH > 255;
+    // Reserved bits come back as decoded; offset bits are always recomputed
+    // (on EDID 1.4+ only bits 7:4 are reserved, before that all of byte 4).
+    const reservedFlags = (desc.offsetFlagsReserved ?? 0) & (offsetsAllowed ? 0xf0 : 0xff);
+    bytes[4] =
+      (vMaxOffset ? 0x02 : 0) | (vMinOffset ? 0x01 : 0) |
+      (hMaxOffset ? 0x08 : 0) | (hMinOffset ? 0x04 : 0) |
+      reservedFlags;
+    bytes[5] = minV - (vMinOffset ? 255 : 0);
+    bytes[6] = maxV - (vMaxOffset ? 255 : 0);
+    bytes[7] = minH - (hMinOffset ? 255 : 0);
+    bytes[8] = maxH - (hMaxOffset ? 255 : 0);
+    // CVT descriptors refine the clock in 0.25 MHz steps below byte 9 (see
+    // the CVT branch); everything else stores whole 10 MHz units.
+    const clockMHz = Math.max(0, Math.min(2550, desc.maxPixelClock));
+    bytes[9] = desc.timingSupport === 'cvt'
+      ? Math.ceil(clockMHz / 10 - 1e-9)
+      : Math.round(clockMHz / 10);
 
     switch (desc.timingSupport) {
-      case 'default-gtf': bytes[10] = 0x00; break;
+      case 'default-gtf': bytes[10] = desc.timingSupportCode ?? 0x00; break;
       case 'range-limits-only': bytes[10] = 0x01; break;
       case 'secondary-gtf': bytes[10] = 0x02; break;
       case 'cvt': bytes[10] = 0x04; break;
     }
 
-    // Fill remaining with padding for default GTF
+    // Fill remaining with padding for default GTF (or the source's own
+    // padding when it wasn't the standard 0A 20 20 …).
     if (desc.timingSupport === 'default-gtf' || desc.timingSupport === 'range-limits-only') {
-      bytes[11] = 0x0A;
-      for (let i = 12; i < 18; i++) bytes[i] = 0x20;
+      if (desc.padding && desc.padding.length === 7) {
+        bytes.set(desc.padding, 11);
+      } else {
+        bytes[11] = 0x0A;
+        for (let i = 12; i < 18; i++) bytes[i] = 0x20;
+      }
     }
 
     if (desc.timingSupport === 'secondary-gtf') {
@@ -434,12 +537,16 @@ export class DisplayDescriptorParser {
       const maxActivePixels = Math.max(0, Math.min(0x3FF, Math.round(cvt.maxActivePixelsPerLine / 8)));
 
       bytes[11] = ((Math.floor(version / 10) & 0x0F) << 4) | (version % 10);
-      bytes[12] = (maxActivePixels >> 8) & 0x03;
+      const clockPrecisionSteps = Math.max(
+        0,
+        Math.min(0x3F, Math.round((bytes[9] * 10 - clockMHz) / 0.25)),
+      );
+      bytes[12] = (clockPrecisionSteps << 2) | ((maxActivePixels >> 8) & 0x03);
       bytes[13] = maxActivePixels & 0xFF;
       bytes[14] = this.encodeRangeCvtAspectRatios(cvt.aspectRatios);
       bytes[15] = (this.rangeCvtAspectRatioCode(cvt.preferredAspectRatio) << 5)
-        | (cvt.standardBlankingSupported ? 0x10 : 0)
-        | (cvt.reducedBlankingPreferred ? 0x08 : 0);
+        | (cvt.reducedBlankingSupported ? 0x10 : 0)
+        | (cvt.standardBlankingSupported ? 0x08 : 0);
       bytes[16] = (cvt.horizontalShrinkSupported ? 0x80 : 0)
         | (cvt.horizontalStretchSupported ? 0x40 : 0)
         | (cvt.verticalShrinkSupported ? 0x20 : 0)
@@ -601,10 +708,10 @@ export class DisplayDescriptorParser {
       if (lines === 0) continue;
 
       const arCode = (data[offset + 1] >> 2) & 0x03;
-      // CVT 3-byte aspect ratio codes (VESA E-EDID A2 §3.10.3.6): 0=4:3,
-      // 1=16:9, 2=16:10, 3=5:4. Code 3 is 5:4 (not 15:9 — that was the bug).
-      const arMap: Record<number, '4:3' | '16:9' | '16:10' | '5:4'> = {
-        0: '4:3', 1: '16:9', 2: '16:10', 3: '5:4',
+      // CVT 3-byte aspect ratio codes: 0=4:3, 1=16:9, 2=16:10, 3=15:9
+      // (edid-decode detailed_cvt_descriptor, Linux drm_cvt_modes).
+      const arMap: Record<number, '4:3' | '16:9' | '16:10' | '15:9'> = {
+        0: '4:3', 1: '16:9', 2: '16:10', 3: '15:9',
       };
 
       const prefRR = (data[offset + 2] >> 5) & 0x03;
@@ -713,7 +820,8 @@ export class DisplayDescriptorParser {
       case '4:3': return 0;
       case '16:9': return 1;
       case '16:10': return 2;
-      case '5:4': return 3;
+      case '15:9': return 3;
+      default: return 0;
     }
   }
 
@@ -895,9 +1003,8 @@ export const RANGE_CVT_PREFERRED_ASPECT_OPTIONS: ReadonlyArray<{
 ];
 
 /**
- * CVT 3-Byte Timing Code aspect-ratio options (VESA E-EDID A2 §3.10.3.6 /
- * Table 3.35). Only four values are defined for the 2-bit field; 15:9 is not
- * a CVT 3-byte value (it appears only in the Range Limits CVT bitmap).
+ * CVT 3-Byte Timing Code aspect-ratio options: the four values of the 2-bit
+ * field (code 3 is 15:9, per edid-decode and the Linux kernel).
  */
 export const CVT_TIMING_ASPECT_RATIO_OPTIONS: ReadonlyArray<{
   value: CVTTimingDescriptor['timings'][number]['aspectRatio'];
@@ -906,7 +1013,7 @@ export const CVT_TIMING_ASPECT_RATIO_OPTIONS: ReadonlyArray<{
   { value: '4:3', label: '4:3' },
   { value: '16:9', label: '16:9' },
   { value: '16:10', label: '16:10' },
-  { value: '5:4', label: '5:4' },
+  { value: '15:9', label: '15:9' },
 ];
 
 /** CVT 3-Byte preferred refresh-rate options (byte 3 bits 7-6). */

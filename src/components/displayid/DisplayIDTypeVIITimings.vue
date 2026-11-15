@@ -11,9 +11,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
+import { useDisplayIdRoom } from './displayIdRoom'
 
 const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
+
+/** One more 20-byte descriptor must fit the section's 0x70 block. */
+const TIMING_BYTES = 20
+const room = useDisplayIdRoom()
+
+/** Byte 3 bit 7 is "preferred" before block revision 2 and "YCbCr 4:2:0"
+ *  from revision 2 on (edid-decode parse_displayid_type_1_7_timing). */
+function hasYcbcr420Flag(block: DisplayIdTypeVIIDetailedTimingBlock): boolean {
+  return block.revision >= 2
+}
 
 function defaultTiming(): DisplayIdTypeVIIDetailedTiming {
   return {
@@ -44,17 +55,17 @@ function updateBlock(index: number, block: DisplayIdTypeVIIDetailedTimingBlock, 
  * per the type-vii-timing codec — NOT the 18-byte DTD widths):
  * values are stored with a −1 bias, so the maxima are the raw field widths
  * plus one — pixel clock 24-bit kHz, H/V active/blanking/sync-width 16-bit,
- * sync offsets 14-bit front-porch fields; aspect ratio is 4-bit, stereo 2-bit.
+ * sync offsets 15-bit front-porch fields; aspect ratio is 4-bit, stereo 2-bit.
  */
 const TYPE_VII_FIELD_MAX = {
   pixelClockKHz: 16_777_216,
   horizontalActive: 65_536,
   horizontalBlanking: 65_536,
-  horizontalSyncOffset: 16_384,
+  horizontalSyncOffset: 32_768,
   horizontalSyncWidth: 65_536,
   verticalActive: 65_536,
   verticalBlanking: 65_536,
-  verticalSyncOffset: 16_384,
+  verticalSyncOffset: 32_768,
   verticalSyncWidth: 65_536,
   aspectRatio: 15,
   stereo: 3,
@@ -117,7 +128,11 @@ function updateTiming(
             <Input type="number" min="0" :max="TYPE_VII_FIELD_MAX.verticalSyncWidth" :model-value="timing.verticalSyncWidth" @input="updateTiming(index, block, timingIndex, 'verticalSyncWidth', numberFromEvent($event))" />
           </div>
           <div class="grid grid-cols-3 gap-3">
-            <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
+            <label v-if="hasYcbcr420Flag(block)" class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50" title="Block revision 2+: byte 3 bit 7 means YCbCr 4:2:0 support">
+              <span>YCbCr 4:2:0</span>
+              <Switch :model-value="timing.ycbcr420 === true" @update:model-value="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, ycbcr420: value }))" />
+            </label>
+            <label v-else class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
               <span>Preferred</span>
               <Switch :model-value="timing.preferred" @update:model-value="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, preferred: value }))" />
             </label>
@@ -139,7 +154,15 @@ function updateTiming(
             </label>
           </div>
         </div>
-        <Button variant="outline" size="sm" @click="updateBlock(index, block, [...block.timings, defaultTiming()])">Add Timing</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="!room.fits(TIMING_BYTES)"
+          :title="room.fits(TIMING_BYTES) ? undefined : room.noRoomTitle(TIMING_BYTES)"
+          @click="updateBlock(index, block, [...block.timings, defaultTiming()])"
+        >
+          Add Timing
+        </Button>
       </section>
     </CardContent>
   </Card>

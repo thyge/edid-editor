@@ -10,6 +10,7 @@
  */
 
 import type { CEADataBlock, SpeakerAllocationBlock } from './extension-block';
+import { makeVesaTransferCurve } from './extension-block';
 import { SPEAKER_ALLOCATION_BITS, COLORIMETRY_FLAGS } from './cta-extended-blocks';
 import { EOTF_FLAGS } from './vcdb/hdr-static';
 import { writeIeeeOuiLE } from '../common/bintools';
@@ -224,12 +225,19 @@ export function createDefaultCEADataBlock(type: CEADefaultBlockType): CEADataBlo
         trailing: new Uint8Array(DOLBY_VSDB_DEFAULT.trailing),
       });
     case 'room-config':
+      // Minimal 4-byte RCDB (edid-decode `cta_rcdb`): Speaker flag set with a
+      // count of 2 and FL/FR in the presence mask; no Speaker Location block
+      // (SLD off) and no optional coordinate bytes.
       return {
         tag: 0x07,
         extendedTag: 0x13,
         payload: empty,
-        speakerCount: 0,
-        speakerPresenceDescriptor: 0,
+        display: false,
+        speaker: true,
+        sld: false,
+        speakerCount: 2,
+        speakerPresenceMask: 0x000001,
+        trailing: new Uint8Array(),
       } as unknown as CEADataBlock;
     case 'speaker-location':
       return {
@@ -250,12 +258,13 @@ export function createDefaultCEADataBlock(type: CEADefaultBlockType): CEADataBlo
         trailing: new Uint8Array(),
       } as unknown as CEADataBlock;
     case 'vesa-transfer':
+      // A valid 7-byte body (8 points with the implied 1023): a gamma 2.2
+      // curve on the white channel.
       return {
         tag: 0x05,
-        payload: new Uint8Array(1),
+        payload: new Uint8Array(),
         transferType: 'white',
-        numEntries: 8,
-        gammaValues: new Array(8).fill(0),
+        points: makeVesaTransferCurve(7),
       } as unknown as CEADataBlock;
     // Vendor-specific data blocks (tag 0x03): unlike the short
     // blocks above, multiple VSDBs may legally coexist, and each needs its
@@ -272,9 +281,9 @@ export function createDefaultCEADataBlock(type: CEADefaultBlockType): CEADataBlo
     case 'vsdb-microsoft-hmd':
       return createDefaultVsdb('microsoftHmd', OUI.MICROSOFT_HMD, {
         ...MICROSOFT_HMD_DEFAULT,
-        // The shared literal's use case 0 is NOT a valid code — the encoder
-        // rejects it (isValidMicrosoftHMDUseCase). Default to 'Generic
-        // Display' (0x02) so a freshly added block encodes immediately.
+        // The shared literal's use case 0 is not a defined code
+        // (isValidMicrosoftHMDUseCase). Default to 'Generic Display' (0x02)
+        // so a freshly added block is meaningful.
         primaryUseCase: 0x02,
         containerId: new Uint8Array(MICROSOFT_HMD_DEFAULT.containerId),
       });

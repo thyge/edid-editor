@@ -80,7 +80,7 @@ function updateChromaticity(
             <Input type="number" min="0" max="7" :model-value="block.nativeColorDepth" @input="update(index, block, { nativeColorDepth: numberFromEvent($event) })" />
           </div>
           <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">Display Device Technology (0–7)</label>
+            <label class="text-xs text-muted-foreground">Display Device Technology (0 = not specified, 1 = AM-LCD, 2 = OLED)</label>
             <Input type="number" min="0" max="7" :model-value="block.displayDeviceTechnology" @input="update(index, block, { displayDeviceTechnology: numberFromEvent($event) })" />
           </div>
           <div class="space-y-1">

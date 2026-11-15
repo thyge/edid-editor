@@ -303,7 +303,7 @@ describe('DisplayID 1.x Type I Detailed Timings block (tag 0x03, 20-byte entries
 
 describe('DisplayID 1.x Tiled Display Topology block (tag 0x12, fixed 22 bytes)', () => {
   // caps 0xC9 (singleEnclosure, bezelInfo, subsetTile 1, singleTile 1),
-  // 3x2 tile grid, location (2,1), tile 1920x1080, bezels 10/12/8/9,
+  // 3x2 tile grid, 0-based location (1,0), tile 1920x1080, bezels 10/12/8/9,
   // vendor "XYZ", product 0x4242, serial 0xCAFEBABE.
   const payload = new Uint8Array([
     0xc9, 0x21, 0x10, 0x00, 0x7f, 0x07, 0x37, 0x04, 0x02, 0x0a, 0x0c, 0x08, 0x09,
@@ -311,7 +311,7 @@ describe('DisplayID 1.x Tiled Display Topology block (tag 0x12, fixed 22 bytes)'
   ]);
   const sectionBytes = v1SectionWith([0x12, 0x00, payload.length, ...payload]);
 
-  it('decodes all structured fields with human (1-based) tile counts/locations', () => {
+  it('decodes all structured fields with 1-based tile counts and 0-based locations', () => {
     const section = decodeDisplayIdSection(sectionBytes);
     const block = section.blocks[0] as DisplayIdV1TiledDisplayTopologyBlock;
     expect(block.tag).toBe(DISPLAY_ID_V1_BLOCK_TAGS.TiledDisplayTopology);
@@ -321,8 +321,9 @@ describe('DisplayID 1.x Tiled Display Topology block (tag 0x12, fixed 22 bytes)'
     expect(block.singleEnclosure).toBe(true);
     expect(block.tileCountHorizontal).toBe(3);
     expect(block.tileCountVertical).toBe(2);
-    expect(block.tileLocationHorizontal).toBe(2);
-    expect(block.tileLocationVertical).toBe(1);
+    // Tile location is 0-based, printed as stored by edid-decode.
+    expect(block.tileLocationHorizontal).toBe(1);
+    expect(block.tileLocationVertical).toBe(0);
     expect(block.tileWidthPixels).toBe(1920);
     expect(block.tileHeightPixels).toBe(1080);
     expect(block.pixelMultiplier).toBe(2);
@@ -350,7 +351,7 @@ describe('DisplayID 1.x Tiled Display Topology block (tag 0x12, fixed 22 bytes)'
     const block = section.blocks[0] as DisplayIdV1TiledDisplayTopologyBlock;
     block.tileCountHorizontal = 4; // hCount → 3
     block.tileCountVertical = 3;    // vCount → 2
-    block.tileLocationHorizontal = 1; // hLoc → 0
+    block.tileLocationHorizontal = 1; // hLoc stored as-is (0-based)
     block.vendorId = 'QED';
     section.blocks[0] = { ...block, payload: encodeDisplayIdBlock(block) };
 

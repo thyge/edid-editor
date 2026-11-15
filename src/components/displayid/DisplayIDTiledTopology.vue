@@ -58,12 +58,13 @@ function update(index: number, block: DisplayIdTiledDisplayTopologyBlock, patch:
             <Input type="number" min="1" max="64" :model-value="block.tileCountVertical" @input="update(index, block, { tileCountVertical: numberFromEvent($event) })" />
           </div>
           <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">Horizontal tile location (1-64)</label>
-            <Input type="number" min="1" max="64" :model-value="block.tileLocationHorizontal" @input="update(index, block, { tileLocationHorizontal: numberFromEvent($event) })" />
+            <!-- Tile locations are 0-based, as edid-decode prints them. -->
+            <label class="text-xs text-muted-foreground">Horizontal tile location (0-63)</label>
+            <Input type="number" min="0" max="63" :model-value="block.tileLocationHorizontal" @input="update(index, block, { tileLocationHorizontal: numberFromEvent($event) })" />
           </div>
           <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">Vertical tile location (1-64)</label>
-            <Input type="number" min="1" max="64" :model-value="block.tileLocationVertical" @input="update(index, block, { tileLocationVertical: numberFromEvent($event) })" />
+            <label class="text-xs text-muted-foreground">Vertical tile location (0-63)</label>
+            <Input type="number" min="0" max="63" :model-value="block.tileLocationVertical" @input="update(index, block, { tileLocationVertical: numberFromEvent($event) })" />
           </div>
           <div class="space-y-1">
             <label class="text-xs text-muted-foreground">Tile width (pixels, 1-65536)</label>

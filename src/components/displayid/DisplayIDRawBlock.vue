@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import {
   hasDisplayIdBlockCodec,
+  isRawDisplayIdBlock,
   type DisplayIdDataBlock,
   type DisplayIdSection,
 } from 'edidts'
@@ -17,10 +18,11 @@ import { displayIdBlockLabel } from './displayIdLabels'
  * every decoded block, so these need a view even when their bytes
  * can't be structured.
  *
- * Payload editability follows hasDisplayIdBlockCodec: a tag with a codec
- * re-encodes from its structured fields, so a raw payload edit would be
- * silently dropped — those render read-only. Tags without a codec pass the
- * payload through verbatim (opaque default entry), so raw edits round-trip.
+ * Payload editability follows isRawDisplayIdBlock: a block that decoded to
+ * structured fields re-encodes from them, so a raw payload edit would be
+ * silently dropped — those render read-only. A raw carrier (unknown tag, or a
+ * known tag whose payload did not decode) is written back from its payload,
+ * so raw edits take effect.
  */
 const props = defineProps<{
   section: DisplayIdSection
@@ -32,7 +34,7 @@ const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBloc
 
 const block = computed(() => props.section.blocks[props.index] as DisplayIdDataBlock | undefined)
 
-const editable = computed(() => !hasDisplayIdBlockCodec(block.value?.tag ?? -1))
+const editable = computed(() => (block.value ? isRawDisplayIdBlock(block.value) : false))
 
 function updatePayload(event: Event) {
   if (!block.value || !editable.value) return
@@ -51,6 +53,10 @@ const payloadLength = computed(() => block.value?.payload.length ?? 0)
       <p v-if="!editable" class="text-xs text-muted-foreground">
         This block type has a decoder but no structured editor yet; its payload is shown read-only
         because edits here would be dropped on re-encode (the payload is rebuilt from parsed fields).
+      </p>
+      <p v-else-if="hasDisplayIdBlockCodec(block.tag)" class="text-xs text-muted-foreground">
+        This block's payload does not match its type's layout, so it could not be decoded into
+        fields; its bytes are saved as shown here.
       </p>
       <p v-else class="text-xs text-muted-foreground">
         This block type has no structured editor; its bytes are preserved verbatim on round-trip.

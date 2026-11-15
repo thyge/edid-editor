@@ -43,6 +43,12 @@ export interface VendorSpecificAudioDataBlock extends ExtendedDataBlock {
   ieeeOui: number;
   vendorPayload: Uint8Array;
   vendor?: VSADBVendorDecoded;
+  /**
+   * The whole post-tag body when it is too short to hold the 3-byte OUI
+   * (malformed). Encoded back verbatim instead of a zero OUI, so the block
+   * keeps its length.
+   */
+  truncatedBody?: Uint8Array;
 }
 
 /**
@@ -59,11 +65,14 @@ export interface VendorSpecificAudioDataBlock extends ExtendedDataBlock {
  */
 export function decodeVSADB(base: ExtendedDataBlock, payload: Uint8Array): VendorSpecificAudioDataBlock {
   if (payload.length < 3) {
+    // Too short for an OUI: keep the bytes as they are (truncatedBody) so the
+    // block is not re-encoded as a longer zero-OUI block.
     return {
       ...base,
       extendedTag: 0x11,
       ieeeOui: 0,
       vendorPayload: new Uint8Array(),
+      truncatedBody: payload.slice(),
     };
   }
 
@@ -110,6 +119,7 @@ export function reassembleVsadbBlock(ieeeOui: number, payload: Uint8Array): Uint
  * byte-identically regardless of registration.
  */
 export function encodeVSADB(block: VendorSpecificAudioDataBlock): Uint8Array {
+  if (block.truncatedBody) return new Uint8Array([0x11, ...block.truncatedBody]);
   if (block.vendor && block.vendor.kind !== 'unknown') {
     const vendor = block.vendor as unknown as { kind: string; fields: unknown };
     const encoder = VENDOR_VSADB_ENCODERS[vendor.kind];

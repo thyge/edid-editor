@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
+import { useDisplayIdRoom } from './displayIdRoom'
 
 /**
  * DisplayID 2.0 Adaptive Sync (tag 0x2b) — a list of 6-byte
@@ -21,6 +22,10 @@ import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '
  */
 const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
+
+/** One more 6-byte descriptor must fit the section's 0x70 block. */
+const DESCRIPTOR_BYTES = 6
+const room = useDisplayIdRoom()
 
 function defaultDescriptor(): DisplayIdAdaptiveSyncDescriptor {
   return {
@@ -138,6 +143,8 @@ function fixed62Label(raw: number): string {
           v-if="block.descriptors.length > 0 || block.payload.length === 0"
           variant="outline"
           size="sm"
+          :disabled="!room.fits(DESCRIPTOR_BYTES)"
+          :title="room.fits(DESCRIPTOR_BYTES) ? undefined : room.noRoomTitle(DESCRIPTOR_BYTES)"
           @click="updateBlock(index, block, [...block.descriptors, defaultDescriptor()])"
         >
           Add Descriptor

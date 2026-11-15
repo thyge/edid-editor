@@ -1,4 +1,10 @@
-import type { CEAExtensionBlock, DisplayIdDataBlock, DisplayIdSection } from 'edidts'
+import {
+  getDisplayIdSectionEncodedLengths,
+  type CEAExtensionBlock,
+  type DisplayIdChainEntry,
+  type DisplayIdDataBlock,
+  type DisplayIdSection,
+} from 'edidts'
 
 /**
  * Cross-extension editor helpers shared by the EDID base-block, CTA-861, and
@@ -30,15 +36,12 @@ export function blocksByTag<T extends DisplayIdDataBlock>(
 }
 
 /**
- * Wire length a DisplayID section will encode to: 4-byte header + block
- * headers/payloads (3 + payload each) + fill bytes + trailing section
- * checksum. Mirrors encodeDisplayIdSection's derivation, which recomputes
- * bytesInSection from the model rather than trusting the decoded field.
+ * Wire length a DisplayID section is saved with: 4-byte header + every data
+ * block as it re-encodes (not the stale decoded payload) + the fill bytes
+ * left after grown blocks used the zero fill they needed + checksum.
  */
-export function displayIdSectionWireLength(section: DisplayIdSection): number {
-  const fill = section.fillBytesRaw ? section.fillBytesRaw.length : section.fillBytes
-  const blocksLength = section.blocks.reduce((sum, block) => sum + 3 + block.payload.length, 0)
-  return 5 + fill + blocksLength
+export function displayIdSectionWireLength(entry: DisplayIdChainEntry): number {
+  return getDisplayIdSectionEncodedLengths(entry.extension)[entry.indexInExtension] ?? 0
 }
 
 /**

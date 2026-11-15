@@ -28,7 +28,23 @@ export interface HDMI14VSDB {
   dc36bit: boolean;
   dc48bit: boolean;
   maxTmdsClockMHz: number;
+  /** Byte 2 bit 0: DVI_Dual (dual-link DVI). Set only when the bit is on. */
+  dviDual?: boolean;
+  /** Byte 2 bits 2:1 (reserved), kept raw so they survive a re-encode. Set only when non-zero. */
+  flagsReserved?: number;
+  /**
+   * How many of bytes 0-3 the decoded block carried, when fewer than all four
+   * (the common "physical address only" form is 2). Encode keeps that short
+   * form unless a field that needs the later bytes is set.
+   */
+  headLength?: number;
 
+  /**
+   * Byte 4 bits the model doesn't express, kept raw: reserved bit 4, an
+   * I_Latency flag without Latency, or a flag whose bytes are missing. Set
+   * only when non-zero.
+   */
+  videoFlagsReserved?: number;
   /** Byte 4 low nibble: Supported Content Types bitmap (Graphics=0x01, Photo=0x02, Cinema=0x04, Game=0x08). */
   contentTypes?: number;
   /** Video/audio latency, present iff byte 4 bit 7 set. */
@@ -45,6 +61,12 @@ export interface HDMI14VSDB {
     threeDMode: Hdmi3DMode;
     /** Byte bits 3:2 — Base EDID image size interpretation. */
     imageSize: HdmiImageSize;
+    /**
+     * Bits the model doesn't express, kept raw: the reserved 3D_Multi value
+     * 11 (bits 6:5, decoded as mode 'none') and reserved bits 2:0. Set only
+     * when non-zero.
+     */
+    flagsReserved?: number;
     /** HDMI VIC list (HDMI VIC codes 1–4; maps to 4K formats). */
     hdmiVics: number[];
     /**
@@ -107,35 +129,90 @@ export interface Hdmi3DStructure {
   detail?: number;
 }
 
+/**
+ * HDMI Forum VSDB (HF-VSDB, OUI C4-5D-D8), post-OUI payload per HDMI 2.1 and
+ * edid-decode `cta_hf_scdb`. Bytes 0-3 are always present (HDMI 2.0); bytes
+ * 4, 5-6 and 7-9 are optional HDMI 2.1 groups.
+ */
 export interface HDMIForumVSDB {
+  /** Byte 0. Always 1 in HDMI 2.x. */
   version: number;
+  /** Byte 1 × 5, in MHz (0 = not indicated). */
   maxTmdsCharacterRate: number;
+  // Byte 2
   scdc: boolean;
   rr: boolean;
+  cableStatus: boolean;
+  /** Color Content Bits Per Component Indication. */
+  ccbpci: boolean;
   lte340McscScramble: boolean;
   independentView: boolean;
   dualView: boolean;
   osd3d: boolean;
-  dc30bit420: boolean;
-  dc36bit420: boolean;
-  dc48bit420: boolean;
-  uhd4k: boolean;
-  vrr: boolean;
-  fapa: boolean;
-  allm: boolean;
-  fva: boolean;
-  cnmVrr: boolean;
-  dsc: boolean;
+  // Byte 3
+  /** Bits 7:4 — see HDMI_FRL_RATE_OPTIONS. */
   maxFrlRate: number;
+  /** Bit 3: UHD VIC (HDMI VIC ↔ CTA VIC equivalence). */
+  uhd4k: boolean;
+  dc48bit420: boolean;
+  dc36bit420: boolean;
+  dc30bit420: boolean;
+  // Byte 4 (HDMI 2.1)
+  fapaEndExtended: boolean;
+  qms: boolean;
+  mDelta: boolean;
+  /** CinemaVRR — deprecated by HDMI 2.1a, kept so existing blocks round-trip. */
+  cinemaVrr: boolean;
+  negativeMvrr: boolean;
+  fva: boolean;
+  allm: boolean;
+  /** FAPA in blanking after the first active video line. */
+  fapaStartLocation: boolean;
+  // Bytes 5-6 (HDMI 2.1)
+  /** Hz, 6 bits (0 = VRR not supported). */
+  vrrMin: number;
+  /** Hz, 10 bits. */
+  vrrMax: number;
+  // Byte 7 (HDMI 2.1 DSC)
+  dsc12: boolean;
+  dscNative420: boolean;
+  qmsTfrMax: boolean;
+  qmsTfrMin: boolean;
+  dscAllBpp: boolean;
+  dsc16bpc: boolean;
+  dsc12bpc: boolean;
+  dsc10bpc: boolean;
+  // Byte 8
+  /** Bits 7:4 — same code table as maxFrlRate. */
+  dscMaxFrlRate: number;
+  /** Bits 3:0 — see HDMI_DSC_MAX_SLICES_OPTIONS. */
+  dscMaxSlices: number;
+  // Byte 9
+  /** Bits 5:0; the line-of-chunks limit is 1024 × (1 + value) bytes. */
+  dscTotalChunkKBytes: number;
+  /** Byte 9 bits 7:6 (reserved), kept raw. Set only when non-zero. */
+  byte9Reserved?: number;
   /**
-   * Whether the source block carried the optional byte 5 (DSC_1p2 / CinemaVRR
-   * flags). The common v1 short form omits it; encode writes byte 5 only when
-   * it was present or one of its feature bits is set, so short-form blocks
-   * round-trip without growing a trailing zero byte. Optional so programmatic
-   * literals type-check without supplying it.
+   * Number of post-OUI bytes the decoded block carried. Encode never writes a
+   * shorter block than this (so an HDMI 2.0 4-byte block stays 4 bytes and a
+   * full HDMI 2.1 block keeps its zero-valued tail); optional for literals.
    */
-  flags4Present?: boolean;
+  payloadLength?: number;
+  /** Bytes after byte 9, preserved verbatim. */
+  trailing: Uint8Array;
 }
+
+/** HF-VSDB DSC_Max_Slices code options (byte 8 bits 3:0, per HDMI 2.1). */
+export const HDMI_DSC_MAX_SLICES_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 0, label: 'Not supported' },
+  { value: 1, label: '1 slice, 340 MHz/slice' },
+  { value: 2, label: '2 slices, 340 MHz/slice' },
+  { value: 3, label: '4 slices, 340 MHz/slice' },
+  { value: 4, label: '8 slices, 340 MHz/slice' },
+  { value: 5, label: '8 slices, 400 MHz/slice' },
+  { value: 6, label: '12 slices, 400 MHz/slice' },
+  { value: 7, label: '12 slices, 600 MHz/slice' },
+];
 
 /**
  * HDMI Forum VSDB Max FRL Rate code options (CTA-861-G HDMI 2.1, 3-bit code).
@@ -156,35 +233,60 @@ export function getHdmiFrlRateLabel(rate: number): string {
   return HDMI_FRL_RATE_OPTIONS[rate]?.label ?? `Rate ${rate}`;
 }
 
+/**
+ * Microsoft HMD / Specialized Monitor VSDB (OUI CA-12-5C), per Microsoft's
+ * "EDID extension for head-mounted and specialized monitors" and edid-decode
+ * `cta_microsoft`: byte 0 version; byte 1 bit 6 Desktop Usage, bit 5
+ * Third-Party Usage, bits 4:0 Display Product Primary Use Case; bytes 2-17
+ * Container ID.
+ */
 export interface MicrosoftHMDVSDB {
+  /** Byte 0 (0–255). */
   version: number;
+  /** Byte 1 bit 6 (defined from version 3; 0 in versions 1-2). */
   desktopUsage: boolean;
+  /** Byte 1 bit 5, "Third-Party Usage" (defined from version 3). */
   nonMicrosoftUsage: boolean;
+  /** Byte 1 bits 4:0 (0–31), see MICROSOFT_HMD_USE_CASES. */
   primaryUseCase: number;
-  containerId: Uint8Array;  // 16-byte UUID
+  /** Bytes 2-17: 16-byte Container ID (UUID). Zero-padded when the block is shorter. */
+  containerId: Uint8Array;
+  /** Byte 1 bit 7 (reserved), kept so it survives a re-encode. Set only when on. */
+  flagsReserved?: boolean;
+  /** Bytes after the Container ID, kept verbatim. Set only when present. */
+  trailing?: Uint8Array;
+  /**
+   * Body length when the block was shorter than 18 bytes (malformed); encode
+   * keeps that length while the missing bytes stay zero.
+   */
+  payloadLength?: number;
 }
 
 /**
  * AMD FreeSync VSDB (OUI 0x00001A). Layout per edid-decode `cta_amd`
  * (parse-cta-block.cpp), reverse-engineered from real EDIDs:
- *   byte 0  versionMajor      — FreeSync version major
- *   byte 1  versionMinor      — FreeSync version minor
+ *   byte 0  version           — FreeSync VSDB version
+ *   byte 1  flags1            — Flags 1 (bit 0 FreeSync, bit 1 FreeSync 2
+ *                               HDR, bit 3 local dimming, …; raw)
  *   byte 2  minRefreshHz      — minimum refresh rate (Hz)
- *   byte 3  maxRefreshHz      — maximum refresh rate (Hz)
- *   byte 4  flags1            — FreeSync 1.x flags (raw); bits in 0xE6 ⇒ MCCS
- *   bytes 5.. trailing        — FreeSync 2.x extension, preserved verbatim.
- *                  edid-decode parses byte 5 as flags 2.x and bytes 6-9 as
- *                  max/min luminance (with and without local dimming) when
- *                  length >= 10, but marks those semantics as speculative, so
- *                  they are kept opaque here for round-trip safety.
+ *   byte 3  maxRefreshHz      — maximum refresh rate (Hz; version 3 moves it
+ *                               to bytes 10-11, kept in `trailing`)
+ *   byte 4  mccsVcpCode       — MCCS VCP code
+ *   bytes 5.. trailing        — version 2/3 fields (flags 5, luminance, …),
+ *                               preserved verbatim.
  */
 export interface AMDFreeSyncVSDB {
-  versionMajor: number;
-  versionMinor: number;
+  version: number;
+  flags1: number;
   minRefreshHz: number;
   maxRefreshHz: number;
-  flags1: number;
-  trailing: Uint8Array;     // bytes 5.. — FreeSync 2.x extension, preserved verbatim
+  mccsVcpCode: number;
+  trailing: Uint8Array;     // bytes 5.. — version 2/3 extension, preserved verbatim
+  /**
+   * Body length when the block was shorter than the 5-byte head (malformed);
+   * encode keeps that length while the missing bytes stay zero.
+   */
+  payloadLength?: number;
 }
 
 export interface MHLVSDB {
@@ -192,6 +294,11 @@ export interface MHLVSDB {
   revision: number;         // byte 0 bits 3:0 — MHL minor revision
   deviceCapability: number; // byte 1 — capability flags (raw byte; per-bit semantics unverified)
   trailing: Uint8Array;     // bytes 2.. — reserved/vendor-specific, preserved verbatim
+  /**
+   * Body length when the block was shorter than 2 bytes; encode keeps that
+   * length while the missing byte stays zero.
+   */
+  payloadLength?: number;
 }
 
 export type VendorSpecificDecoded =

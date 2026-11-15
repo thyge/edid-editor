@@ -13,7 +13,7 @@ export interface VideoTimingBlockBase {
   data: Uint8Array;
 }
 
-export type VideoTimingBlockAspectRatio = '4:3' | '16:9' | '16:10' | '5:4';
+export type VideoTimingBlockAspectRatio = '4:3' | '16:9' | '16:10' | '15:9';
 
 export interface VideoTimingBlockCvtTiming {
   lines: number;
@@ -75,11 +75,12 @@ export function decodeVideoTimingBlock(data: Uint8Array, base: Omit<VideoTimingB
     const vSize = ((data[offset + 1] & 0xf0) << 4) | data[offset];
     const arCode = (data[offset + 1] >> 2) & 0x03;
     const refreshByte = data[offset + 2];
+    // CVT 3-byte aspect code 3 is 15:9 (edid-decode, Linux drm_cvt_modes).
     const arMap: Record<number, VideoTimingBlockAspectRatio> = {
       0: '4:3',
       1: '16:9',
       2: '16:10',
-      3: '5:4',
+      3: '15:9',
     };
 
     vtb.cvtTimings.push({
@@ -213,7 +214,8 @@ function cvtAspectCode(aspectRatio: VideoTimingBlockAspectRatio): number {
     case '4:3': return 0;
     case '16:9': return 1;
     case '16:10': return 2;
-    case '5:4': return 3;
+    case '15:9': return 3;
+    default: return 0;
   }
 }
 

@@ -18,7 +18,13 @@ import {
   type CEAExtensionBlock,
   type ExtensionBlock,
 } from '../cta/extension-block';
-import { decodeDisplayIdSections, encodeDisplayIdSection } from '../displayid/section';
+import {
+  decodeDisplayIdSections,
+  encodeDisplayIdSection,
+  getDisplayIdSectionFillLength,
+  getDisplayIdSectionFixedLength,
+  isDisplayIdSectionFillElastic,
+} from '../displayid/section';
 import type { DisplayIdSection } from '../displayid/types';
 import { checksum8, isChecksum8Valid } from '../common/checksum';
 
@@ -47,13 +53,12 @@ export interface DisplayIdExtension {
   /**
    * Verbatim bytes occupying the `0x70` block payload AFTER the last decoded
    * section (bytes `1 + sectionsTotalLength .. 126`; byte 127 is the EDID block
-   * checksum and is not part of this). Real-world fixtures sometimes carry
-   * non-zero trailing bytes here (stray padding, an un-walked second section
-   * the version-byte walk stopped before, etc.). The structured decode path
-   * preserves them verbatim so the block round-trips byte-exactly — matching
-   * the opaque fallback's byte preservation and avoiding a regression when a
-   * v1.x/v2.0 section does not fill the whole 126-byte payload. Empty when the
-   * sections fill the payload exactly.
+   * checksum and is not part of this). Normally all zero padding; real-world
+   * fixtures sometimes carry non-zero bytes here (stray padding, an un-walked
+   * tail). Non-zero bytes are written back verbatim after the sections; zero
+   * padding is free space that grown sections may use (see
+   * {@link getDisplayIdFreePayloadBytes}). Empty when the sections fill the
+   * payload exactly.
    */
   trailingBytes?: Uint8Array;
   checksum: number;
@@ -231,41 +236,86 @@ function decodeDisplayId(bytes: Uint8Array): DisplayIdExtension | OpaqueExtensio
 }
 
 function encodeDisplayId(ext: DisplayIdExtension): Uint8Array {
-  // Encode every chained section. Fall back to the single `section` field for
-  // any extension built the old way (no `sections` array) so the common
-  // single-section path stays byte-identical.
-  const sections = ext.sections && ext.sections.length > 0
-    ? ext.sections
-    : [ext.section];
-  const encodedSections = sections.map(encodeDisplayIdSection);
-  const totalLength = encodedSections.reduce((sum, s) => sum + s.length, 0);
+  const sections = displayIdSectionsOf(ext);
+  const layout = layoutDisplayIdPayload(ext);
+  if (layout.freeBytes < 0) {
+    throw new Error(
+      `DisplayID data does not fit: it needs ${DISPLAY_ID_PAYLOAD_CAPACITY_BYTES - layout.freeBytes} bytes `
+      + `but a DisplayID extension block holds ${DISPLAY_ID_PAYLOAD_CAPACITY_BYTES}. Remove a data block or timing.`,
+    );
+  }
 
   const out = new Uint8Array(128);
   // byte 0 is the EDID tag (0x70); section content starts at byte 1
   out[0] = 0x70;
-  const available = Math.min(totalLength, 127);
   let offset = 1;
-  let remaining = available;
-  for (const encoded of encodedSections) {
-    if (remaining <= 0) break;
-    const take = Math.min(encoded.length, remaining);
-    out.set(encoded.subarray(0, take), offset);
-    offset += take;
-    remaining -= take;
-  }
-  // Re-write any verbatim trailing bytes that followed the last decoded section
-  // (bytes after the section content, up to byte 126) so a block that does not
-  // fill the 126-byte payload round-trips byte-exactly.
-  if (ext.trailingBytes && ext.trailingBytes.length > 0) {
-    const trailingStart = 1 + Math.min(totalLength, 127);
-    const capacity = 127 - trailingStart;
-    if (capacity > 0) {
-      const take = Math.min(ext.trailingBytes.length, capacity);
-      out.set(ext.trailingBytes.subarray(0, take), trailingStart);
-    }
-  }
+  sections.forEach((section, index) => {
+    const encoded = encodeDisplayIdSection(section, layout.fillLengths[index]);
+    out.set(encoded, offset);
+    offset += encoded.length;
+  });
+  // Non-zero trailing bytes follow the sections verbatim; zero padding is
+  // already there (the buffer starts zeroed).
+  out.set(layout.trailing, offset);
   out[127] = checksum8(out, 127);
   return out;
+}
+
+/** Every section a 0x70 block carries (`sections`, or the legacy `section`). */
+function displayIdSectionsOf(ext: DisplayIdExtension): DisplayIdSection[] {
+  return ext.sections && ext.sections.length > 0 ? ext.sections : [ext.section];
+}
+
+/** `bytes` without its run of trailing 0x00 bytes. */
+function trimTrailingZeros(bytes: Uint8Array | undefined): Uint8Array {
+  if (!bytes) return new Uint8Array(0);
+  let end = bytes.length;
+  while (end > 0 && bytes[end - 1] === 0) end--;
+  return bytes.subarray(0, end);
+}
+
+interface DisplayIdPayloadLayout {
+  /** Fill length to write for each section (zero fill possibly shrunk). */
+  fillLengths: number[];
+  /** Trailing bytes to write after the sections (zero padding trimmed off). */
+  trailing: Uint8Array;
+  /** Payload bytes left once every section and the trailing bytes are placed; negative when they do not fit. */
+  freeBytes: number;
+}
+
+/**
+ * Plan how the sections fill the 126-byte payload. Zero fill inside a section
+ * and zero padding after the last section are free space: when the content
+ * grows, the padding after the sections absorbs it first, then sections give
+ * up zero fill (last section first) — so a full-length section (length byte
+ * 0x79) keeps its length and stays valid when a block is added. Unedited
+ * content keeps every fill byte, so open-and-save stays byte-exact.
+ */
+function layoutDisplayIdPayload(ext: DisplayIdExtension): DisplayIdPayloadLayout {
+  const sections = displayIdSectionsOf(ext);
+  const trailing = trimTrailingZeros(ext.trailingBytes);
+  const fixedLength = sections.reduce((sum, section) => sum + getDisplayIdSectionFixedLength(section), 0)
+    + trailing.length;
+  const freeBytes = DISPLAY_ID_PAYLOAD_CAPACITY_BYTES - fixedLength;
+
+  const fillLengths = sections.map((section) =>
+    isDisplayIdSectionFillElastic(section) ? getDisplayIdSectionFillLength(section) : 0,
+  );
+  let excess = fillLengths.reduce((sum, length) => sum + length, 0) - Math.max(0, freeBytes);
+  for (let index = fillLengths.length - 1; index >= 0 && excess > 0; index--) {
+    const cut = Math.min(fillLengths[index], excess);
+    fillLengths[index] -= cut;
+    excess -= cut;
+  }
+  return {
+    // Non-zero fill is always written verbatim (the section encoder ignores
+    // the override for it); report its real length for clarity.
+    fillLengths: sections.map((section, index) =>
+      isDisplayIdSectionFillElastic(section) ? fillLengths[index] : getDisplayIdSectionFillLength(section),
+    ),
+    trailing,
+    freeBytes,
+  };
 }
 
 /**
@@ -287,22 +337,144 @@ export function getCEAExtension(eedid: { extensions: Extension[] }): CEAExtensio
 /** Section-content capacity of the 0x70 DisplayID extension payload: bytes
  *  1..126 of the 128-byte EDID extension block (byte 0 is the 0x70 tag,
  *  byte 127 is the EDID block checksum, which is not part of any section).
- *  `encodeDisplayId` silently truncates section content beyond this, so the
- *  editor gates every Add Block / Add Section action on it. */
+ *  `encodeDisplayId` throws when the content does not fit, so the editor
+ *  gates every Add Block / in-block add on {@link getDisplayIdFreePayloadBytes}. */
 export const DISPLAY_ID_PAYLOAD_CAPACITY_BYTES = 126;
 
-/** Bytes still free in the 0x70 payload for additional section content:
- *  capacity minus every chained section's encoded length and the verbatim
- *  trailing bytes. Adding a data block (or a whole section) consumes from
- *  this one shared budget regardless of which section it lands in — the
- *  DisplayID counterpart of `ExtensionBlockParser.getCeaFreePayloadBytes`. */
+/** Bytes still free in this 0x70 block's payload for more section content:
+ *  capacity minus every section's header, data blocks, checksum and any
+ *  non-zero fill/trailing bytes. Zero fill inside a section and zero padding
+ *  after the last one count as free — the encoder gives them up when content
+ *  grows. Adding a data block (or growing one) in any section of this block
+ *  draws from this one budget; the DisplayID counterpart of
+ *  `ExtensionBlockParser.getCeaFreePayloadBytes`. Negative when the content
+ *  already does not fit (encoding then throws). */
 export function getDisplayIdFreePayloadBytes(ext: DisplayIdExtension): number {
-  const sections = ext.sections && ext.sections.length > 0 ? ext.sections : [ext.section];
-  const used = sections.reduce(
-    (sum, section) => sum + encodeDisplayIdSection(section).length,
-    0,
-  ) + (ext.trailingBytes?.length ?? 0);
-  return DISPLAY_ID_PAYLOAD_CAPACITY_BYTES - used;
+  return layoutDisplayIdPayload(ext).freeBytes;
+}
+
+/** The length each section of this 0x70 block encodes to, in `sections`
+ *  order — including the zero fill that is left once grown content has used
+ *  what it needs (see `layoutDisplayIdPayload`). */
+export function getDisplayIdSectionEncodedLengths(ext: DisplayIdExtension): number[] {
+  const { fillLengths } = layoutDisplayIdPayload(ext);
+  return displayIdSectionsOf(ext).map((section, index) =>
+    getDisplayIdSectionFixedLength(section) + (isDisplayIdSectionFillElastic(section) ? fillLengths[index] : 0),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The DisplayID section chain across 0x70 extension blocks.
+//
+// Inside an EDID each DisplayID section travels in its own 0x70 extension
+// block: edid-decode parses exactly one section per block (bytes 1..126,
+// parse_displayid_block), treats the first 0x70 block as the base section and
+// every later one as an extension section, and checks the base section's
+// extension count against the number of further 0x70 blocks ("Expected N
+// DisplayID Extension Blocks, but got M"). Older files that packed several
+// sections into one block still decode (`DisplayIdExtension.sections`) and
+// round-trip; new sections always get a block of their own.
+// ---------------------------------------------------------------------------
+
+/** One section of the EDID's DisplayID structure and the block carrying it. */
+export interface DisplayIdChainEntry {
+  /** The 0x70 extension block that carries the section. */
+  extension: DisplayIdExtension;
+  /** Index of that block in the EDID's `extensions` list. */
+  extensionIndex: number;
+  /** Index of the section inside the block's `sections`. */
+  indexInExtension: number;
+  section: DisplayIdSection;
+}
+
+/** Every DisplayID section of the EDID in wire order — the base section
+ *  first, then each extension section — with the 0x70 block it lives in. */
+export function getDisplayIdSectionChain(eedid: { extensions: Extension[] }): DisplayIdChainEntry[] {
+  const chain: DisplayIdChainEntry[] = [];
+  eedid.extensions.forEach((extension, extensionIndex) => {
+    if (!isDisplayIdExtension(extension)) return;
+    displayIdSectionsOf(extension).forEach((section, indexInExtension) => {
+      chain.push({ extension, extensionIndex, indexInExtension, section });
+    });
+  });
+  return chain;
+}
+
+/**
+ * Add an empty extension section to the EDID's DisplayID structure, in a new
+ * 0x70 block placed right after the last DisplayID block, and set the base
+ * section's extension count to the new number of extension sections. The new
+ * section copies the base section's version (edid-decode requires extension
+ * sections to match it) and carries no product type and no extension count,
+ * as extension sections must. Returns the new extensions list; throws when the
+ * EDID has no DisplayID extension.
+ */
+export function addDisplayIdExtensionSection(extensions: Extension[]): Extension[] {
+  const chain = getDisplayIdSectionChain({ extensions });
+  if (chain.length === 0) {
+    throw new Error('There is no DisplayID extension to add a section to.');
+  }
+  const base = chain[0].section;
+  const section: DisplayIdSection = {
+    version: base.version,
+    revision: base.revision,
+    versionByte: base.versionByte,
+    bytesInSection: 0,
+    totalLength: 5,
+    primaryUseCase: 0,
+    extensionCount: 0,
+    blocks: [],
+    fillBytes: 0,
+    checksum: 0,
+    isChecksumValid: true,
+  };
+  const block: DisplayIdExtension = {
+    kind: 'displayid',
+    tag: 0x70,
+    revision: section.revision,
+    section,
+    sections: [section],
+    checksum: 0,
+    checksumValid: true,
+  };
+  const insertAt = chain[chain.length - 1].extensionIndex + 1;
+  base.extensionCount = chain.length;
+  return [...extensions.slice(0, insertAt), block, ...extensions.slice(insertAt)];
+}
+
+/**
+ * Remove the extension section at `chainIndex` (the base section, index 0,
+ * cannot be removed). A section that has a 0x70 block to itself takes the
+ * block with it; one packed with other sections in a legacy multi-section
+ * block is dropped from that block. The base section's extension count is
+ * updated. Returns the new extensions list (unchanged for a bad index).
+ */
+export function removeDisplayIdExtensionSection(extensions: Extension[], chainIndex: number): Extension[] {
+  const chain = getDisplayIdSectionChain({ extensions });
+  const entry = chain[chainIndex];
+  if (chainIndex <= 0 || !entry) return extensions;
+  const sections = displayIdSectionsOf(entry.extension);
+  let next: Extension[];
+  if (sections.length === 1) {
+    next = extensions.filter((_, index) => index !== entry.extensionIndex);
+  } else {
+    const remaining = sections.filter((_, index) => index !== entry.indexInExtension);
+    entry.extension.sections = remaining;
+    entry.extension.section = remaining[0];
+    next = [...extensions];
+  }
+  chain[0].section.extensionCount = chain.length - 2;
+  return next;
+}
+
+/**
+ * Remove the EDID's DisplayID structure: every decoded 0x70 DisplayID block
+ * (the base section's block and its extension-section blocks — exactly the
+ * blocks `getDisplayIdSectionChain` covers). Other extensions, including 0x70
+ * blocks that failed to decode and are kept as opaque bytes, stay.
+ */
+export function removeDisplayIdStructure(extensions: Extension[]): Extension[] {
+  return extensions.filter((extension) => !isDisplayIdExtension(extension));
 }
 
 /**

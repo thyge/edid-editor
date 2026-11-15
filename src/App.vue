@@ -10,8 +10,12 @@ import {
   encodeDisplayIdBlock,
   ExtensionBlockParser,
   getCEAExtension,
-  getDisplayIdExtension,
+  getDisplayIdSectionChain,
   getDisplayIdFreePayloadBytes,
+  addDisplayIdExtensionSection,
+  removeDisplayIdExtensionSection,
+  removeDisplayIdStructure,
+  isRawDisplayIdBlock,
   type CEADefaultBlockType,
   type CEADetailedTiming,
   type DisplayDescriptor,
@@ -61,6 +65,7 @@ import CTASpeakerLocation from '@/components/cta/CTASpeakerLocation.vue'
 import CTAInfoFrame from '@/components/cta/CTAInfoFrame.vue'
 import CTAVesaTransferCharacteristic from '@/components/cta/CTAVesaTransferCharacteristic.vue'
 import { useEDID } from '@/composables/useEDID'
+import { downloadFile, edidFileBaseName, formatEdidHex } from '@/lib/edidExport'
 import { computeHexBlockRegions, type HexRegion } from '@/composables/useHexBlockRegions'
 import { displayIdSectionIds, displayIdBlockSectionId, parseDisplayIdSectionId } from '@/components/displayid/displayIdLabels'
 import DisplayIDOverview from '@/components/displayid/DisplayIDOverview.vue'
@@ -87,10 +92,22 @@ import DisplayIDArvrLayer from '@/components/displayid/DisplayIDArvrLayer.vue'
 import DisplayIDBrightnessLuminance from '@/components/displayid/DisplayIDBrightnessLuminance.vue'
 import DisplayIDRawBlock from '@/components/displayid/DisplayIDRawBlock.vue'
 import DisplayIDCTA from '@/components/displayid/DisplayIDCTA.vue'
+import { provideDisplayIdFreeBytes } from '@/components/displayid/displayIdRoom'
 
 const edidStore = useEDID()
 const edidRef = edidStore.edid
-const { edidData, error, isLoaded, loadFromHex, loadFromFile, createBlankEdid } = edidStore
+const { edidData, previewData, encodeError, error, isLoaded, sourceFileName, loadFromHex, loadFromFile, createBlankEdid } = edidStore
+
+/** Download the edited EDID (the re-encoded bytes, checksums included). */
+function downloadEdid(format: 'bin' | 'hex') {
+  if (!edidRef.value || !edidData.value) return
+  const baseName = edidFileBaseName(edidRef.value, sourceFileName.value)
+  if (format === 'bin') {
+    downloadFile(edidData.value, `${baseName}.bin`, 'application/octet-stream')
+  } else {
+    downloadFile(formatEdidHex(edidData.value), `${baseName}.txt`, 'text/plain')
+  }
+}
 
 onMounted(() => {
   loadFromHex(
@@ -317,7 +334,9 @@ function setByPath(root: object | undefined | null, path: string, value: unknown
 const setEdidField = (path: string, value: unknown) => setByPath(edidRef.value?.base, path, value)
 
 const ceaExtension = computed(() => edidRef.value ? getCEAExtension(edidRef.value) : null)
-const displayIdExtension = computed(() => edidRef.value ? getDisplayIdExtension(edidRef.value) : null)
+/** Every DisplayID section of the EDID (base first) with the 0x70 block that
+ *  carries it; each extension section lives in a 0x70 block of its own. */
+const displayIdChain = computed(() => edidRef.value ? getDisplayIdSectionChain(edidRef.value) : [])
 /** Per-data-block regions for the HexViewer dividers (offset + label + depth),
  *  tiled over the full re-encoded blob. Derived from the same reactive EEDID
  *  tree that `edidData` encodes from, so it stays in sync with edits. */
@@ -345,7 +364,11 @@ function addCEAExtension() {
 
 function removeCEAExtension() {
   if (!edidRef.value) return
-  edidRef.value.extensions = edidRef.value.extensions.filter(b => b.tag !== 0x02)
+  // Remove only the CTA-861 extension the editor shows (the first one), not
+  // every block with tag 0x02 — EDIDs with two CTA blocks keep the other.
+  const cea = getCEAExtension(edidRef.value)
+  if (!cea) return
+  edidRef.value.extensions = edidRef.value.extensions.filter(b => b !== cea)
   if (activeSection.value.startsWith('cea-')) {
     activeSection.value = 'overview'
   }
@@ -410,26 +433,24 @@ const activeCeaBlockExtendedTag = computed(() => {
   return (block as { extendedTag?: number }).extendedTag
 })
 
-/** All chained DisplayID sections. Decoders populate `sections`,
- *  but extensions built programmatically may only carry the legacy `section`
- *  alias; fall back to a single-element array for those. */
-function displayIdSections(displayId: DisplayIdExtension): DisplayIdSection[] {
-  return displayId.sections && displayId.sections.length > 0 ? displayId.sections : [displayId.section]
-}
-
 /** Parsed active route (displayid-s<sec>-overview/-header/-b<idx>), or null. */
 const displayIdRoute = computed(() => parseDisplayIdSectionId(activeSection.value))
 
 /** Chain index of the section the active route refers to, or -1. */
 const activeDisplayIdSectionIndex = computed(() => displayIdRoute.value?.sectionIndex ?? -1)
 
+/** The chain entry (section + the 0x70 block carrying it) the active route refers to, or null. */
+const activeDisplayIdEntry = computed(() => displayIdChain.value[activeDisplayIdSectionIndex.value] ?? null)
+
 /** The chained section the active route refers to, or null. */
-const activeDisplayIdSection = computed(() => {
-  const displayId = displayIdExtension.value
-  const route = displayIdRoute.value
-  if (!displayId || !route) return null
-  return displayIdSections(displayId)[route.sectionIndex] ?? null
-})
+const activeDisplayIdSection = computed(() => activeDisplayIdEntry.value?.section ?? null)
+
+/** Free payload bytes in the 0x70 block holding the active section. Block
+ *  editors read it (inject) to disable add controls that would not fit. */
+const activeDisplayIdFreeBytes = computed(() =>
+  activeDisplayIdEntry.value ? getDisplayIdFreePayloadBytes(activeDisplayIdEntry.value.extension) : 0,
+)
+provideDisplayIdFreeBytes(activeDisplayIdFreeBytes)
 
 /** Section-blocks index of the active per-block route (displayid-s<sec>-b<idx>), or -1. */
 const activeDisplayIdBlockIndex = computed(() =>
@@ -475,31 +496,32 @@ function addDisplayIdExtension() {
 
 function removeDisplayIdExtension() {
   if (!edidRef.value) return
-  edidRef.value.extensions = edidRef.value.extensions.filter(b => b.tag !== 0x70)
+  // Remove the DisplayID the nav shows — its base block and every
+  // extension-section block — and nothing else (other extensions, including
+  // an undecodable 0x70 block kept as raw bytes, stay).
+  edidRef.value.extensions = removeDisplayIdStructure(edidRef.value.extensions)
   if (activeSection.value.startsWith('displayid-')) {
     activeSection.value = 'overview'
   }
 }
 
 function addDisplayIdBlock(sectionIndex: number, tag: number) {
-  const displayId = displayIdExtension.value
-  const section = displayId ? displayIdSections(displayId)[sectionIndex] : null
-  if (!displayId || !section) return
+  const entry = displayIdChain.value[sectionIndex]
+  if (!entry) return
+  const section = entry.section
   const block = createDefaultDisplayIdBlock(tag)
   // Payload backstop: refuse a block whose default wire bytes would not fit
-  // the shared 0x70 payload. LeftNav disables non-fitting options, but
-  // encodeDisplayId silently truncates beyond the payload, so a stale UI
-  // must not reach that state.
-  if (encodeDisplayIdBlock(block).length > getDisplayIdFreePayloadBytes(displayId)) return
+  // the section's 0x70 block. LeftNav disables non-fitting options, and
+  // encoding would fail, so a stale UI must not reach that state.
+  if (encodeDisplayIdBlock(block).length > getDisplayIdFreePayloadBytes(entry.extension)) return
   section.blocks = appendArrayItem(section.blocks, block)
   // Route to the newly appended block's per-index section.
   activeSection.value = displayIdBlockSectionId(sectionIndex, section.blocks.length - 1)
 }
 
 function removeDisplayIdBlock(sectionIndex: number, index: number) {
-  const displayId = displayIdExtension.value
-  const section = displayId ? displayIdSections(displayId)[sectionIndex] : null
-  if (!displayId || !section) return
+  const section = displayIdChain.value[sectionIndex]?.section
+  if (!section) return
   section.blocks = removeArrayItem(section.blocks, index)
   // Keep the active per-block section pointing at the same block: removing an
   // earlier block shifts indices down, removing the active block itself has no
@@ -514,9 +536,8 @@ function removeDisplayIdBlock(sectionIndex: number, index: number) {
 }
 
 function moveDisplayIdBlock(sectionIndex: number, index: number, direction: -1 | 1) {
-  const displayId = displayIdExtension.value
-  const section = displayId ? displayIdSections(displayId)[sectionIndex] : null
-  if (!displayId || !section) return
+  const section = displayIdChain.value[sectionIndex]?.section
+  if (!section) return
   const blocks = section.blocks
   const nextIndex = index + direction
   if (nextIndex < 0 || nextIndex >= blocks.length) return
@@ -533,50 +554,24 @@ function updateDisplayIdBlock(index: number, block: DisplayIdDataBlock) {
 }
 
 function addDisplayIdSection() {
-  const displayId = displayIdExtension.value
-  if (!displayId) return
-  const sections = displayIdSections(displayId)
-  // DisplayID 2.0 chains sections inside one 128-byte extension block; the
-  // decoder only reads payload bytes 1..126, so keep the chain within that
-  // shared budget (unlike the old inline math it also
-  // accounts for verbatim trailing bytes). A minimal new section needs 5 bytes.
-  if (getDisplayIdFreePayloadBytes(displayId) < 5) return
-  // Extension sections carry no primary use case and no extension count
-  // (DisplayID 2.0 Table 2-1: both are base-section-only, cleared to 0).
-  const section: DisplayIdSection = {
-    version: 2,
-    revision: 0,
-    versionByte: 0x20,
-    bytesInSection: 0,
-    totalLength: 5,
-    primaryUseCase: 0,
-    extensionCount: 0,
-    blocks: [],
-    fillBytes: 0,
-    checksum: 0,
-    isChecksumValid: true,
-  }
-  displayId.sections = appendArrayItem(sections, section)
-  // The base section's byte 3 carries the number of extension sections in the
-  // chain (DisplayID 2.0 Table 2-1); keep it in sync with the chain length.
-  sections[0].extensionCount = displayId.sections.length - 1
-  activeSection.value = displayIdSectionIds.overview(displayId.sections.length - 1)
+  if (!edidRef.value || displayIdChain.value.length === 0) return
+  // edid-decode reads one DisplayID section per 0x70 block, so the new
+  // extension section (no product type, no extension count, base version)
+  // gets a 0x70 block of its own right after the last DisplayID block; the
+  // base section's extension count is updated to match.
+  edidRef.value.extensions = addDisplayIdExtensionSection(edidRef.value.extensions)
+  activeSection.value = displayIdSectionIds.overview(displayIdChain.value.length - 1)
 }
 
 function removeDisplayIdSection(sectionIndex: number) {
-  const displayId = displayIdExtension.value
-  if (!displayId || sectionIndex <= 0) return // the base section cannot be removed
-  const sections = displayIdSections(displayId)
-  const updated = sections.filter((_, i) => i !== sectionIndex)
-  if (updated.length === 0) return
-  displayId.sections = updated
-  // Keep the legacy alias pointing at the base section object.
-  displayId.section = updated[0]
-  updated[0].extensionCount = updated.length - 1
+  if (!edidRef.value || sectionIndex <= 0) return // the base section cannot be removed
+  // Drops the section's own 0x70 block (or the section from a legacy
+  // multi-section block) and updates the base section's extension count.
+  edidRef.value.extensions = removeDisplayIdExtensionSection(edidRef.value.extensions, sectionIndex)
   // Re-route any active view that pointed at the removed section or beyond.
   const activeIndex = activeDisplayIdSectionIndex.value
   if (activeIndex >= sectionIndex) {
-    activeSection.value = displayIdSectionIds.overview(Math.min(sectionIndex - 1, updated.length - 1))
+    activeSection.value = displayIdSectionIds.overview(Math.min(sectionIndex - 1, displayIdChain.value.length - 1))
   }
 }
 
@@ -611,9 +606,12 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
     </div>
     <TopNav
       v-model:hex-viewer="hexViewerEnabled"
+      :can-download="isLoaded && !encodeError"
       @import-file="loadFromFile"
       @load-hex="loadFromHex"
       @new-edid="createBlankEdid"
+      @download-bin="downloadEdid('bin')"
+      @download-hex="downloadEdid('hex')"
     />
     <SidebarProvider class="flex-1 min-h-0 overflow-hidden">
       <LeftNav
@@ -640,6 +638,15 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
       <SidebarInset class="p-4 overflow-auto">
         <div v-if="error" class="mb-4 p-4 bg-destructive/10 border border-destructive rounded-lg text-destructive">
           {{ error }}
+        </div>
+        <div
+          v-if="encodeError"
+          role="alert"
+          class="sticky top-0 z-10 mb-4 p-4 bg-background border border-destructive rounded-lg text-destructive text-sm"
+        >
+          <p class="font-semibold">This change can't be saved yet</p>
+          <p class="mt-1">{{ encodeError }}</p>
+          <p class="mt-1 text-muted-foreground">Download is disabled and the hex view shows the last valid bytes until this is fixed.</p>
         </div>
 
         <div v-if="!isLoaded" class="max-w-xl mx-auto">
@@ -726,8 +733,8 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
           />
 
           <DisplayIDOverview
-            v-else-if="displayIdRoute?.target === 'overview' && displayIdExtension && activeDisplayIdSection"
-            :display-id="displayIdExtension"
+            v-else-if="displayIdRoute?.target === 'overview' && activeDisplayIdSection"
+            :chain="displayIdChain"
             :section-index="activeDisplayIdSectionIndex"
             @add-section="addDisplayIdSection"
             @remove-section="removeDisplayIdSection"
@@ -744,10 +751,18 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
                for every data block; the editor is picked by looking up the block
                at the active index (mirroring the cea-block-<idx>
                pattern). v1.x and v2.0 tags without a structured
-               editor land in the raw fallback. -->
+               editor land in the raw fallback, and so does a known tag whose
+               payload did not decode (it has no fields a structured editor
+               could change; its hex payload is what gets saved). -->
           <template v-else-if="activeDisplayIdBlock && activeDisplayIdSection">
+            <DisplayIDRawBlock
+              v-if="isRawDisplayIdBlock(activeDisplayIdBlock)"
+              :section="activeDisplayIdSection"
+              :index="activeDisplayIdBlockIndex"
+              @update-block="updateDisplayIdBlock"
+            />
             <DisplayIDProductIdentification
-              v-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.ProductIdentification"
+              v-else-if="activeDisplayIdBlock.tag === DisplayIdDataBlockTag.ProductIdentification"
               :section="activeDisplayIdSection"
               :index="activeDisplayIdBlockIndex"
               @update-block="updateDisplayIdBlock"
@@ -890,7 +905,10 @@ const setDisplayIdField = (path: string, value: unknown) => setByPath(activeDisp
         </div>
       </SidebarInset>
       <section id="hex-viewer" v-show="hexViewerEnabled" class="h-full scroll-mt-24">
-        <HexViewer :data="edidData" :regions="hexRegions" />
+        <!-- While an edit can't be encoded the hex view shows the last valid
+             bytes, so the block dividers (computed from the edited model)
+             would be misplaced; hide them until the error clears. -->
+        <HexViewer :data="previewData" :regions="encodeError ? [] : hexRegions" />
       </section>
     </SidebarProvider>
   </div>

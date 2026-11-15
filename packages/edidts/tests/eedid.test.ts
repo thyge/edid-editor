@@ -347,9 +347,41 @@ describe('EEDID partial trailing bytes', () => {
     const blob = new Uint8Array(base.length + cta.length + 32)
     blob.set(base, 0)
     blob.set(cta, 128)
+    blob[126] = 1
+    blob[127] = checksum8(blob.subarray(0, 128), 127)
     // trailing 32 bytes are zero-filled; only 1 real extension should parse.
     const eedid = EEDID.decode(blob)
     expect(eedid.extensions.length).toBe(1)
+    // ...and the tail is kept verbatim rather than dropped on re-encode.
+    expect(EEDID.encode(eedid)).toEqual(blob)
+  })
+
+  it('treats blocks past the declared extension count as padding, not extensions', () => {
+    // A 256-byte EEPROM dump of a base-only EDID: byte 126 = 0, second half 0xFF.
+    const base = EDID.encode(EDID.blank())
+    const blob = new Uint8Array(256).fill(0xff)
+    blob.set(base, 0)
+    const eedid = EEDID.decode(blob)
+    expect(eedid.extensions).toEqual([])
+    const out = EEDID.encode(eedid)
+    expect(out[126]).toBe(0)
+    expect(out).toEqual(blob)
+  })
+
+  it('warns when an undeclared block past byte 126 looks like a real extension', () => {
+    const base = EDID.encode(EDID.blank())
+    const cta = ExtensionBlockParser.encode({
+      tag: 0x02, revision: 3, checksum: 0, data: new Uint8Array(125),
+      dtdOffset: 4, underscan: false, basicAudio: false,
+      ycbcr444: false, ycbcr422: false, nativeFormats: 0,
+      dataBlocks: [], detailedTimings: [],
+    })
+    const blob = new Uint8Array(256)
+    blob.set(base, 0)
+    blob.set(cta, 128)
+    const eedid = EEDID.decode(blob)
+    expect(eedid.extensions).toEqual([])
+    expect(eedid.baseDiagnostics.some((d) => d.includes('Byte 126 declares 0'))).toBe(true)
   })
 })
 

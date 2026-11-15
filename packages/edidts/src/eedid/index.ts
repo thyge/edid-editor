@@ -9,11 +9,17 @@ export {
   getCEAExtension,
   getDisplayIdExtension,
   getDisplayIdFreePayloadBytes,
+  getDisplayIdSectionChain,
+  getDisplayIdSectionEncodedLengths,
+  addDisplayIdExtensionSection,
+  removeDisplayIdExtensionSection,
+  removeDisplayIdStructure,
   DISPLAY_ID_PAYLOAD_CAPACITY_BYTES,
 } from './extension';
 export type {
   Extension,
   CEAExtension,
+  DisplayIdChainEntry,
   DisplayIdExtension,
   OpaqueExtension,
   ExtensionDispatch,

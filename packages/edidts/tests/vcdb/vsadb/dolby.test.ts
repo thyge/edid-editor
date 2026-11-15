@@ -77,13 +77,9 @@ describe('DolbyVSADBEncoder', () => {
     expect(Array.from(reencoded)).toEqual(payload);
   });
 
-  it('throws on an out-of-range version', () => {
-    expect(() =>
-      new DolbyVSADBEncoder().encode({ ...DOLBY_VSADB_DEFAULT, version: 0 }),
-    ).toThrow(RangeError);
-    expect(() =>
-      new DolbyVSADBEncoder().encode({ ...DOLBY_VSADB_DEFAULT, version: 9 }),
-    ).toThrow(RangeError);
+  it('clamps an out-of-range version instead of throwing (the EDID must stay savable)', () => {
+    expect(new DolbyVSADBEncoder().encode({ ...DOLBY_VSADB_DEFAULT, version: 0 })[0] & 0x07).toBe(0);
+    expect(new DolbyVSADBEncoder().encode({ ...DOLBY_VSADB_DEFAULT, version: 9 })[0] & 0x07).toBe(7);
   });
 });
 

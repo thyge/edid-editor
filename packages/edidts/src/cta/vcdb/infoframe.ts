@@ -9,18 +9,36 @@
  * Descriptors listed in priority order. Each descriptor header carries a
  * 3-bit Payload Length (bits 7:5) and a 5-bit InfoFrame Type Code (bits 4:0);
  * type 0x01 is the vendor-specific form (3-byte IEEE OUI + payload).
+ * Cross-checked against edid-decode `cta_ifdb` (parse-cta-block.cpp).
  */
 
 import type { ExtendedDataBlock } from '../cta-extended-blocks';
 import { pushIeeeOuiLE, readIeeeOuiLE } from '../../common/bintools';
+import { clampByte, clampInt, keepShortLength } from '../byte-utils';
+
+/** Longest payload a 3-bit length field can describe. */
+const MAX_PAYLOAD_LENGTH = 7;
 
 export interface InfoFrameDataBlock extends ExtendedDataBlock {
   tag: 0x07;
   extendedTag: 0x20;
-  /** Number of additional VSIFs that can be received simultaneously (byte 2). */
+  /** Number of additional VSIFs that can be received simultaneously (byte 2, 0–255). */
   additionalVsifs: number;
-  /** Lb extension bytes of the Processing Descriptor (normally empty). */
+  /** Lb extension bytes of the Processing Descriptor (normally empty, at most 7). */
   processingPayload: Uint8Array;
+  /**
+   * Processing Descriptor header bits 4:0 (F14-F10, reserved), kept so they
+   * survive a re-encode. Optional; absent means 0.
+   */
+  processingReserved?: number;
+  /**
+   * Lb as declared in the header, set only when it claims more bytes than the
+   * block holds (malformed). Encode writes it back so the header survives.
+   */
+  declaredProcessingLength?: number;
+  /** Body length when the block was shorter than the 2-byte Processing Descriptor. */
+  shortLength?: number;
+  /** Descriptor payloads hold at most 7 bytes (3-bit length); encode clamps longer ones. */
   descriptors: Array<
     | { kind: 'short'; infoFrameType: number; payload: Uint8Array }
     | { kind: 'vendor'; ieeeOui: number; payload: Uint8Array }
@@ -35,23 +53,29 @@ export function decodeInfoFrameBlock(base: ExtendedDataBlock, payload: Uint8Arra
   // byte 1 = number of additional VSIFs, then Lb extension bytes. Then
   // optional Short InfoFrame / Short Vendor-Specific InfoFrame Descriptors,
   // each with a 3-bit Payload Length (bits 7:5) and 5-bit Type Code (bits 4:0).
+  const header = payload[0] ?? 0;
+  const lb = (header >> 5) & 0x07;
+  const block: InfoFrameDataBlock = {
+    ...base,
+    extendedTag: 0x20,
+    additionalVsifs: payload[1] ?? 0,
+    processingPayload: payload.slice(2, 2 + lb),
+    descriptors: [],
+    trailing: new Uint8Array(),
+  };
+  if (header & 0x1f) block.processingReserved = header & 0x1f;
   if (payload.length < 2) {
-    return {
-      ...base,
-      extendedTag: 0x20,
-      additionalVsifs: 0,
-      processingPayload: new Uint8Array(),
-      descriptors: [],
-      trailing: payload.slice(),
-    };
+    block.shortLength = payload.length;
+    if (lb > 0) block.declaredProcessingLength = lb;
+    return block;
+  }
+  if (2 + lb > payload.length) {
+    // The header promises more extension bytes than the block holds.
+    block.declaredProcessingLength = lb;
+    return block;
   }
 
-  const header = payload[0];
-  const lb = (header >> 5) & 0x07;
-  const additionalVsifs = payload[1];
-  const processingPayload = payload.slice(2, 2 + lb);
-
-  const descriptors: InfoFrameDataBlock['descriptors'] = [];
+  const descriptors: InfoFrameDataBlock['descriptors'] = block.descriptors;
   let i = 2 + lb;
   while (i < payload.length) {
     const descHeader = payload[i];
@@ -75,34 +99,36 @@ export function decodeInfoFrameBlock(base: ExtendedDataBlock, payload: Uint8Arra
       i += 1 + payloadLen;
     }
   }
-
-  return {
-    ...base,
-    extendedTag: 0x20,
-    additionalVsifs,
-    processingPayload,
-    descriptors,
-    trailing: payload.slice(i),
-  };
+  block.trailing = payload.slice(i);
+  return block;
 }
 
 export function encodeInfoFrameBlock(block: InfoFrameDataBlock): Uint8Array {
   const bytes = [0x20];
-  // InfoFrame Processing Descriptor: header (Lb in bits 7:5) + additionalVsifs + Lb bytes.
-  const lb = (block.processingPayload?.length ?? 0) & 0x07;
-  bytes.push((lb << 5) & 0xff, block.additionalVsifs & 0xff);
-  for (const b of block.processingPayload ?? []) bytes.push(b);
+  // InfoFrame Processing Descriptor: header (Lb in bits 7:5, reserved 4:0) +
+  // additionalVsifs + Lb bytes. A 3-bit Lb holds at most 7 bytes, so a longer
+  // processing payload is cut to 7 rather than letting the length wrap.
+  const processing = (block.processingPayload ?? new Uint8Array()).slice(0, MAX_PAYLOAD_LENGTH);
+  const lb = block.declaredProcessingLength !== undefined
+    ? clampInt(block.declaredProcessingLength, 0, MAX_PAYLOAD_LENGTH)
+    : processing.length;
+  bytes.push((lb << 5) | clampInt(block.processingReserved ?? 0, 0, 0x1f), clampByte(block.additionalVsifs));
+  for (const b of processing) bytes.push(b);
   for (const desc of block.descriptors ?? []) {
-    const payloadLen = (desc.payload.length) & 0x07;
+    // Same 3-bit length limit for each descriptor payload.
+    const payload = desc.payload.slice(0, MAX_PAYLOAD_LENGTH);
     if (desc.kind === 'vendor') {
-      bytes.push((payloadLen << 5) | 0x01);
+      bytes.push((payload.length << 5) | 0x01);
       pushIeeeOuiLE(bytes, desc.ieeeOui);
-      for (const b of desc.payload) bytes.push(b);
     } else {
-      bytes.push((payloadLen << 5) | (desc.infoFrameType & 0x1f));
-      for (const b of desc.payload) bytes.push(b);
+      bytes.push((payload.length << 5) | clampInt(desc.infoFrameType, 0, 0x1f));
     }
+    for (const b of payload) bytes.push(b);
   }
   for (const b of block.trailing ?? []) bytes.push(b);
-  return new Uint8Array(bytes);
+  // shortLength counts body bytes; the output also carries the ext-tag byte.
+  return keepShortLength(
+    new Uint8Array(bytes),
+    block.shortLength === undefined ? undefined : block.shortLength + 1,
+  );
 }

@@ -35,18 +35,20 @@ describe('DisplayID Type X Timing (tag 0x2A)', () => {
   });
 
   it('decodes a 6-byte descriptor block (2 descriptors) with all fields', () => {
+    // Active sizes and the refresh rate are stored minus one
+    // (edid-decode parse_displayid_type_10_timing: hact = 1 + raw16, ...).
     // descriptor 0: options=0b11011011 (0xdb)
     //   timingFormula=3 (bits 2:0=011), earlyVsync=1 (bit3), rr1000div1001OrHblank=1 (bit4),
     //   stereoSupport=2 (bits 6:5=10), ycc420Support=1 (bit7)
-    //   horizontalActivePixels=1920 (0x80,0x07), verticalActiveLines=1080 (0x38,0x04)
-    //   refreshRate=60 (0x3c)
+    //   horizontalActivePixels=1920 (0x7f,0x07), verticalActiveLines=1080 (0x37,0x04)
+    //   refreshRate=60 (0x3b)
     // descriptor 1: options=0b00000000
     //   timingFormula=0, earlyVsync=0, rr1000div1001OrHblank=0, stereoSupport=0, ycc420Support=0
-    //   horizontalActivePixels=1280 (0x00,0x05), verticalActiveLines=720 (0xd0,0x02)
-    //   refreshRate=50 (0x32)
+    //   horizontalActivePixels=1280 (0xff,0x04), verticalActiveLines=720 (0xcf,0x02)
+    //   refreshRate=50 (0x31)
     const block = buildBlock(0, [
-      0xdb, 0x80, 0x07, 0x38, 0x04, 0x3c,
-      0x00, 0x00, 0x05, 0xd0, 0x02, 0x32,
+      0xdb, 0x7f, 0x07, 0x37, 0x04, 0x3b,
+      0x00, 0xff, 0x04, 0xcf, 0x02, 0x31,
     ]);
 
     const decoded = decodeTypeXTimingBlock(block);
@@ -78,12 +80,12 @@ describe('DisplayID Type X Timing (tag 0x2A)', () => {
     });
   });
 
-  it('decodes a 7-byte descriptor block with refreshRateHigh, deltaHblank, additionalVblankTiming', () => {
+  it('decodes a 7-byte descriptor block with refresh bits 9:8, deltaHblank, additionalVblankTiming', () => {
     // byte 6 = 0b10101010 (0xaa)
-    //   refreshRateHigh = 0b10 = 2
+    //   refresh bits 9:8 = 0b10 = 2
     //   deltaHblank = 0b010 = 2
     //   additionalVblankTiming = 0b101 = 5
-    // base refreshRate = 0x01 -> full = 0x01 | (2 << 8) = 513
+    // byte 5 = 0x01 -> refresh = 1 + (0x01 | (2 << 8)) = 514 Hz
     const block = buildBlock(1, [
       0x00, 0x80, 0x07, 0x38, 0x04, 0x01, 0xaa,
     ]);
@@ -93,13 +95,10 @@ describe('DisplayID Type X Timing (tag 0x2A)', () => {
     expect(decoded.descriptorSize).toBe(7);
     expect(decoded.timings).toHaveLength(1);
     expect(decoded.timings[0]).toMatchObject({
-      refreshRate: 1,
-      refreshRateHigh: 2,
+      refreshRate: 514,
       deltaHblank: 2,
       additionalVblankTiming: 5,
     });
-    // full 10-bit refresh rate reconstruction
-    expect(decoded.timings[0].refreshRate | (decoded.timings[0].refreshRateHigh << 8)).toBe(513);
   });
 
   it('decodes an 8-byte descriptor block and preserves reserved bits in byte 7 on round-trip', () => {
@@ -148,8 +147,8 @@ describe('DisplayID Type X Timing (tag 0x2A)', () => {
     // The corpus has zero Type X Timing fixtures, so this synthetic mutation
     // test is the only safety net for the encode path.
     const block = buildBlock(0, [
-      0xdb, 0x80, 0x07, 0x38, 0x04, 0x3c,
-      0x00, 0x00, 0x05, 0xd0, 0x02, 0x32,
+      0xdb, 0x7f, 0x07, 0x37, 0x04, 0x3b,
+      0x00, 0xff, 0x04, 0xcf, 0x02, 0x31,
     ]);
     const decoded = decodeTypeXTimingBlock(block);
     expect(decoded.timings[0].horizontalActivePixels).toBe(1920);

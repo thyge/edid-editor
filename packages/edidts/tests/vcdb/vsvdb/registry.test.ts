@@ -28,9 +28,11 @@ describe('VSVDB registry', () => {
     // Use the decoder directly through the registry
     const decoder = VENDOR_VSVDB_DECODERS[OUI.DOLBY];
     expect(decoder).toBeDefined();
-    const decoded = decoder!.decode(new Uint8Array([0x4D]));
+    // v2: byte 0 bits 4:2 are the DM version; global dimming is byte 1 bit 2.
+    const decoded = decoder!.decode(new Uint8Array([0x4D, 0x04]));
     expect(decoded.version).toBe(2);
     expect(decoded.supportsYUV422_12bit).toBe(true);
+    expect(decoded.dmVersion).toBe(3);
     expect(decoded.supportsGlobalDimming).toBe(true);
   });
 
@@ -120,10 +122,12 @@ describe('findVSVDBs', () => {
 
 describe('DolbyVSDBEncoder paired with the registry', () => {
   it('round-trips Dolby fields through encode/decode', () => {
+    // v1 carries the DM version in byte 0 bits 4:2 (edid-decode cta_dolby_video).
     const fields = {
       version: 1,
       supportsYUV422_12bit: true,
       supports2160p60: true,
+      dmVersion: 0,
       supportsGlobalDimming: false,
       byte0Reserved: 0,
       trailing: new Uint8Array(),

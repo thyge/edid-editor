@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, stringFromEvent } from '../common/editorUtils'
+import { useDisplayIdRoom } from './displayIdRoom'
 
 const props = defineProps<{
   section: DisplayIdSection
@@ -19,8 +20,25 @@ const emit = defineEmits<{
   updateBlock: [index: number, block: DisplayIdDataBlock]
 }>()
 
+/** OUI as its three wire bytes, most significant first (e.g. 00-10-FA). */
+function ouiTriple(oui: number): string {
+  const v = oui >>> 0
+  return [v >>> 16, (v >>> 8) & 0xff, v & 0xff]
+    .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+    .join('-')
+}
+
 function update(index: number, block: DisplayIdProductIdentificationBlock, patch: Partial<DisplayIdProductIdentificationBlock>) {
   emit('updateBlock', index, { ...block, ...patch })
+}
+
+/** The product name may grow only by the bytes still free in the section's
+ *  0x70 block (and the block payload stays within 255 bytes). */
+const room = useDisplayIdRoom()
+function nameMaxLength(block: { productNameBytes: Uint8Array }): number {
+  const free = room.freeBytes.value
+  const roomLimit = Number.isFinite(free) ? block.productNameBytes.length + Math.max(0, free) : Number.POSITIVE_INFINITY
+  return Math.min(roomLimit, 0xff - 12)
 }
 
 function updateName(index: number, block: DisplayIdProductIdentificationBlock, value: string) {
@@ -47,6 +65,8 @@ function updateName(index: number, block: DisplayIdProductIdentificationBlock, v
         <div class="space-y-1">
           <label class="text-xs text-muted-foreground">IEEE OUI</label>
           <Input type="number" min="0" max="16777215" :model-value="block.ieeeOui" @input="update(index, block, { ieeeOui: numberFromEvent($event) })" />
+          <!-- Stored big-endian (edid-decode reads 00-10-FA as Apple). -->
+          <p class="text-xs text-muted-foreground">{{ ouiTriple(block.ieeeOui) }}</p>
         </div>
         <div class="space-y-1">
           <label class="text-xs text-muted-foreground">Product ID</label>
@@ -58,7 +78,7 @@ function updateName(index: number, block: DisplayIdProductIdentificationBlock, v
         </div>
         <div class="space-y-1">
           <label class="text-xs text-muted-foreground">Product Name</label>
-          <Input :model-value="block.productName" @input="updateName(index, block, stringFromEvent($event))" />
+          <Input :model-value="block.productName" :maxlength="nameMaxLength(block)" @input="updateName(index, block, stringFromEvent($event))" />
         </div>
         <div class="space-y-1">
           <label class="text-xs text-muted-foreground">Manufacture Week</label>

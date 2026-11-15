@@ -16,9 +16,13 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { blocksByTag, bytesToHex, numberFromEvent, updateArrayItem, removeArrayItem } from '../common/editorUtils'
+import { useDisplayIdRoom } from './displayIdRoom'
 
 const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
+
+/** Each extra combination is one byte that must fit the section's 0x70 block. */
+const room = useDisplayIdRoom()
 
 // Color-depth bit tables and the Table 4-27 color space / EOTF label maps are
 // sourced from the edidts lib (interface-features.ts) — see DEPTHS_444 /
@@ -130,7 +134,15 @@ function updateCombination(block: DisplayIdDisplayInterfaceFeaturesBlock, index:
         <section class="space-y-3">
           <div class="flex items-center justify-between">
             <h4 class="text-xs font-medium text-muted-foreground">Additional color space / EOTF combinations (max 7)</h4>
-            <Button variant="outline" size="sm" :disabled="block.additionalColorSpaceEotfCombinations.length >= 7" @click="update(index, block, { additionalColorSpaceEotfCombinations: [...block.additionalColorSpaceEotfCombinations, defaultCombination()] })">Add</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="block.additionalColorSpaceEotfCombinations.length >= 7 || !room.fits(1)"
+              :title="room.fits(1) ? undefined : room.noRoomTitle(1)"
+              @click="update(index, block, { additionalColorSpaceEotfCombinations: [...block.additionalColorSpaceEotfCombinations, defaultCombination()] })"
+            >
+              Add
+            </Button>
           </div>
           <div v-for="(combo, comboIndex) in block.additionalColorSpaceEotfCombinations" :key="comboIndex" class="flex items-end gap-2 rounded-md border border-border p-3">
             <div class="space-y-1">

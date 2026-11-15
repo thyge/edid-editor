@@ -4,6 +4,7 @@ import type { CEAExtensionBlock, HDRDynamicMetadataDataBlock } from 'edidts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { ctaAddBlockedReason } from './blockCapacity'
 
 /**
  * HDR Dynamic Metadata Data Block editor (tag 0x07 ext 0x07) — the HDR dynamic
@@ -42,9 +43,18 @@ function removeEntry(index: number) {
   emitBlock('entries', hdrDynamic.value.entries.filter((_, i) => i !== index))
 }
 
+/** Each entry is a length byte + 16-bit type + support flags: 4 bytes. */
+const addBlockedReason = computed(() => ctaAddBlockedReason(props.cea, hdrDynamic.value, 4))
+
 function addEntry() {
-  if (!hdrDynamic.value) return
+  if (!hdrDynamic.value || addBlockedReason.value) return
   emitBlock('entries', [...hdrDynamic.value.entries, { type: 0, supportFlags: 0, optionalFields: new Uint8Array() }])
+}
+
+/** Bound an input to its field width instead of letting it wrap. */
+function clamp(v: string | number, max: number): number {
+  const n = Math.round(Number(v))
+  return Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : 0
 }
 
 const labelClass = 'flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground flex-1'
@@ -67,11 +77,11 @@ const labelClass = 'flex flex-col gap-1 text-xs font-semibold uppercase tracking
             <div class="flex items-center gap-3">
               <label :class="labelClass">
                 Type (16-bit)
-                <Input type="number" :min="0" :max="65535" :step="1" :model-value="e.type" @update:model-value="(v) => updateEntry(i, 'type', Math.round(Number(v)) & 0xffff)" />
+                <Input type="number" :min="0" :max="65535" :step="1" :model-value="e.type" @update:model-value="(v) => updateEntry(i, 'type', clamp(v, 0xffff))" />
               </label>
               <label :class="labelClass">
                 Support Flags (0–255)
-                <Input type="number" :min="0" :max="255" :step="1" :model-value="e.supportFlags" @update:model-value="(v) => updateEntry(i, 'supportFlags', Math.round(Number(v)) & 0xff)" />
+                <Input type="number" :min="0" :max="255" :step="1" :model-value="e.supportFlags" @update:model-value="(v) => updateEntry(i, 'supportFlags', clamp(v, 0xff))" />
               </label>
               <Button variant="ghost" size="sm" class="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 px-2 self-end" @click="removeEntry(i)">
                 Remove
@@ -84,7 +94,10 @@ const labelClass = 'flex flex-col gap-1 text-xs font-semibold uppercase tracking
         </div>
         <Button v-else variant="outline" size="sm" disabled>No dynamic HDR types declared</Button>
         <div class="border-t pt-3">
-          <Button variant="outline" size="sm" @click="addEntry">Add Type</Button>
+          <span :title="addBlockedReason ?? undefined" class="inline-block">
+            <Button variant="outline" size="sm" :disabled="addBlockedReason !== null" @click="addEntry">Add Type</Button>
+          </span>
+          <p v-if="addBlockedReason" class="mt-1 text-xs text-muted-foreground">{{ addBlockedReason }}</p>
         </div>
       </template>
     </CardContent>

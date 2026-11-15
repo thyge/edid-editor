@@ -86,15 +86,23 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
+// A standard timing's 2-byte code only holds widths 256-2288 in steps of 8
+// and refresh rates 60-123 Hz (EDID 1.4 §3.9); anything else needs a detailed
+// timing. Clamping here keeps the field showing what will actually be saved.
+const WIDTH_MIN = 256
+const WIDTH_MAX = 2288
+const REFRESH_MIN = 60
+const REFRESH_MAX = 123
+
 function sanitizeWidth(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 640
-  const clamped = clamp(value, 256, 8192)
+  const clamped = clamp(value, WIDTH_MIN, WIDTH_MAX)
   return Math.round(clamped / 8) * 8
 }
 
 function sanitizeRefresh(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 60
-  return Math.round(clamp(value, 24, 240))
+  return Math.round(clamp(value, REFRESH_MIN, REFRESH_MAX))
 }
 
 function heightForAspect(width: number, aspect: AspectCode): number {
@@ -194,8 +202,8 @@ function subtitle(timing: EditableTiming): string {
               Width (px)
               <Input
                 type="number"
-                :min="256"
-                :max="8192"
+                :min="WIDTH_MIN"
+                :max="WIDTH_MAX"
                 :step="8"
                 :model-value="timing.width"
                 @update:model-value="(v) => updateTimingField(index, 'width', v)"
@@ -205,8 +213,8 @@ function subtitle(timing: EditableTiming): string {
               Refresh (Hz)
               <Input
                 type="number"
-                :min="24"
-                :max="240"
+                :min="REFRESH_MIN"
+                :max="REFRESH_MAX"
                 :step="1"
                 :model-value="timing.refreshRate"
                 @update:model-value="(v) => updateTimingField(index, 'refreshRate', v)"

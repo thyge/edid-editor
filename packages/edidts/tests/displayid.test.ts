@@ -274,7 +274,8 @@ describe('DisplayID v2.0 Product Identification data block', () => {
     const block = section.blocks[0] as DisplayIdProductIdentificationBlock
 
     expect(block.tag).toBe(DisplayIdDataBlockTag.ProductIdentification)
-    expect(block.ieeeOui).toBe(0x2b1a00)
+    // OUI bytes 00 1a 2b are big-endian (edid-decode data_block_oui, big_endian=true).
+    expect(block.ieeeOui).toBe(0x001a2b)
     expect(block.productId).toBe(0x1234)
     expect(block.serialNumber).toBe(0x12345678)
     expect(block.manufactureWeek).toBe(22)

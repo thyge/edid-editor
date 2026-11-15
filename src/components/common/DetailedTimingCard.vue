@@ -5,6 +5,7 @@ import {
   classifyDetailedTiming,
   computePixelClockForTargetRate,
   computeRefreshRate,
+  frameVerticalActive,
   generateCVTDetailedTiming,
   generateCVTDetailedTimingForTarget,
   generateDetailedTimingFromVIC,
@@ -211,7 +212,8 @@ function writeDerivedFields(gen: DetailedTimingDescriptor): void {
 function regenerate(): void {
   pixelClockOverflow.value = false
   const horizontalActive = Math.round(props.timing.horizontalActive)
-  const verticalActive = Math.round(props.timing.verticalActive)
+  // The generator takes the frame height; an interlaced DTD stores per field.
+  const verticalActive = Math.round(frameVerticalActive(props.timing))
   const refreshRate = round2(state.refreshRate)
   if (horizontalActive <= 0 || verticalActive <= 0 || refreshRate <= 0) return
 
@@ -477,7 +479,7 @@ function applyFreeParam(field: string, value: unknown): void {
           >{{ timingTypeLabel }}</span>
         </p>
         <p class="text-lg font-semibold text-foreground">
-          {{ timing.horizontalActive }}×{{ timing.verticalActive }}{{ timing.flags.interlaced ? 'i' : 'p' }} ·
+          {{ timing.horizontalActive }}×{{ frameVerticalActive(timing) }}{{ timing.flags.interlaced ? 'i' : 'p' }} ·
           {{ roundedRefreshRate(timing) }} Hz
         </p>
         <p class="text-xs text-muted-foreground">{{ timing.pixelClock.toFixed(2) }} MHz pixel clock</p>

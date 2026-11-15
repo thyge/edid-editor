@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
+import { useDisplayIdRoom } from './displayIdRoom'
 
 /**
  * DisplayID 1.x Type 1 Detailed Timings (tag 0x03). The 20-byte
@@ -22,6 +23,10 @@ import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '
  */
 const props = defineProps<{ section: DisplayIdSection; index?: number }>()
 const emit = defineEmits<{ updateBlock: [index: number, block: DisplayIdDataBlock] }>()
+
+/** One more 20-byte descriptor must fit the section's 0x70 block. */
+const TIMING_BYTES = 20
+const room = useDisplayIdRoom()
 
 function defaultTiming(): DisplayIdTypeVIIDetailedTiming {
   return {
@@ -57,11 +62,11 @@ function updateBlock(index: number, block: DisplayIdV1TypeIDetailedTimingBlock, 
 const TYPE_I_FIELD_MAX = {
   horizontalActive: 65_536,
   horizontalBlanking: 65_536,
-  horizontalSyncOffset: 16_384,
+  horizontalSyncOffset: 32_768,
   horizontalSyncWidth: 65_536,
   verticalActive: 65_536,
   verticalBlanking: 65_536,
-  verticalSyncOffset: 16_384,
+  verticalSyncOffset: 32_768,
   verticalSyncWidth: 65_536,
   aspectRatio: 15,
   stereo: 3,
@@ -134,7 +139,11 @@ function updateTiming(
             <Input type="number" min="0" :max="TYPE_I_FIELD_MAX.verticalSyncWidth" :model-value="timing.verticalSyncWidth" @input="updateTiming(index, block, timingIndex, 'verticalSyncWidth', numberFromEvent($event))" />
           </div>
           <div class="grid grid-cols-3 gap-3">
-            <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
+            <label v-if="block.revision >= 2" class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50" title="Block revision 2+: byte 3 bit 7 means YCbCr 4:2:0 support">
+              <span>YCbCr 4:2:0</span>
+              <Switch :model-value="timing.ycbcr420 === true" @update:model-value="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, ycbcr420: value }))" />
+            </label>
+            <label v-else class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
               <span>Preferred</span>
               <Switch :model-value="timing.preferred" @update:model-value="(value: boolean) => updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, preferred: value }))" />
             </label>
@@ -156,7 +165,15 @@ function updateTiming(
             </label>
           </div>
         </div>
-        <Button variant="outline" size="sm" @click="updateBlock(index, block, [...block.timings, defaultTiming()])">Add Timing</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="!room.fits(TIMING_BYTES)"
+          :title="room.fits(TIMING_BYTES) ? undefined : room.noRoomTitle(TIMING_BYTES)"
+          @click="updateBlock(index, block, [...block.timings, defaultTiming()])"
+        >
+          Add Timing
+        </Button>
       </section>
     </CardContent>
   </Card>

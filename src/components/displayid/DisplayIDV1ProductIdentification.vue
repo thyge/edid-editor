@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, stringFromEvent } from '../common/editorUtils'
+import { useDisplayIdRoom } from './displayIdRoom'
 
 /**
  * DisplayID 1.x Product Identification (tag 0x00). Unlike the v2.0
@@ -34,6 +35,15 @@ function update(index: number, block: DisplayIdV1ProductIdentificationBlock, pat
 function clampYear(value: number): number | undefined {
   if (!Number.isFinite(value) || value === 0) return undefined
   return Math.min(2255, Math.max(2000, Math.round(value)))
+}
+
+/** The product name may grow only by the bytes still free in the section's
+ *  0x70 block (and the block payload stays within 255 bytes). */
+const room = useDisplayIdRoom()
+function nameMaxLength(block: { productNameBytes: Uint8Array }): number {
+  const free = room.freeBytes.value
+  const roomLimit = Number.isFinite(free) ? block.productNameBytes.length + Math.max(0, free) : Number.POSITIVE_INFINITY
+  return Math.min(roomLimit, 0xff - 12)
 }
 
 function updateName(index: number, block: DisplayIdV1ProductIdentificationBlock, value: string) {
@@ -71,7 +81,7 @@ function updateName(index: number, block: DisplayIdV1ProductIdentificationBlock,
         </div>
         <div class="space-y-1">
           <label class="text-xs text-muted-foreground">Product Name</label>
-          <Input :model-value="block.productName" @input="updateName(index, block, stringFromEvent($event))" />
+          <Input :model-value="block.productName" :maxlength="nameMaxLength(block)" @input="updateName(index, block, stringFromEvent($event))" />
         </div>
         <div class="space-y-1">
           <label class="text-xs text-muted-foreground">Manufacture Week (1–54, 0 = unspecified)</label>

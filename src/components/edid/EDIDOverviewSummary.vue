@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getProductName, type DetailedTimingDescriptor } from 'edidts'
+import { frameVerticalActive, getProductName, type DetailedTimingDescriptor } from 'edidts'
 import type { EDIDViewModel } from '@/types/edid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -48,7 +48,7 @@ function formatProductCode(code: number): string {
 }
 
 function formatTiming(timing: DetailedTimingDescriptor): string {
-  const resolution = `${timing.horizontalActive} × ${timing.verticalActive}`
+  const resolution = `${timing.horizontalActive} × ${frameVerticalActive(timing)}`
   const refresh = timing.refreshRate > 0 ? `${Math.round(timing.refreshRate)} Hz` : 'Unknown Hz'
   const scan = timing.flags.interlaced ? 'Interlaced' : 'Progressive'
   const pixelClock = timing.pixelClock > 0 ? `${timing.pixelClock.toFixed(2)} MHz` : 'Unknown clock'

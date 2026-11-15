@@ -10,6 +10,9 @@ export {
   isVICDtdEncodable,
   analyzeDetailedTimingAgainstCTA,
   generateDetailedTimingFromVIC,
+  decodeSvd,
+  encodeSvd,
+  svdCanBeNative,
 } from './vic-table';
 export type { 
   VICDefinition,
@@ -31,8 +34,10 @@ export {
   getExtendedAudioFormatName,
   getSamplingRatesString,
   getBitDepthsString,
+  decodeShortAudioDescriptor,
+  encodeShortAudioDescriptor,
 } from './audio-format-codes';
-export type { AudioFormatDefinition } from './audio-format-codes';
+export type { AudioFormatDefinition, ShortAudioDescriptor } from './audio-format-codes';
 
 // CTA-861-G Extended Tag Data Blocks — the non-family blocks and the
 // tag-keyed codec registry live in cta-extended-blocks.ts; the VCDB-family
@@ -58,6 +63,7 @@ export type {
   ExtendedDataBlock,
   CTAExtendedDataBlock,
   ColorimetryDataBlock,
+  ColorimetryFlagKey,
   HDRDynamicMetadataDataBlock,
   RoomConfigurationDataBlock,
   SpeakerLocationDataBlock,
@@ -71,9 +77,16 @@ export type {
 } from './cta-extended-blocks';
 export { SCAN_BEHAVIOR_OPTIONS } from './vcdb/video-capability';
 export type { VideoCapabilityDataBlock, ScanBehavior } from './vcdb/video-capability';
-export { EOTF_FLAGS } from './vcdb/hdr-static';
+export {
+  EOTF_FLAGS,
+  hdrLuminanceFromCode,
+  hdrLuminanceToCode,
+  hdrMinLuminanceFromCode,
+  hdrMinLuminanceToCode,
+} from './vcdb/hdr-static';
 export type { HDRStaticMetadataDataBlock } from './vcdb/hdr-static';
-export type { VideoFormatPreferenceDataBlock } from './vcdb/video-format-preference';
+export { decodeSvr, encodeSvr } from './vcdb/video-format-preference';
+export type { VideoFormatPreferenceDataBlock, VideoFormatPreferenceSvr } from './vcdb/video-format-preference';
 export type { YCbCr420VideoDataBlock } from './vcdb/ycbcr420-video';
 export type { YCbCr420CapabilityMapDataBlock } from './vcdb/ycbcr420-capability-map';
 export type { InfoFrameDataBlock } from './vcdb/infoframe';
@@ -90,6 +103,8 @@ export {
   CEA_DATA_BLOCK_LABELS,
   getCEADataBlockLabel,
   VESA_TRANSFER_TYPE_OPTIONS,
+  VESA_TRANSFER_POINT_COUNTS,
+  makeVesaTransferCurve,
 } from './extension-block';
 export type {
   ExtensionBlock,
@@ -143,6 +158,7 @@ export {
   HDMI_3D_MODE_OPTIONS,
   HDMI_IMAGE_SIZE_OPTIONS,
   HDMI_FRL_RATE_OPTIONS,
+  HDMI_DSC_MAX_SLICES_OPTIONS,
   getHdmiFrlRateLabel,
 } from './vsdb/types';
 export { MICROSOFT_HMD_USE_CASES } from './vsdb/microsoft-hmd';
@@ -169,7 +185,7 @@ export {
   VENDOR_VSVDB_DECODERS,
   VENDOR_VSVDB_ENCODERS,
 } from './vcdb/vsvdb/registry';
-export { DolbyVSDBDecoder, DolbyVSDBEncoder, DOLBY_VSDB_DEFAULT } from './vcdb/vsvdb/dolby';
+export { DolbyVSDBDecoder, DolbyVSDBEncoder, DOLBY_VSDB_DEFAULT, setDolbyVsvdbVersion } from './vcdb/vsvdb/dolby';
 
 // Vendor-Specific Audio Data Blocks (tag 0x07 ext 0x11, e.g., Dolby Atmos) —
 // part of the VCDB family (vcdb/)
