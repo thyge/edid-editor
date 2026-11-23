@@ -56,7 +56,7 @@ function openFileDialog() {
           Drag & drop an EDID file here
         </p>
         <p class="text-sm text-muted-foreground mb-4">
-          Supports .bin, .edid, or .txt (hex) files
+          Binary EDID files, or hex text: plain, xxd, hexdump, C array, xrandr or .reg
         </p>
         <Button variant="outline" @click="openFileDialog">
           Browse Files
@@ -65,7 +65,7 @@ function openFileDialog() {
           ref="fileInput"
           type="file"
           class="hidden"
-          accept=".bin,.edid,.txt"
+          accept=".bin,.edid,.raw,.dat,.txt,.hex,.reg"
           @change="handleFileSelect"
         />
       </div>

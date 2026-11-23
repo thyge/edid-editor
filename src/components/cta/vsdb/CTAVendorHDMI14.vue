@@ -176,6 +176,7 @@ function structureLabel(s: Hdmi3DStructure): string {
       <div class="grid grid-cols-2 gap-x-6 gap-y-1">
         <div :class="rowClass"><span>AI Support</span><Switch :model-value="props.fields.supportsAI" @update:model-value="(v: boolean) => emit('update', 'supportsAI', v)" /></div>
         <div :class="rowClass"><span>DC Y444</span><Switch :model-value="props.fields.dcY444" @update:model-value="(v: boolean) => emit('update', 'dcY444', v)" /></div>
+        <div :class="rowClass"><span>DVI Dual Link</span><Switch :model-value="props.fields.dviDual ?? false" @update:model-value="(v: boolean) => emit('update', 'dviDual', v)" /></div>
         <div :class="rowClass"><span>Deep Color 30-bit</span><Switch :model-value="props.fields.dc30bit" @update:model-value="(v: boolean) => emit('update', 'dc30bit', v)" /></div>
         <div :class="rowClass"><span>Deep Color 36-bit</span><Switch :model-value="props.fields.dc36bit" @update:model-value="(v: boolean) => emit('update', 'dc36bit', v)" /></div>
         <div :class="rowClass"><span>Deep Color 48-bit</span><Switch :model-value="props.fields.dc48bit" @update:model-value="(v: boolean) => emit('update', 'dc48bit', v)" /></div>

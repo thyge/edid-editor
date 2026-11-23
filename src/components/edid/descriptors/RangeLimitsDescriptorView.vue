@@ -17,7 +17,7 @@ type RangeNumberField =
   | 'maxHorizontalRate'
   | 'maxPixelClock'
 type CVTBooleanField =
-  | 'reducedBlankingPreferred'
+  | 'reducedBlankingSupported'
   | 'standardBlankingSupported'
   | 'horizontalShrinkSupported'
   | 'horizontalStretchSupported'
@@ -69,8 +69,15 @@ function parseNumber(value: string | number): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+// EDID 1.4 rates reach 510 via the descriptor's "+255" offset flags; the
+// clock byte holds up to 255 × 10 MHz. The encoder clamps too, but bounding
+// here keeps what the field shows equal to what gets written.
+const RATE_MAX = 510
+const PIXEL_CLOCK_MAX = 2550
+
 function updateNumberField(field: RangeNumberField, value: string | number) {
-  const next = parseNumber(value)
+  const max = field === 'maxPixelClock' ? PIXEL_CLOCK_MAX : RATE_MAX
+  const next = Math.min(max, Math.max(0, parseNumber(value)))
   if (local[field] === next) return
   local[field] = next
   emitUpdate()
@@ -101,7 +108,7 @@ function ensureCVT() {
         ar15_9: false,
       },
       preferredAspectRatio: '16:9',
-      reducedBlankingPreferred: false,
+      reducedBlankingSupported: false,
       standardBlankingSupported: true,
       horizontalShrinkSupported: false,
       horizontalStretchSupported: false,
@@ -114,6 +121,8 @@ function ensureCVT() {
 
 function updateTimingSupport(value: DisplayRangeLimitsDescriptor['timingSupport']) {
   local.timingSupport = value
+  // An explicit choice replaces an unrecognised byte-10 code kept from the file.
+  delete local.timingSupportCode
   if (value === 'secondary-gtf') {
     ensureSecondaryGTF()
     delete local.cvt
@@ -190,6 +199,7 @@ function onPreferredAspectChange(event: Event) {
         <Input
           type="number"
           :min="0"
+          :max="RATE_MAX"
           :model-value="local.minVerticalRate"
           @update:model-value="(v) => updateNumberField('minVerticalRate', v)"
         />
@@ -199,6 +209,7 @@ function onPreferredAspectChange(event: Event) {
         <Input
           type="number"
           :min="0"
+          :max="RATE_MAX"
           :model-value="local.maxVerticalRate"
           @update:model-value="(v) => updateNumberField('maxVerticalRate', v)"
         />
@@ -208,6 +219,7 @@ function onPreferredAspectChange(event: Event) {
         <Input
           type="number"
           :min="0"
+          :max="RATE_MAX"
           :model-value="local.minHorizontalRate"
           @update:model-value="(v) => updateNumberField('minHorizontalRate', v)"
         />
@@ -217,6 +229,7 @@ function onPreferredAspectChange(event: Event) {
         <Input
           type="number"
           :min="0"
+          :max="RATE_MAX"
           :model-value="local.maxHorizontalRate"
           @update:model-value="(v) => updateNumberField('maxHorizontalRate', v)"
         />
@@ -226,7 +239,8 @@ function onPreferredAspectChange(event: Event) {
         <Input
           type="number"
           :min="0"
-          :step="10"
+          :max="PIXEL_CLOCK_MAX"
+          :step="local.timingSupport === 'cvt' ? 0.25 : 10"
           :model-value="local.maxPixelClock"
           @update:model-value="(v) => updateNumberField('maxPixelClock', v)"
         />
@@ -337,16 +351,16 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.reducedBlankingPreferred ?? false"
-            @change="(e) => updateCVTBoolean('reducedBlankingPreferred', (e.target as HTMLInputElement).checked)"
+            :checked="local.cvt?.reducedBlankingSupported ?? false"
+            @change="(e) => updateCVTBoolean('reducedBlankingSupported', (e.target as HTMLInputElement).checked)"
           />
-          Reduced Blanking Preferred
+          Reduced Blanking Supported
         </label>
         <label class="flex items-center gap-2">
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.standardBlankingSupported ?? false"
+            :checked="local.cvt?.standardBlankingSupported ?? false"
             @change="(e) => updateCVTBoolean('standardBlankingSupported', (e.target as HTMLInputElement).checked)"
           />
           Standard Blanking Supported
@@ -355,7 +369,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.horizontalShrinkSupported ?? false"
+            :checked="local.cvt?.horizontalShrinkSupported ?? false"
             @change="(e) => updateCVTBoolean('horizontalShrinkSupported', (e.target as HTMLInputElement).checked)"
           />
           Horizontal Shrink
@@ -364,7 +378,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.horizontalStretchSupported ?? false"
+            :checked="local.cvt?.horizontalStretchSupported ?? false"
             @change="(e) => updateCVTBoolean('horizontalStretchSupported', (e.target as HTMLInputElement).checked)"
           />
           Horizontal Stretch
@@ -373,7 +387,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.verticalShrinkSupported ?? false"
+            :checked="local.cvt?.verticalShrinkSupported ?? false"
             @change="(e) => updateCVTBoolean('verticalShrinkSupported', (e.target as HTMLInputElement).checked)"
           />
           Vertical Shrink
@@ -382,7 +396,7 @@ function onPreferredAspectChange(event: Event) {
           <input
             type="checkbox"
             class="size-4 rounded border border-input accent-primary"
-            :model-value="local.cvt?.verticalStretchSupported ?? false"
+            :checked="local.cvt?.verticalStretchSupported ?? false"
             @change="(e) => updateCVTBoolean('verticalStretchSupported', (e.target as HTMLInputElement).checked)"
           />
           Vertical Stretch
@@ -400,7 +414,7 @@ function onPreferredAspectChange(event: Event) {
             <input
               type="checkbox"
               class="size-4 rounded border border-input accent-primary"
-              :model-value="local.cvt?.aspectRatios[ratio.key] ?? false"
+              :checked="local.cvt?.aspectRatios[ratio.key] ?? false"
               @change="(e) => updateCVTAspectRatio(ratio.key, (e.target as HTMLInputElement).checked)"
             />
             {{ ratio.label }}

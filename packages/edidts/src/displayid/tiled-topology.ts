@@ -6,6 +6,7 @@ import {
   type DisplayIdTiledDisplayTopologyBlock,
 } from './types';
 import { readIeeeOui, writeIeeeOui } from '../common/bintools';
+import { clampBits } from './clamp';
 
 /**
  * DisplayID 2.0 §4.7 Tiled Display Topology Data Block (tag 0x28).
@@ -14,10 +15,11 @@ import { readIeeeOui, writeIeeeOui } from '../common/bintools';
  * (capabilities), 4-39 (topology & location, 6-bit packed across payload[1..3]),
  * 4-40 (tile size), 4-41 (pixel multiplier & bezel), and 4-42 (topology ID).
  *
- * The four topology/location fields are 6-bit values (0-63); the model exposes
- * them as human 1-based values (1-64), storing value-1 on encode. Tile sizes
- * are 16-bit values exposed as human pixel counts (1-65536), storing value-1.
- * edid-decode prints counts/sizes as stored+1, matching this convention.
+ * The four topology/location fields are 6-bit values (0-63). Tile counts are
+ * exposed as human 1-based values (1-64, stored value-1); tile locations are
+ * 0-based indices (0-63, stored as-is). Tile sizes are 16-bit values exposed as
+ * human pixel counts (1-65536), storing value-1. This matches edid-decode,
+ * which prints counts/sizes as stored+1 but the tile location as stored.
  *
  * Cross-checked against edid-decode parse_displayid_tiled_display_topology
  * (parse-displayid-block.cpp:961), including its 6-bit unpacking:
@@ -80,11 +82,12 @@ export function decodeTiledDisplayTopologyBlock(
   const b2 = p[2] ?? 0;
   const b3 = p[3] ?? 0;
 
-  // 6-bit packed topology & location (payload[1..3]); human value = stored + 1.
+  // 6-bit packed topology & location (payload[1..3]). Counts: human = stored
+  // + 1. Locations: 0-based, as stored (edid-decode prints them unchanged).
   const tileCountVertical = ((b1 & 0x0f) | (b3 & 0x30)) + 1;
   const tileCountHorizontal = ((b1 >> 4) | ((b3 & 0xc0) >> 2)) + 1;
-  const tileLocationVertical = ((b2 & 0x0f) | ((b3 & 0x03) << 4)) + 1;
-  const tileLocationHorizontal = ((b2 >> 4) | ((b3 & 0x0c) << 2)) + 1;
+  const tileLocationVertical = (b2 & 0x0f) | ((b3 & 0x03) << 4);
+  const tileLocationHorizontal = (b2 >> 4) | ((b3 & 0x0c) << 2);
 
   return {
     ...block,
@@ -94,7 +97,7 @@ export function decodeTiledDisplayTopologyBlock(
     subsetTileBehavior: (caps >> 3) & 0x03,
     bezelInfoPresent: (caps & 0x40) !== 0,
     singleEnclosure: (caps & 0x80) !== 0,
-    // Topology & location (Table 4-39), human 1-64.
+    // Topology & location (Table 4-39): counts 1-64, locations 0-63.
     tileCountHorizontal,
     tileCountVertical,
     tileLocationHorizontal,
@@ -126,16 +129,16 @@ export function encodeTiledDisplayTopologyBlock(
 
   payload[0] =
     reservedBit5 |
-    (block.singleTileBehavior & 0x07) |
-    ((block.subsetTileBehavior & 0x03) << 3) |
+    clampBits(block.singleTileBehavior, 3) |
+    (clampBits(block.subsetTileBehavior, 2) << 3) |
     (block.bezelInfoPresent ? 0x40 : 0) |
     (block.singleEnclosure ? 0x80 : 0);
 
-  // Pack 6-bit topology & location (stored = human - 1).
+  // Pack 6-bit topology & location (counts stored as human - 1, locations as-is).
   const vCount = clamp6(block.tileCountVertical - 1);
   const hCount = clamp6(block.tileCountHorizontal - 1);
-  const vLoc = clamp6(block.tileLocationVertical - 1);
-  const hLoc = clamp6(block.tileLocationHorizontal - 1);
+  const vLoc = clamp6(block.tileLocationVertical);
+  const hLoc = clamp6(block.tileLocationHorizontal);
   payload[1] = ((hCount & 0x0f) << 4) | (vCount & 0x0f);
   payload[2] = ((hLoc & 0x0f) << 4) | (vLoc & 0x0f);
   payload[3] =
@@ -149,19 +152,20 @@ export function encodeTiledDisplayTopologyBlock(
   writeUint16LE(payload, 6, clamp16(block.tileHeightPixels - 1));
 
   // Pixel multiplier & bezel.
-  payload[8] = block.pixelMultiplier & 0xff;
-  payload[9] = block.topBezelSize & 0xff;
-  payload[10] = block.bottomBezelSize & 0xff;
-  payload[11] = block.rightBezelSize & 0xff;
-  payload[12] = block.leftBezelSize & 0xff;
+  payload[8] = clampBits(block.pixelMultiplier, 8);
+  payload[9] = clampBits(block.topBezelSize, 8);
+  payload[10] = clampBits(block.bottomBezelSize, 8);
+  payload[11] = clampBits(block.rightBezelSize, 8);
+  payload[12] = clampBits(block.leftBezelSize, 8);
 
   // Topology ID: 3-byte OUI (big-endian), 16-bit product ID (LE), 32-bit serial (LE).
-  writeIeeeOui(payload, 13, block.vendorOui);
+  writeIeeeOui(payload, 13, clampBits(block.vendorOui, 24));
   writeUint16LE(payload, 16, clamp16(block.productId));
-  payload[18] = block.serialNumber & 0xff;
-  payload[19] = (block.serialNumber >> 8) & 0xff;
-  payload[20] = (block.serialNumber >> 16) & 0xff;
-  payload[21] = (block.serialNumber >> 24) & 0xff;
+  const serialNumber = clampBits(block.serialNumber, 32);
+  payload[18] = serialNumber & 0xff;
+  payload[19] = (serialNumber >>> 8) & 0xff;
+  payload[20] = (serialNumber >>> 16) & 0xff;
+  payload[21] = (serialNumber >>> 24) & 0xff;
 
   return payload;
 }

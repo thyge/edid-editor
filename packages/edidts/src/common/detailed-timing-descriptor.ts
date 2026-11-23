@@ -184,12 +184,31 @@ export function normalizeDetailedTiming(data?: DetailedTimingInput): DetailedTim
 }
 
 /**
+ * Lines per vertical period used for the refresh rate. A DTD stores an
+ * interlaced timing per field (EDID 1.4 §3.10.3: "vertical active lines per
+ * field"), and each field also carries half a line — edid-decode's calc_fps
+ * divides by `vact_field + vblank + 0.5` for interlaced timings.
+ */
+function verticalPeriodLines(timing: DetailedTiming): number {
+  const lines = timing.verticalActive + timing.verticalBlanking;
+  return timing.flags.interlaced ? lines + 0.5 : lines;
+}
+
+/**
+ * The frame height of a timing: a DTD stores interlaced timings per field,
+ * so a 1080i timing has `verticalActive` 540 and a 1080-line frame.
+ */
+export function frameVerticalActive(timing: Pick<DetailedTiming, 'verticalActive' | 'flags'>): number {
+  return timing.flags.interlaced ? timing.verticalActive * 2 : timing.verticalActive;
+}
+
+/**
  * Derive the refresh rate (Hz) for any {@link DetailedTiming}-shaped object
  * (base-block DTD or CTA-861 DTD). Single source of truth for the UI card and
  * the {@link DetailedTimingDescriptor.refreshRate} getter.
  *
- * For interlaced timings the result is the field rate (pixel clock / total
- * pixels per frame, doubled) — the user-facing "60 Hz" convention for 1080i.
+ * For interlaced timings the result is the field rate — the user-facing
+ * "60 Hz" of 1080i60, matching edid-decode (74.25 MHz / (2200 × 562.5) = 60).
  */
 export function computeRefreshRate(timing: DetailedTiming): number {
   const horizontalTotal = timing.horizontalActive + timing.horizontalBlanking;
@@ -199,15 +218,7 @@ export function computeRefreshRate(timing: DetailedTiming): number {
     return 0;
   }
 
-  // Refresh rate = pixel clock (MHz) * 1,000,000 / (horizontal total * vertical total)
-  let rate = (timing.pixelClock * 1_000_000) / (horizontalTotal * verticalTotal);
-
-  // For interlaced, the field rate is doubled
-  if (timing.flags.interlaced) {
-    rate *= 2;
-  }
-
-  return rate;
+  return (timing.pixelClock * 1_000_000) / (horizontalTotal * verticalPeriodLines(timing));
 }
 
 /**
@@ -218,7 +229,7 @@ export function computeRefreshRate(timing: DetailedTiming): number {
  * derived, unlike the CVT generator which owns the blanking too.
  *
  * For interlaced timings `refreshRate` is the field rate (the user-facing
- * convention, same as computeRefreshRate), so the required clock is halved.
+ * convention, same as computeRefreshRate) over the per-field line count.
  *
  * Returns null when the timing has no usable geometry, the rate is not
  * positive, or the quantized clock would fall outside (0, `maxClockMhz`] —
@@ -236,10 +247,8 @@ export function computePixelClockForTargetRate(
     return null;
   }
 
-  // computeRefreshRate: rate = clock * 1e6 / (hTotal * vTotal), doubled when
-  // interlaced — solve for the clock with the matching field factor.
-  const interlaceFields = timing.flags.interlaced ? 2 : 1;
-  const clockMhz = (refreshRate * horizontalTotal * verticalTotal) / (interlaceFields * 1_000_000);
+  // Inverse of computeRefreshRate: rate = clock * 1e6 / (hTotal * period lines).
+  const clockMhz = (refreshRate * horizontalTotal * verticalPeriodLines(timing)) / 1_000_000;
 
   // Quantize to the DTD's 10 kHz field resolution (0.01 MHz).
   const quantized = Math.round(clockMhz * 100) / 100;
@@ -310,19 +319,18 @@ export function isDetailedTimingEncodable(timing: DetailedTiming): boolean {
 export function decodeEdidCtaDetailedTimingFlags(byte: number): TimingFlags {
   const interlaced = (byte & 0x80) !== 0;
 
-  // Stereo mode: 3-bit code formed from bits 6:5 (upper) and bit 0 (lower),
-  // per EDID 1.4 §3.10.3.6 / CTA-861. stereoBits = (bit6 << 2) | (bit5 << 1) | bit0.
-  const stereoBits = ((byte >> 4) & 0x06) | (byte & 0x01);
+  // Stereo mode: bits 6, 5 and 0 per EDID 1.4 Table 3.22 (edid-decode switches
+  // on flags & 0x61). With bits 6:5 = 00 there is no stereo and bit 0 is
+  // "don't care"; all six other combinations are defined (none is reserved).
   let stereoMode: StereoMode;
-  switch (stereoBits) {
-    case 0x00: stereoMode = 'none'; break;
-    case 0x01: stereoMode = 'field-sequential-right'; break;
-    case 0x02: stereoMode = '2-way-interleaved-right'; break;
-    case 0x03: stereoMode = 'field-sequential-left'; break;
-    case 0x04: stereoMode = '2-way-interleaved-left'; break;
-    case 0x05: stereoMode = '4-way-interleaved'; break;
-    case 0x06: stereoMode = 'side-by-side-interleaved'; break;
-    default: stereoMode = 'none'; break; // 0x07 (111) is reserved
+  switch (byte & 0x61) {
+    case 0x20: stereoMode = 'field-sequential-right'; break; // 0 1 0
+    case 0x40: stereoMode = 'field-sequential-left'; break; // 1 0 0
+    case 0x21: stereoMode = '2-way-interleaved-right'; break; // 0 1 1
+    case 0x41: stereoMode = '2-way-interleaved-left'; break; // 1 0 1
+    case 0x60: stereoMode = '4-way-interleaved'; break; // 1 1 0
+    case 0x61: stereoMode = 'side-by-side-interleaved'; break; // 1 1 1
+    default: stereoMode = 'none'; break; // 0 0 x
   }
 
   let syncType: SyncType;
@@ -367,17 +375,15 @@ export function encodeEdidCtaDetailedTimingFlags(flagsInput?: Partial<TimingFlag
 
   if (flags.stereoMode !== 'none') {
     // Stereo bits are 6, 5, and 0 — they do not overlap the sync bits (4:1),
-    // so stereo and sync can be encoded independently. Each mode emits the
-    // exact bits whose stereoBits ((bit6<<2)|(bit5<<1)|bit0) match the decode
-    // code, making this the inverse of decodeEdidCtaDetailedTimingFlags.
-    // Reserved code 111 (0x61) is never emitted.
+    // so stereo and sync can be encoded independently. Inverse of the
+    // EDID 1.4 Table 3.22 mapping in decodeEdidCtaDetailedTimingFlags.
     switch (flags.stereoMode) {
-      case 'field-sequential-right': byte |= 0x01; break;    // 001
-      case '2-way-interleaved-right': byte |= 0x20; break;    // 010
-      case 'field-sequential-left': byte |= 0x21; break;     // 011
-      case '2-way-interleaved-left': byte |= 0x40; break;     // 100
-      case '4-way-interleaved': byte |= 0x41; break;         // 101
-      case 'side-by-side-interleaved': byte |= 0x60; break;   // 110
+      case 'field-sequential-right': byte |= 0x20; break;
+      case 'field-sequential-left': byte |= 0x40; break;
+      case '2-way-interleaved-right': byte |= 0x21; break;
+      case '2-way-interleaved-left': byte |= 0x41; break;
+      case '4-way-interleaved': byte |= 0x60; break;
+      case 'side-by-side-interleaved': byte |= 0x61; break;
     }
   }
 
@@ -612,8 +618,10 @@ export class DetailedTimingDescriptor {
    * Get display resolution as a string (e.g., "1920×1080")
    */
   get resolution(): string {
+    // Interlaced timings are named by their frame height (1920×1080i), as
+    // edid-decode does, although the DTD stores 540 lines per field.
     const suffix = this.flags.interlaced ? 'i' : 'p';
-    return `${this.horizontalActive}×${this.verticalActive}${suffix}`;
+    return `${this.horizontalActive}×${frameVerticalActive(this)}${suffix}`;
   }
 
   /**

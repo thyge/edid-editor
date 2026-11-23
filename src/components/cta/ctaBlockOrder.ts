@@ -34,7 +34,7 @@ export function ctaBlockFamily(block: CEADataBlock): CtaBlockFamily | null {
 /**
  * Position in the canonical add order. Lower = earlier. VSDBs share
  * rank 5: a newly added VSDB lands after existing VSDBs but before higher-
- * ranked blocks. Unlisted types (VESA Display Device 0x05, VESA VTB ext 0x03,
+ * ranked blocks. Unlisted types (VESA Display Transfer Characteristic 0x05, VESA VTB ext 0x03,
  * HDMI Video ext 0x04, CTA Misc Audio ext 0x10, HDMI Audio ext 0x12,
  * unknown/opaque) rank last so an add appends them after the canonical list.
  */
@@ -43,7 +43,7 @@ export function ctaBlockRank(block: CEADataBlock): number {
   if (block.tag === 0x02) return 2 // Video
   if (block.tag === 0x01) return 3 // Audio
   if (block.tag === 0x04) return 4 // Speaker Allocation
-  if (block.tag === 0x05) return 18 // VESA Display Device (unlisted)
+  if (block.tag === 0x05) return 18 // VESA Display Transfer Characteristic (unlisted)
   switch ((block as { extendedTag?: number }).extendedTag) {
     case 0x05: return 6 // Colorimetry
     case 0x00: return 7 // Video Capability
@@ -67,7 +67,7 @@ export function ctaBlockNavLabel(block: CEADataBlock): string {
   if (block.tag === 0x02) return 'Video Data Block'
   if (block.tag === 0x01) return 'Audio Data Block'
   if (block.tag === 0x04) return 'Speaker Allocation'
-  if (block.tag === 0x05) return 'VESA Display Device'
+  if (block.tag === 0x05) return 'VESA Transfer Characteristic'
   if (block.tag === 0x07) {
     switch ((block as { extendedTag?: number }).extendedTag) {
       case 0x00: return 'Video Capability'

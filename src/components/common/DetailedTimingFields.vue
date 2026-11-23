@@ -96,7 +96,7 @@ function onFlag(flag: string, value: unknown) {
         />
       </label>
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        V. Active (lines)
+        V. Active ({{ timing.flags.interlaced ? 'lines per field' : 'lines' }})
         <Input
           type="number"
           :min="0"

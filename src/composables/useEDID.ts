@@ -1,11 +1,15 @@
 import { ref, shallowRef, computed, reactive } from 'vue'
 import { EEDID } from 'edidts'
+import { looksLikeText, parseEdidHex } from '@/lib/parseEdidHex'
 
 // shallowRef: only `.value` reassignment is tracked. The EEDID instance itself
 // is wrapped in reactive() on load so Vue can see deep field edits; a plain
 // ref would double-wrap and fight the explicit reactive() proxy.
 const edid = shallowRef<EEDID | null>(null)
 const error = ref<string | null>(null)
+// Name of the file the current EDID was imported from (picked or dropped);
+// null for pasted hex and blank EDIDs. Used to name the edited download.
+const sourceFileName = ref<string | null>(null)
 
 // edidData is derived state: the reactive EEDID tree, re-encoded to bytes.
 // Because edid.value is a reactive() proxy, EEDID.encode's property reads
@@ -19,30 +23,65 @@ const error = ref<string | null>(null)
 // padding normalized — rather than the uploaded file's raw bytes verbatim
 // until the first edit. For EDIDs that round-trip byte-identically (the common
 // case) there is no visible difference.
-const edidData = computed<Uint8Array | null>(() =>
-  edid.value ? EEDID.encode(edid.value) : null,
-)
-
-function parseHexString(hex: string): Uint8Array {
-  const cleaned = hex.replace(/[^0-9A-Fa-f]/g, '')
-  const bytes: number[] = []
-  for (let i = 0; i < cleaned.length; i += 2) {
-    bytes.push(parseInt(cleaned.slice(i, i + 2), 16))
+//
+// Encoding can fail when an edit no longer fits the format (e.g. a CTA data
+// block longer than 31 bytes, or more content than a 128-byte extension
+// holds). The encoders refuse rather than silently truncate, so the failure
+// is surfaced as `encodeError`, `edidData` goes null (download is blocked —
+// there are no valid bytes for the current edits), and `previewData` keeps
+// showing the last bytes that did encode.
+const encodeResult = computed<{ bytes: Uint8Array | null; error: string | null }>(() => {
+  if (!edid.value) return { bytes: null, error: null }
+  try {
+    return { bytes: EEDID.encode(edid.value), error: null }
+  } catch (e) {
+    return { bytes: null, error: e instanceof Error ? e.message : 'The edited EDID could not be encoded' }
   }
-  return new Uint8Array(bytes)
+})
+const edidData = computed<Uint8Array | null>(() => encodeResult.value.bytes)
+const encodeError = computed<string | null>(() => encodeResult.value.error)
+
+// Last successfully encoded bytes for the hex view, so it doesn't blank out
+// while an edit is temporarily invalid. Reset whenever a new EDID is loaded.
+let lastEncoded: Uint8Array | null = null
+const previewData = computed<Uint8Array | null>(() => {
+  if (!edid.value) {
+    lastEncoded = null
+    return null
+  }
+  const bytes = encodeResult.value.bytes
+  if (bytes) lastEncoded = bytes
+  return bytes ?? lastEncoded
+})
+
+const EDID_SIGNATURE = [0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00]
+
+/**
+ * Bytes of an imported file. A binary EDID starts with the 8-byte header;
+ * anything else that reads as text (a `.txt`/`.hex`/`.reg` dump, whatever its
+ * extension or letter case) is parsed as hex.
+ */
+function fileBytes(raw: Uint8Array): Uint8Array {
+  const isBinaryEdid = EDID_SIGNATURE.every((b, i) => raw[i] === b)
+  if (!isBinaryEdid && looksLikeText(raw)) {
+    return parseEdidHex(new TextDecoder().decode(raw))
+  }
+  return raw
 }
 
 // Load bytes into the reactive tree. The computed re-encodes from the tree on
 // demand; there is no separate raw-byte store to preserve.
-function setEdid(bytes: Uint8Array) {
+function setEdid(bytes: Uint8Array, fileName: string | null = null) {
+  lastEncoded = null
   edid.value = reactive(EEDID.decode(bytes)) as EEDID
+  sourceFileName.value = fileName
 }
 
 export function useEDID() {
   const loadFromHex = (hex: string) => {
     try {
       error.value = null
-      setEdid(parseHexString(hex))
+      setEdid(parseEdidHex(hex))
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to parse EDID'
       edid.value = null
@@ -53,14 +92,7 @@ export function useEDID() {
     try {
       error.value = null
       const buffer = await file.arrayBuffer()
-
-      if (file.name.endsWith('.txt')) {
-        const text = new TextDecoder().decode(new Uint8Array(buffer))
-        setEdid(parseHexString(text))
-        return
-      }
-
-      setEdid(new Uint8Array(buffer))
+      setEdid(fileBytes(new Uint8Array(buffer)), file.name)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to parse EDID'
       edid.value = null
@@ -91,14 +123,18 @@ export function useEDID() {
   const clear = () => {
     edid.value = null
     error.value = null
+    sourceFileName.value = null
   }
 
   const isLoaded = computed(() => edid.value !== null)
 
   return {
     edidData,
+    previewData,
+    encodeError,
     edid,
     error,
+    sourceFileName,
     isLoaded,
     loadFromHex,
     loadFromFile,

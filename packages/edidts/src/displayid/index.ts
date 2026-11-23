@@ -2,6 +2,8 @@ export {
   decodeDisplayIdBlocks,
   encodeDisplayIdBlock,
   hasDisplayIdBlockCodec,
+  isRawDisplayIdBlock,
+  getDisplayIdBlockWireLength,
 } from './blocks';
 export {
   decodeDisplayParametersBlock,
@@ -107,6 +109,9 @@ export {
 export {
   decodeDisplayIdSection,
   encodeDisplayIdSection,
+  getDisplayIdSectionFixedLength,
+  getDisplayIdSectionFillLength,
+  isDisplayIdSectionFillElastic,
   DISPLAY_ID_PRIMARY_USE_CASES,
   DISPLAY_ID_RESERVED_USE_CASES,
 } from './section';

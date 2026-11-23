@@ -6,6 +6,7 @@
  */
 
 import type { ExtendedDataBlock } from '../cta-extended-blocks';
+import { keepShortLength } from '../byte-utils';
 
 export interface VideoCapabilityDataBlock extends ExtendedDataBlock {
   tag: 0x07;
@@ -15,6 +16,13 @@ export interface VideoCapabilityDataBlock extends ExtendedDataBlock {
   ptVideoScanBehavior: 'not_supported' | 'always_overscanned' | 'always_underscanned' | 'both';
   quantizationRangeSelectable: boolean;  // QS bit - RGB quantization range
   quantizationRangeYCC: boolean;         // QY bit - YCC quantization range
+  /** Bytes after the capability byte, kept verbatim. Set only when present. */
+  trailing?: Uint8Array;
+  /**
+   * Set to 0 when the block had no capability byte at all (an empty VCDB);
+   * encode keeps it empty until a field is switched on.
+   */
+  shortLength?: number;
 }
 
 /**
@@ -32,7 +40,7 @@ export const SCAN_BEHAVIOR_OPTIONS: ReadonlyArray<{ value: ScanBehavior; label: 
 ];
 
 export function decodeVideoCapabilityBlock(base: ExtendedDataBlock, payload: Uint8Array): VideoCapabilityDataBlock {
-  const byte = payload[0] || 0;
+  const byte = payload[0] ?? 0;
 
   const scanBehaviorMap: Record<number, 'not_supported' | 'always_overscanned' | 'always_underscanned' | 'both'> = {
     0: 'not_supported',
@@ -41,7 +49,7 @@ export function decodeVideoCapabilityBlock(base: ExtendedDataBlock, payload: Uin
     3: 'both',
   };
 
-  return {
+  const block: VideoCapabilityDataBlock = {
     ...base,
     extendedTag: 0x00,
     ceVideoScanBehavior: scanBehaviorMap[byte & 0x03] ?? 'not_supported',
@@ -50,6 +58,9 @@ export function decodeVideoCapabilityBlock(base: ExtendedDataBlock, payload: Uin
     quantizationRangeSelectable: (byte & 0x40) !== 0,
     quantizationRangeYCC: (byte & 0x80) !== 0,
   };
+  if (payload.length === 0) block.shortLength = 0;
+  if (payload.length > 1) block.trailing = payload.slice(1);
+  return block;
 }
 
 export function encodeVideoCapabilityBlock(block: VideoCapabilityDataBlock): Uint8Array {
@@ -67,5 +78,11 @@ export function encodeVideoCapabilityBlock(block: VideoCapabilityDataBlock): Uin
   if (block.quantizationRangeSelectable) byte |= 0x40;
   if (block.quantizationRangeYCC) byte |= 0x80;
 
-  return new Uint8Array([0x00, byte]);
+  const trailing = block.trailing ?? new Uint8Array();
+  const out = new Uint8Array(2 + trailing.length);
+  out[0] = 0x00;
+  out[1] = byte;
+  out.set(trailing, 2);
+  // shortLength counts body bytes; the output also carries the ext-tag byte.
+  return keepShortLength(out, block.shortLength === undefined ? undefined : block.shortLength + 1);
 }

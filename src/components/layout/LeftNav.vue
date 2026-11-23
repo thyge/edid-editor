@@ -4,7 +4,7 @@ import { ChevronRight, X } from '@lucide/vue'
 import type { EDIDViewModel } from '@/types/edid'
 import {
   getCEAExtension,
-  getDisplayIdExtension,
+  getDisplayIdSectionChain,
   getDisplayIdFreePayloadBytes,
   DISPLAY_ID_PAYLOAD_CAPACITY_BYTES,
   createDefaultCEADataBlock,
@@ -16,7 +16,6 @@ import {
   type DetailedTimingDescriptor,
   DISPLAY_DESCRIPTOR_OPTIONS,
   getDisplayDescriptorLabel,
-  type DisplayIdSection,
 } from 'edidts'
 import { timingNameLabel } from '@/components/common/timingLabels'
 import { Button } from '@/components/ui/button'
@@ -337,7 +336,7 @@ const addBlockMenu = computed<CeaAddBlockMenuNode[]>(() => {
   // cascade (five tag-0x03 VSDBs, always offered, plus the single-instance
   // Dolby Vision VSVDB and Dolby Atmos VSADB carriers), Colorimetry, Video
   // Capability, InfoFrame, Video Format Preference, HDR Static, Room
-  // Configuration, Speaker Location, then unlisted types (VESA Display Device).
+  // Configuration, Speaker Location, then unlisted types (VESA Transfer Characteristic).
   add('video', 'Video Data Block', hasBlock(b => b.tag === 0x02))
   add('audio', 'Audio Data Block', hasBlock(b => b.tag === 0x01))
   add('speakers', 'Speaker Allocation', hasBlock(b => b.tag === 0x04))
@@ -379,9 +378,14 @@ const VSDB_ADD_OPTIONS: ReadonlyArray<{ type: CEADefaultBlockType; label: string
   { type: 'vsdb-mhl', label: 'MHL' },
 ]
 
-const displayIdExt = computed(() => props.edid ? getDisplayIdExtension(props.edid) : null)
+/** Every DisplayID section of the EDID (base first), each with the 0x70 block
+ *  carrying it — extension sections live in 0x70 blocks of their own. */
+const displayIdChain = computed(() => props.edid ? getDisplayIdSectionChain(props.edid) : [])
 
-const hasDisplayID = computed(() => displayIdExt.value !== null)
+const hasDisplayID = computed(() => displayIdChain.value.length > 0)
+
+/** Number of 0x70 blocks the DisplayID spans (Remove DisplayID removes them all). */
+const displayIdBlockCount = computed(() => new Set(displayIdChain.value.map((entry) => entry.extensionIndex)).size)
 
 interface DisplayIdNavChild {
   id: string
@@ -414,44 +418,33 @@ interface DisplayIdSectionNav {
   addableBlocks: DisplayIdAddOption[]
 }
 
-/** All chained sections; decoders populate `sections`, but extensions built
- *  programmatically may only carry the legacy `section` alias. */
-function chainedDisplayIdSections(displayId: { section: DisplayIdSection; sections?: DisplayIdSection[] }): DisplayIdSection[] {
-  return displayId.sections && displayId.sections.length > 0 ? displayId.sections : [displayId.section]
-}
-
-/** Bytes still free in the 0x70 extension payload (bytes 1..126) after every
- *  chained section and the verbatim trailing bytes — the one shared Add Block
- *  / Add Section budget, the DisplayID counterpart of ceaFreeBytes.
- *  Derived from the reactive tree, so any block/section edit
- *  immediately re-evaluates it. */
-const displayIdFreeBytes = computed(() => {
-  const displayId = displayIdExt.value
-  return displayId ? getDisplayIdFreePayloadBytes(displayId) : 0
-})
-
-/** Guard one Add Block option against the shared payload budget:
- *  the option's default block needs its full wire bytes (3-byte header +
- *  payload) inside the remaining space. */
-function displayIdAddOption(opt: { tag: number; label: string }): DisplayIdAddOption {
+/** Guard one Add Block option against the free payload bytes of the 0x70
+ *  block that carries the section (bytes 1..126; zero fill and zero padding
+ *  count as free): the option's default block needs its full wire bytes
+ *  (3-byte header + payload) inside the remaining space. */
+function displayIdAddOption(opt: { tag: number; label: string }, free: number): DisplayIdAddOption {
   const block = createDefaultDisplayIdBlock(opt.tag)
   const needed = encodeDisplayIdBlock(block).length
-  const free = displayIdFreeBytes.value
   return needed <= free
     ? { ...opt, fits: true }
     : {
         ...opt,
         fits: false,
-        noSpaceTitle: `Needs ${needed} bytes; only ${free} of ${DISPLAY_ID_PAYLOAD_CAPACITY_BYTES} free — remove a block or section first`,
+        noSpaceTitle: `Needs ${needed} bytes; only ${Math.max(0, free)} of ${DISPLAY_ID_PAYLOAD_CAPACITY_BYTES} free in this DisplayID block — remove a block first`,
       }
 }
 
 const displayIdSectionGroups = computed<DisplayIdSectionNav[]>(() => {
-  const displayId = displayIdExt.value
-  if (!displayId) return []
-  const sections = chainedDisplayIdSections(displayId)
+  // Free bytes per 0x70 block, derived from the reactive tree so any edit
+  // re-evaluates them; sections sharing a (legacy) block share its budget.
+  const freeByBlock = new Map<number, number>()
+  for (const entry of displayIdChain.value) {
+    if (!freeByBlock.has(entry.extensionIndex)) {
+      freeByBlock.set(entry.extensionIndex, getDisplayIdFreePayloadBytes(entry.extension))
+    }
+  }
 
-  return sections.map((section, sectionIndex) => ({
+  return displayIdChain.value.map(({ section, extensionIndex }, sectionIndex) => ({
     sectionIndex,
     label: sectionIndex === 0 ? 'Base Section' : `Section ${sectionIndex + 1}`,
     headerId: displayIdSectionIds.header(sectionIndex),
@@ -464,18 +457,17 @@ const displayIdSectionGroups = computed<DisplayIdSectionNav[]>(() => {
       index,
     })),
     canRemove: sectionIndex > 0,
-    addableBlocks: addableDisplayIdBlocksForSection(section.versionByte).map(displayIdAddOption),
+    addableBlocks: addableDisplayIdBlocksForSection(section.versionByte)
+      .map((opt) => displayIdAddOption(opt, freeByBlock.get(extensionIndex) ?? 0)),
   }))
 })
 
-/** DisplayID 2.0 chains sections via the base section's extension count;
- *  v1.x extensions are single-section, so sections can only be added to a
- *  v2.0 chain. */
-const canAddDisplayIdSection = computed(() => {
-  const displayId = displayIdExt.value
-  if (!displayId) return false
-  return chainedDisplayIdSections(displayId)[0].versionByte >= 0x20
-})
+/** DisplayID 2.x chains sections via the base section's extension count; each
+ *  added section gets a 0x70 block of its own, so there is always room. Only
+ *  offered for v2.x chains. */
+const canAddDisplayIdSection = computed(() =>
+  (displayIdChain.value[0]?.section.versionByte ?? 0) >= 0x20,
+)
 
 function selectSection(id: string) {
   emit('update:activeSection', id)
@@ -897,7 +889,7 @@ const displayIdOpen = ref(true)
                 variant="ghost"
                 size="sm"
                 class="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-6 p-0 shrink-0"
-                title="Remove DisplayID extension"
+                :title="displayIdBlockCount > 1 ? `Remove DisplayID (${displayIdBlockCount} extension blocks)` : 'Remove DisplayID extension'"
                 @click="emit('removeDisplayId')"
               >
                 <X class="size-3.5" />

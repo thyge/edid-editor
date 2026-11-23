@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { appendArrayItem, removeArrayItem, findExtendedDataBlockIndex } from '../common/editorUtils'
+import { ctaAddBlockedReason } from './blockCapacity'
 
 const props = defineProps<{ cea: CEAExtensionBlock }>()
 
@@ -21,6 +22,10 @@ const block = computed(() =>
   ) as InfoFrameDataBlock | undefined
 )
 
+/** A Short InfoFrame Descriptor is 1 byte; a vendor one carries a 3-byte OUI too. */
+const shortBlockedReason = computed(() => ctaAddBlockedReason(props.cea, block.value, 1))
+const vendorBlockedReason = computed(() => ctaAddBlockedReason(props.cea, block.value, 4))
+
 /** Emit a prop-rooted path `dataBlocks.<idx>.<field>` for the InfoFrame block. */
 function emitField(field: string, value: unknown) {
   emit('update', `dataBlocks.${blockIndex.value}.${field}`, value)
@@ -32,10 +37,11 @@ function ouiHex(oui: number): string {
 function hex(u: Uint8Array): string {
   return Array.from(u).map(b => b.toString(16).padStart(2, '0')).join(' ')
 }
+/** Byte 2 of the Processing Descriptor is a full byte (0–255). */
 function onAdditionalVsifs(v: string | number) {
   if (!block.value) return
   const n = typeof v === 'number' ? v : Number(v)
-  emitField('additionalVsifs', Number.isFinite(n) ? Math.max(0, Math.min(7, Math.round(n))) : 0)
+  emitField('additionalVsifs', Number.isFinite(n) ? Math.max(0, Math.min(255, Math.round(n))) : 0)
 }
 function setDescriptors(descriptors: Descriptor[]) {
   emitField('descriptors', descriptors)
@@ -45,11 +51,13 @@ function removeDescriptor(index: number) {
   setDescriptors(removeArrayItem(block.value.descriptors, index))
 }
 function addShort() {
-  if (!block.value) return
-  setDescriptors(appendArrayItem(block.value.descriptors, { kind: 'short', infoFrameType: 0, payload: new Uint8Array() }))
+  if (!block.value || shortBlockedReason.value) return
+  // Type code 0 is reserved (decoders stop there); default to the AVI
+  // InfoFrame (type 0x82 → code 0x02).
+  setDescriptors(appendArrayItem(block.value.descriptors, { kind: 'short', infoFrameType: 0x02, payload: new Uint8Array() }))
 }
 function addVendor() {
-  if (!block.value) return
+  if (!block.value || vendorBlockedReason.value) return
   setDescriptors(appendArrayItem(block.value.descriptors, { kind: 'vendor', ieeeOui: 0, payload: new Uint8Array() }))
 }
 </script>
@@ -63,8 +71,8 @@ function addVendor() {
       <p v-if="!block" class="text-muted-foreground">No InfoFrame Data Block present.</p>
       <template v-else>
         <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground max-w-xs">
-          Additional VSIFs (0–7)
-          <Input type="number" :min="0" :max="7" :step="1" :model-value="block.additionalVsifs" @update:model-value="(v) => onAdditionalVsifs(v)" />
+          Additional VSIFs (0–255)
+          <Input type="number" :min="0" :max="255" :step="1" :model-value="block.additionalVsifs" @update:model-value="(v) => onAdditionalVsifs(v)" />
         </label>
 
         <div v-if="block.descriptors.length > 0" class="space-y-2">
@@ -90,9 +98,16 @@ function addVendor() {
           </div>
         </div>
         <div class="flex gap-2">
-          <Button variant="outline" size="sm" @click="addShort">Add Short</Button>
-          <Button variant="outline" size="sm" @click="addVendor">Add Vendor</Button>
+          <span :title="shortBlockedReason ?? undefined">
+            <Button variant="outline" size="sm" :disabled="shortBlockedReason !== null" @click="addShort">Add Short</Button>
+          </span>
+          <span :title="vendorBlockedReason ?? undefined">
+            <Button variant="outline" size="sm" :disabled="vendorBlockedReason !== null" @click="addVendor">Add Vendor</Button>
+          </span>
         </div>
+        <p v-if="shortBlockedReason || vendorBlockedReason" class="text-xs text-muted-foreground">
+          {{ vendorBlockedReason ?? shortBlockedReason }}
+        </p>
         <p class="text-xs text-muted-foreground/80">
           Descriptor payloads and the processing payload are displayed verbatim; editing the
           InfoFrame byte layout is left to a future task.

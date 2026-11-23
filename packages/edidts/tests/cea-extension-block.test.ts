@@ -29,7 +29,7 @@ describe('CEA extension block container', () => {
       // Four 31-VIC video blocks = 4 * (1 header + 31 payload) = 128 bytes > 123.
       const block = buildCeaExtension({ dataBlocks: [videoBlock(31), videoBlock(31), videoBlock(31), videoBlock(31)] });
 
-      expect(() => ExtensionBlockParser.encode(block)).toThrow(/exceeds|overflow|127/i);
+      expect(() => ExtensionBlockParser.encode(block)).toThrow(/extension is full/i);
     });
   });
 
@@ -305,9 +305,10 @@ describe('CEA extension block container', () => {
     });
 
     it('0x0D Video Format Preference round-trips a decoded payload', () => {
-      const original = new Uint8Array([0x0d, 0x10, 0x83, 0x00]); // trailing 0 ignored on decode
+      // SVR 0 is reserved but still a byte of the block: it is kept, not dropped.
+      const original = new Uint8Array([0x0d, 0x10, 0x83, 0x00]);
       expect(Array.from(encodeExtendedDataBlock(decodeExtendedDataBlock(original)))).toEqual(
-        [0x0d, 0x10, 0x83],
+        Array.from(original),
       );
     });
 
@@ -329,15 +330,21 @@ describe('CEA extension block container', () => {
       );
     });
 
-    it('0x13 Room Configuration encodes speaker count + presence descriptor', () => {
+    it('0x13 Room Configuration encodes flags/speaker count + 24-bit presence mask', () => {
+      // edid-decode cta_rcdb layout: byte 0 = Display/Speaker/SLD flags +
+      // (count - 1), bytes 1-3 = speaker presence mask (LE).
       const block: RoomConfigurationDataBlock = {
         tag: 0x07,
         extendedTag: 0x13,
         payload: new Uint8Array([0x13, 0xff]), // sentinel
+        display: false,
+        speaker: true,
+        sld: false,
         speakerCount: 5,
-        speakerPresenceDescriptor: 0x03,
+        speakerPresenceMask: 0x03,
+        trailing: new Uint8Array(),
       };
-      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x13, 0x05, 0x03]);
+      expect(Array.from(encodeExtendedDataBlock(block))).toEqual([0x13, 0x44, 0x03, 0x00, 0x00]);
     });
 
     it('0x13 Room Configuration round-trips a decoded payload', () => {
@@ -350,18 +357,19 @@ describe('CEA extension block container', () => {
     it('0x13 Room Configuration mutates a decoded field, re-encodes, re-decodes, and keeps other fields stable', () => {
       // The corpus has zero Room Configuration fixtures, so this synthetic
       // mutation test is the only safety net for the encode path.
-      const original = new Uint8Array([0x13, 0x05, 0x03]);
+      const original = new Uint8Array([0x13, 0x44, 0x03, 0x00, 0x00]);
       const decoded = decodeExtendedDataBlock(original) as RoomConfigurationDataBlock;
       expect(decoded.speakerCount).toBe(5);
-      expect(decoded.speakerPresenceDescriptor).toBe(0x03);
+      expect(decoded.speakerPresenceMask).toBe(0x03);
 
-      // Edit speakerCount (byte 1); leave speakerPresenceDescriptor (byte 2) untouched.
+      // Edit speakerCount (byte 1 bits 4:0); leave the presence mask (bytes 2-4) untouched.
       decoded.speakerCount = 7;
       const reencoded = encodeExtendedDataBlock(decoded);
+      expect(Array.from(reencoded)).toEqual([0x13, 0x46, 0x03, 0x00, 0x00]);
       const redecoded = decodeExtendedDataBlock(reencoded) as RoomConfigurationDataBlock;
 
       expect(redecoded.speakerCount).toBe(7);
-      expect(redecoded.speakerPresenceDescriptor).toBe(0x03);
+      expect(redecoded.speakerPresenceMask).toBe(0x03);
     });
 
     it('0x01 Vendor-Specific Video encodes OUI (little-endian) + payload', () => {

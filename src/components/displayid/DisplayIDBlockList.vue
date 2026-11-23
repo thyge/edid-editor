@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { DisplayIdDataBlock } from 'edidts'
+import { getDisplayIdBlockWireLength, type DisplayIdDataBlock } from 'edidts'
 import { displayIdBlockLabel } from './displayIdLabels'
 import { Button } from '@/components/ui/button'
 
@@ -25,7 +25,7 @@ const emit = defineEmits<{
           {{ displayIdBlockLabel(block.tag) }}
         </div>
         <div class="text-xs text-muted-foreground">
-          Tag 0x{{ block.tag.toString(16).padStart(2, '0') }} · {{ block.payloadLength }} bytes
+          Tag 0x{{ block.tag.toString(16).padStart(2, '0') }} · {{ getDisplayIdBlockWireLength(block) - 3 }} bytes
         </div>
       </div>
       <div class="flex shrink-0 gap-1">

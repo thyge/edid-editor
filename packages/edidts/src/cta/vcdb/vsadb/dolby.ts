@@ -4,6 +4,7 @@ import type { VendorDecoder, VendorEncoder } from './registry';
 import { VENDOR_VSADB_DECODERS, VENDOR_VSADB_ENCODERS } from './registry';
 import { OUI } from '../../vsdb/types';
 import type { DolbyVSADB } from './types';
+import { clampInt } from '../../byte-utils';
 
 // Dolby Laboratories VSADB (OUI 00-D0-46) byte layout (post-OUI body):
 //   byte 0  bit 7 = headphone playback only
@@ -61,18 +62,16 @@ export class DolbyVSADBEncoder implements VendorEncoder<'dolbyVsadb'> {
 
   encode(fields: DolbyVSADB): Uint8Array {
     // `version` is the semantic value (1..8); the wire carries version - 1.
-    if (fields.version < 1 || fields.version > 8) {
-      throw new RangeError(`Invalid Dolby VSADB version: ${fields.version}`);
-    }
+    // Out-of-range values clamp rather than throw, so the EDID stays savable.
     const byte0 =
       (fields.headphoneOnly ? 0x80 : 0) |
       (fields.heightZone ? 0x40 : 0) |
       (fields.surroundZone ? 0x20 : 0) |
       (fields.centerZone ? 0x10 : 0) |
-      ((fields.byte0Reserved & 0x01) << 3) |
-      ((fields.version - 1) & 0x07);
+      (clampInt(fields.byte0Reserved ?? 0, 0, 1) << 3) |
+      (clampInt(fields.version, 1, 8) - 1);
     const byte1 =
-      ((fields.byte1Reserved & 0x7f) << 1) |
+      (clampInt(fields.byte1Reserved ?? 0, 0, 0x7f) << 1) |
       (fields.mat48kHzOnly ? 0x01 : 0);
     // `trailing` carries the post-byte-1 vendor-reserved bytes verbatim.
     // Tolerate callers passing the legacy shape (no `trailing`) so field-only

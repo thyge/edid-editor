@@ -1,4 +1,4 @@
-import { DetailedTimingDescriptor, isDetailedTimingEncodable } from '../common/detailed-timing-descriptor';
+import { DetailedTimingDescriptor, frameVerticalActive, isDetailedTimingEncodable } from '../common/detailed-timing-descriptor';
 
 /**
  * VIC (Video Identification Code) Table
@@ -352,6 +352,44 @@ export function isVIC8K(vic: number): boolean {
 }
 
 /**
+ * Short Video Descriptor (SVD) byte ↔ VIC, per CTA-861-F §7.2.3 and
+ * edid-decode `cta_svd` (parse-cta-block.cpp). Only VICs 1–64 can be flagged
+ * native, because the native flag shares bit 7 with VICs ≥ 128:
+ *
+ *   byte 1–127    VIC 1–127, not native
+ *   byte 129–192  VIC 1–64, native
+ *   byte 193–255  VIC 193–255 (no native flag; 254/255 are reserved)
+ *   byte 0, 128   reserved (edid-decode skips them)
+ *
+ * The decoded `vic` is edid-decode's own: for every byte outside 129–192 it is
+ * the byte itself, so the reserved values 0 and 128 come back as VIC 0 / 128.
+ * {@link encodeSvd} is the exact inverse for all 256 byte values.
+ */
+export function decodeSvd(byte: number): { vic: number; native: boolean } {
+  if (byte >= 129 && byte <= 192) return { vic: byte - 128, native: true };
+  return { vic: byte, native: false };
+}
+
+/** True when an SVD can carry the native flag for this VIC (VICs 1–64 only). */
+export function svdCanBeNative(vic: number): boolean {
+  return vic >= 1 && vic <= 64;
+}
+
+/**
+ * Encode one SVD byte. Inverse of {@link decodeSvd}. The native flag is only
+ * written for VICs 1–64 (the only ones it can describe). VICs 129–192 have no
+ * SVD form at all — those bytes mean "native VIC 1–64" — so such a model value
+ * (which neither decode nor the editor produces) is written as the reserved
+ * byte 0 rather than silently turning into a different VIC.
+ */
+export function encodeSvd(vic: number, native: boolean): number {
+  const v = Number.isFinite(vic) ? Math.max(0, Math.min(255, Math.round(vic))) : 0;
+  if (native && svdCanBeNative(v)) return 0x80 | v;
+  if (v >= 129 && v <= 192) return 0;
+  return v;
+}
+
+/**
  * True iff the VIC's canonical geometry (as built by
  * {@link generateDetailedTimingFromVIC}) fits in an 18-byte DTD without any
  * field being silently truncated. Three overflow classes exist in
@@ -370,7 +408,7 @@ export function isVIC8K(vic: number): boolean {
  *
  * Note: this is about representing a VIC as a DTD (cea-861 authoring mode).
  * A VIC that fails here is still perfectly valid inside a Video Data Block,
- * where it is carried as a 7-bit code.
+ * where it is carried as an SVD byte (see {@link encodeSvd}).
  */
 export function isVICDtdEncodable(vic: number | VICDefinition): boolean {
   const def = typeof vic === 'number' ? VIC_MAP.get(vic) : vic;
@@ -431,10 +469,11 @@ export function analyzeDetailedTimingAgainstCTA(
     if (options?.candidateFilter && !options.candidateFilter(vic)) {
       return false;
     }
+    // VIC heights are frame heights; a DTD stores interlaced timings per field.
     return (
       vic.interlaced === timing.flags.interlaced &&
       vic.width === timing.horizontalActive &&
-      vic.height === timing.verticalActive
+      vic.height === frameVerticalActive(timing)
     );
   });
 
@@ -443,7 +482,9 @@ export function analyzeDetailedTimingAgainstCTA(
       pixelClock: timing.pixelClock - vic.pixelClock,
       refreshRate: timing.refreshRate - vic.refreshRate,
       horizontalTotal: timing.horizontalTotal - vic.hTotal,
-      verticalTotal: timing.verticalTotal - vic.vTotal,
+      // Interlaced VIC totals are per field and may end in a half line
+      // (562.5); the DTD can only hold the whole lines.
+      verticalTotal: timing.verticalTotal - Math.floor(vic.vTotal),
     };
 
     const withinTolerance =
@@ -495,16 +536,18 @@ export function generateDetailedTimingFromVIC(
   }
 
   const horizontalBlanking = def.hTotal - def.width;
-  // Interlaced vertical blanking spans both fields: 2*vTotal - height handles
-  // the half-line (verified: VIC 5 → 45, VIC 39 even-vtotal → 170) without an
-  // extra even/odd flag. Progressive is the simple vTotal - height.
-  const verticalBlanking = def.interlaced ? 2 * def.vTotal - def.height : def.vTotal - def.height;
+  // A DTD stores an interlaced timing per field: half the active lines, and
+  // the per-field blanking without the half line (VIC 5: 540 active, 562.5
+  // total → 22 blanking; VIC 39 even-vtotal: 540 / 625 → 85), matching real
+  // 1080i DTDs and edid-decode. Progressive is the simple vTotal - height.
+  const verticalActive = def.interlaced ? def.height / 2 : def.height;
+  const verticalBlanking = Math.floor(def.vTotal - verticalActive);
 
   return new DetailedTimingDescriptor({
     pixelClock: def.pixelClock,
     horizontalActive: def.width,
     horizontalBlanking,
-    verticalActive: def.height,
+    verticalActive,
     verticalBlanking,
     horizontalSyncOffset: def.horizontalSyncOffset,
     horizontalSyncWidth: def.horizontalSyncWidth,

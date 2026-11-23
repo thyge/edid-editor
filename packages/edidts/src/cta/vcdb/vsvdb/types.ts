@@ -7,21 +7,45 @@
 // itself is defined in `../vendor-specific-video.ts`; this file only
 // contributes the per-vendor decoded shapes.
 
+/**
+ * Dolby Vision VSVDB post-OUI body. The layout depends on `version`
+ * (edid-decode `cta_dolby_video`); see `dolby.ts` for the per-version table.
+ */
 export interface DolbyVSDB {
+  /** Byte 0 bits 7:5. Selects the layout of every other field. */
   version: number;
+  /** Byte 0 bit 0 (every version). */
   supportsYUV422_12bit: boolean;
+  /** Byte 0 bit 1 in v0 and v1 (in v2 that bit is `supportsBacklightControl`). */
   supports2160p60: boolean;
+  /** v2 only: byte 0 bit 1, backlight control. */
+  supportsBacklightControl?: boolean;
+  /** v1/v2 only: byte 0 bits 4:2, the DM version minus 2 (0 → "DM 2.x"). */
+  dmVersion?: number;
+  /** v0: byte 0 bit 2; v1: byte 1 bit 0; v2: byte 1 bit 2. */
   supportsGlobalDimming: boolean;
-  /** Byte 0 bits 4:3 — not field-modeled (version occupies 7:5, the capability
-   *  flags 2:0), but real Dolby Vision v1/v2 blocks set them. Preserved so the
-   *  codec is byte-complete and round-trips identically regardless of version. */
+  /**
+   * Byte 0 bits no field covers, shifted down: v0 bits 4:3 (0–3); v3+ bits
+   * 4:1 (0–15, layout unknown). Always 0 for v1/v2.
+   */
   byte0Reserved: number;
-  /** Post-OUI bytes 1.. — vendor-reserved, preserved verbatim for byte-exact round-trip. */
+  /**
+   * v1/v2 only: byte 1 with the global-dimming bit cleared (target luminance /
+   * PQ / backlight fields, kept raw). Absent when the block has no byte 1.
+   */
+  byte1Rest?: number;
+  /** Remaining bytes (v1/v2: bytes 2..; other versions: bytes 1..), preserved verbatim. */
   trailing: Uint8Array;
 }
 
+/** HDR10+ VSVDB post-OUI body, per edid-decode `cta_hdr10plus`. */
 export interface HDR10PlusVSDB {
-  applicationVersion: number;  // post-OUI byte 0 (full byte)
+  /** Byte 0 bits 1:0 (0–3). */
+  applicationVersion: number;
+  /** Byte 0 bits 3:2 (0–3). Optional for literals; absent means 0. */
+  fullFramePeakLuminanceIndex?: number;
+  /** Byte 0 bits 7:4 (0–15). Optional for literals; absent means 0. */
+  peakLuminanceIndex?: number;
   trailing: Uint8Array;        // post-OUI bytes 1.. — vendor-specific, preserved verbatim
 }
 

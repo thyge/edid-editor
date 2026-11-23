@@ -7,11 +7,12 @@ import { reassembleVsdbBlock } from '../../src/cta/vsdb/registry';
 
 describe('MicrosoftHMDDecoder', () => {
   it('decodes a version-3 WMR HMD with VR use case', () => {
-    // version=3, flags=0x10 (desktop=0, non-MS=1), useCase=0x07 (VR headset)
+    // version=3, flags=0x20 (bit 6 desktop=0, bit 5 third-party=1),
+    // useCase=0x07 (VR headset) in bits 4:0 — edid-decode `cta_microsoft`.
     // 16-byte container ID (all zeros for the test)
     const payload = new Uint8Array(18);
     payload[0] = 0x03;  // version
-    payload[1] = 0x10 | 0x07;  // non-MS usage + VR headset use case
+    payload[1] = 0x20 | 0x07;  // third-party usage + VR headset use case
     const result = new MicrosoftHMDDecoder().decode(payload);
     expect(result.version).toBe(3);
     expect(result.nonMicrosoftUsage).toBe(true);
@@ -26,14 +27,16 @@ describe('MicrosoftHMDDecoder', () => {
     expect(result.containerId.length).toBe(16);
   });
 
-  it('rejects unknown use cases in encoder', () => {
-    expect(() => new MicrosoftHMDEncoder().encode({
+  it('never throws: an out-of-range use case clamps to the 5-bit field', () => {
+    // Throwing here made the whole EDID unsavable; the encoder clamps instead.
+    const encoded = new MicrosoftHMDEncoder().encode({
       version: 3,
       desktopUsage: false,
       nonMicrosoftUsage: false,
-      primaryUseCase: 0x99,  // invalid
+      primaryUseCase: 0x99,  // does not fit in bits 4:0
       containerId: new Uint8Array(16),
-    })).toThrow(RangeError);
+    });
+    expect(encoded[1]).toBe(0x1f);
   });
 
   it('round-trips a known-good fields object', () => {

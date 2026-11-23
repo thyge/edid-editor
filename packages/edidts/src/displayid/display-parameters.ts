@@ -1,4 +1,13 @@
 import { DisplayIdDataBlockTag, type DisplayIdChromaticity, type DisplayIdDataBlock, type DisplayIdDisplayParametersBlock } from './types';
+import { clampBits } from './clamp';
+
+/**
+ * Bits the model does not hold: payload[8] bit 5 and payload[27] bit 3 are
+ * reserved. The encoder carries them over from the block's own payload so a
+ * re-encode (or an edit of another field) leaves them untouched.
+ */
+const FEATURE_FLAGS_RESERVED_MASK = 0x20;
+const COLOR_DEPTH_RESERVED_MASK = 0x08;
 
 /** DisplayID 2.0 §4.2 mandates exactly 29 payload bytes. */
 export function isDisplayParametersPayloadLengthValid(length: number): boolean {
@@ -46,9 +55,11 @@ function readChromaticity(payload: Uint8Array, offset: number): DisplayIdChromat
 }
 
 function writeChromaticity(payload: Uint8Array, offset: number, c: DisplayIdChromaticity): void {
-  payload[offset] = c.x & 0xff;
-  payload[offset + 1] = ((c.x >> 8) & 0x0f) | ((c.y & 0x0f) << 4);
-  payload[offset + 2] = (c.y >> 4) & 0xff;
+  const x = clampBits(c.x, 12);
+  const y = clampBits(c.y, 12);
+  payload[offset] = x & 0xff;
+  payload[offset + 1] = ((x >> 8) & 0x0f) | ((y & 0x0f) << 4);
+  payload[offset + 2] = (y >> 4) & 0xff;
 }
 
 function readU16le(payload: Uint8Array, offset: number): number {
@@ -56,8 +67,9 @@ function readU16le(payload: Uint8Array, offset: number): number {
 }
 
 function writeU16le(payload: Uint8Array, offset: number, value: number): void {
-  payload[offset] = value & 0xff;
-  payload[offset + 1] = (value >> 8) & 0xff;
+  const v = clampBits(value, 16);
+  payload[offset] = v & 0xff;
+  payload[offset + 1] = (v >> 8) & 0xff;
 }
 
 export function decodeDisplayParametersBlock(block: DisplayIdDataBlock): DisplayIdDisplayParametersBlock {
@@ -85,7 +97,9 @@ export function decodeDisplayParametersBlock(block: DisplayIdDataBlock): Display
     maxLuminance10PercentRect: readU16le(payload, 23),
     minLuminance: readU16le(payload, 25),
     nativeColorDepth: colorDepthByte & 0x07,
-    displayDeviceTechnology: (colorDepthByte >> 3) & 0x07,
+    // Bits 6:4 (bit 3 is reserved) — edid-decode parse_displayid_parameters_v2
+    // reads `(x[0x1e] >> 4) & 0x07`: 1 = AM-LCD, 2 = OLED.
+    displayDeviceTechnology: (colorDepthByte >> 4) & 0x07,
     displayDeviceThemePreference: (colorDepthByte & 0x80) !== 0,
     gammaEotf: payload[28] ?? DISPLAY_ID_GAMMA_NOT_DEFINED,
   };
@@ -100,8 +114,9 @@ export function encodeDisplayParametersBlock(block: DisplayIdDisplayParametersBl
   writeU16le(payload, 6, block.verticalPixelCount);
 
   payload[8] =
-    (block.scanOrientation & 0x07) |
-    ((block.luminanceInformation & 0x03) << 3) |
+    ((block.payload[8] ?? 0) & FEATURE_FLAGS_RESERVED_MASK) |
+    clampBits(block.scanOrientation, 3) |
+    (clampBits(block.luminanceInformation, 2) << 3) |
     (block.colorInformationCie1976 ? 0x40 : 0) |
     (block.audioSpeakerNotIntegrated ? 0x80 : 0);
 
@@ -115,11 +130,12 @@ export function encodeDisplayParametersBlock(block: DisplayIdDisplayParametersBl
   writeU16le(payload, 25, block.minLuminance);
 
   payload[27] =
-    (block.nativeColorDepth & 0x07) |
-    ((block.displayDeviceTechnology & 0x07) << 3) |
+    ((block.payload[27] ?? 0) & COLOR_DEPTH_RESERVED_MASK) |
+    clampBits(block.nativeColorDepth, 3) |
+    (clampBits(block.displayDeviceTechnology, 3) << 4) |
     (block.displayDeviceThemePreference ? 0x80 : 0);
 
-  payload[28] = block.gammaEotf & 0xff;
+  payload[28] = clampBits(block.gammaEotf, 8);
 
   return payload;
 }

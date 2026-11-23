@@ -69,6 +69,13 @@ describe('Test EDID compatibility', () => {
     expect(decoded.base.header.manufacturerId).toBe(original.base.header.manufacturerId)
     expect(decoded.base.header.productCode).toBe(original.base.header.productCode)
     expect(decoded.isValid).toBe(true)
+    // Opening and saving must not change the file. Encoding recomputes
+    // checksums, so a file with a bad checksum legitimately differs there.
+    if (original.checksumDiagnostics.length === 0) {
+      expect(Array.from(encoded)).toEqual(Array.from(data))
+    } else {
+      expect(encoded.length).toBe(data.length)
+    }
   })
 
   it.each(edidFixtures)('should encode modifications correctly for $source/$name', ({ data }) => {
@@ -217,7 +224,7 @@ describe('Structured-field regression guards', () => {
     const sectionBytes = new Uint8Array([
       0x20, 0x14, 0x04, 0x00, // v2.0, 20 bytes-in-section, desktop use, 0 extensions
       0x20, 0x00, 0x11, 0x00, // Product Identification tag 0x20, rev 0, len 17
-      0x1a, 0x2b, 0x34, 0x12, // OUI 0x2b1a00, product id 0x1234
+      0x1a, 0x2b, 0x34, 0x12, // OUI 00-1A-2B (big-endian) = 0x001a2b, product id 0x1234
       0x78, 0x56, 0x34, 0x12, // serial 0x12345678
       0x16, 0x19, 0x05,       // week 22, year 2025, name len 5
       0x50, 0x61, 0x6e, 0x65, 0x6c, // "Panel"
@@ -233,7 +240,7 @@ describe('Structured-field regression guards', () => {
     // Structured-field checks (not byte round-trip): the known block carries
     // typed product-identification fields an opaque fallback would not have.
     expect(isStructuredDisplayIdBlock(block)).toBe(true)
-    expect((block as { ieeeOui?: number }).ieeeOui).toBe(0x2b1a00)
+    expect((block as { ieeeOui?: number }).ieeeOui).toBe(0x001a2b) // big-endian, as edid-decode reads it
     expect((block as { productName?: string }).productName).toBe('Panel')
   })
 

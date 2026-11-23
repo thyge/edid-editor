@@ -61,6 +61,23 @@ function update(index: number, block: VendorBlock, patch: VendorPatch) {
   emit('updateBlock', index, { ...block, ...patch })
 }
 
+/** v2.0 unknown-OUI block: a new OUI also replaces the payload's first three
+ *  bytes, so the hex field (which shows the whole payload) stays in step. */
+function updateV2Oui(index: number, block: VendorBlock, oui: number) {
+  const ieeeOui = Math.max(0, Math.min(0xffffff, Math.round(oui) || 0))
+  const payload = new Uint8Array(Math.max(3, block.payload.length))
+  payload.set(block.payload)
+  payload.set([ieeeOui >>> 16, (ieeeOui >>> 8) & 0xff, ieeeOui & 0xff], 0)
+  update(index, block, { ieeeOui, payload })
+}
+
+/** v2.0 unknown-OUI block: the hex field edits the whole payload, OUI
+ *  included — the encoder writes `ieeeOui` first, so take it from the bytes. */
+function updateV2Payload(index: number, block: VendorBlock, payload: Uint8Array) {
+  const ieeeOui = ((payload[0] ?? 0) << 16) | ((payload[1] ?? 0) << 8) | (payload[2] ?? 0)
+  update(index, block, { ieeeOui, payload })
+}
+
 // VESA DisplayPort (OUI 0x3a0292): patch a field of the decoded
 // `vesaDisplayPort` shape. encodeVendorSpecificBlock rebuilds the payload from
 // the structured fields + OUI, so the computed re-encodes on the next render.
@@ -112,16 +129,17 @@ function ouiTriple(oui: number | undefined): string {
             <Input :model-value="bytesToHex(block.vendorPayload)" @input="update(index, block, { vendorPayload: hexToBytes(stringFromEvent($event)) })" />
           </div>
         </div>
-        <!-- v2.0 unknown OUI — raw OUI + hex-payload editor (fallback) -->
+        <!-- v2.0 unknown OUI — raw OUI + hex-payload editor (fallback). The
+             payload hex starts with the 3 OUI bytes; both fields stay in step. -->
         <div v-else class="grid grid-cols-2 gap-4">
           <div class="space-y-1">
             <label class="text-xs text-muted-foreground">IEEE OUI</label>
-            <Input type="number" min="0" max="16777215" :model-value="block.ieeeOui ?? 0" @input="update(index, block, { ieeeOui: numberFromEvent($event) })" />
+            <Input type="number" min="0" max="16777215" :model-value="block.ieeeOui ?? 0" @input="updateV2Oui(index, block, numberFromEvent($event))" />
             <p class="text-xs text-muted-foreground">{{ ouiTriple(block.ieeeOui) }}</p>
           </div>
           <div class="space-y-1">
-            <label class="text-xs text-muted-foreground">Payload</label>
-            <Input :model-value="bytesToHex(block.payload)" @input="update(index, block, { payload: hexToBytes(stringFromEvent($event)) })" />
+            <label class="text-xs text-muted-foreground">Payload (OUI + vendor data)</label>
+            <Input :model-value="bytesToHex(block.payload)" @input="updateV2Payload(index, block, hexToBytes(stringFromEvent($event)))" />
           </div>
         </div>
       </div>

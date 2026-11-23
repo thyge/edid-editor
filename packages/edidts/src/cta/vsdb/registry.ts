@@ -4,6 +4,7 @@ import type { VendorSpecificDecoded, VendorSpecificDataBlock, MHLVSDB } from './
 import { OUI } from './types';
 import type { CEAExtensionBlock } from '../extension-block';
 import { readIeeeOuiLE, writeIeeeOuiLE } from '../../common/bintools';
+import { clampInt, keepShortLength } from '../byte-utils';
 
 // 'unknown' is the fallback case and is never paired with a decoder/encoder.
 type DecoderKind = Exclude<VendorSpecificDecoded['kind'], 'unknown'>;
@@ -96,13 +97,16 @@ export class MHLDecoder implements VendorDecoder<'mhl'> {
   readonly minLength = 1;
 
   decode(payload: Uint8Array): MHLVSDB {
-    if (payload.length < 1) return { version: 0, revision: 0, deviceCapability: 0, trailing: new Uint8Array() };
-    return {
-      version: (payload[0] >> 4) & 0x0F,
-      revision: payload[0] & 0x0F,
-      deviceCapability: payload.length >= 2 ? payload[1] : 0,
+    const byte0 = payload[0] ?? 0;
+    const fields: MHLVSDB = {
+      version: (byte0 >> 4) & 0x0F,
+      revision: byte0 & 0x0F,
+      deviceCapability: payload[1] ?? 0,
       trailing: payload.slice(2),
     };
+    // A body shorter than 2 bytes keeps its length on re-encode.
+    if (payload.length < 2) fields.payloadLength = payload.length;
+    return fields;
   }
 }
 
@@ -110,11 +114,12 @@ export class MHLEncoder implements VendorEncoder<'mhl'> {
   readonly kind = 'mhl' as const;
 
   encode(fields: MHLVSDB): Uint8Array {
-    const out = new Uint8Array(2 + fields.trailing.length);
-    out[0] = ((fields.version & 0x0F) << 4) | (fields.revision & 0x0F);
-    out[1] = fields.deviceCapability & 0xFF;
-    out.set(fields.trailing, 2);
-    return out;
+    const trailing = fields.trailing ?? new Uint8Array();
+    const out = new Uint8Array(2 + trailing.length);
+    out[0] = (clampInt(fields.version, 0, 0x0F) << 4) | clampInt(fields.revision, 0, 0x0F);
+    out[1] = clampInt(fields.deviceCapability, 0, 0xFF);
+    out.set(trailing, 2);
+    return keepShortLength(out, fields.payloadLength);
   }
 }
 

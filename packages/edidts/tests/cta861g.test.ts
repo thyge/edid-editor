@@ -20,6 +20,8 @@ import {
   VESA_INTERFACE_CATEGORIES,
   generateDetailedTimingFromVIC,
   analyzeDetailedTimingAgainstCTA,
+  hdrLuminanceFromCode,
+  hdrLuminanceToCode,
   type VideoCapabilityDataBlock,
   type ColorimetryDataBlock,
   type HDRStaticMetadataDataBlock,
@@ -243,9 +245,11 @@ describe('CTA-861-G Extended Data Blocks', () => {
       expect(block.eotf.traditionalGammaHDR).toBe(true);
       expect(block.eotf.smpte2084).toBe(true);
       expect(block.eotf.hlg).toBe(true);
-      expect(block.maxLuminance).toBeGreaterThan(0);
-      expect(block.maxFrameAvgLuminance).toBeGreaterThan(0);
-      expect(block.minLuminance).toBeDefined();
+      // Luminance bytes are kept as raw code values; cd/m² is derived.
+      expect(block.maxLuminanceCode).toBe(150);
+      expect(block.maxFrameAvgLuminanceCode).toBe(120);
+      expect(block.minLuminanceCode).toBe(50);
+      expect(hdrLuminanceFromCode(block.maxLuminanceCode!)).toBeGreaterThan(0);
     });
 
     it('should encode HDR static metadata correctly', () => {
@@ -260,29 +264,33 @@ describe('CTA-861-G Extended Data Blocks', () => {
           hlg: true,
         },
         staticMetadataType1: true,
-        maxLuminance: 1000,
+        maxLuminanceCode: hdrLuminanceToCode(1000),
       };
-      
+
       const encoded = encodeExtendedDataBlock(block);
       expect(encoded[0]).toBe(0x06); // extended tag
       expect(encoded[1]).toBe(0x0D); // EOTF flags
       expect(encoded[2]).toBe(0x01); // Static Metadata Type 1
-      expect(encoded.length).toBeGreaterThanOrEqual(4); // Should include luminance
+      expect(encoded.length).toBe(4); // max luminance only
+      expect(encoded[3]).toBe(138); // round(32 * log2(1000 / 50))
     });
   });
 
   describe('YCbCr 4:2:0 Video Data Block (Extended Tag 14)', () => {
     it('should decode 4:2:0 capable VICs', () => {
-      // Extended tag 0x0E, followed by VICs with native flags
-      const data = new Uint8Array([0x0E, 0x80 | 97, 96, 95]); // Native 4K60, 4K50, 4K30
+      // Extended tag 0x0E, followed by SVDs. Only VICs 1–64 can carry the
+      // native flag; bytes 193+ are VICs of their own (CTA-861-F SVD rule).
+      const data = new Uint8Array([0x0E, 97, 96, 0x80 | 16, 0x80 | 97]); // 4K60, 4K50, native 1080p60, VIC 225
       const block = decodeExtendedDataBlock(data) as YCbCr420VideoDataBlock;
-      
+
       expect(block.extendedTag).toBe(0x0E);
-      expect(block.vics.length).toBe(3);
+      expect(block.vics.length).toBe(4);
       expect(block.vics[0].vic).toBe(97);
-      expect(block.vics[0].native).toBe(true);
+      expect(block.vics[0].native).toBe(false);
       expect(block.vics[1].vic).toBe(96);
       expect(block.vics[1].native).toBe(false);
+      expect(block.vics[2]).toMatchObject({ vic: 16, native: true });
+      expect(block.vics[3]).toMatchObject({ vic: 225, native: false, known: false });
     });
   });
 });
@@ -696,9 +704,11 @@ describe('VIC Table per-VIC short-form fields + generateDetailedTimingFromVIC', 
       const dtd = generateDetailedTimingFromVIC(vicNum);
 
       expect(dtd.horizontalActive).toBe(def.width);
-      expect(dtd.verticalActive).toBe(def.height);
+      // A DTD stores interlaced timings per field (1080i → 540 lines).
+      const fieldHeight = def.interlaced ? def.height / 2 : def.height;
+      expect(dtd.verticalActive).toBe(fieldHeight);
       expect(dtd.horizontalBlanking).toBe(def.hTotal - def.width);
-      expect(dtd.verticalBlanking).toBe(def.interlaced ? 2 * def.vTotal - def.height : def.vTotal - def.height);
+      expect(dtd.verticalBlanking).toBe(Math.floor(def.vTotal - fieldHeight));
       expect(dtd.pixelClock).toBe(def.pixelClock);
       expect(dtd.horizontalSyncOffset).toBe(def.horizontalSyncOffset);
       expect(dtd.horizontalSyncWidth).toBe(def.horizontalSyncWidth);
@@ -721,7 +731,7 @@ describe('VIC Table per-VIC short-form fields + generateDetailedTimingFromVIC', 
       const bytes = encodeEdidCtaDetailedTiming(dtd);
       const decoded = decodeEdidCtaDetailedTiming(bytes)!;
       expect(decoded.horizontalActive).toBe(def.width);
-      expect(decoded.verticalActive).toBe(def.height);
+      expect(decoded.verticalActive).toBe(def.interlaced ? def.height / 2 : def.height);
       expect(decoded.pixelClock).toBeCloseTo(def.pixelClock, 2);
       expect(decoded.horizontalBlanking).toBe(def.hTotal - def.width);
       expect(decoded.flags.interlaced).toBe(def.interlaced);

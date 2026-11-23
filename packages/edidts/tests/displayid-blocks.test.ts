@@ -37,7 +37,8 @@ describe('DisplayID Display Parameters block', () => {
   // (scan 1, luminance info 1, CIE 1976, audio integrated),
   // primaries P1=(0x200,0x100) P2=(0x640,0x320) P3=(0x320,0x258),
   // white point (0x960,0xA00), luminance raw16 0x4248/0x4A48/0x0000,
-  // color-depth byte 0x96 (depth 6, tech 2, dark theme), gamma 0x64 (2.00).
+  // color-depth byte 0x96 (depth 6, tech 1 = AM-LCD in bits 6:4 per edid-decode,
+  // dark theme), gamma 0x64 (2.00).
   const payload = new Uint8Array([
     0x58, 0x02, 0x22, 0x01, 0x80, 0x07, 0x38, 0x04, 0x49,
     0x00, 0x02, 0x10, 0x40, 0x06, 0x32, 0x20, 0x83, 0x25, 0x60, 0x09, 0xa0,
@@ -81,7 +82,7 @@ describe('DisplayID Display Parameters block', () => {
     expect(block.minLuminance).toBe(0x0000);
     // Color depth + technology + theme
     expect(block.nativeColorDepth).toBe(6);
-    expect(block.displayDeviceTechnology).toBe(2);
+    expect(block.displayDeviceTechnology).toBe(1);
     expect(block.displayDeviceThemePreference).toBe(true);
     // Gamma (AC #3)
     expect(block.gammaEotf).toBe(0x64);
@@ -444,19 +445,19 @@ describe('DisplayID timing blocks', () => {
 });
 
 describe('remaining DisplayID semantic blocks', () => {
-  it('decodes, edits, and encodes Dynamic Video Timing Range Limits while preserving trailing bytes', () => {
+  it('decodes, edits, and encodes Dynamic Video Timing Range Limits while preserving reserved bits', () => {
+    // 9-byte payload (edid-decode layout): min/max pixel clock 1 + raw24,
+    // min/max refresh, flags byte with reserved bits 0x0c set.
     const section = decodeDisplayIdSection(withChecksum([
-      0x20, 0x11, 0x04, 0x00,
-      0x25, 0x00, 0x0e,
-      0x34, 0x12, 0x78, 0x56, 0x2c, 0x01, 0x58, 0x02, 0x30, 0x00, 0x90, 0x00, 0x00, 0xee,
+      0x20, 0x0c, 0x04, 0x00,
+      0x25, 0x00, 0x09,
+      0x33, 0x12, 0x00, 0x77, 0x56, 0x00, 0x30, 0x90, 0x0c,
       0x00,
     ]));
     const block = section.blocks[0] as DisplayIdDynamicVideoTimingRangeLimitsBlock;
 
     expect(block.minimumPixelClockKHz).toBe(0x1234);
     expect(block.maximumPixelClockKHz).toBe(0x5678);
-    expect(block.minimumHorizontalFrequencyHz).toBe(300);
-    expect(block.maximumHorizontalFrequencyHz).toBe(600);
     expect(block.minimumVerticalFrequencyHz).toBe(48);
     expect(block.maximumVerticalFrequencyHz).toBe(144);
     expect(block.seamlessDynamicVideoTiming).toBe(false);
@@ -468,7 +469,7 @@ describe('remaining DisplayID semantic blocks', () => {
     const reparsedBlock = reparsed.blocks[0] as DisplayIdDynamicVideoTimingRangeLimitsBlock;
 
     expect(reparsedBlock.seamlessDynamicVideoTiming).toBe(true);
-    expect(reparsedBlock.payload[13]).toBe(0xee);
+    expect(reparsedBlock.payload[8]).toBe(0x8c);
     expect(isChecksum8Valid(encoded)).toBe(true);
   });
 
@@ -648,7 +649,7 @@ describe('remaining DisplayID semantic blocks', () => {
 
   it('decodes, edits, and encodes the full 22-byte Tiled Display Topology (§4.7)', () => {
     // Capabilities 0xC9: singleTileBehavior=1, subsetTileBehavior=1, bezel present, single enclosure.
-    // 6-bit packed topology (payload[1..3]): hCount=50, vCount=18, hLoc=49, vLoc=34
+    // 6-bit packed topology (payload[1..3]): hCount=50, vCount=18, hLoc=48, vLoc=33 (0-based)
     //   (exercises all four high-bit fields of payload[3] = 0xDE).
     // Tile size 1920x1080 (stored -1). Multiplier 5, bezel 10/20/30/40.
     // Topology ID: OUI 0x001234, product 0xBEEF, serial 0xDEADBEEF.
@@ -669,8 +670,8 @@ describe('remaining DisplayID semantic blocks', () => {
     expect(block.singleEnclosure).toBe(true);
     expect(block.tileCountHorizontal).toBe(50);
     expect(block.tileCountVertical).toBe(18);
-    expect(block.tileLocationHorizontal).toBe(49);
-    expect(block.tileLocationVertical).toBe(34);
+    expect(block.tileLocationHorizontal).toBe(48); // 0-based, as edid-decode prints it
+    expect(block.tileLocationVertical).toBe(33);
     expect(block.tileWidthPixels).toBe(1920);
     expect(block.tileHeightPixels).toBe(1080);
     expect(block.pixelMultiplier).toBe(5);
@@ -694,8 +695,8 @@ describe('remaining DisplayID semantic blocks', () => {
 
     expect(reparsedBlock.tileCountHorizontal).toBe(64);
     expect(reparsedBlock.tileCountVertical).toBe(18);
-    expect(reparsedBlock.tileLocationHorizontal).toBe(49);
-    expect(reparsedBlock.tileLocationVertical).toBe(34);
+    expect(reparsedBlock.tileLocationHorizontal).toBe(48);
+    expect(reparsedBlock.tileLocationVertical).toBe(33);
     expect(reparsedBlock.bezelInfoPresent).toBe(false);
     expect(reparsedBlock.singleEnclosure).toBe(true);
     expect(reparsedBlock.pixelMultiplier).toBe(0);

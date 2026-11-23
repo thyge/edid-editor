@@ -15,7 +15,7 @@
 // (the `version < 0x20` arm of each parser, where the v1.x and v2.0 paths split).
 
 import type { DisplayIdDataBlock } from './types';
-import { decodeKnownBlock, encodeKnownPayload } from './blocks';
+import { decodeKnownBlock, encodeKnownPayload, rememberBlockSource } from './blocks';
 
 // Re-export the payload-length validators so the public index keeps its
 // existing surface (tests import these from the package root).
@@ -88,7 +88,7 @@ export function decodeDisplayIdBlocksV1(
       payload: data.slice(offset + HEADER_LENGTH, blockEnd),
     };
 
-    blocks.push(decodeKnownV1Block(genericBlock));
+    blocks.push(rememberBlockSource(decodeKnownV1Block(genericBlock), genericBlock.payload));
     offset = blockEnd;
   }
 

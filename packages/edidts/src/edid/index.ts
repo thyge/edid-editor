@@ -1,6 +1,12 @@
 import { DetailedTimingDescriptor, decodeEdidCtaDetailedTimingFlags } from "../common/detailed-timing-descriptor";
 import { generateCVTDetailedTiming } from "../common/cvt-timing-generator";
 import { checksum8, isChecksum8Valid } from "../common/checksum";
+import {
+  encodePreservingSource,
+  rememberSource,
+  sameModel,
+  sourceBytesOf,
+} from "../common/source-bytes";
 import { ColorCharacteristics } from "./color-characteristics";
 import { EDIDHeader } from "./edid-header";
 import { EstablishedTiming } from "./established-timing";
@@ -152,11 +158,11 @@ export class EDID {
       );
     }
 
-    return new EDID({
+    const edid = new EDID({
       header,
       videoInput,
       screenSize: decodeScreenSize(bytes[21], bytes[22]),
-      gamma: bytes[23] === 0xFF ? 0 : (bytes[23] + 100) / 100,
+      gamma: decodeGamma(bytes[23]),
       featureSupport,
       colorCharacteristics: ColorCharacteristics.decode(bytes.subarray(25, 35)),
       establishedTimings: EstablishedTiming.decode(bytes.slice(35, 38)),
@@ -167,6 +173,8 @@ export class EDID {
       checksumValid,
       baseDiagnostics,
     });
+    // Remember the block so unedited regions re-encode byte-for-byte.
+    return rememberSource(edid, bytes.subarray(0, 128));
   }
 
   static encode(edid: EDID, options?: { extensionCount?: number }): Uint8Array {
@@ -188,24 +196,14 @@ export class EDID {
       38,
     );
 
-    let blockIndex = 0;
-    for (const timing of edid.detailedTimings) {
-      if (blockIndex >= 4) break;
-      out.set(timing.encode(), 54 + blockIndex * 18);
-      blockIndex++;
-    }
-    for (const descriptor of edid.displayDescriptors) {
-      if (blockIndex >= 4) break;
-      if (descriptor.tag === 0x10) continue;
-      out.set(
-        DisplayDescriptorParser.encode(descriptor, edid.header.edidVersion, edid.header.edidRevision),
-        54 + blockIndex * 18,
-      );
-      blockIndex++;
-    }
-    while (blockIndex < 4) {
-      out.set(DisplayDescriptorParser.encode({ tag: 0x10 }), 54 + blockIndex * 18);
-      blockIndex++;
+    out.set(encodeDescriptorSlots(edid), 54);
+
+    // Write the decoded block's own bytes back for every region the user has
+    // not changed, so fields the model does not fully capture (reserved bits,
+    // padding, SPWG panel data, non-canonical encodings) survive a re-save.
+    const source = sourceBytesOf(edid);
+    if (source && source.length >= 128) {
+      preserveUnchangedRegions(out, source, edid);
     }
 
     const rawCount = options?.extensionCount ?? 0;
@@ -238,7 +236,7 @@ function decodeDescriptorBlocks(
 
     if (DisplayDescriptorParser.isDisplayDescriptor(blockData)) {
       const descriptor = DisplayDescriptorParser.decode(blockData, edidVersion, edidRevision);
-      if (descriptor) displayDescriptors.push(descriptor);
+      if (descriptor) displayDescriptors.push(rememberSource(descriptor, blockData));
     } else {
       const timing = DetailedTimingDescriptor.decode(blockData);
       if (timing) {
@@ -263,12 +261,152 @@ function decodeDescriptorBlocks(
         if (isSpwg && i === 1 && offset >= 1) {
           timing.flags = decodeEdidCtaDetailedTimingFlags(bytes[offset - 1]);
         }
-        detailedTimings.push(timing);
+        detailedTimings.push(rememberSource(timing, blockData));
       }
     }
   }
 
   return { detailedTimings, displayDescriptors };
+}
+
+/** Byte 23: 0xFF means gamma is defined elsewhere (modelled as 0). */
+function decodeGamma(byte: number): number {
+  return byte === 0xFF ? 0 : (byte + 100) / 100;
+}
+
+type DescriptorSlotKind = 'dtd' | 'descriptor';
+
+/**
+ * The kind of each of the four 18-byte slots in a decoded base block, or null
+ * when a slot was dropped on decode (so the model no longer maps 1:1 onto
+ * the slots).
+ */
+function descriptorSlotLayout(source: Uint8Array): DescriptorSlotKind[] | null {
+  const layout: DescriptorSlotKind[] = [];
+  for (let i = 0; i < 4; i++) {
+    const slot = source.subarray(54 + i * 18, 72 + i * 18);
+    if (DisplayDescriptorParser.isDisplayDescriptor(slot)) {
+      layout.push('descriptor');
+    } else if (slot[0] !== 0 || slot[1] !== 0) {
+      layout.push('dtd');
+    } else {
+      return null;
+    }
+  }
+  return layout;
+}
+
+/**
+ * Encode the four descriptor slots (bytes 54..125).
+ *
+ * When the timings/descriptors still fit the slot layout the block was decoded
+ * with (same number of each), they go back into their original slots — so a
+ * block laid out as [DTD, Name, DTD, Serial] isn't reshuffled — and unedited
+ * entries keep their exact bytes. Otherwise detailed timings come first, then
+ * the non-dummy display descriptors, padded with dummies.
+ */
+function encodeDescriptorSlots(edid: EDID): Uint8Array {
+  const version = edid.header.edidVersion;
+  const revision = edid.header.edidRevision;
+  const area = new Uint8Array(72);
+
+  const encodeTiming = (timing: DetailedTimingDescriptor) =>
+    encodePreservingSource(
+      timing,
+      (src) => DetailedTimingDescriptor.decode(src),
+      (t) => t.encode(),
+    );
+  const encodeDescriptor = (descriptor: DisplayDescriptor) =>
+    encodePreservingSource(
+      descriptor,
+      (src) => DisplayDescriptorParser.decode(src, version, revision),
+      (d) => DisplayDescriptorParser.encode(d, version, revision),
+    );
+
+  const source = sourceBytesOf(edid);
+  const layout = source && source.length >= 128 ? descriptorSlotLayout(source) : null;
+  if (
+    layout &&
+    layout.filter((kind) => kind === 'dtd').length === edid.detailedTimings.length &&
+    layout.filter((kind) => kind === 'descriptor').length === edid.displayDescriptors.length
+  ) {
+    let timingIndex = 0;
+    let descriptorIndex = 0;
+    layout.forEach((kind, slot) => {
+      area.set(
+        kind === 'dtd'
+          ? encodeTiming(edid.detailedTimings[timingIndex++])
+          : encodeDescriptor(edid.displayDescriptors[descriptorIndex++]),
+        slot * 18,
+      );
+    });
+    return area;
+  }
+
+  let slot = 0;
+  for (const timing of edid.detailedTimings) {
+    if (slot >= 4) break;
+    area.set(encodeTiming(timing), slot * 18);
+    slot++;
+  }
+  for (const descriptor of edid.displayDescriptors) {
+    if (slot >= 4) break;
+    if (descriptor.tag === 0x10) continue;
+    area.set(encodeDescriptor(descriptor), slot * 18);
+    slot++;
+  }
+  while (slot < 4) {
+    area.set(DisplayDescriptorParser.encode({ tag: 0x10 }), slot * 18);
+    slot++;
+  }
+  return area;
+}
+
+/**
+ * Copy the decoded block's original bytes over each region of `out` whose
+ * model is unchanged (it still decodes from `source` to the same value).
+ * Bytes 126 (extension count) and 127 (checksum) are always recomputed by the
+ * caller.
+ */
+function preserveUnchangedRegions(out: Uint8Array, source: Uint8Array, edid: EDID): void {
+  const version = edid.header.edidVersion;
+  const revision = edid.header.edidRevision;
+  const keep = (start: number, end: number, unchanged: () => boolean) => {
+    let same = false;
+    try {
+      same = unchanged();
+    } catch {
+      same = false;
+    }
+    if (same) out.set(source.subarray(start, end), start);
+  };
+
+  keep(0, 20, () => sameModel(EDIDHeader.decode(source), edid.header));
+  keep(20, 21, () => sameModel(VideoInputDefinition.decode(source[20]), edid.videoInput));
+  keep(21, 23, () => sameModel(decodeScreenSize(source[21], source[22]), edid.screenSize));
+  keep(23, 24, () => sameModel(decodeGamma(source[23]), edid.gamma));
+  keep(24, 25, () => {
+    const sourceIsDigital = VideoInputDefinition.decode(source[20]).isDigital;
+    return (
+      sourceIsDigital === edid.videoInput.isDigital &&
+      sameModel(FeatureSupportFlags.decode(source[24], sourceIsDigital), edid.featureSupport)
+    );
+  });
+  keep(25, 35, () =>
+    sameModel(ColorCharacteristics.decode(source.subarray(25, 35)), edid.colorCharacteristics),
+  );
+  keep(35, 38, () =>
+    sameModel(EstablishedTiming.decode(source.slice(35, 38)), edid.establishedTimings),
+  );
+  keep(38, 54, () =>
+    sameModel(StandardTiming.decode(source, version, revision), edid.standardTimings),
+  );
+  keep(54, 126, () =>
+    sameModel(decodeDescriptorBlocks(source, version, revision, detectSPWG(source)), {
+      detailedTimings: edid.detailedTimings,
+      displayDescriptors: edid.displayDescriptors,
+    }),
+  );
 }
 
 /**

@@ -6,6 +6,7 @@ import type { CEAExtensionBlock, CEADataBlock } from '../../extension-block';
 import { OUI } from '../../vsdb/types';
 import type { HDR10PlusVSDB, VSVDBVendorDecoded } from './types';
 import { readIeeeOuiLE, writeIeeeOuiLE } from '../../../common/bintools';
+import { clampInt } from '../../byte-utils';
 
 // The VSVDB (Vendor-Specific Video Data Block) is the CTA-861-G extended tag
 // 0x01, distinct from the regular VSDB at tag 0x03. Only Dolby Vision is
@@ -46,12 +47,15 @@ export const VENDOR_VSVDB_ENCODERS: Record<string, VendorEncoder<string>> = {};
  */
 export function decodeVSVDB(base: ExtendedDataBlock, payload: Uint8Array): VendorSpecificVideoDataBlock {
   if (payload.length < 3) {
+    // Too short for an OUI: keep the bytes as they are (truncatedBody) so the
+    // block is not re-encoded as a longer zero-OUI block.
     return {
       ...base,
       extendedTag: 0x01,
       ieeeOui: 0,
       vendorPayload: new Uint8Array(),
       vendor: { kind: 'unknown', ieeeOui: 0, raw: new Uint8Array() },
+      truncatedBody: payload.slice(),
     };
   }
 
@@ -121,7 +125,9 @@ export function findVSVDBs(cea: CEAExtensionBlock): VendorSpecificVideoDataBlock
 // previous tag-0x03 "HDR10+ VSDB" codec was fabricated and has been removed).
 //
 // Post-OUI payload layout (verified against edid-decode `cta_hdr10plus`):
-//   byte 0    Application Version (full byte)
+//   byte 0    bits 1:0 Application Version
+//             bits 3:2 Full Frame Peak Luminance Index
+//             bits 7:4 Peak Luminance Index
 //   bytes 1.. vendor-specific payload (opaque, preserved verbatim)
 //
 // The codec classes live directly in `registry.ts` (rather than a separate
@@ -132,6 +138,8 @@ export function findVSVDBs(cea: CEAExtensionBlock): VendorSpecificVideoDataBlock
 
 export const HDR10_PLUS_VSVDB_DEFAULT: HDR10PlusVSDB = {
   applicationVersion: 0,
+  fullFramePeakLuminanceIndex: 0,
+  peakLuminanceIndex: 0,
   trailing: new Uint8Array(),
 };
 
@@ -140,9 +148,12 @@ export class HDR10PlusVsvdbDecoder implements VendorDecoder<'hdr10PlusVsvdb'> {
   readonly minLength = 1;
 
   decode(payload: Uint8Array): HDR10PlusVSDB {
-    if (payload.length < 1) return { ...HDR10_PLUS_VSVDB_DEFAULT };
+    if (payload.length < 1) return { ...HDR10_PLUS_VSVDB_DEFAULT, trailing: new Uint8Array() };
+    const b0 = payload[0];
     return {
-      applicationVersion: payload[0],
+      applicationVersion: b0 & 0x03,
+      fullFramePeakLuminanceIndex: (b0 >> 2) & 0x03,
+      peakLuminanceIndex: b0 >> 4,
       trailing: payload.slice(1),
     };
   }
@@ -152,9 +163,13 @@ export class HDR10PlusVsvdbEncoder implements VendorEncoder<'hdr10PlusVsvdb'> {
   readonly kind = 'hdr10PlusVsvdb' as const;
 
   encode(fields: HDR10PlusVSDB): Uint8Array {
-    const out = new Uint8Array(1 + fields.trailing.length);
-    out[0] = fields.applicationVersion & 0xff;
-    out.set(fields.trailing, 1);
+    const trailing = fields.trailing ?? new Uint8Array();
+    const out = new Uint8Array(1 + trailing.length);
+    out[0] =
+      clampInt(fields.applicationVersion, 0, 0x03) |
+      (clampInt(fields.fullFramePeakLuminanceIndex ?? 0, 0, 0x03) << 2) |
+      (clampInt(fields.peakLuminanceIndex ?? 0, 0, 0x0f) << 4);
+    out.set(trailing, 1);
     return out;
   }
 }

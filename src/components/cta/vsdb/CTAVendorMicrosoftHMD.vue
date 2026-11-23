@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import type { MicrosoftHMDVSDB } from 'edidts'
 import { MICROSOFT_HMD_USE_CASES } from 'edidts'
 
+/**
+ * Microsoft HMD / specialized-monitor VSDB card. Byte 1 per Microsoft's spec
+ * and edid-decode `cta_microsoft`: bit 6 Desktop Usage, bit 5 Third-Party
+ * Usage (both defined from version 3), bits 4:0 the primary use case.
+ */
 const props = defineProps<{ fields: MicrosoftHMDVSDB }>()
 
 const emit = defineEmits<{ update: [field: string, value: unknown] }>()
@@ -13,17 +19,27 @@ const rowClass = 'flex items-center justify-between gap-2 rounded-md border bord
 const selectClass =
   'flex h-8 w-full rounded-md border border-input bg-transparent dark:bg-input/30 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
-const useCaseOptions = Object.entries(MICROSOFT_HMD_USE_CASES)
-  .map(([k, v]) => ({ value: Number(k), label: `0x${Number(k).toString(16).toUpperCase().padStart(2, '0')} — ${v}` }))
-  .sort((a, b) => a.value - b.value)
+const hex2 = (n: number) => `0x${n.toString(16).toUpperCase().padStart(2, '0')}`
+
+/** Defined use cases, plus the block's current value when it is not one of them. */
+const useCaseOptions = computed(() => {
+  const options = Object.entries(MICROSOFT_HMD_USE_CASES)
+    .map(([k, v]) => ({ value: Number(k), label: `${hex2(Number(k))} — ${v}` }))
+  if (!(props.fields.primaryUseCase in MICROSOFT_HMD_USE_CASES)) {
+    options.push({ value: props.fields.primaryUseCase, label: `${hex2(props.fields.primaryUseCase)} — Undefined` })
+  }
+  return options.sort((a, b) => a.value - b.value)
+})
 
 function formatContainerId(bytes: Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-function onNumber(field: string, v: string | number) {
+/** Version is a full byte; the use case is 5 bits. Bound both instead of letting them wrap. */
+function onNumber(field: 'version' | 'primaryUseCase', v: string | number) {
   const parsed = typeof v === 'number' ? v : Number(v)
-  emit('update', field, Number.isFinite(parsed) ? Math.round(parsed) : 0)
+  const max = field === 'version' ? 0xff : 0x1f
+  emit('update', field, Number.isFinite(parsed) ? Math.max(0, Math.min(max, Math.round(parsed))) : 0)
 }
 
 function onContainerId(text: string) {
@@ -45,15 +61,15 @@ function onContainerId(text: string) {
     </CardHeader>
     <CardContent class="space-y-1 text-sm">
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Version
-        <Input type="number" :min="0" :step="1" :model-value="props.fields.version" @update:model-value="(v) => onNumber('version', v)" />
+        Version (0–255)
+        <Input type="number" :min="0" :max="255" :step="1" :model-value="props.fields.version" @update:model-value="(v) => onNumber('version', v)" />
       </label>
       <div :class="rowClass">
-        <span>Desktop Usage</span>
+        <span>Desktop Usage <span class="text-xs text-muted-foreground">(version 3+)</span></span>
         <Switch :model-value="props.fields.desktopUsage" @update:model-value="(v: boolean) => emit('update', 'desktopUsage', v)" />
       </div>
       <div :class="rowClass">
-        <span>Non-Microsoft Usage</span>
+        <span>Third-Party Usage <span class="text-xs text-muted-foreground">(version 3+)</span></span>
         <Switch :model-value="props.fields.nonMicrosoftUsage" @update:model-value="(v: boolean) => emit('update', 'nonMicrosoftUsage', v)" />
       </div>
       <label class="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

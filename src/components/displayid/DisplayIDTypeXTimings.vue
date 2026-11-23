@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { blocksByTag, numberFromEvent, removeArrayItem, updateArrayItem } from '../common/editorUtils'
+import { useDisplayIdRoom } from './displayIdRoom'
 
 /**
  * DisplayID 2.0 Type X Timing (tag 0x2a) — a list of compact
@@ -32,7 +33,6 @@ function defaultTiming(): DisplayIdTypeXTimingDescriptor {
     horizontalActivePixels: 1920,
     verticalActiveLines: 1080,
     refreshRate: 60,
-    refreshRateHigh: 0,
     deltaHblank: 0,
     additionalVblankTiming: 0,
     additionalMiniVblank: false,
@@ -43,23 +43,43 @@ function updateBlock(index: number, block: DisplayIdTypeXTimingBlock, timings: D
   emit('updateBlock', index, { ...block, timings } as DisplayIdTypeXTimingBlock)
 }
 
-/** Field maxima per the codec's bit widths (all stored raw, no −1 bias). */
-const FIELD_MAX = {
-  horizontalActivePixels: 65_535,
-  verticalActiveLines: 65_535,
-  refreshRate: 255,
-  timingFormula: 7,
-  stereoSupport: 3,
-  refreshRateHigh: 3,
-  deltaHblank: 7,
-  additionalVblankTiming: 7,
+/**
+ * Field ranges per the codec. Active sizes and the refresh rate are stored
+ * minus one (edid-decode: hact = 1 + raw, refresh = 1 + raw), so they run
+ * from 1; the refresh rate has 8 bits in 6-byte descriptors and 10 bits in
+ * 7/8-byte ones.
+ */
+const FIELD_MIN = {
+  horizontalActivePixels: 1,
+  verticalActiveLines: 1,
+  refreshRate: 1,
+  timingFormula: 0,
+  stereoSupport: 0,
+  deltaHblank: 0,
+  additionalVblankTiming: 0,
 } as const
 
-type NumberField = keyof typeof FIELD_MAX
+type NumberField = keyof typeof FIELD_MIN
 
-function clampField(field: NumberField, value: number): number {
+function fieldMax(field: NumberField, block: DisplayIdTypeXTimingBlock): number {
+  switch (field) {
+    case 'horizontalActivePixels':
+    case 'verticalActiveLines':
+      return 65_536
+    case 'refreshRate':
+      return block.descriptorSize >= 7 ? 1024 : 256
+    case 'timingFormula':
+    case 'deltaHblank':
+    case 'additionalVblankTiming':
+      return 7
+    case 'stereoSupport':
+      return 3
+  }
+}
+
+function clampField(field: NumberField, block: DisplayIdTypeXTimingBlock, value: number): number {
   const parsed = Math.round(value)
-  return Number.isFinite(parsed) ? Math.max(0, Math.min(FIELD_MAX[field], parsed)) : 0
+  return Number.isFinite(parsed) ? Math.max(FIELD_MIN[field], Math.min(fieldMax(field, block), parsed)) : FIELD_MIN[field]
 }
 
 function updateTiming(
@@ -71,8 +91,11 @@ function updateTiming(
 ) {
   const timing = block.timings[timingIndex]
   if (!timing) return
-  updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, [field]: clampField(field, value) }))
+  updateBlock(index, block, updateArrayItem(block.timings, timingIndex, { ...timing, [field]: clampField(field, block, value) }))
 }
+
+/** One more descriptor (6–8 bytes) must fit the section's 0x70 block. */
+const room = useDisplayIdRoom()
 </script>
 
 <template>
@@ -100,10 +123,22 @@ function updateTiming(
             <Button variant="ghost" size="sm" class="text-destructive" @click="updateBlock(index, block, removeArrayItem(block.timings, timingIndex))">Remove</Button>
           </div>
           <div class="grid grid-cols-4 gap-3">
-            <Input type="number" min="0" :max="FIELD_MAX.horizontalActivePixels" :model-value="timing.horizontalActivePixels" @input="updateTiming(index, block, timingIndex, 'horizontalActivePixels', numberFromEvent($event))" />
-            <Input type="number" min="0" :max="FIELD_MAX.verticalActiveLines" :model-value="timing.verticalActiveLines" @input="updateTiming(index, block, timingIndex, 'verticalActiveLines', numberFromEvent($event))" />
-            <Input type="number" min="0" :max="FIELD_MAX.refreshRate" :model-value="timing.refreshRate" @input="updateTiming(index, block, timingIndex, 'refreshRate', numberFromEvent($event))" />
-            <Input type="number" min="0" :max="FIELD_MAX.timingFormula" :model-value="timing.timingFormula" @input="updateTiming(index, block, timingIndex, 'timingFormula', numberFromEvent($event))" />
+            <div class="space-y-1">
+              <label class="text-xs text-muted-foreground">H active (px)</label>
+              <Input type="number" :min="FIELD_MIN.horizontalActivePixels" :max="fieldMax('horizontalActivePixels', block)" :model-value="timing.horizontalActivePixels" @input="updateTiming(index, block, timingIndex, 'horizontalActivePixels', numberFromEvent($event))" />
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-muted-foreground">V active (lines)</label>
+              <Input type="number" :min="FIELD_MIN.verticalActiveLines" :max="fieldMax('verticalActiveLines', block)" :model-value="timing.verticalActiveLines" @input="updateTiming(index, block, timingIndex, 'verticalActiveLines', numberFromEvent($event))" />
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-muted-foreground">Refresh rate (Hz, 1–{{ fieldMax('refreshRate', block) }})</label>
+              <Input type="number" :min="FIELD_MIN.refreshRate" :max="fieldMax('refreshRate', block)" :model-value="timing.refreshRate" @input="updateTiming(index, block, timingIndex, 'refreshRate', numberFromEvent($event))" />
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-muted-foreground">Timing formula (0–7)</label>
+              <Input type="number" :min="FIELD_MIN.timingFormula" :max="fieldMax('timingFormula', block)" :model-value="timing.timingFormula" @input="updateTiming(index, block, timingIndex, 'timingFormula', numberFromEvent($event))" />
+            </div>
           </div>
           <div class="grid grid-cols-3 gap-3">
             <label class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
@@ -122,23 +157,19 @@ function updateTiming(
           <div class="grid grid-cols-3 gap-3">
             <div class="space-y-1">
               <label class="text-xs text-muted-foreground">3D stereo support (0–3)</label>
-              <Input type="number" min="0" :max="FIELD_MAX.stereoSupport" :model-value="timing.stereoSupport" @input="updateTiming(index, block, timingIndex, 'stereoSupport', numberFromEvent($event))" />
+              <Input type="number" min="0" :max="fieldMax('stereoSupport', block)" :model-value="timing.stereoSupport" @input="updateTiming(index, block, timingIndex, 'stereoSupport', numberFromEvent($event))" />
             </div>
             <!-- Extended fields only exist on the wire for the larger descriptor
                  sizes (flags-derived); editing them when absent would change
                  the payload length, so they stay hidden. -->
             <template v-if="block.descriptorSize >= 7">
               <div class="space-y-1">
-                <label class="text-xs text-muted-foreground">Refresh rate high (2 bits)</label>
-                <Input type="number" min="0" :max="FIELD_MAX.refreshRateHigh" :model-value="timing.refreshRateHigh" @input="updateTiming(index, block, timingIndex, 'refreshRateHigh', numberFromEvent($event))" />
-              </div>
-              <div class="space-y-1">
                 <label class="text-xs text-muted-foreground">Delta H-blank (0–7)</label>
-                <Input type="number" min="0" :max="FIELD_MAX.deltaHblank" :model-value="timing.deltaHblank" @input="updateTiming(index, block, timingIndex, 'deltaHblank', numberFromEvent($event))" />
+                <Input type="number" min="0" :max="fieldMax('deltaHblank', block)" :model-value="timing.deltaHblank" @input="updateTiming(index, block, timingIndex, 'deltaHblank', numberFromEvent($event))" />
               </div>
               <div class="space-y-1">
                 <label class="text-xs text-muted-foreground">Additional V-blank timing (0–7)</label>
-                <Input type="number" min="0" :max="FIELD_MAX.additionalVblankTiming" :model-value="timing.additionalVblankTiming" @input="updateTiming(index, block, timingIndex, 'additionalVblankTiming', numberFromEvent($event))" />
+                <Input type="number" min="0" :max="fieldMax('additionalVblankTiming', block)" :model-value="timing.additionalVblankTiming" @input="updateTiming(index, block, timingIndex, 'additionalVblankTiming', numberFromEvent($event))" />
               </div>
             </template>
             <label v-if="block.descriptorSize >= 8" class="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50">
@@ -147,7 +178,15 @@ function updateTiming(
             </label>
           </div>
         </div>
-        <Button variant="outline" size="sm" @click="updateBlock(index, block, [...block.timings, defaultTiming()])">Add Timing</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="!room.fits(block.descriptorSize)"
+          :title="room.fits(block.descriptorSize) ? undefined : room.noRoomTitle(block.descriptorSize)"
+          @click="updateBlock(index, block, [...block.timings, defaultTiming()])"
+        >
+          Add Timing
+        </Button>
       </section>
     </CardContent>
   </Card>

@@ -21,6 +21,12 @@ export interface VendorSpecificVideoDataBlock extends ExtendedDataBlock {
   ieeeOui: number;
   vendorPayload: Uint8Array;
   vendor?: VSVDBVendorDecoded;
+  /**
+   * The whole post-tag body when it is too short to hold the 3-byte OUI
+   * (malformed). Encoded back verbatim instead of a zero OUI, so the block
+   * keeps its length.
+   */
+  truncatedBody?: Uint8Array;
 }
 
 export function decodeVendorSpecificVideoBlock(base: ExtendedDataBlock, payload: Uint8Array): VendorSpecificVideoDataBlock {
@@ -28,6 +34,7 @@ export function decodeVendorSpecificVideoBlock(base: ExtendedDataBlock, payload:
 }
 
 export function encodeVendorSpecificVideoBlock(block: VendorSpecificVideoDataBlock): Uint8Array {
+  if (block.truncatedBody) return new Uint8Array([0x01, ...block.truncatedBody]);
   // Re-encode from the structured `vendor.fields` when a registered encoder
   // exists (parallel to `encodeVendorSpecificDataBlock` for tag-0x03 VSDBs).
   // `reassembleVsvdbBlock` emits the extended-tag byte + LE OUI + post-OUI
